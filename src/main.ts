@@ -19,6 +19,9 @@ import { rockColor } from './ui/dom';
 import { relicIcon } from './render/items';
 
 const DEV = import.meta.env.DEV || new URLSearchParams(location.search).has('dev');
+/** Touch screen without hover (phones, tablets). */
+const TOUCH = window.matchMedia('(hover: none)').matches;
+document.documentElement.classList.toggle('touch', TOUCH);
 
 let game: Game;
 const loaded = loadLocal();
@@ -38,10 +41,16 @@ const column = $('#column');
 const ui = $('#ui');
 function fit(): void {
   const s = game.state.settings;
-  const W = window.innerWidth, H = window.innerHeight;
-  // the world is 180×320 pixels; integer scaling keeps every pixel the same size
-  let k = Math.min(W / 180, H / 320);
-  if (s.integerScale && k >= 1) k = Math.floor(k);
+  const vv = window.visualViewport;
+  const W = vv ? vv.width : window.innerWidth, H = vv ? vv.height : window.innerHeight;
+  // the world is 180×320 pixels; integer scaling keeps every pixel the same size,
+  // but only when that wastes little of the screen (on phones it would shrink the game to a stamp)
+  const fill = Math.min(W / 180, H / 320);
+  let k = fill;
+  if (s.integerScale && Math.floor(fill) >= 2 && (fill - Math.floor(fill)) / fill < 0.25) k = Math.floor(fill);
+  // a phone held sideways: ask to turn it
+  const rotate = $('#rotate');
+  rotate.hidden = !(TOUCH && W > H && H < 520);
   const scale = k / 2; // UI is laid out in 360×640 units
   column.style.width = 180 * k + 'px';
   column.style.height = 320 * k + 'px';
@@ -49,6 +58,8 @@ function fit(): void {
   input.scale = scale;
 }
 window.addEventListener('resize', fit);
+window.visualViewport?.addEventListener('resize', fit);
+window.addEventListener('orientationchange', () => setTimeout(fit, 200));
 
 // ---------- wiring ----------
 function applySettings(): void {
@@ -152,6 +163,23 @@ window.addEventListener('keydown', (e) => {
   if (DEV && (e.key === '`' || e.key === '~' || e.key === 'ё')) dev.toggle();
 });
 window.addEventListener('pointerdown', () => audio.unlock(), { once: true });
+// touch: things that explain themselves on hover (locked branches, rock counters) explain themselves on tap
+if (TOUCH) {
+  const pop = $('#hint-pop');
+  let popTimer = 0;
+  document.addEventListener('click', (e) => {
+    const el = (e.target as HTMLElement).closest('.mini-lock, .rock-chip, #density') as HTMLElement | null;
+    if (!el || !el.title) return;
+    const r = el.getBoundingClientRect(), u = ui.getBoundingClientRect();
+    const sc = u.width / 360;
+    pop.textContent = el.title;
+    pop.hidden = false;
+    pop.style.left = Math.max(6, Math.min(360 - 206, (r.left - u.left) / sc - 90)) + 'px';
+    pop.style.top = ((r.bottom - u.top) / sc + 6) + 'px';
+    clearTimeout(popTimer);
+    popTimer = window.setTimeout(() => (pop.hidden = true), 3500);
+  });
+}
 
 bind(game);
 applySettings();

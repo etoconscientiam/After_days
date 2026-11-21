@@ -23,8 +23,16 @@ function card(icon: HTMLElement, onBuy: () => void, opts: { second?: { label: st
   const small = h('span', { class: 't-badge' });
   const desc = h('div', { class: 't-desc' });
   const btn = h('button', { class: 'btn', onclick: (e: Event) => { e.stopPropagation(); onBuy(); } }) as HTMLButtonElement;
-  const ico = h('div', { class: 't-ico', onclick: () => { if (!btn.disabled) onBuy(); } }, icon);
+  const ico = h('div', { class: 't-ico' }, icon);
   const el = h('div', { class: 'tile' }, ico, small, title, btn, desc);
+  ico.addEventListener('click', () => {
+    // with a finger there is no hover: a tap on the picture shows the description, the button buys
+    if (document.documentElement.classList.contains('touch')) {
+      const was = el.classList.contains('peek');
+      document.querySelectorAll('.tile.peek').forEach((t) => t.classList.remove('peek'));
+      if (!was) { el.classList.add('peek'); setTimeout(() => el.classList.remove('peek'), 3500); }
+    } else if (!btn.disabled) onBuy();
+  });
   let btn2: HTMLButtonElement | undefined;
   let auto: HTMLInputElement | undefined, autoWrap: HTMLElement | undefined;
   if (opts.second) {

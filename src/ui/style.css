@@ -288,3 +288,29 @@ button { font-family: inherit; color: inherit; }
 .chron-card .cc-bar { display: flex; height: 5px; border: 1px solid #0c0a08; border-radius: 1px; overflow: hidden; }
 .chron-card .cc-bar i { display: block; height: 100%; }
 #tooltip .t-head { display: flex; align-items: center; }
+
+/* ===== touch & phones ===== */
+html, body { overscroll-behavior: none; }
+#app { touch-action: manipulation; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
+#world { touch-action: none; }
+#hint-pop { position: absolute; width: 200px; z-index: 30; background: rgba(10,9,8,0.97); border: 1px solid var(--line); padding: 6px 8px; font-size: 11px; border-radius: 3px; color: var(--text); pointer-events: none; }
+#rotate { position: fixed; inset: 0; z-index: 50; background: #0b0a09; display: flex; align-items: center; justify-content: center; }
+#rotate[hidden] { display: none; }
+#rotate span { font-size: 64px; color: var(--accent); animation: rot 2.4s ease-in-out infinite; }
+@keyframes rot { 0%, 30% { transform: rotate(0deg); } 60%, 100% { transform: rotate(-90deg); } }
+@media (hover: none) {
+  .tile:hover .t-desc { display: none; }
+  .tile.peek .t-desc { display: block; }
+  .tile .t-minus { width: 26px; height: 26px; font-size: 16px; line-height: 22px; top: 1px; left: 1px; }
+  .tile .t-auto { top: 1px; left: 2px; padding: 4px; font-size: 9px; }
+  .tile .t-auto input { width: 14px; height: 14px; }
+  .tile .btn { padding-top: 8px; padding-bottom: 9px; }
+  .sub-tabs button { padding: 5px 8px; }
+  .icon-btn { width: 34px; height: 34px; font-size: 20px; }
+  #drawer-close { width: 34px; height: 34px; }
+}
+#ui.detailed .tile.peek .t-desc { position: static; }
+/* keep tile descriptions inside the column */
+.tiles:not(.four) .tile:nth-child(3n+1) .t-desc, .tiles.four .tile:nth-child(4n+1) .t-desc { left: 0; transform: none; }
+.tiles:not(.four) .tile:nth-child(3n) .t-desc, .tiles.four .tile:nth-child(4n) .t-desc { left: auto; right: 0; transform: none; }

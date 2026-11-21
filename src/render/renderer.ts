@@ -920,9 +920,9 @@ export class Renderer {
     return y;
   }
 
-  isArtifact(wx: number, wy: number, g: Game): number {
+  isArtifact(wx: number, wy: number, g: Game, reach = 1): number {
     const xs = g.mods.shards ? g.shardXs() : [WW / 2];
-    for (let i = 0; i < xs.length; i++) if (Math.abs(wx - xs[i]) < 9 && Math.abs(wy - this.ayAt(xs[i])) < 8) return i;
+    for (let i = 0; i < xs.length; i++) if (Math.abs(wx - xs[i]) < 9 * reach && Math.abs(wy - this.ayAt(xs[i])) < 8 * reach) return i;
     return -1;
   }
 }

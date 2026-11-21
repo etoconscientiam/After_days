@@ -16,6 +16,8 @@ export class Input {
   private hint = $('#target-hint');
   private canvas = $('#world') as HTMLCanvasElement;
   targeting: ElementDef | null = null;
+  /** Last input was a finger: bigger hit areas, no hover. */
+  finger = false;
   scale = 1;
   private noteTimer = 0;
   private mouse: { x: number; y: number } | null = null;
@@ -25,9 +27,14 @@ export class Input {
 
   constructor(private g: () => Game, private ren: Renderer) {
     const c = this.canvas;
-    c.addEventListener('mousemove', (e) => this.move(e));
-    c.addEventListener('mouseleave', () => { this.mouse = null; this.ren.hover = null; this.tooltip.hidden = true; });
-    c.addEventListener('mousedown', (e) => { if (e.button === 0) this.down(e); });
+    c.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse' || e.pointerType === 'pen') this.move(e); });
+    c.addEventListener('pointerleave', () => { this.mouse = null; this.ren.hover = null; this.tooltip.hidden = true; });
+    c.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      this.finger = e.pointerType === 'touch';
+      e.preventDefault();
+      this.down(e);
+    });
     c.addEventListener('contextmenu', (e) => { if (this.targeting) { e.preventDefault(); this.cancelTarget(); } });
     window.addEventListener('keydown', (e) => { if (e.key === 'Escape') this.cancelTarget(); });
     this.fieldnote.addEventListener('click', () => { this.fieldnote.hidden = true; });
@@ -166,10 +173,17 @@ export class Input {
       if (i >= 0) this.onChoose(i);
       return;
     }
-    const art = this.ren.isArtifact(m.x, m.y, g);
+    const art = this.ren.isArtifact(m.x, m.y, g, this.finger ? 1.7 : 1);
     if (this.targeting) {
       const sy = this.ren.sectionY(m.y);
       if (sy === null) { this.cancelTarget(); return; }
+      if (this.finger) {
+        // first tap places the frame, a tap inside it confirms
+        const tg = this.ren.targeting;
+        const p = this.targeting.params;
+        const inside = tg && Math.abs(m.x - tg.x) <= tg.rx && Math.abs(sy - tg.y) <= 14;
+        if (!inside) { this.ren.targeting = { rx: p.radiusX, ry: p.radiusY, x: Math.floor(m.x), y: Math.floor(sy), kind: this.targeting.id }; return; }
+      }
       const x = Math.max(0, Math.min(WW - 1, Math.floor(m.x)));
       let v = this.ren.lay.vOf[Math.floor(sy)];
       if (g.cast(this.targeting.id, { x, v })) this.onCast();
