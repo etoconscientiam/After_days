@@ -7,6 +7,8 @@ import elementsJson from './elements.json';
 import upgradesJson from './upgrades.json';
 import balanceJson from './balance.json';
 import storyJson from './story.json';
+import echoesJson from './echoes.json';
+import notesJson from './notes.json';
 
 export type ZoneId = 'water' | 'shore' | 'land';
 export const ZONES: ZoneId[] = ['water', 'shore', 'land'];
@@ -44,6 +46,9 @@ export interface UpgradeDef {
 }
 export interface DensityNode { id: string; base: number; mult: number; max: number; stat: string; value: number }
 export interface RitualDef { id: string; scene: string; world: string; mods: Record<string, any> }
+export interface EchoDef { id: string; picture: string; sound: string; group: 'common' | 'ring' | 'key' | 'wand'; trigger: string; eras?: [number, number] }
+export interface NoteDef { id: string; order: number; medium: 'metal_sheet' | 'memory_crystal' | 'ceramic_plate' | 'school_tablet'; type: string; reviewEn?: boolean; todo?: string; todoKey?: string }
+export interface ItemDef { id: string; echoGroup: string; sprite: string }
 
 function hexToRgb(h: string): [number, number, number] {
   const n = parseInt(h.slice(1), 16);
@@ -94,6 +99,10 @@ export const CFG = {
   B: balanceJson,
   story: storyJson,
   rituals: storyJson.rituals as RitualDef[],
+  echoes: echoesJson as { duration: number; personalShare: number; interval: { base: number; perEra: number; jitter: number }; alpha: { base: number; perEra: number; min: number }; echoes: EchoDef[] },
+  notes: (notesJson.notes as NoteDef[]).slice().sort((a, b) => a.order - b.order),
+  items: storyJson.items as ItemDef[],
+  relics: storyJson.relics as { id: string; sprite: string }[],
 };
 
 export type Config = typeof CFG;
@@ -106,5 +115,6 @@ export const M = {
   shellOoze: mat('shellOoze'), limeCrust: mat('limeCrust'), orgLand: mat('orgLand'), orgMarine: mat('orgMarine'),
   bone: mat('bone'), resin: mat('resin'), ash: mat('ash'), moraine: mat('moraine'), meteor: mat('meteor'),
   magma: mat('magma'), glowstone: mat('glowstone'), iridium: mat('iridium'),
+  concrete: mat('concrete'), glassSand: mat('glassSand'), plastic: mat('plastic'), metal: mat('metal'),
 };
 export const NMAT = materials.length;

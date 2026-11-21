@@ -1,35 +1,143 @@
 {
-  "_comment": "Texts live in i18n. Here only ids, order and triggers.",
-  "memoryLines": [
-    { "id": "m_train",    "trigger": "era:1" },
-    { "id": "m_laugh",    "trigger": "firstRock" },
-    { "id": "m_answer",   "trigger": "era:2" },
-    { "id": "m_someone",  "trigger": "firstFossil" },
-    { "id": "m_square",   "trigger": "firstExtinction" },
-    { "id": "m_light",    "trigger": "era:3" },
-    { "id": "m_list",     "trigger": "era:4" },
-    { "id": "m_voices",   "trigger": "era:5" },
-    { "id": "m_fire",     "trigger": "era:6" },
-    { "id": "m_hands",    "trigger": "era:7" },
-    { "id": "m_heavy",    "trigger": "firstPrestige" },
-    { "id": "m_stone",    "trigger": "firstDiamond" }
-  ],
-  "notes": ["n01", "n02", "n03", "n04", "n05", "n06", "n07", "n08", "n09", "n10", "n11", "n12"],
+  "_comment": "Texts live in i18n. Here only ids, order and triggers. Notes: notes.json, echoes: echoes.json.",
   "rituals": [
-    { "id": "bury",    "scene": "lower",   "world": "hot",
-      "mods": { "geoGradientMul": 3, "autoVolcano": 240, "hotMaterials": true, "organicBurn": 150, "element": "magma" } },
-    { "id": "eat",     "scene": "grind",   "world": "living",
-      "mods": { "mutations": true, "rockRanks": true, "glowLife": true } },
-    { "id": "shatter", "scene": "shatter", "world": "shards",
-      "mods": { "shards": 3, "basins": ["sea", "forest", "steppe"], "diversity": 0.10 } }
+    {
+      "id": "bury",
+      "scene": "lower",
+      "world": "hot",
+      "mods": {
+        "geoGradientMul": 3,
+        "autoVolcano": 240,
+        "hotMaterials": true,
+        "organicBurn": 150,
+        "element": "magma"
+      }
+    },
+    {
+      "id": "eat",
+      "scene": "grind",
+      "world": "living",
+      "mods": {
+        "mutations": true,
+        "rockRanks": true,
+        "glowLife": true
+      }
+    },
+    {
+      "id": "shatter",
+      "scene": "shatter",
+      "world": "shards",
+      "mods": {
+        "shards": 3,
+        "basins": [
+          "sea",
+          "forest",
+          "steppe"
+        ],
+        "diversity": 0.1
+      }
+    }
   ],
   "mutations": [
-    { "id": "shell",   "fossil": 2 },
-    { "id": "swarm",   "capacity": 1.5, "lifespan": 0.7 },
-    { "id": "glow",    "glow": true },
-    { "id": "nomads",  "nomad": true },
-    { "id": "vigor",   "eps": 1.5 },
-    { "id": "longlife","lifespan": 1.6 }
+    {
+      "id": "shell",
+      "fossil": 2
+    },
+    {
+      "id": "swarm",
+      "capacity": 1.5,
+      "lifespan": 0.7
+    },
+    {
+      "id": "glow",
+      "glow": true
+    },
+    {
+      "id": "nomads",
+      "nomad": true
+    },
+    {
+      "id": "vigor",
+      "eps": 1.5
+    },
+    {
+      "id": "longlife",
+      "lifespan": 1.6
+    }
   ],
-  "templeStages": ["ring", "altar", "walls", "dome"]
+  "templeStages": [
+    "ring",
+    "altar",
+    "walls",
+    "dome"
+  ],
+  "items": [
+    {
+      "id": "artifact_a",
+      "echoGroup": "ring",
+      "sprite": "ring"
+    },
+    {
+      "id": "artifact_b",
+      "echoGroup": "key",
+      "sprite": "key"
+    },
+    {
+      "id": "artifact_c",
+      "echoGroup": "wand",
+      "sprite": "wand"
+    }
+  ],
+  "relics": [
+    {
+      "id": "coin",
+      "sprite": "coin"
+    },
+    {
+      "id": "fork",
+      "sprite": "fork"
+    },
+    {
+      "id": "tile",
+      "sprite": "tile"
+    },
+    {
+      "id": "glasses",
+      "sprite": "glasses"
+    },
+    {
+      "id": "chip",
+      "sprite": "chip"
+    },
+    {
+      "id": "button",
+      "sprite": "button"
+    }
+  ],
+  "relicChance": 0.4,
+  "relicBonus": 0.01,
+  "horizon": {
+    "rows": 8,
+    "glowBonus": 0.1,
+    "glowWidth": 60,
+    "lifeSeedX": 70,
+    "mix": {
+      "concrete": 0.62,
+      "metal": 0.15,
+      "glassSand": 0.1,
+      "soil": 0.1,
+      "plastic": 0.03
+    }
+  },
+  "satellites": {
+    "low": 34,
+    "high": 6,
+    "firstFallSec": 1.5,
+    "fallEverySec": 0.55
+  },
+  "traces": {
+    "endYear": 9000,
+    "count": 9
+  },
+  "echoCompactionK": 1.8
 }

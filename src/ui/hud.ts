@@ -1,4 +1,4 @@
-// HUD: the countdown (main storyteller), era, progress, speed, resources; toasts and memory lines.
+// HUD: the countdown (main storyteller), era, progress, speed, resources; toasts.
 import { CFG } from '../config';
 import type { Game } from '../core/game';
 import { $, h, setText, toggle } from './dom';
@@ -17,17 +17,15 @@ export class Hud {
   private energyRate = $('#energy-rate');
   private rocks = $('#rocks');
   private density = $('#density');
-  private memory = $('#memory');
   private toasts = $('#toasts');
   private rockChips = new Map<string, HTMLElement>();
-  private memTimer = 0;
-  private memQueue: string[] = [];
 
   update(g: Game, dt: number): void {
     const r = g.run;
     const phase = g.state.phase;
     const finding = phase === 'newWorld' || phase === 'end' || (phase === 'temple' && g.state.templeProgress > 0.85);
     toggle(this.countdown, 'finding', finding);
+    toggle(this.countdown.parentElement!.parentElement!, 'finding', finding);
     if (finding) {
       setText(this.cdNum, t('findingYear', { n: 1 }));
       setText(this.cdSym, '');
@@ -75,17 +73,6 @@ export class Hud {
     this.density.hidden = dens <= 0 && g.meta.prestiges === 0;
     setText(this.density, '◆ ' + fmt(dens, 0));
     this.density.title = t('hud.density');
-
-    // memory lines fade in and melt away
-    if (this.memTimer > 0) {
-      this.memTimer -= dt;
-      if (this.memTimer <= 1.4) this.memory.classList.remove('show');
-    } else if (this.memQueue.length) {
-      const id = this.memQueue.shift()!;
-      this.memory.textContent = t('memory.' + id);
-      this.memory.classList.add('show');
-      this.memTimer = 6;
-    }
   }
 
   condString(g: Game): string {
@@ -104,12 +91,7 @@ export class Hud {
     return '';
   }
 
-  memoryLine(id: string): void {
-    if (this.memQueue.includes(id)) return;
-    this.memQueue.push(id);
-  }
-
-  toast(text: string, color?: string): void {
+  toast(text: string | Node, color?: string): void {
     const el = h('div', { class: 'toast' }, color ? h('i', { style: `background:${color}` }) : null, text);
     this.toasts.prepend(el);
     while (this.toasts.children.length > 5) this.toasts.lastChild!.remove();

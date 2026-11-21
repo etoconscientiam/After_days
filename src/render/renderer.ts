@@ -6,7 +6,10 @@ import { totalPop } from '../core/life';
 import { hash2 } from '../core/rng';
 import { Layout, WW, WH, NOISE, lerp, lerp3, hex3, rgb, ACCENT } from './common';
 import { SectionRenderer } from './section';
-import { SKINS, drawArtifact, drawFossil, fossilKind } from './skins';
+import { SKINS, drawFossil, fossilKind } from './skins';
+import { drawItem } from './items';
+import { renderEcho, EW, EH } from './echoes';
+import { drawScene, drawWall, VW, VH } from './ritual';
 
 interface Particle { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string; size: number }
 interface Ring { t: number; x: number }
@@ -40,6 +43,13 @@ export class Renderer {
   private t = 0;
   private meteorFxSeen = new Set<number>();
   private shiftFx: { img: HTMLCanvasElement; t: number; top: number; h: number } | null = null;
+  private echo: { picture: string; t: number; x: number; y: number; alpha: number; canvas: HTMLCanvasElement } | null = null;
+  private seedThread = -1;
+  private vignette = document.createElement('canvas');
+  private vignetteA = 0;
+  chooseHover = -1;
+  private sinkFx: { id: string; x0: number; t: number } | null = null;
+  private dt = 1 / 60;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -91,7 +101,7 @@ export class Renderer {
     for (let i = 0; i < n; i++) {
       const a = -Math.PI / 2 + (Math.random() - 0.5) * 1.6;
       const sp = 20 + Math.random() * 50;
-      this.particles.push({ x, y: this.lay.artifactY, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0, max: 0.6 + Math.random() * 0.6, color: Math.random() < 0.5 ? ACCENT : '#fff2c0', size: 1 });
+      this.particles.push({ x, y: this.ayAt(x), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0, max: 0.6 + Math.random() * 0.6, color: Math.random() < 0.5 ? ACCENT : '#fff2c0', size: 1 });
     }
   }
   /** Snapshot the section before an epoch shift; the snapshot then sinks, darkens and crumbles. */
@@ -162,12 +172,16 @@ export class Renderer {
     if (this.reveal > this.lay.sectionH) this.reveal = Infinity;
 
     this.section.maybeRender(g, this.lay, now, this.reveal);
+    this.lay.artifactY = this.ayAt(WW / 2);
+    this.dt = dt;
+    if (g.state.phase === 'choose') { this.drawChoose(g); return; }
 
     c.save();
     if (this.shake > 0.05) c.translate(Math.round((Math.random() - 0.5) * this.shake), Math.round((Math.random() - 0.5) * this.shake));
     c.fillStyle = '#0d0b0e';
     c.fillRect(-4, -4, WW + 8, WH + 8);
     this.drawSky(g);
+    this.drawEcho(dt);
     this.drawSection(g);
     this.drawSurface(g);
     this.drawShift(dt);
@@ -175,6 +189,8 @@ export class Renderer {
     this.drawParticles(dt);
     this.drawLight(g);
     if (g.state.phase === 'finale' || g.state.phase === 'temple' || g.state.phase === 'newWorld' || g.state.phase === 'end') this.drawFinale(g);
+    else this.vignetteA = 0;
+    this.drawSink(g, dt);
     c.restore();
   }
 
@@ -239,6 +255,7 @@ export class Renderer {
         c.fillRect(Math.round(s.x), Math.round(s.y - lay.shift), 1, 1);
       }
     }
+    this.drawSatellites(g, alt, fast);
     // sun & moon along an arc
     if (!fast) {
       const ang = (this.dayPhase - 0.25) * Math.PI * 2;
@@ -312,6 +329,48 @@ export class Renderer {
     }
     // birds in the sky
     this.drawBirds(g);
+  }
+
+  /** Era 0: the last satellites crawl over the sky; low ones fall one by one, high ones go out. */
+  private drawSatellites(g: Game, alt: number, fast: boolean): void {
+    const r = g.run;
+    if (g.meta.prestiges > 0 || r.era > 1 || g.state.phase !== 'play') return;
+    const c = this.ctx;
+    const S = CFG.story.satellites;
+    const rt = r.realTime;
+    const dark = fast ? 0.55 : Math.max(0.35, Math.min(1, -alt * 2.5 + 0.4));
+    const sh = this.lay.shift;
+    for (let i = 0; i < S.low; i++) {
+      const tf = S.firstFallSec + i * S.fallEverySec;
+      const speed = 3 + hash2(i, 22) * 7;
+      const posX = (tt: number) => ((hash2(i, 21) * (WW + 20) + tt * speed) % (WW + 20)) - 10;
+      const y = 10 + hash2(i, 23) * 70 - sh;
+      if (rt < tf) {
+        c.fillStyle = rgb(235, 238, 255, dark * 0.85);
+        c.fillRect(Math.round(posX(rt)), Math.round(y), 1, 1);
+      } else if (rt < tf + 1.3) {
+        const k = (rt - tf) / 1.3;
+        const x0 = posX(tf);
+        for (let q = 0; q < 7; q++) {
+          const kk = Math.max(0, k - q * 0.03);
+          c.fillStyle = q < 2 ? rgb(255, 240, 200, 1 - k) : rgb(255, 140 - q * 10, 40, (1 - k) * (1 - q / 7));
+          c.fillRect(Math.round(x0 + kk * 40), Math.round(y + kk * 60), 1, 1);
+        }
+      }
+    }
+    for (let j = 0; j < S.high; j++) {
+      const last = j === S.high - 1;
+      let a = dark;
+      if (!last) {
+        const fadeYear = CFG.startYear + ((j + 1) / S.high) * (CFG.eras[0].end - CFG.startYear);
+        a *= Math.max(0, Math.min(1, (fadeYear - r.year) / 60));
+      } else if (r.era >= 1) {
+        a *= Math.max(0, 1 - (rt - (r.timeAtEra[1] ?? rt)) / 1.5);
+      }
+      if (a <= 0.01) continue;
+      c.fillStyle = rgb(255, 250, 235, a);
+      c.fillRect(24 + j * 58 + Math.round(hash2(j, 41) * 20), Math.round(14 + hash2(j, 42) * 34 - sh), 1, 1);
+    }
   }
 
   private drawBirds(g: Game): void {
@@ -413,10 +472,39 @@ export class Renderer {
         c.fillRect(x, gy, 1, 2);
       }
     }
+    this.drawTraces(g);
     // life sprites
     this.drawLife(g, sea, bottom);
     // excavation shaft and camp
     if (r.era >= 6 && g.state.phase === 'play') this.drawCamp(g);
+  }
+
+  /** Straight roads and foundations of the old world, erased by erosion over the first millennia. */
+  private drawTraces(g: Game): void {
+    const r = g.run;
+    const T = CFG.story.traces;
+    if (g.meta.prestiges > 0 || r.year >= T.endYear) return;
+    const c = this.ctx;
+    for (let i = 0; i < T.count; i++) {
+      const erase = CFG.startYear + ((i + 1) / T.count) * (T.endYear - CFG.startYear);
+      const a = Math.max(0, Math.min(1, (erase - r.year) / 1800)) * 0.8;
+      if (a <= 0) continue;
+      const x0 = Math.round(r.waterEnd + 6 + hash2(i, 31) * (WW - r.waterEnd - 50));
+      const len = Math.round(14 + hash2(i, 32) * 34);
+      let gy = 999;
+      for (let x = x0; x < Math.min(WW, x0 + len); x++) gy = Math.min(gy, this.groundY(x, g));
+      if (i % 3 === 0) {
+        const w = Math.round(len * 0.6), h = 4;
+        c.fillStyle = rgb(176, 170, 160, a);
+        c.fillRect(x0, gy - h, w, 1); c.fillRect(x0, gy - h, 1, h); c.fillRect(x0 + w - 1, gy - h, 1, h);
+        c.fillRect(x0 + (w >> 1), gy - h, 1, h);
+      } else {
+        c.fillStyle = rgb(120, 120, 118, a);
+        c.fillRect(x0, gy, len, 1);
+        c.fillStyle = rgb(200, 196, 180, a * 0.6);
+        for (let x = x0 + 2; x < x0 + len; x += 5) c.fillRect(x, gy, 2, 1);
+      }
+    }
   }
 
   private zoneSegments(g: Game): { zi: number; x0: number; x1: number }[] {
@@ -446,6 +534,10 @@ export class Renderer {
           let x = 0;
           for (const s of zsegs) { const w = s.x1 - s.x0 + 1; if (u < w) { x = s.x0 + u; break; } u -= w; }
           x = Math.round(x);
+          if (sp.id === 'mats' && zi === 0 && !g.mods.shards) {
+            const seed = CFG.story.horizon.lifeSeedX;
+            x = Math.max(0, Math.min(g.run.waterEnd - 3, seed + (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 3));
+          }
           const gy = this.groundY(x, g);
           let y = gy;
           if (zi === 0) {
@@ -486,7 +578,7 @@ export class Renderer {
     xs.forEach((x, idx) => {
       const gy = this.groundY(x, g);
       const prog = g.mods.shards ? Math.min(1, g.run.excavationShards[idx] / Math.max(1, g.run.excavationNeed)) : k;
-      const depth = (lay.artifactY - 6 - gy) * prog;
+      const depth = (this.ayAt(x) - 6 - gy) * prog;
       c.fillStyle = 'rgba(10,8,8,0.92)';
       c.fillRect(x - 4, gy, 9, depth);
       c.fillStyle = 'rgba(120,90,60,0.6)';
@@ -505,7 +597,8 @@ export class Renderer {
     const c = this.ctx;
     const lay = this.lay;
     const top = lay.sectionTop;
-    c.drawImage(this.section.canvas, 0, 0, WW, lay.sectionH, 0, top, WW, lay.sectionH);
+    const hh = lay.sectionH + CFG.B.layout.artifactH;
+    c.drawImage(this.section.canvas, 0, 0, WW, hh, 0, top, WW, hh);
     // fossil sprites
     let drawn = 0;
     for (const f of this.section.fossils) {
@@ -536,11 +629,11 @@ export class Renderer {
       c.globalAlpha = 1;
     }
     // depth gradient: the deep is darker
-    const grd = c.createLinearGradient(0, top, 0, top + lay.sectionH);
+    const grd = c.createLinearGradient(0, top, 0, top + hh);
     grd.addColorStop(0, 'rgba(0,0,0,0)');
-    grd.addColorStop(1, 'rgba(5,3,8,0.35)');
+    grd.addColorStop(1, 'rgba(5,3,8,0.4)');
     c.fillStyle = grd;
-    c.fillRect(0, top, WW, lay.sectionH);
+    c.fillRect(0, top, WW, hh);
     // hover line
     if (this.hover && !this.targeting) {
       c.fillStyle = 'rgba(242,193,78,0.35)';
@@ -560,61 +653,157 @@ export class Renderer {
     }
   }
 
-  // ---------- foundation & artifact ----------
+  // ---------- horizon & the thing ----------
+  /** Screen y of the middle of the technogenic horizon at column x (the thing lies there). */
+  ayAt(x: number): number {
+    const xi = Math.max(0, Math.min(WW - 1, Math.round(x)));
+    return this.lay.sectionTop + this.section.horizonTop[xi] + CFG.story.horizon.rows / 2;
+  }
+
+  onEra(era: number): void { if (era === 1) this.seedThread = 0; }
+
   private drawArtifactZone(g: Game): void {
     const c = this.ctx;
     const lay = this.lay;
-    const yTop = lay.sectionTop + lay.sectionH;
-    const h = CFG.B.layout.artifactH;
-    // old ground around the artifact
-    c.fillStyle = '#141117';
-    c.fillRect(0, yTop, WW, h + 2);
-    for (let x = 0; x < WW; x += 2) {
-      const n = NOISE[((x * 3) & 255) * 256 + 17];
-      c.fillStyle = rgb(26 + n * 14, 22 + n * 12, 30 + n * 14);
-      c.fillRect(x, yTop + ((n * h) | 0), 2, 1);
+    const dt = this.dt;
+    const top = lay.sectionTop;
+    // the layer glows: rare warm pixels flicker and light drifts upward
+    const pts = this.section.glowPts;
+    for (let i = 0; i < pts.length; i += 2) {
+      const ph = Math.sin(this.t * (1.1 + ((i >> 1) % 7) * 0.31) + i * 1.7);
+      if (ph < 0.25) continue;
+      c.fillStyle = rgb(255, 196 + 50 * ph, 110, ph * 0.95);
+      c.fillRect(pts[i], top + pts[i + 1], 1, 1);
     }
-    // foundation band right above the artifact
-    const f = g.meta.foundation;
-    if (f > 0) {
-      const th = Math.min(16, 2 + Math.sqrt(f) * 1.2);
-      const y0 = yTop - th;
-      c.fillStyle = 'rgba(14,10,16,0.92)';
-      c.fillRect(0, y0, WW, th);
-      for (let x = 0; x < WW; x++) {
-        const n = NOISE[((x * 7) & 255) * 256 + 99];
-        c.fillStyle = rgb(30 + n * 18, 26 + n * 14, 34 + n * 18, 0.7);
-        c.fillRect(x, y0 + ((n * th) | 0), 1, 1);
-      }
-      const lines = g.meta.foundationLines;
-      for (let i = 0; i < lines.length; i++) {
-        const ly = Math.round(yTop - (lines[i] / Math.max(f, 1e-6)) * th);
-        const glow = 0.35 + 0.25 * Math.sin(this.t * 1.5 + i);
-        c.fillStyle = rgb(242, 193, 78, glow);
-        c.fillRect(0, Math.min(yTop - 1, Math.max(y0, ly)), WW, 1);
-      }
+    if (pts.length && this.quality === 'high' && Math.random() < dt * 9) {
+      const i = (Math.floor(Math.random() * (pts.length / 2))) * 2;
+      this.particles.push({ x: pts[i], y: top + pts[i + 1], vx: (Math.random() - 0.5) * 3, vy: -6 - Math.random() * 8, life: 0, max: 2 + Math.random() * 2, color: Math.random() < 0.6 ? '#f2c14e' : '#ffe6a0', size: 1 });
     }
+    // the first life: a tiny point of another colour among the dead pixels
+    const sx = CFG.story.horizon.lifeSeedX;
+    const sy = this.ayAt(sx) - 1;
+    const tw = 0.55 + 0.45 * Math.sin(this.t * 3.3);
+    c.fillStyle = rgb(120, 255, 170, tw);
+    c.fillRect(sx, Math.round(sy), 1, 1);
+    if (this.seedThread >= 0) {
+      this.seedThread += dt;
+      const k = Math.min(1, this.seedThread / 3);
+      const y0 = sy, y1 = lay.sectionTop;
+      for (let y = y0; y > y0 - (y0 - y1) * k; y -= 1) {
+        const xx = sx + Math.round(Math.sin(y * 0.3 + this.t) * 1.5);
+        c.fillStyle = rgb(120, 230, 150, 0.7 * (1 - this.seedThread / 6));
+        c.fillRect(xx, Math.round(y), 1, 1);
+      }
+      if (this.seedThread > 6) this.seedThread = -1;
+    }
+    // the thing itself lies in the middle of the glow
     const xs = g.mods.shards ? g.shardXs() : [WW / 2];
-    const glow = 0.6 + Math.min(1, g.run.boost / 3) * 0.4;
-    let ay = lay.artifactY;
-    if (g.state.phase === 'temple' && g.state.ritualChoice === 'bury') ay += Math.min(1, g.state.templeProgress * 3) * 8;
-    for (const x of xs) {
-      if (g.state.phase === 'temple' && g.state.ritualChoice === 'shatter' && g.state.templeProgress > 0.15) continue;
-      if (g.state.phase === 'temple' && g.state.ritualChoice === 'eat' && g.state.templeProgress > 0.3) continue;
-      drawArtifact(c, x, ay, this.t, glow);
-    }
-    // click rings travel up through the layers
+    const item = g.currentItem() ?? 'artifact_a';
+    const ph = g.state.phase;
+    const p = g.state.templeProgress;
+    xs.forEach((x, idx) => {
+      if (ph === 'temple' || ph === 'newWorld' || ph === 'end') {
+        const rit = g.state.ritualChoice;
+        if (rit === 'eat' || rit === 'shatter' || ph !== 'temple') return;
+      }
+      let ay = this.ayAt(x);
+      if (ph === 'temple' && g.state.ritualChoice === 'bury') ay += Math.min(1, p * 3) * 8;
+      drawItem(c, item, x, ay, 13, 'glow', true, g.mods.shards ? idx : -1);
+    });
+    // click rings come out of the glowing layer around the thing
     for (let i = this.rings.length - 1; i >= 0; i--) {
       const rg = this.rings[i];
-      rg.t += 1 / 60;
+      rg.t += dt;
       const k = rg.t / 0.9;
       if (k >= 1) { this.rings.splice(i, 1); continue; }
-      const y = lay.artifactY - k * (lay.artifactY - lay.surfaceY - 30);
+      const ay = this.ayAt(rg.x);
+      const y = ay - k * (ay - lay.surfaceY - 30);
       c.strokeStyle = rgb(242, 193, 78, (1 - k) * 0.7);
       c.beginPath();
-      c.ellipse(rg.x, y, 10 + k * 70, 3 + k * 8, 0, 0, Math.PI * 2);
+      c.ellipse(rg.x, y, 26 + k * 60, 3 + k * 7, 0, 0, Math.PI * 2);
       c.stroke();
     }
+  }
+
+  // ---------- echoes ----------
+  private echoQueue: { picture: string; alpha: number }[] = [];
+
+  showEcho(picture: string, alpha: number): void {
+    if (this.echo) { if (this.echoQueue.length < 3) this.echoQueue.push({ picture, alpha }); return; }
+    const canvas = document.createElement('canvas');
+    canvas.width = EW; canvas.height = EH;
+    const x = 10 + Math.random() * (WW - EW - 20);
+    this.echo = { picture, t: 0, x, y: 0, alpha, canvas };
+  }
+
+  private drawEcho(dt: number): void {
+    const e = this.echo;
+    if (!e) return;
+    e.t += dt;
+    const dur = CFG.echoes.duration;
+    if (e.t >= dur) {
+      this.echo = null;
+      const next = this.echoQueue.shift();
+      if (next) setTimeout(() => this.showEcho(next.picture, next.alpha), 600);
+      return;
+    }
+    const env = Math.min(1, e.t / 0.7) * Math.min(1, (dur - e.t) / 1.1);
+    renderEcho(e.canvas, e.picture, e.t);
+    const y = Math.max(84, this.lay.surfaceY - 62);
+    this.ctx.globalAlpha = env * e.alpha;
+    this.ctx.drawImage(e.canvas, Math.round(e.x), Math.round(y - (1 - env) * 2));
+    this.ctx.globalAlpha = 1;
+  }
+
+  // ---------- the opening choice ----------
+  chooseXs(n: number): number[] {
+    return n === 3 ? [72, 180, 288] : n === 2 ? [120, 240] : [180];
+  }
+
+  private drawChoose(g: Game): void {
+    const c = this.ctx;
+    c.fillStyle = '#08070a';
+    c.fillRect(0, 0, WW, WH);
+    for (let i = 0; i < 160; i++) {
+      c.fillStyle = `rgba(255,255,255,${0.015 + 0.015 * Math.sin(this.t + i)})`;
+      c.fillRect((i * 97) % WW, (i * 53) % WH, 1, 1);
+    }
+    const items = g.availableItems();
+    const xs = this.chooseXs(items.length);
+    items.forEach((id, i) => {
+      const hover = this.chooseHover === i;
+      const y = 320 + Math.sin(this.t * 0.8 + i * 2) * 1.5;
+      if (hover) {
+        const grd = c.createRadialGradient(xs[i], y, 4, xs[i], y, 60);
+        grd.addColorStop(0, 'rgba(242,193,78,0.16)');
+        grd.addColorStop(1, 'rgba(0,0,0,0)');
+        c.fillStyle = grd;
+        c.fillRect(xs[i] - 60, y - 60, 120, 120);
+      }
+      drawItem(c, id, xs[i], y, 24, hover ? 'hover' : 'silhouette', false, -1, 3);
+    });
+  }
+
+  /** The chosen thing goes down into the ground while the world appears. */
+  beginSink(id: string, index: number, n: number): void {
+    this.sinkFx = { id, x0: this.chooseXs(n)[index] ?? 180, t: 0 };
+  }
+
+  private drawSink(g: Game, dt: number): void {
+    const s = this.sinkFx;
+    if (!s) return;
+    s.t += dt;
+    const k = Math.min(1, s.t / 2.8);
+    const c = this.ctx;
+    c.fillStyle = `rgba(8,7,10,${1 - k})`;
+    c.fillRect(0, 0, WW, WH);
+    const e = k * k;
+    const x = s.x0 + (WW / 2 - s.x0) * Math.min(1, k * 1.6);
+    const y = 320 + (this.ayAt(WW / 2) - 320) * e;
+    c.globalAlpha = 1 - Math.max(0, (k - 0.75) / 0.25);
+    drawItem(c, s.id, x, y, 24, 'silhouette', false, -1, Math.max(0.6, 3 - k * 2.4));
+    c.globalAlpha = 1;
+    if (k >= 1) this.sinkFx = null;
   }
 
   private drawParticles(dt: number): void {
@@ -639,12 +828,19 @@ export class Renderer {
     c.globalCompositeOperation = 'lighter';
     for (const x of xs) {
       const R = 46 + boost * 30 + Math.sin(this.t * 2.2) * 4;
-      const grd = c.createRadialGradient(x, lay.artifactY, 1, x, lay.artifactY, R);
+      const ay = this.ayAt(x);
+      const grd = c.createRadialGradient(x, ay, 1, x, ay, R);
       grd.addColorStop(0, rgb(242, 193, 78, 0.45 + this.flash * 0.3));
       grd.addColorStop(0.4, rgb(200, 120, 40, 0.12));
       grd.addColorStop(1, 'rgba(0,0,0,0)');
       c.fillStyle = grd;
-      c.fillRect(x - R, lay.artifactY - R, R * 2, R * 2);
+      c.fillRect(x - R, ay - R, R * 2, R * 2);
+    }
+    // a warm band along the technogenic horizon
+    for (let x = 0; x < WW; x += 4) {
+      const a = g.glow[x] * (0.12 + 0.03 * Math.sin(this.t * 1.7 + x * 0.05));
+      c.fillStyle = rgb(242, 170, 70, a);
+      c.fillRect(x, this.ayAt(x) - 7, 4, 10);
     }
     // heat zones glow from inside
     for (const t of g.run.targets) {
@@ -696,29 +892,27 @@ export class Renderer {
       c.fillRect(xx - 12, yy - 22, 28, 28);
       c.globalCompositeOperation = 'source-over';
     }
-    // ritual act
+    // ritual scene, then the temple wall where the tradition appears
     if (g.state.phase === 'temple' || g.state.phase === 'newWorld' || g.state.phase === 'end') {
       const p = g.state.phase === 'temple' ? g.state.templeProgress : 1;
       const rit = g.state.ritualChoice ?? g.legacy.rituals[g.legacy.rituals.length - 1];
-      const act = Math.min(1, p / 0.3);
-      if (rit === 'shatter' && act > 0.4) {
-        for (let s = 0; s < 3; s++) {
-          const ang = -Math.PI / 2 + (s - 1) * 0.8;
-          const d = (act - 0.4) * 140;
-          const sx = x + Math.cos(ang) * d, sy = lay.artifactY + Math.sin(ang) * d;
-          c.fillStyle = ACCENT; c.fillRect(sx - 1, sy - 1, 3, 3);
-        }
-      }
-      if (rit === 'eat' && act < 1) {
-        for (let i = 0; i < 20; i++) {
-          const k = (act + i / 20) % 1;
-          c.fillStyle = rgb(242, 193, 78, 1 - k);
-          c.fillRect(x + Math.sin(i * 7) * 6 * k, lay.artifactY - k * 40, 1, 1);
-        }
-      }
-      // the temple rises over the artifact
-      const tp = Math.max(0, (p - 0.3) / 0.7);
-      this.drawTemple(x, gy, tp);
+      this.drawTemple(x, gy, Math.max(0, (p - 0.45) / 0.55));
+      const vc = this.vignette;
+      vc.width = VW; vc.height = VH;
+      const vx = vc.getContext('2d')!;
+      vx.imageSmoothingEnabled = false;
+      if (g.state.phase === 'temple' && p < 0.45) drawScene(vx, rit, p / 0.45, this.t, g.currentItem() ?? 'artifact_a');
+      else if (g.state.phase === 'end') drawWall(vx, g.legacy.rituals, null, 1, this.t);
+      else drawWall(vx, g.legacy.rituals.filter((r) => r !== rit), rit, g.state.phase === 'temple' ? (p - 0.45) / 0.4 : 1, this.t);
+      this.vignetteA = Math.min(1, this.vignetteA + this.dt * 0.8);
+      const vy = g.state.phase === 'temple' ? 96 : 92;
+      c.globalAlpha = this.vignetteA;
+      c.fillStyle = 'rgba(0,0,0,0.6)';
+      c.fillRect(18, vy - 2, VW * 2 + 4, VH * 2 + 4);
+      c.drawImage(vc, 20, vy, VW * 2, VH * 2);
+      c.strokeStyle = 'rgba(242,193,78,0.35)';
+      c.strokeRect(19.5, vy - 0.5, VW * 2 + 1, VH * 2 + 1);
+      c.globalAlpha = 1;
     }
   }
 
@@ -774,7 +968,7 @@ export class Renderer {
 
   isArtifact(wx: number, wy: number, g: Game): number {
     const xs = g.mods.shards ? g.shardXs() : [WW / 2];
-    for (let i = 0; i < xs.length; i++) if (Math.abs(wx - xs[i]) < 14 && Math.abs(wy - this.lay.artifactY) < 14) return i;
+    for (let i = 0; i < xs.length; i++) if (Math.abs(wx - xs[i]) < 14 && Math.abs(wy - this.ayAt(xs[i])) < 12) return i;
     return -1;
   }
 

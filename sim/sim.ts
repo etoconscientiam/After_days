@@ -13,6 +13,7 @@ const DT = 0.5;
 
 const g = new Game(newGameState(seed));
 g.headless = true;
+g.chooseItem('artifact_a');
 const rows: string[] = ['event,real_s,real_min,year,era,detail'];
 const log = (ev: string, detail = '') => {
   const t = g.state.legacy.totalRealTime;

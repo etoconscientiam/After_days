@@ -5,7 +5,7 @@ import type { Renderer } from '../render/renderer';
 import { CAP, F_FOSSIL, F_FRAGMENT } from '../world/World';
 import { $, h, setText } from './dom';
 import { t, fmt, fmtInt } from './i18n';
-import { makeEntry, chronicleText } from './chronicle';
+import { makeEntry, chronicleCard } from './chronicle';
 
 export class Input {
   private tooltip = $('#tooltip');
@@ -18,6 +18,7 @@ export class Input {
   private mouse: { x: number; y: number } | null = null;
   onArtifact: (shard: number) => void = () => {};
   onCast: () => void = () => {};
+  onChoose: (index: number) => void = () => {};
 
   constructor(private g: () => Game, private ren: Renderer) {
     const c = this.canvas;
@@ -59,9 +60,27 @@ export class Input {
     this.refreshHover();
   }
 
+  private chooseIndex(g: Game, m: { x: number; y: number }): number {
+    const xs = this.ren.chooseXs(g.availableItems().length);
+    for (let i = 0; i < xs.length; i++) if (Math.abs(m.x - xs[i]) < 38 && Math.abs(m.y - 320) < 40) return i;
+    return -1;
+  }
+
+  /** Is (x, section y) inside the technogenic horizon band? */
+  private onHorizon(x: number, sy: number): boolean {
+    const top = this.ren.section.horizonTop[x];
+    return sy >= top && sy < top + CFG.story.horizon.rows;
+  }
+
   private refreshHover(): void {
     const g = this.g();
     const m = this.mouse!;
+    if (g.state.phase === 'choose') {
+      this.ren.chooseHover = this.chooseIndex(g, m);
+      this.canvas.classList.toggle('pointer', this.ren.chooseHover >= 0);
+      this.tooltip.hidden = true;
+      return;
+    }
     const art = this.ren.isArtifact(m.x, m.y, g);
     this.canvas.classList.toggle('pointer', art >= 0 && !this.targeting);
     const sy = this.ren.sectionY(m.y);
@@ -73,6 +92,14 @@ export class Input {
       return;
     }
     if (sy === null || art >= 0) { this.ren.hover = null; this.tooltip.hidden = true; return; }
+    if (this.onHorizon(x, Math.floor(sy))) {
+      this.ren.hover = { x, y: Math.floor(sy) };
+      this.tooltip.replaceChildren(h('div', { class: 't-head' }, '⟡'), h('div', { class: 't-row' }, fmtInt(CFG.zeroYear - CFG.startYear) + '⟡'), h('div', { class: 't-hint' }, t('tip.click')));
+      this.tooltip.hidden = false;
+      this.tooltip.style.left = Math.max(4, m.x > 200 ? m.x - 120 : m.x + 10) + 'px';
+      this.tooltip.style.top = Math.min(560, Math.max(60, m.y - 20)) + 'px';
+      return;
+    }
     this.ren.hover = { x, y: Math.floor(sy) };
     this.showTooltip(g, x, Math.floor(sy), m);
   }
@@ -86,7 +113,7 @@ export class Input {
     const rows: string[] = [];
     let head = '';
     if (!loc) {
-      head = t('materials.basement');
+      head = '—';
     } else if (loc.kind === 'cell') {
       const j = x * CAP + loc.i;
       const mat = CFG.materials[w.mat[j]];
@@ -121,6 +148,11 @@ export class Input {
   private down(e: MouseEvent): void {
     const g = this.g();
     const m = this.world(e);
+    if (g.state.phase === 'choose') {
+      const i = this.chooseIndex(g, m);
+      if (i >= 0) this.onChoose(i);
+      return;
+    }
     const art = this.ren.isArtifact(m.x, m.y, g);
     if (this.targeting) {
       const sy = this.ren.sectionY(m.y);
@@ -137,9 +169,9 @@ export class Input {
       const x = Math.max(0, Math.min(359, Math.floor(m.x)));
       let v = this.ren.lay.vOf[Math.floor(sy)];
       if (g.world.fold[x]) v = Math.max(0, v + g.world.fold[x] * (v / (v + 30)));
-      const entry = makeEntry(g, x, v);
+      const entry = makeEntry(g, x, v, this.onHorizon(x, Math.floor(sy)));
       if (entry) {
-        this.fieldnote.replaceChildren(h('b', {}, '✎ '), chronicleText(entry));
+        this.fieldnote.replaceChildren(chronicleCard(entry));
         this.fieldnote.hidden = false;
         this.fieldnote.style.top = Math.max(100, Math.min(470, m.y - 60)) + 'px';
         this.noteTimer = 7;

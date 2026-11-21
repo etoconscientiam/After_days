@@ -140,6 +140,13 @@ export function castElement(g: Game, el: ElementDef, target?: { x: number; v: nu
         }
       }
       for (let i = 0; i < Math.min(12, w.packs.length); i++) if (g.rng.next() < p.noteChance) giveNote(g);
+      // small things from the technogenic horizon come up with the fault
+      if (g.rng.next() < CFG.story.relicChance) {
+        const rel = g.rng.pick(CFG.relics).id;
+        g.legacy.relics[rel] = (g.legacy.relics[rel] ?? 0) + 1;
+        g.statsDirty = true;
+        g.bus.emit('relicFound', { id: rel });
+      }
       r.active.push({ id: 'quakeFx', until: r.year + 5, x: x0 });
       g.kill([0.03, 0.08, 0.08], 'earthquake');
       w.version++;

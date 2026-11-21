@@ -119,7 +119,7 @@ export function killShare(g: Game, shares: number[], cause: string): number {
   if (killed > 0) {
     g.statsDirty = true;
     g.bus.emit('extinction', { cause, killed });
-    if (g.firstTime('extinction')) g.triggerMemory('firstExtinction');
+    g.triggerEcho('firstExtinction');
   }
   return killed;
 }

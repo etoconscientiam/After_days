@@ -32,7 +32,7 @@ button { font-family: inherit; color: inherit; }
 #world.target { cursor: crosshair; }
 #ui { position: absolute; left: 0; top: 0; width: 360px; height: 640px; transform-origin: 0 0; pointer-events: none; font-size: 12px; line-height: 1.25; }
 #ui > * { pointer-events: auto; }
-#ui #memory, #ui #toasts, #ui #tooltip, #ui #target-hint { pointer-events: none; }
+#ui #toasts, #ui #tooltip, #ui #target-hint { pointer-events: none; }
 
 /* ---------- HUD ---------- */
 #hud { position: absolute; left: 0; right: 0; top: 0; padding: 6px 8px 4px; pointer-events: none;
@@ -40,9 +40,9 @@ button { font-family: inherit; color: inherit; }
 #hud * { pointer-events: none; }
 #hud #gear { pointer-events: auto; }
 .hud-top { display: flex; align-items: center; justify-content: center; position: relative; min-height: 22px; }
-#countdown { font-family: var(--head); font-size: 17px; letter-spacing: 1px; color: #fff4dc; text-shadow: 0 0 8px rgba(242,193,78,0.35), 0 1px 0 #000; display: flex; align-items: baseline; gap: 5px; }
+#countdown { font-family: var(--head); font-size: 17px; letter-spacing: 1px; color: #fff4dc; text-shadow: 0 0 8px rgba(242,193,78,0.35), 0 1px 0 #000; display: flex; flex-direction: column; align-items: center; gap: 2px; }
 #countdown.finding { font-size: 10px; color: var(--accent); }
-#cd-sym { color: var(--accent); font-size: 13px; }
+#cd-sym { color: var(--accent); font-size: 11px; line-height: 1; }
 #gear { position: absolute; right: -2px; top: -2px; }
 .icon-btn { background: transparent; border: 1px solid transparent; color: var(--muted); font-size: 15px; width: 24px; height: 24px; border-radius: 3px; cursor: pointer; line-height: 1; padding: 0; }
 .icon-btn:hover { color: var(--accent); border-color: var(--line); }
@@ -65,9 +65,6 @@ button { font-family: inherit; color: inherit; }
 #density { flex: none; font-size: 10px; color: #c8b8ff; }
 
 /* ---------- memory & toasts ---------- */
-#memory { position: absolute; left: 16px; right: 16px; top: 96px; text-align: center; font-size: 13px; color: #f6efdc; font-style: italic;
-  text-shadow: 0 0 10px rgba(0,0,0,0.9), 0 1px 1px #000; opacity: 0; transition: opacity 1.4s ease; letter-spacing: 0.2px; }
-#memory.show { opacity: 0.95; }
 #toasts { position: absolute; right: 6px; top: 206px; width: 170px; display: flex; flex-direction: column; gap: 3px; align-items: flex-end; }
 .toast { background: var(--panel); border: 1px solid var(--line); padding: 3px 6px; font-size: 10px; border-radius: 2px; color: var(--text);
   animation: toastIn 0.25s ease-out, toastOut 0.6s ease-in forwards; animation-delay: 0s, 3.6s; max-width: 170px; }
@@ -183,7 +180,7 @@ button { font-family: inherit; color: inherit; }
 .ritual-card .r-name { color: var(--accent); font-size: 12px; }
 .ritual-card .r-act { color: var(--text); font-size: 10.5px; font-style: italic; margin: 2px 0; }
 .ritual-card .r-world { color: var(--muted); font-size: 10px; }
-.finding { position: absolute; left: 0; right: 0; top: 34%; text-align: center; pointer-events: auto; animation: fadeUp 2.5s ease-out; }
+.finding { position: absolute; left: 0; right: 0; top: 47%; text-align: center; pointer-events: auto; animation: fadeUp 2.5s ease-out; }
 .finding .big { font-family: var(--head); font-size: 13px; color: #fff4dc; text-shadow: 0 0 14px rgba(242,193,78,0.6); line-height: 1.6; }
 .finding p { font-size: 12px; color: var(--text); margin: 10px 24px; }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
@@ -192,3 +189,43 @@ button { font-family: inherit; color: inherit; }
 #dev { position: absolute; left: 4px; top: 96px; width: 132px; background: rgba(0,0,0,0.82); border: 1px solid #3a6; color: #8f8; font: 9px monospace; padding: 4px; z-index: 20; }
 #dev button, #dev select { font: 9px monospace; background: #122; color: #8f8; border: 1px solid #3a6; margin: 1px; padding: 1px 3px; cursor: pointer; }
 #dev .dv { white-space: pre; margin-bottom: 3px; }
+
+/* opening choice: nothing but the things */
+#ui.choosing #hud, #ui.choosing #tabbar, #ui.choosing #drawer, #ui.choosing #toasts, #ui.choosing #tooltip, #ui.choosing #fieldnote { display: none; }
+
+/* chronicle data card */
+.chron-card { font-style: normal; font-size: 10px; color: var(--text); display: flex; flex-direction: column; gap: 2px; }
+.chron-card .cc-head { color: var(--accent); display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; }
+.chron-card .cc-head span { color: var(--muted); }
+.chron-card .cc-comp { display: flex; flex-wrap: wrap; gap: 1px 8px; }
+.chron-card .cc-phys { color: var(--muted); }
+.chron-card .cc-tags { color: #d8ccb0; }
+.chron-card .cc-finds { display: flex; gap: 3px; }
+.chron-card .cc-finds canvas { width: 14px; height: 14px; image-rendering: pixelated; }
+#fieldnote { font-style: normal; }
+.chron { border-left: 2px solid var(--line); padding: 3px 6px; margin-bottom: 4px; font-style: normal; }
+
+/* notes: the look follows the medium */
+.note { position: relative; padding: 7px 9px; margin-bottom: 5px; font-size: 11px; border-radius: 1px; line-height: 1.35; }
+.note.metal_sheet { background: linear-gradient(135deg, #5a5d62, #44474c 60%, #505358); color: #d8dce0; border: 1px solid #6a6e74;
+  background-image: repeating-linear-gradient(17deg, rgba(255,255,255,0.04) 0 1px, transparent 1px 7px), linear-gradient(135deg, #5a5d62, #44474c 60%, #505358);
+  font-family: var(--body); text-transform: none; }
+.note.memory_crystal { background: linear-gradient(160deg, rgba(120,190,230,0.14), rgba(40,60,90,0.35)); border: 1px solid rgba(140,210,255,0.35);
+  color: #cfeeff; text-shadow: 0 0 6px rgba(120,200,255,0.6); box-shadow: inset 0 0 14px rgba(120,200,255,0.12); }
+.note.ceramic_plate { background: #b88a62; color: #3a2416; border: 1px solid #8a5e3c; box-shadow: inset 0 0 10px rgba(90,50,20,0.35); }
+.note.ceramic_plate::after { content: ''; position: absolute; right: 18%; top: 0; bottom: 30%; width: 1px; background: rgba(60,30,10,0.55); transform: skewX(-18deg); }
+.note.school_tablet { background: #2f4a3a; color: #e8f0e0; border: 3px solid #8a6a40; font-family: var(--body); }
+.note .n-text { font-style: normal; }
+.note.ceramic_plate .n-text, .note.school_tablet .n-footer { font-style: italic; }
+.note .n-footer { margin-top: 4px; opacity: 0.75; font-size: 10px; }
+.note.school_tablet .n-footer { font-style: italic; letter-spacing: 1px; }
+.note .lost { display: inline-block; width: 46px; height: 0.9em; vertical-align: -1px; margin-left: 2px;
+  background: linear-gradient(90deg, currentColor 0 30%, transparent 30%); opacity: 0.25; clip-path: polygon(0 20%, 15% 0, 30% 35%, 48% 5%, 63% 50%, 80% 10%, 100% 40%, 100% 100%, 0 100%); }
+.note.locked { background: transparent; border: 1px dashed var(--line-dim); color: var(--muted); opacity: 0.5; font-size: 10px; text-shadow: none; box-shadow: none; }
+.note.locked::after { display: none; }
+.relic-grid { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.relic-grid canvas { width: 26px; height: 26px; image-rendering: pixelated; border: 1px solid var(--line-dim); }
+.toast canvas { width: 18px; height: 18px; image-rendering: pixelated; vertical-align: middle; }
+
+#hud.finding #era-line, #hud.finding #era-bar, #hud.finding #res-row { visibility: hidden; }
+#hud.finding .hud-top { padding-top: 8px; }

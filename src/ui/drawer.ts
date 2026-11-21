@@ -5,7 +5,9 @@ import { totalPop, lifespan } from '../core/life';
 import { upgradeEffect } from '../core/stats';
 import { $, h, setText, toggle, speciesIcon, elementIcon, rockSwatch, energyIcon, densityIcon, fossilIcon, rockColor } from './dom';
 import { t, fmt, fmtInt, fmtTime } from './i18n';
-import { chronicleText } from './chronicle';
+import { chronicleCard } from './chronicle';
+import { relicIcon } from '../render/items';
+import { has } from './i18n';
 
 export type TabId = 'life' | 'elements' | 'upgrades' | 'epoch' | 'book';
 const TABS: { id: TabId; ico: string }[] = [
@@ -149,7 +151,7 @@ export class Drawer {
       case 'elements': return CFG.elements.map((e) => (g.elementAvailable(e) ? 1 : 0)).join('') + g.stats.autoSlots + g.state.settings.lang;
       case 'upgrades': return g.legacy.discovered.join(',') + g.mods.living + g.state.settings.lang;
       case 'epoch': return String(g.meta.prestiges) + g.state.settings.lang;
-      case 'book': return this.bookTab + g.legacy.notes.length + '|' + g.legacy.fossils + '|' + g.legacy.chronicle.length + g.state.settings.lang;
+      case 'book': return this.bookTab + g.legacy.notes.length + '|' + g.legacy.fossils + '|' + g.legacy.chronicle.length + '|' + Object.keys(g.legacy.relics).length + g.state.settings.lang;
     }
   }
 
@@ -393,7 +395,7 @@ export class Drawer {
     if (this.bookTab === 'chronicle') {
       const list = g.legacy.chronicle;
       if (!list.length) this.body.append(h('div', { class: 'empty' }, t('book.chronicleEmpty')));
-      for (const e of list.slice().reverse()) this.body.append(h('div', { class: 'chron' }, chronicleText(e)));
+      for (const e of list.slice().reverse()) this.body.append(h('div', { class: 'chron' }, chronicleCard(e)));
     } else if (this.bookTab === 'museum') {
       this.body.append(h('div', { class: 'c-desc', style: 'margin-bottom:5px' }, t('book.museumHint')));
       const grid = h('div', { class: 'museum-grid' });
@@ -407,17 +409,26 @@ export class Drawer {
             m.fragments ? h('div', { class: 'm-sub' }, t('book.fragments', { n: m.fragments })) : null)));
       }
       this.body.append(grid);
+      // small things from the old world: no names, no descriptions
+      const relics = h('div', { class: 'relic-grid' });
+      for (const rel of CFG.relics) relics.append(relicIcon(rel.id, (g.legacy.relics[rel.id] ?? 0) > 0));
+      this.body.append(relics);
     } else if (this.bookTab === 'notes') {
       if (!g.legacy.notes.length) this.body.append(h('div', { class: 'empty' }, t('book.notesEmpty')));
-      for (const id of CFG.story.notes) {
-        if (g.legacy.notes.includes(id)) this.body.append(h('div', { class: 'note' }, h('div', { class: 'n-title' }, t('notes.' + id + '.title')), h('div', { class: 'n-text' }, t('notes.' + id + '.text'))));
-        else this.body.append(h('div', { class: 'note locked' }, t('book.locked')));
+      for (const n of CFG.notes) {
+        if (!g.legacy.notes.includes(n.id)) { this.body.append(h('div', { class: 'note locked' }, t('book.locked'))); continue; }
+        const text = h('div', { class: 'n-text' });
+        const raw = t('notes.' + n.id + '.text', { phrase: n.todoKey ? t(n.todoKey) : '' });
+        const parts = raw.split('{lost}');
+        parts.forEach((part, i) => { text.append(part); if (i < parts.length - 1) text.append(h('span', { class: 'lost' })); });
+        const foot = has('notes.' + n.id + '.footer') ? h('div', { class: 'n-footer' }, t('notes.' + n.id + '.footer')) : null;
+        this.body.append(h('div', { class: `note ${n.medium} ${n.type}` }, text, foot));
       }
     } else {
       const L = g.legacy;
       const rows: [string, string][] = [
         ['playthrough', String(L.playthrough)], ['prestiges', String(L.totalPrestiges)], ['fossils', String(L.fossils)],
-        ['time', fmtTime(L.totalRealTime)], ['maxEra', t('era.' + g.meta.maxEra)], ['notes', `${L.notes.length}/${CFG.story.notes.length}`],
+        ['time', fmtTime(L.totalRealTime)], ['maxEra', t('era.' + g.meta.maxEra)], ['notes', `${L.notes.length}/${CFG.notes.length}`],
         ['discovered', String(L.discovered.length)], ['rituals', L.rituals.map((r) => t('ritual.' + r + '.name')).join(', ') || '—'],
       ];
       for (const [k, v] of rows) this.body.append(h('div', { class: 'stat-line' }, t('book.st.' + k) + ': ', h('b', {}, v)));

@@ -95,7 +95,7 @@ export class Modals {
         h('div', {}, t('away.layers', { v: fmtInt(rep.layers) })),
         rocks.length ? h('div', {}, t('away.rocks') + ': ' + rocks.map(([k, v]) => `${t('rocks.' + k)} +${fmt(v)}`).join(', ')) : null,
         rep.fossils ? h('div', {}, t('away.fossils', { v: rep.fossils })) : null,
-        ...rep.notes.map((n) => h('div', {}, t('away.notes', { v: t('notes.' + n + '.title') })))),
+        rep.notes.length ? h('div', {}, t('away.notes', { v: rep.notes.length })) : null),
       h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: () => this.close() }, t('btn.continue'))));
     this.show(m, true);
   }
@@ -122,17 +122,12 @@ export class Modals {
         h('div', { class: 'c-desc', style: 'text-align:center' }, t('finale.once')));
       this.show(box, true);
     } else if (ph === 'newWorld') {
-      const last = g.legacy.rituals[g.legacy.rituals.length - 1];
       const box = h('div', { class: 'finding' },
-        h('div', { class: 'big' }, t('finale.after')),
-        h('p', {}, t('finale.tradition') + ' ' + t('ritual.' + last + '.act')),
-        h('p', { style: 'color:#9a9284' }, t('finale.newWorld')),
         h('button', { class: 'btn big', onclick: () => { this.close(); this.onNewWorld(); } }, t('btn.newWorld')));
       this.show(box, true);
     } else if (ph === 'end') {
       const L = g.legacy;
       const box = h('div', { class: 'finding' },
-        h('div', { class: 'big' }, t('finale.after')),
         h('p', {}, t('finale.end')),
         h('p', { style: 'color:#9a9284' }, t('finale.endStats', { w: L.playthrough, f: L.fossils, p: L.totalPrestiges })));
       this.show(box, true);

@@ -1,0 +1,17 @@
+{
+  "_comment": "Notes from 3011 on durable media. Texts are in i18n (notes.<id>.text, optional .footer). {lost} in a text marks a melted/chipped gap. reviewEn: the English text awaits the author's review. todo marks a temporary phrase the author will replace.",
+  "notes": [
+    { "id": "n01", "order": 1,  "medium": "metal_sheet",    "type": "newspaper", "reviewEn": true },
+    { "id": "n02", "order": 2,  "medium": "memory_crystal", "type": "magazine",  "reviewEn": true },
+    { "id": "n03", "order": 3,  "medium": "memory_crystal", "type": "post",      "reviewEn": true },
+    { "id": "n04", "order": 4,  "medium": "ceramic_plate",  "type": "letter",    "reviewEn": true },
+    { "id": "n05", "order": 5,  "medium": "school_tablet",  "type": "capsule",   "reviewEn": true },
+    { "id": "n06", "order": 6,  "medium": "ceramic_plate",  "type": "diary",     "reviewEn": true },
+    { "id": "n07", "order": 7,  "medium": "memory_crystal", "type": "magazine",  "reviewEn": true, "todo": "AUTHOR_PHRASE_TODO", "todoKey": "notes.n07.authorPhrase" },
+    { "id": "n08", "order": 8,  "medium": "metal_sheet",    "type": "flyer",     "reviewEn": true },
+    { "id": "n09", "order": 9,  "medium": "memory_crystal", "type": "report",    "reviewEn": true },
+    { "id": "n10", "order": 10, "medium": "ceramic_plate",  "type": "diary",     "reviewEn": true },
+    { "id": "n11", "order": 11, "medium": "metal_sheet",    "type": "newspaper", "reviewEn": true },
+    { "id": "n12", "order": 12, "medium": "ceramic_plate",  "type": "diary",     "reviewEn": true }
+  ]
+}

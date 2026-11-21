@@ -191,6 +191,72 @@ export class Audio {
     }
     if (this.choir) this.choir.gain.gain.setTargetAtTime(level * 0.8, c.currentTime, 0.8);
   }
+
+  // ---------- echo sounds: quiet, short, synthesized placeholders ----------
+  private tone(at: number, freq: number, dur: number, vol: number, type: OscillatorType = 'sine', glideTo?: number): void {
+    const c = this.ctx!, t = c.currentTime + at;
+    const o = c.createOscillator();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t);
+    if (glideTo) o.frequency.exponentialRampToValueAtTime(glideTo, t + dur);
+    const g = c.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + Math.min(0.02, dur / 4));
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(this.sfx);
+    o.start(t); o.stop(t + dur + 0.05);
+  }
+
+  private hiss(at: number, dur: number, vol: number, type: BiquadFilterType, freq: number, q = 1, attack = 0.02, freqTo?: number): void {
+    const c = this.ctx!, t = c.currentTime + at;
+    const n = c.createBufferSource();
+    n.buffer = this.noiseBuf;
+    n.loop = true;
+    const f = c.createBiquadFilter();
+    f.type = type; f.frequency.setValueAtTime(freq, t); f.Q.value = q;
+    if (freqTo) f.frequency.exponentialRampToValueAtTime(freqTo, t + dur);
+    const g = c.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + attack);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    n.connect(f).connect(g).connect(this.sfx);
+    n.start(t, Math.random()); n.stop(t + dur + 0.05);
+  }
+
+  echo(sound: string, level = 1): void {
+    if (!this.ctx || !this.noiseBuf) return;
+    const v = 0.12 * level;
+    switch (sound) {
+      case 'knock': this.tone(0, 140, 0.12, v * 1.5, 'sine', 90); this.tone(0.22, 140, 0.12, v * 1.3, 'sine', 90); break;
+      case 'cityHum': this.hiss(0, 2.6, v * 0.8, 'lowpass', 220, 0.7, 0.8); this.tone(0, 60, 2.4, v * 0.3, 'sine'); break;
+      case 'creak': this.tone(0, 320, 0.5, v * 0.4, 'sawtooth', 260); this.tone(0.9, 300, 0.45, v * 0.35, 'sawtooth', 340); break;
+      case 'wings': for (let i = 0; i < 10; i++) this.hiss(i * 0.07, 0.06, v * 0.8, 'bandpass', 900, 1.2, 0.01); break;
+      case 'spoon': this.tone(0, 2400, 0.35, v * 0.5); this.tone(0.18, 2600, 0.3, v * 0.4); this.tone(0.34, 2500, 0.4, v * 0.35); break;
+      case 'tramBell': this.tone(0, 1180, 0.7, v * 0.6, 'triangle'); this.tone(0.3, 1180, 0.8, v * 0.5, 'triangle'); break;
+      case 'bark': this.tone(0, 520, 0.12, v * 0.7, 'square', 280); this.tone(0.2, 540, 0.12, v * 0.6, 'square', 300); break;
+      case 'drops': for (let i = 0; i < 4; i++) this.tone(i * 0.31 + Math.random() * 0.1, 1400 + Math.random() * 600, 0.12, v * 0.5, 'sine', 600); break;
+      case 'radioBeep': for (let i = 0; i < 3; i++) this.tone(i * 0.45, 1760, 0.12, v * 0.35); this.hiss(0, 1.5, v * 0.15, 'bandpass', 3000, 2, 0.1); break;
+      case 'inhale': this.hiss(0, 1.4, v * 0.9, 'bandpass', 600, 0.8, 0.9, 1400); break;
+      case 'chalk': for (let i = 0; i < 3; i++) this.hiss(i * 0.35, 0.22, v * 0.6, 'highpass', 3500, 1, 0.03); break;
+      case 'static': this.hiss(0, 1.2, v * 0.5, 'bandpass', 2500, 0.5, 0.02); break;
+      case 'wind': this.hiss(0, 2.8, v * 0.9, 'bandpass', 400, 0.9, 1.0, 700); break;
+      case 'farChime': this.tone(0.3, 880, 2.6, v * 0.35, 'sine'); this.tone(0.3, 2420, 1.2, v * 0.1, 'sine'); break;
+      case 'curtainWind': this.hiss(0, 2.4, v * 0.7, 'lowpass', 900, 0.5, 0.9); break;
+      case 'farLaugh': for (let i = 0; i < 5; i++) this.tone(0.2 + i * 0.16, 620 + (i % 2) * 90, 0.12, v * 0.15, 'triangle', 540); break;
+      case 'glassClink': this.tone(0, 3100, 0.6, v * 0.45); this.tone(0.05, 3500, 0.55, v * 0.4); break;
+      case 'shortInhale': this.hiss(0, 0.45, v * 0.9, 'bandpass', 800, 0.8, 0.3, 1600); break;
+      case 'shutter': this.hiss(0, 0.05, v * 1.2, 'highpass', 2000, 1, 0.003); this.hiss(0.09, 0.05, v * 1.0, 'highpass', 1600, 1, 0.003); break;
+      case 'drip': this.tone(0.2, 1500, 0.15, v * 0.6, 'sine', 700); this.tone(1.3, 1500, 0.15, v * 0.55, 'sine', 700); break;
+      case 'intercom': this.tone(0, 880, 0.18, v * 0.4, 'square'); this.tone(0.25, 880, 0.18, v * 0.4, 'square'); break;
+      case 'steps': for (let i = 0; i < 4; i++) this.tone(i * 0.42, 110, 0.1, v * 1.1, 'sine', 70); break;
+      case 'childVoices': for (let i = 0; i < 6; i++) this.tone(0.1 + i * 0.22, 700 + Math.random() * 300, 0.16, v * 0.12, 'triangle', 900); break;
+      case 'lockTurn': this.hiss(0, 0.04, v * 1.2, 'highpass', 1800, 1, 0.003); this.hiss(0.18, 0.06, v, 'bandpass', 1200, 2, 0.003); this.tone(0.3, 260, 0.4, v * 0.2, 'sawtooth', 200); break;
+      case 'compHum': this.tone(0, 120, 2.6, v * 0.25, 'sine'); this.tone(0, 240, 2.6, v * 0.08, 'sine'); this.hiss(0, 2.6, v * 0.25, 'lowpass', 500, 0.5, 0.6); break;
+      case 'streetNoise': this.hiss(0, 2.6, v * 0.7, 'lowpass', 600, 0.5, 0.8); this.tone(1.2, 440, 0.3, v * 0.12, 'square'); break;
+      case 'clockTick': for (let i = 0; i < 5; i++) this.hiss(i * 0.5, 0.025, v * 1.2, 'highpass', 3000, 1, 0.002); break;
+      case 'silence': default: break;
+    }
+  }
 }
 
 export const audio = new Audio();

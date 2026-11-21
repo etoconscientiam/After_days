@@ -2,7 +2,7 @@
 import { CFG, M, ZONES, ZoneId, SpeciesDef, ElementDef } from '../config';
 import { World, W, CAP, F_ROLLED } from '../world/World';
 import { EventBus } from './events';
-import { RNG } from './rng';
+import { RNG, hash2 } from './rng';
 import { GameState, newGameState, newRun, newMeta, TargetZone } from './state';
 import { computeStats, Stats, upgradePrice, densityPrice } from './stats';
 import { lifeStep, killShare, addCarcass, totalPop, speciesAlive } from './life';
@@ -10,6 +10,7 @@ import { depositionStep, depositCell } from './deposition';
 import { geoTick, rollFossil } from './geology';
 import { castElement, elementUnlocked } from './elements';
 import { prestigeGain, doPrestige } from './prestige';
+import { triggerEcho, randomEcho, echoInterval, currentItem } from './echoes';
 
 export interface WorldMods {
   hot: boolean; living: boolean; shards: boolean;
@@ -36,7 +37,9 @@ export class Game {
   statsDirty = true;
   headless = false;
   lastShard = 1;
-  memoryTimer = 120;
+  echoTimer = 25;
+  zoneGlow = [0, 0, 0];                 // mean glow of the technogenic horizon under each zone
+  glow = new Float32Array(W);           // horizon glow profile (energy source)
 
   constructor(state?: GameState, world?: World) {
     this.state = state ?? newGameState();
@@ -103,6 +106,18 @@ export class Game {
       }
       for (let z = 0; z < 3; z++) this.zoneMix[x * 3 + z] = m[z] / n;
     }
+    // the technogenic horizon glows around the thing; creatures above bright ground earn a little more
+    const H = CFG.story.horizon;
+    const centers = this.mods.shards ? this.shardXs() : [W / 2];
+    const sum = [0, 0, 0];
+    for (let x = 0; x < W; x++) {
+      let b = 0.12;
+      for (const c of centers) b += 0.88 * Math.exp(-(((x - c) / H.glowWidth) ** 2));
+      if (hash2(x >> 3, 913) > 0.86) b += 0.25;
+      this.glow[x] = Math.min(1, b);
+      sum[this.zoneMap[x]] += this.glow[x];
+    }
+    for (let z = 0; z < 3; z++) this.zoneGlow[z] = this.zoneWidth[z] ? sum[z] / this.zoneWidth[z] : 0;
   }
 
   zoneIndex(z: ZoneId): number { return ZONES.indexOf(z); }
@@ -171,7 +186,8 @@ export class Game {
       if (!n) continue;
       let eps = sp.eps;
       if (this.run.mutations[sp.id] === 'vigor') eps *= 1.5;
-      let v = eps * n;
+      const gb = CFG.story.horizon.glowBonus;
+      let v = eps * (p[0] * (1 + gb * this.zoneGlow[0]) + p[1] * (1 + gb * this.zoneGlow[1]) + p[2] * (1 + gb * this.zoneGlow[2]));
       if (st.seaEnergy && sp.zone === 'water') v *= 1 + st.seaEnergy;
       e += v;
     }
@@ -232,12 +248,12 @@ export class Game {
     }
     this.autoElements(dt);
     this.checkEra();
+    if (this.meta.prestiges === 0 && r.year >= CFG.story.traces.endYear) triggerEcho(this, 'tracesErased');
     if (!this.headless) {
-      this.memoryTimer -= dt * (1 + this.stats.memory);
-      if (this.memoryTimer <= 0) {
-        this.memoryTimer = 150 + this.rng.next() * 150;
-        const seen = s.legacy.memorySeen;
-        if (seen.length) this.bus.emit('memory', { id: this.rng.pick(seen) });
+      this.echoTimer -= dt;
+      if (this.echoTimer <= 0) {
+        this.echoTimer = echoInterval(this);
+        randomEcho(this);
       }
     }
     for (let i = this.glints.length - 1; i >= 0; i--) {
@@ -351,6 +367,7 @@ export class Game {
       if (this.eraConditionMet() && this.state.phase === 'play') {
         this.state.phase = 'finale';
         this.bus.emit('excavationDone', {});
+        triggerEcho(this, 'finale');
       }
       return;
     }
@@ -365,16 +382,28 @@ export class Game {
     if (r.year < CFG.eras[era].start) r.year = CFG.eras[era].start;
     this.statsDirty = true;
     this.bus.emit('eraChanged', { era });
-    this.triggerMemory('era:' + era);
+    triggerEcho(this, 'era:' + era);
+    // the last high satellite goes out as era 0 ends (first run of a world only)
+    if (era >= 1 && this.meta.prestiges === 0) triggerEcho(this, 'lastSatellite');
     if (this.mods.living && era >= 1) this.offerMutations();
   }
 
-  triggerMemory(trigger: string): void {
-    const line = CFG.story.memoryLines.find((m) => m.trigger === trigger);
-    if (!line) return;
-    const seen = this.legacy.memorySeen;
-    if (!seen.includes(line.id)) seen.push(line.id);
-    this.bus.emit('memory', { id: line.id });
+  triggerEcho(trigger: string): void { triggerEcho(this, trigger); }
+
+  currentItem(): string | null { return currentItem(this); }
+
+  availableItems(): string[] {
+    return CFG.items.map((i) => i.id).filter((id) => !this.legacy.items.includes(id));
+  }
+
+  /** The opening choice: the thing goes into the ground and era 0 begins. */
+  chooseItem(id: string): boolean {
+    if (this.state.phase !== 'choose' || !this.availableItems().includes(id)) return false;
+    this.legacy.items[this.legacy.playthrough - 1] = id;
+    this.state.phase = 'play';
+    this.bus.emit('itemChosen', { id });
+    triggerEcho(this, 'era:0');
+    return true;
   }
 
   firstTime(key: string): boolean {
@@ -391,6 +420,7 @@ export class Game {
     r.energy += e;
     r.energyEarned += e;
     r.boost = Math.min(this.boostMax(), r.boost + CFG.B.energy.boostPerClick);
+    triggerEcho(this, 'firstClick');
     if (this.mods.shards && shard >= 0) {
       r.shardBoost[shard] = Math.min(this.boostMax(), r.shardBoost[shard] + 1);
       this.lastShard = shard;
@@ -426,6 +456,10 @@ export class Game {
     const t = totalPop(this, id);
     if (t > (this.run.peak[id] ?? 0)) this.run.peak[id] = t;
     this.statsDirty = true;
+    triggerEcho(this, 'firstLife');
+    const landish = sp.zone === 'land' || sp.zone === 'shoreLand';
+    if (landish && sp.groups.includes('animal')) triggerEcho(this, 'firstLandAnimal');
+    if (landish && sp.groups.includes('plant')) triggerEcho(this, 'firstLandPlant');
     return true;
   }
 
@@ -554,8 +588,7 @@ export class Game {
     if (!this.legacy.discovered.includes(rock)) {
       this.legacy.discovered.push(rock);
       this.bus.emit('rockDiscovered', { rock });
-      if (this.firstTime('rock')) this.triggerMemory('firstRock');
-      if (rock === 'diamond') this.triggerMemory('firstDiamond');
+
     }
   }
 
@@ -651,7 +684,8 @@ export class Game {
     s.legacy.playthrough++;
     s.meta = newMeta();
     s.run = newRun(0);
-    s.phase = 'play';
+    s.phase = 'choose';
+    s.legacy.echoSeen = [];
     s.ritualChoice = null;
     s.templeProgress = 0;
     this.world.reset();
@@ -687,9 +721,6 @@ export class Game {
     return CFG.B.shards.x640.map((v) => Math.round(v * CFG.B.world.ref640));
   }
 
-  addMemorySeen(id: string): void {
-    if (!this.legacy.memorySeen.includes(id)) this.legacy.memorySeen.push(id);
-  }
 
   // re-exported helpers for other modules
   depositCell = (x: number, m: number, zi: number, burialMul = 1) => depositCell(this, x, m, zi, burialMul);

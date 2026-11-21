@@ -12,7 +12,9 @@ export interface GameEvents {
   temple: { ritual: string };
   click: { energy: number; boost: number };
   element: { id: string; x?: number; depth?: number };
-  memory: { id: string };
+  echo: { id: string; alpha: number };
+  relicFound: { id: string };
+  itemChosen: { id: string };
   speciesUnlocked: { id: string };
   toast: { key: string; vars?: Record<string, string | number>; color?: string };
   excavationDone: {};

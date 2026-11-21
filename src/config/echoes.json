@@ -1,0 +1,41 @@
+{
+  "_comment": "Echoes: small wordless pictures over the sky with their own quiet sound. picture = procedural id in render/echoes.ts (placeholder art). trigger = core event; 'random' ones are drawn by the echo timer. group: common | ring | key | wand.",
+  "duration": 3.2,
+  "personalShare": 0.33,
+  "interval": { "base": 45, "perEra": 22, "jitter": 0.5 },
+  "alpha": { "base": 0.95, "perEra": 0.07, "min": 0.4 },
+  "echoes": [
+    { "id": "e01", "picture": "palmGlass",      "sound": "knock",       "group": "common", "trigger": "firstClick" },
+    { "id": "e02", "picture": "litWindow",      "sound": "cityHum",     "group": "common", "trigger": "era:0" },
+    { "id": "e03", "picture": "swing",          "sound": "creak",       "group": "common", "trigger": "compactionVisible" },
+    { "id": "e04", "picture": "pigeons",        "sound": "wings",       "group": "common", "trigger": "firstLife" },
+    { "id": "e05", "picture": "cupSteam",       "sound": "spoon",       "group": "common", "trigger": "random", "eras": [0, 2] },
+    { "id": "e06", "picture": "tram",           "sound": "tramBell",    "group": "common", "trigger": "random", "eras": [0, 2] },
+    { "id": "e07", "picture": "dog",            "sound": "bark",        "group": "common", "trigger": "firstLandAnimal" },
+    { "id": "e08", "picture": "seedlings",      "sound": "drops",       "group": "common", "trigger": "firstLandPlant" },
+    { "id": "e09", "picture": "satellites",     "sound": "radioBeep",   "group": "common", "trigger": "lastSatellite" },
+    { "id": "e10", "picture": "crowdUp",        "sound": "inhale",      "group": "common", "trigger": "firstExtinction" },
+    { "id": "e11", "picture": "chalkHand",      "sound": "chalk",       "group": "common", "trigger": "firstFossil" },
+    { "id": "e12", "picture": "ticker",         "sound": "static",      "group": "common", "trigger": "random", "eras": [2, 4] },
+    { "id": "e13", "picture": "road",           "sound": "wind",        "group": "common", "trigger": "tracesErased" },
+    { "id": "e14", "picture": "emptySquare",    "sound": "farChime",    "group": "common", "trigger": "era:5" },
+    { "id": "e15", "picture": "openWindow",     "sound": "curtainWind", "group": "common", "trigger": "era:7" },
+    { "id": "e16", "picture": "capsule",        "sound": "farLaugh",    "group": "common", "trigger": "note:n05" },
+    { "id": "e17", "picture": "palmGlassOther", "sound": "knock",       "group": "common", "trigger": "finale" },
+
+    { "id": "r1", "picture": "festiveTable",    "sound": "glassClink",  "group": "ring", "trigger": "random" },
+    { "id": "r2", "picture": "handsRing",       "sound": "shortInhale", "group": "ring", "trigger": "random" },
+    { "id": "r3", "picture": "oldPhoto",        "sound": "shutter",     "group": "ring", "trigger": "random" },
+    { "id": "r4", "picture": "nightKitchen",    "sound": "drip",        "group": "ring", "trigger": "random" },
+
+    { "id": "k1", "picture": "entranceDoor",    "sound": "intercom",    "group": "key", "trigger": "random" },
+    { "id": "k2", "picture": "stairsLight",     "sound": "steps",       "group": "key", "trigger": "random" },
+    { "id": "k3", "picture": "yardSandbox",     "sound": "childVoices", "group": "key", "trigger": "random" },
+    { "id": "k4", "picture": "keyLight",        "sound": "lockTurn",    "group": "key", "trigger": "random" },
+
+    { "id": "w1", "picture": "curtainedRoom",   "sound": "compHum",     "group": "wand", "trigger": "random" },
+    { "id": "w2", "picture": "eveningCity",     "sound": "streetNoise", "group": "wand", "trigger": "random" },
+    { "id": "w3", "picture": "bedLight",        "sound": "clockTick",   "group": "wand", "trigger": "random" },
+    { "id": "w4", "picture": "quietCity",       "sound": "silence",     "group": "wand", "trigger": "random" }
+  ]
+}

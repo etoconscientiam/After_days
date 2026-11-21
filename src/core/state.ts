@@ -76,7 +76,9 @@ export interface LegacyState {
   museum: Record<string, MuseumEntry>;
   notes: string[];
   chronicle: ChronicleEntry[];
-  memorySeen: string[];
+  echoSeen: string[];         // triggered echoes already shown in this playthrough
+  items: string[];            // chosen thing per playthrough (artifact_a/b/c)
+  relics: Record<string, number>;
   discovered: string[];       // rocks ever discovered
   rituals: string[];          // chosen in order
   playthrough: number;
@@ -96,7 +98,7 @@ export interface Settings {
   integerScale: boolean;
 }
 
-export type Phase = 'play' | 'finale' | 'temple' | 'newWorld' | 'end';
+export type Phase = 'choose' | 'play' | 'finale' | 'temple' | 'newWorld' | 'end';
 
 export interface GameState {
   version: number;
@@ -173,7 +175,7 @@ export function newMeta(): MetaState {
 
 export function newLegacy(): LegacyState {
   return {
-    museum: {}, notes: [], chronicle: [], memorySeen: [], discovered: [], rituals: [], playthrough: 1,
+    museum: {}, notes: [], chronicle: [], echoSeen: [], items: [], relics: {}, discovered: [], rituals: [], playthrough: 1,
     totalRealTime: 0, totalPrestiges: 0, fossils: 0, finished: false, firsts: {},
   };
 }
@@ -190,7 +192,7 @@ export function newGameState(seed = (Math.random() * 2 ** 31) | 0): GameState {
     meta: newMeta(),
     legacy: newLegacy(),
     settings: defaultSettings(),
-    phase: 'play',
+    phase: 'choose',
     ritualChoice: null,
     templeProgress: 0,
     savedAt: Date.now(),

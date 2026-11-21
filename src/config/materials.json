@@ -1,84 +1,834 @@
 {
   "_comment": "Every material in the section. density = weight for pressure. rock = currency id given when something turns into it (null = not a currency). grain = noise scale (bigger = coarser). organic = rots in the oxygen zone.",
   "materials": [
-    { "id": "void",        "density": 0,   "palette": ["#000000","#000000","#000000","#000000","#000000"], "grain": 4 },
-    { "id": "soil",        "density": 1.5, "palette": ["#3b2a1e","#4a3424","#5a4030","#6b4d38","#7a5a41"], "grain": 3 },
-    { "id": "dust",        "density": 1.4, "palette": ["#6e6458","#7d7264","#8b8070","#9a8f7e","#a89c8a"], "grain": 2 },
-    { "id": "silt",        "density": 1.8, "palette": ["#3f4038","#4b4c42","#57584c","#636456","#707160"], "grain": 5 },
-    { "id": "sand",        "density": 1.9, "palette": ["#a88a5a","#b89a66","#c6a872","#d3b67f","#dec28c"], "grain": 1 },
-    { "id": "clay",        "density": 2.0, "palette": ["#6b5a4e","#7a6858","#887562","#95826c","#a28f78"], "grain": 6 },
-    { "id": "shellOoze",   "density": 1.8, "palette": ["#9c9888","#aaa695","#b7b3a2","#c3bfae","#cfcbba"], "grain": 2 },
-    { "id": "limeCrust",   "density": 1.8, "palette": ["#7f9a80","#8ca88b","#99b496","#a6c0a2","#b3cbae"], "grain": 3 },
-    { "id": "orgLand",     "density": 1.1, "palette": ["#2a2416","#33301c","#3d3a20","#474426","#514e2c"], "grain": 2, "organic": true },
-    { "id": "orgMarine",   "density": 1.1, "palette": ["#23262a","#2b2f30","#333836","#3b413c","#434a42"], "grain": 3, "organic": true },
-    { "id": "bone",        "density": 1.9, "palette": ["#cfc6ac","#dad2ba","#e4ddc8","#ede7d6","#f5f1e4"], "grain": 1 },
-    { "id": "resin",       "density": 1.1, "palette": ["#a0601a","#b47020","#c88028","#d89030","#e6a040"], "grain": 2, "organic": true },
-    { "id": "guano",       "density": 1.3, "palette": ["#9a9a80","#a8a88c","#b5b598","#c1c1a4","#cdcdb0"], "grain": 2, "fertile": true },
-    { "id": "dung",        "density": 1.3, "palette": ["#4a3a20","#554428","#604e30","#6b5838","#766240"], "grain": 2, "fertile": true },
-    { "id": "ash",         "density": 1.2, "palette": ["#56565a","#656569","#747478","#838387","#929296"], "grain": 4 },
-    { "id": "moraine",     "density": 2.2, "palette": ["#4e5056","#6e7076","#8e9096","#5e6066","#aeb0b6"], "grain": 1 },
-    { "id": "meteor",      "density": 3.0, "palette": ["#3a2a3a","#4a304a","#5a3a5a","#2e2e3e","#6a4a6a"], "grain": 1 },
-    { "id": "hearth",      "density": 1.2, "palette": ["#1e1a18","#2a2420","#3a2e26","#4a382c","#8a4a20"], "grain": 1 },
-    { "id": "shards",      "density": 1.8, "palette": ["#8a4a2a","#9a5632","#aa623a","#ba6e42","#c87a4a"], "grain": 1 },
-    { "id": "peat",        "density": 1.0, "palette": ["#2e2214","#382a18","#42321c","#4c3a20","#564224"], "grain": 3, "rock": "peat" },
-    { "id": "lignite",     "density": 1.2, "palette": ["#2a2018","#32261c","#3a2c20","#423224","#4a3828"], "grain": 4, "rock": "lignite" },
-    { "id": "coal",        "density": 1.4, "palette": ["#141414","#1c1c1e","#242428","#2c2c32","#34343c"], "grain": 4, "rock": "coal" },
-    { "id": "anthracite",  "density": 1.5, "palette": ["#0c0c10","#14141a","#1c1c26","#282836","#4a4a6a"], "grain": 2, "rock": "anthracite", "glint": true },
-    { "id": "diamond",     "density": 3.5, "palette": ["#80d0f0","#a0e8ff","#c0f0ff","#e0f8ff","#ffffff"], "grain": 1, "rock": "diamond", "glint": true },
-    { "id": "oil",         "density": 0.9, "palette": ["#0e0a06","#16100a","#1e160e","#261c12","#3a2a14"], "grain": 6, "rock": "oil" },
-    { "id": "gas",         "density": 0.2, "palette": ["#303848","#384050","#404858","#485060","#505868"], "grain": 6, "rock": "gas" },
-    { "id": "chalk",       "density": 2.2, "palette": ["#d0cec4","#d8d6cc","#e0ded4","#e8e6dc","#efede4"], "grain": 4, "rock": "chalk" },
-    { "id": "limestone",   "density": 2.6, "palette": ["#a8a492","#b4b09e","#c0bcaa","#cbc7b5","#d6d2c0"], "grain": 4, "rock": "limestone" },
-    { "id": "marble",      "density": 2.7, "palette": ["#b8b4c0","#d0ccd4","#dcd8e0","#e8e4ec","#f2eff4"], "grain": 7, "rock": "marble" },
-    { "id": "sandstone",   "density": 2.3, "palette": ["#9a6a42","#a8764c","#b68256","#c48e60","#d29a6a"], "grain": 3, "rock": "sandstone" },
-    { "id": "quartzite",   "density": 2.65,"palette": ["#b0a098","#c8b8b0","#d4c4bc","#e0d0c8","#ece0d8"], "grain": 3, "rock": "quartzite", "glint": true },
-    { "id": "mudstone",    "density": 2.4, "palette": ["#5a4a46","#665450","#725e5a","#7e6864","#8a726e"], "grain": 5, "rock": "mudstone" },
-    { "id": "shale",       "density": 2.5, "palette": ["#3a3c44","#44464e","#4e5058","#585a62","#62646c"], "grain": 6, "rock": "shale" },
-    { "id": "slate",       "density": 2.7, "palette": ["#2a3038","#323840","#3a4048","#424850","#4a5058"], "grain": 7, "rock": "slate" },
-    { "id": "tuff",        "density": 1.6, "palette": ["#8a7a6a","#988876","#a69682","#b4a48e","#c2b29a"], "grain": 3, "rock": "tuff" },
-    { "id": "amber",       "density": 1.1, "palette": ["#c06810","#d47818","#e88a20","#f49c30","#ffb040"], "grain": 2, "rock": "amber", "glint": true },
-    { "id": "amberInsect", "density": 1.1, "palette": ["#c06810","#3a2008","#e88a20","#f49c30","#ffb040"], "grain": 1, "rock": "amber", "glint": true },
-    { "id": "phosphorite", "density": 2.4, "palette": ["#6a6a5a","#787866","#868672","#94947e","#a2a28a"], "grain": 3, "rock": "phosphorite" },
-    { "id": "stromatolite","density": 2.4, "palette": ["#5f7050","#6f8060","#7f9070","#8fa080","#9fb090"], "grain": 2, "rock": "stromatolite", "banded": true },
-    { "id": "iridium",     "density": 3.5, "palette": ["#3a2a4a","#4a3a5a","#5a4a6a","#2a1a3a","#8a6aa0"], "grain": 1, "rock": "rare", "glint": true },
-    { "id": "magma",       "density": 2.6, "palette": ["#e03000","#ff4000","#ff6a00","#ff9000","#ffb020"], "grain": 3, "emissive": true },
-    { "id": "basalt",      "density": 3.0, "palette": ["#26262a","#2e2e34","#36363e","#3e3e48","#464652"], "grain": 3, "rock": "basalt" },
-    { "id": "obsidian",    "density": 2.4, "palette": ["#0a0610","#120a1a","#1a0e24","#24142e","#3a2048"], "grain": 6, "rock": "obsidian", "glint": true },
-    { "id": "granite",     "density": 2.7, "palette": ["#6a5c5a","#8a7a78","#a08c88","#b49c96","#c8b0a8"], "grain": 1, "rock": "granite" },
-    { "id": "gneiss",      "density": 2.8, "palette": ["#5a5054","#6a6064","#7a6e70","#8a7c7e","#9a8a8c"], "grain": 2, "rock": "gneiss", "banded": true },
-    { "id": "ruby",        "density": 4.0, "palette": ["#800010","#a00820","#c01030","#e02040","#ff4060"], "grain": 1, "rock": "ruby", "glint": true },
-    { "id": "sapphire",    "density": 4.0, "palette": ["#081080","#1020a0","#1830c0","#2040e0","#4060ff"], "grain": 1, "rock": "sapphire", "glint": true },
-    { "id": "graphite",    "density": 2.2, "palette": ["#2a2a2a","#323232","#3a3a3a","#424242","#4a4a4a"], "grain": 3, "rock": "graphite" },
-    { "id": "glowstone",   "density": 2.0, "palette": ["#30d080","#40ffa0","#60ffb8","#80ffd0","#a0ffe0"], "grain": 2, "rock": "glowstone", "emissive": true }
+    {
+      "id": "void",
+      "density": 0,
+      "palette": [
+        "#000000",
+        "#000000",
+        "#000000",
+        "#000000",
+        "#000000"
+      ],
+      "grain": 4
+    },
+    {
+      "id": "soil",
+      "density": 1.5,
+      "palette": [
+        "#3b2a1e",
+        "#4a3424",
+        "#5a4030",
+        "#6b4d38",
+        "#7a5a41"
+      ],
+      "grain": 3
+    },
+    {
+      "id": "dust",
+      "density": 1.4,
+      "palette": [
+        "#6e6458",
+        "#7d7264",
+        "#8b8070",
+        "#9a8f7e",
+        "#a89c8a"
+      ],
+      "grain": 2
+    },
+    {
+      "id": "silt",
+      "density": 1.8,
+      "palette": [
+        "#3f4038",
+        "#4b4c42",
+        "#57584c",
+        "#636456",
+        "#707160"
+      ],
+      "grain": 5
+    },
+    {
+      "id": "sand",
+      "density": 1.9,
+      "palette": [
+        "#a88a5a",
+        "#b89a66",
+        "#c6a872",
+        "#d3b67f",
+        "#dec28c"
+      ],
+      "grain": 1
+    },
+    {
+      "id": "clay",
+      "density": 2.0,
+      "palette": [
+        "#6b5a4e",
+        "#7a6858",
+        "#887562",
+        "#95826c",
+        "#a28f78"
+      ],
+      "grain": 6
+    },
+    {
+      "id": "shellOoze",
+      "density": 1.8,
+      "palette": [
+        "#9c9888",
+        "#aaa695",
+        "#b7b3a2",
+        "#c3bfae",
+        "#cfcbba"
+      ],
+      "grain": 2
+    },
+    {
+      "id": "limeCrust",
+      "density": 1.8,
+      "palette": [
+        "#7f9a80",
+        "#8ca88b",
+        "#99b496",
+        "#a6c0a2",
+        "#b3cbae"
+      ],
+      "grain": 3
+    },
+    {
+      "id": "orgLand",
+      "density": 1.1,
+      "palette": [
+        "#2a2416",
+        "#33301c",
+        "#3d3a20",
+        "#474426",
+        "#514e2c"
+      ],
+      "grain": 2,
+      "organic": true
+    },
+    {
+      "id": "orgMarine",
+      "density": 1.1,
+      "palette": [
+        "#23262a",
+        "#2b2f30",
+        "#333836",
+        "#3b413c",
+        "#434a42"
+      ],
+      "grain": 3,
+      "organic": true
+    },
+    {
+      "id": "bone",
+      "density": 1.9,
+      "palette": [
+        "#cfc6ac",
+        "#dad2ba",
+        "#e4ddc8",
+        "#ede7d6",
+        "#f5f1e4"
+      ],
+      "grain": 1
+    },
+    {
+      "id": "resin",
+      "density": 1.1,
+      "palette": [
+        "#a0601a",
+        "#b47020",
+        "#c88028",
+        "#d89030",
+        "#e6a040"
+      ],
+      "grain": 2,
+      "organic": true
+    },
+    {
+      "id": "guano",
+      "density": 1.3,
+      "palette": [
+        "#9a9a80",
+        "#a8a88c",
+        "#b5b598",
+        "#c1c1a4",
+        "#cdcdb0"
+      ],
+      "grain": 2,
+      "fertile": true
+    },
+    {
+      "id": "dung",
+      "density": 1.3,
+      "palette": [
+        "#4a3a20",
+        "#554428",
+        "#604e30",
+        "#6b5838",
+        "#766240"
+      ],
+      "grain": 2,
+      "fertile": true
+    },
+    {
+      "id": "ash",
+      "density": 1.2,
+      "palette": [
+        "#56565a",
+        "#656569",
+        "#747478",
+        "#838387",
+        "#929296"
+      ],
+      "grain": 4
+    },
+    {
+      "id": "moraine",
+      "density": 2.2,
+      "palette": [
+        "#4e5056",
+        "#6e7076",
+        "#8e9096",
+        "#5e6066",
+        "#aeb0b6"
+      ],
+      "grain": 1
+    },
+    {
+      "id": "meteor",
+      "density": 3.0,
+      "palette": [
+        "#3a2a3a",
+        "#4a304a",
+        "#5a3a5a",
+        "#2e2e3e",
+        "#6a4a6a"
+      ],
+      "grain": 1
+    },
+    {
+      "id": "hearth",
+      "density": 1.2,
+      "palette": [
+        "#1e1a18",
+        "#2a2420",
+        "#3a2e26",
+        "#4a382c",
+        "#8a4a20"
+      ],
+      "grain": 1
+    },
+    {
+      "id": "shards",
+      "density": 1.8,
+      "palette": [
+        "#8a4a2a",
+        "#9a5632",
+        "#aa623a",
+        "#ba6e42",
+        "#c87a4a"
+      ],
+      "grain": 1
+    },
+    {
+      "id": "peat",
+      "density": 1.0,
+      "palette": [
+        "#2e2214",
+        "#382a18",
+        "#42321c",
+        "#4c3a20",
+        "#564224"
+      ],
+      "grain": 3,
+      "rock": "peat"
+    },
+    {
+      "id": "lignite",
+      "density": 1.2,
+      "palette": [
+        "#2a2018",
+        "#32261c",
+        "#3a2c20",
+        "#423224",
+        "#4a3828"
+      ],
+      "grain": 4,
+      "rock": "lignite"
+    },
+    {
+      "id": "coal",
+      "density": 1.4,
+      "palette": [
+        "#141414",
+        "#1c1c1e",
+        "#242428",
+        "#2c2c32",
+        "#34343c"
+      ],
+      "grain": 4,
+      "rock": "coal"
+    },
+    {
+      "id": "anthracite",
+      "density": 1.5,
+      "palette": [
+        "#0c0c10",
+        "#14141a",
+        "#1c1c26",
+        "#282836",
+        "#4a4a6a"
+      ],
+      "grain": 2,
+      "rock": "anthracite",
+      "glint": true
+    },
+    {
+      "id": "diamond",
+      "density": 3.5,
+      "palette": [
+        "#80d0f0",
+        "#a0e8ff",
+        "#c0f0ff",
+        "#e0f8ff",
+        "#ffffff"
+      ],
+      "grain": 1,
+      "rock": "diamond",
+      "glint": true
+    },
+    {
+      "id": "oil",
+      "density": 0.9,
+      "palette": [
+        "#0e0a06",
+        "#16100a",
+        "#1e160e",
+        "#261c12",
+        "#3a2a14"
+      ],
+      "grain": 6,
+      "rock": "oil"
+    },
+    {
+      "id": "gas",
+      "density": 0.2,
+      "palette": [
+        "#303848",
+        "#384050",
+        "#404858",
+        "#485060",
+        "#505868"
+      ],
+      "grain": 6,
+      "rock": "gas"
+    },
+    {
+      "id": "chalk",
+      "density": 2.2,
+      "palette": [
+        "#d0cec4",
+        "#d8d6cc",
+        "#e0ded4",
+        "#e8e6dc",
+        "#efede4"
+      ],
+      "grain": 4,
+      "rock": "chalk"
+    },
+    {
+      "id": "limestone",
+      "density": 2.6,
+      "palette": [
+        "#a8a492",
+        "#b4b09e",
+        "#c0bcaa",
+        "#cbc7b5",
+        "#d6d2c0"
+      ],
+      "grain": 4,
+      "rock": "limestone"
+    },
+    {
+      "id": "marble",
+      "density": 2.7,
+      "palette": [
+        "#b8b4c0",
+        "#d0ccd4",
+        "#dcd8e0",
+        "#e8e4ec",
+        "#f2eff4"
+      ],
+      "grain": 7,
+      "rock": "marble"
+    },
+    {
+      "id": "sandstone",
+      "density": 2.3,
+      "palette": [
+        "#9a6a42",
+        "#a8764c",
+        "#b68256",
+        "#c48e60",
+        "#d29a6a"
+      ],
+      "grain": 3,
+      "rock": "sandstone"
+    },
+    {
+      "id": "quartzite",
+      "density": 2.65,
+      "palette": [
+        "#b0a098",
+        "#c8b8b0",
+        "#d4c4bc",
+        "#e0d0c8",
+        "#ece0d8"
+      ],
+      "grain": 3,
+      "rock": "quartzite",
+      "glint": true
+    },
+    {
+      "id": "mudstone",
+      "density": 2.4,
+      "palette": [
+        "#5a4a46",
+        "#665450",
+        "#725e5a",
+        "#7e6864",
+        "#8a726e"
+      ],
+      "grain": 5,
+      "rock": "mudstone"
+    },
+    {
+      "id": "shale",
+      "density": 2.5,
+      "palette": [
+        "#3a3c44",
+        "#44464e",
+        "#4e5058",
+        "#585a62",
+        "#62646c"
+      ],
+      "grain": 6,
+      "rock": "shale"
+    },
+    {
+      "id": "slate",
+      "density": 2.7,
+      "palette": [
+        "#2a3038",
+        "#323840",
+        "#3a4048",
+        "#424850",
+        "#4a5058"
+      ],
+      "grain": 7,
+      "rock": "slate"
+    },
+    {
+      "id": "tuff",
+      "density": 1.6,
+      "palette": [
+        "#8a7a6a",
+        "#988876",
+        "#a69682",
+        "#b4a48e",
+        "#c2b29a"
+      ],
+      "grain": 3,
+      "rock": "tuff"
+    },
+    {
+      "id": "amber",
+      "density": 1.1,
+      "palette": [
+        "#c06810",
+        "#d47818",
+        "#e88a20",
+        "#f49c30",
+        "#ffb040"
+      ],
+      "grain": 2,
+      "rock": "amber",
+      "glint": true
+    },
+    {
+      "id": "amberInsect",
+      "density": 1.1,
+      "palette": [
+        "#c06810",
+        "#3a2008",
+        "#e88a20",
+        "#f49c30",
+        "#ffb040"
+      ],
+      "grain": 1,
+      "rock": "amber",
+      "glint": true
+    },
+    {
+      "id": "phosphorite",
+      "density": 2.4,
+      "palette": [
+        "#6a6a5a",
+        "#787866",
+        "#868672",
+        "#94947e",
+        "#a2a28a"
+      ],
+      "grain": 3,
+      "rock": "phosphorite"
+    },
+    {
+      "id": "stromatolite",
+      "density": 2.4,
+      "palette": [
+        "#5f7050",
+        "#6f8060",
+        "#7f9070",
+        "#8fa080",
+        "#9fb090"
+      ],
+      "grain": 2,
+      "rock": "stromatolite",
+      "banded": true
+    },
+    {
+      "id": "iridium",
+      "density": 3.5,
+      "palette": [
+        "#3a2a4a",
+        "#4a3a5a",
+        "#5a4a6a",
+        "#2a1a3a",
+        "#8a6aa0"
+      ],
+      "grain": 1,
+      "rock": "rare",
+      "glint": true
+    },
+    {
+      "id": "magma",
+      "density": 2.6,
+      "palette": [
+        "#e03000",
+        "#ff4000",
+        "#ff6a00",
+        "#ff9000",
+        "#ffb020"
+      ],
+      "grain": 3,
+      "emissive": true
+    },
+    {
+      "id": "basalt",
+      "density": 3.0,
+      "palette": [
+        "#26262a",
+        "#2e2e34",
+        "#36363e",
+        "#3e3e48",
+        "#464652"
+      ],
+      "grain": 3,
+      "rock": "basalt"
+    },
+    {
+      "id": "obsidian",
+      "density": 2.4,
+      "palette": [
+        "#0a0610",
+        "#120a1a",
+        "#1a0e24",
+        "#24142e",
+        "#3a2048"
+      ],
+      "grain": 6,
+      "rock": "obsidian",
+      "glint": true
+    },
+    {
+      "id": "granite",
+      "density": 2.7,
+      "palette": [
+        "#6a5c5a",
+        "#8a7a78",
+        "#a08c88",
+        "#b49c96",
+        "#c8b0a8"
+      ],
+      "grain": 1,
+      "rock": "granite"
+    },
+    {
+      "id": "gneiss",
+      "density": 2.8,
+      "palette": [
+        "#5a5054",
+        "#6a6064",
+        "#7a6e70",
+        "#8a7c7e",
+        "#9a8a8c"
+      ],
+      "grain": 2,
+      "rock": "gneiss",
+      "banded": true
+    },
+    {
+      "id": "ruby",
+      "density": 4.0,
+      "palette": [
+        "#800010",
+        "#a00820",
+        "#c01030",
+        "#e02040",
+        "#ff4060"
+      ],
+      "grain": 1,
+      "rock": "ruby",
+      "glint": true
+    },
+    {
+      "id": "sapphire",
+      "density": 4.0,
+      "palette": [
+        "#081080",
+        "#1020a0",
+        "#1830c0",
+        "#2040e0",
+        "#4060ff"
+      ],
+      "grain": 1,
+      "rock": "sapphire",
+      "glint": true
+    },
+    {
+      "id": "graphite",
+      "density": 2.2,
+      "palette": [
+        "#2a2a2a",
+        "#323232",
+        "#3a3a3a",
+        "#424242",
+        "#4a4a4a"
+      ],
+      "grain": 3,
+      "rock": "graphite"
+    },
+    {
+      "id": "glowstone",
+      "density": 2.0,
+      "palette": [
+        "#30d080",
+        "#40ffa0",
+        "#60ffb8",
+        "#80ffd0",
+        "#a0ffe0"
+      ],
+      "grain": 2,
+      "rock": "glowstone",
+      "emissive": true
+    },
+    {
+      "id": "concrete",
+      "density": 2.3,
+      "palette": [
+        "#5e5c5a",
+        "#6c6a67",
+        "#7a7774",
+        "#888582",
+        "#96938f"
+      ],
+      "grain": 1,
+      "techno": true
+    },
+    {
+      "id": "glassSand",
+      "density": 2.4,
+      "palette": [
+        "#7f9490",
+        "#93a8a2",
+        "#a6bab4",
+        "#bacdc6",
+        "#d2e2dc"
+      ],
+      "grain": 1,
+      "techno": true
+    },
+    {
+      "id": "plastic",
+      "density": 1.0,
+      "palette": [
+        "#d84a3a",
+        "#3a7ad8",
+        "#e8c83a",
+        "#f0f0f0",
+        "#3ac87a"
+      ],
+      "grain": 1,
+      "techno": true
+    },
+    {
+      "id": "metal",
+      "density": 7.8,
+      "palette": [
+        "#4a4e56",
+        "#5a5f68",
+        "#6c727c",
+        "#848a94",
+        "#a4aab2"
+      ],
+      "grain": 8,
+      "techno": true
+    }
   ],
   "rocks": [
-    { "id": "stromatolite", "icon": "#8fa080", "value": 1 },
-    { "id": "chalk",        "icon": "#e8e6dc", "value": 1 },
-    { "id": "limestone",    "icon": "#cbc7b5", "value": 3 },
-    { "id": "mudstone",     "icon": "#7e6864", "value": 1 },
-    { "id": "peat",         "icon": "#564224", "value": 1 },
-    { "id": "lignite",      "icon": "#4a3828", "value": 2 },
-    { "id": "coal",         "icon": "#3a3a44", "value": 5 },
-    { "id": "sandstone",    "icon": "#c48e60", "value": 2 },
-    { "id": "tuff",         "icon": "#b4a48e", "value": 3 },
-    { "id": "phosphorite",  "icon": "#94947e", "value": 6 },
-    { "id": "amber",        "icon": "#f49c30", "value": 40 },
-    { "id": "oil",          "icon": "#5a4020", "value": 10 },
-    { "id": "gas",          "icon": "#6a7890", "value": 8 },
-    { "id": "shale",        "icon": "#585a62", "value": 4 },
-    { "id": "slate",        "icon": "#4a5058", "value": 8 },
-    { "id": "marble",       "icon": "#e8e4ec", "value": 20 },
-    { "id": "quartzite",    "icon": "#e0d0c8", "value": 15 },
-    { "id": "anthracite",   "icon": "#4a4a6a", "value": 12 },
-    { "id": "diamond",      "icon": "#c0f0ff", "value": 500 },
-    { "id": "rare",         "icon": "#a080c0", "value": 200 },
-    { "id": "basalt",       "icon": "#464652", "value": 3 },
-    { "id": "obsidian",     "icon": "#5a3a78", "value": 12 },
-    { "id": "granite",      "icon": "#b49c96", "value": 6 },
-    { "id": "gneiss",       "icon": "#8a7c7e", "value": 10 },
-    { "id": "ruby",         "icon": "#e02040", "value": 300 },
-    { "id": "sapphire",     "icon": "#2040e0", "value": 300 },
-    { "id": "graphite",     "icon": "#4a4a4a", "value": 0.2 },
-    { "id": "glowstone",    "icon": "#60ffb8", "value": 30 }
+    {
+      "id": "stromatolite",
+      "icon": "#8fa080",
+      "value": 1
+    },
+    {
+      "id": "chalk",
+      "icon": "#e8e6dc",
+      "value": 1
+    },
+    {
+      "id": "limestone",
+      "icon": "#cbc7b5",
+      "value": 3
+    },
+    {
+      "id": "mudstone",
+      "icon": "#7e6864",
+      "value": 1
+    },
+    {
+      "id": "peat",
+      "icon": "#564224",
+      "value": 1
+    },
+    {
+      "id": "lignite",
+      "icon": "#4a3828",
+      "value": 2
+    },
+    {
+      "id": "coal",
+      "icon": "#3a3a44",
+      "value": 5
+    },
+    {
+      "id": "sandstone",
+      "icon": "#c48e60",
+      "value": 2
+    },
+    {
+      "id": "tuff",
+      "icon": "#b4a48e",
+      "value": 3
+    },
+    {
+      "id": "phosphorite",
+      "icon": "#94947e",
+      "value": 6
+    },
+    {
+      "id": "amber",
+      "icon": "#f49c30",
+      "value": 40
+    },
+    {
+      "id": "oil",
+      "icon": "#5a4020",
+      "value": 10
+    },
+    {
+      "id": "gas",
+      "icon": "#6a7890",
+      "value": 8
+    },
+    {
+      "id": "shale",
+      "icon": "#585a62",
+      "value": 4
+    },
+    {
+      "id": "slate",
+      "icon": "#4a5058",
+      "value": 8
+    },
+    {
+      "id": "marble",
+      "icon": "#e8e4ec",
+      "value": 20
+    },
+    {
+      "id": "quartzite",
+      "icon": "#e0d0c8",
+      "value": 15
+    },
+    {
+      "id": "anthracite",
+      "icon": "#4a4a6a",
+      "value": 12
+    },
+    {
+      "id": "diamond",
+      "icon": "#c0f0ff",
+      "value": 500
+    },
+    {
+      "id": "rare",
+      "icon": "#a080c0",
+      "value": 200
+    },
+    {
+      "id": "basalt",
+      "icon": "#464652",
+      "value": 3
+    },
+    {
+      "id": "obsidian",
+      "icon": "#5a3a78",
+      "value": 12
+    },
+    {
+      "id": "granite",
+      "icon": "#b49c96",
+      "value": 6
+    },
+    {
+      "id": "gneiss",
+      "icon": "#8a7c7e",
+      "value": 10
+    },
+    {
+      "id": "ruby",
+      "icon": "#e02040",
+      "value": 300
+    },
+    {
+      "id": "sapphire",
+      "icon": "#2040e0",
+      "value": 300
+    },
+    {
+      "id": "graphite",
+      "icon": "#4a4a4a",
+      "value": 0.2
+    },
+    {
+      "id": "glowstone",
+      "icon": "#60ffb8",
+      "value": 30
+    }
   ]
 }

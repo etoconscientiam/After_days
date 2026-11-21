@@ -1,10 +1,22 @@
 {
+  "_review": [
+    "notes (all English texts)",
+    "notes.n07.authorPhrase — AUTHOR_PHRASE_TODO (both languages)",
+    "chron.tag",
+    "materials.concrete/glassSand/plastic/metal"
+  ],
   "title": "Strata",
   "countdownSymbol": "⟡",
   "findingYear": "Year {n} of the Finding",
   "era": {
-    "0": "Silence", "1": "Primal Life", "2": "The Sea", "3": "The Land",
-    "4": "Beasts", "5": "Hominids", "6": "Tribes", "7": "The Finding"
+    "0": "Silence",
+    "1": "Primal Life",
+    "2": "The Sea",
+    "3": "The Land",
+    "4": "Beasts",
+    "5": "Hominids",
+    "6": "Tribes",
+    "7": "The Finding"
   },
   "cond": {
     "energyEarned": "Gather {v} Energy ({cur})",
@@ -26,8 +38,20 @@
     "density": "Density",
     "perSec": "+{v}/s"
   },
-  "tabs": { "life": "Life", "elements": "Elements", "upgrades": "Upgrades", "epoch": "Epoch", "book": "Book" },
-  "zones": { "water": "Water", "shore": "Shore", "land": "Land", "any": "Any zone", "shoreLand": "Shore & land" },
+  "tabs": {
+    "life": "Life",
+    "elements": "Elements",
+    "upgrades": "Upgrades",
+    "epoch": "Epoch",
+    "book": "Book"
+  },
+  "zones": {
+    "water": "Water",
+    "shore": "Shore",
+    "land": "Land",
+    "any": "Any zone",
+    "shoreLand": "Shore & land"
+  },
   "life": {
     "header": "Life on the surface",
     "oxygen": "O₂ {v}%",
@@ -44,21 +68,66 @@
     "mutation": "Mutation: {m}"
   },
   "species": {
-    "mats": { "name": "Bacterial mats", "desc": "Breathe out oxygen. Leave lime crusts." },
-    "plankton": { "name": "Plankton", "desc": "Shell ooze and marine organics. The root of oil." },
-    "molluscs": { "name": "Molluscs", "desc": "Shells become chalk. Fossil: the spiral shell." },
-    "fish": { "name": "Fish", "desc": "Marine organics and bones." },
-    "mosses": { "name": "Mosses & ferns", "desc": "Land organics — the root of peat and coal." },
-    "trees": { "name": "Trees", "desc": "Organics and resin. Resin becomes amber." },
-    "insects": { "name": "Insects", "desc": "Amber with an insect ×3." },
-    "birds": { "name": "Birds", "desc": "Guano feeds the land." },
-    "herds": { "name": "Herds", "desc": "Many deaths, many burials." },
-    "predators": { "name": "Predator packs", "desc": "Double the death rate of prey in their zone." },
-    "fossor": { "name": "Homo fossor — Diggers", "desc": "Excavation +25%." },
-    "vigil": { "name": "Homo vigil — Watchers", "desc": "Time +5%, memories surface more often." },
-    "litoralis": { "name": "Homo litoralis — Shorefolk", "desc": "Live by the water. Energy from the sea +20%." },
-    "lapis": { "name": "Homo lapis — Stonebearers", "desc": "The temple rises faster; they press the ground harder." },
-    "tribe": { "name": "Tribe", "desc": "Settles by the artifact. Digs toward it in the last era." }
+    "mats": {
+      "name": "Bacterial mats",
+      "desc": "Breathe out oxygen. Leave lime crusts."
+    },
+    "plankton": {
+      "name": "Plankton",
+      "desc": "Shell ooze and marine organics. The root of oil."
+    },
+    "molluscs": {
+      "name": "Molluscs",
+      "desc": "Shells become chalk. Fossil: the spiral shell."
+    },
+    "fish": {
+      "name": "Fish",
+      "desc": "Marine organics and bones."
+    },
+    "mosses": {
+      "name": "Mosses & ferns",
+      "desc": "Land organics — the root of peat and coal."
+    },
+    "trees": {
+      "name": "Trees",
+      "desc": "Organics and resin. Resin becomes amber."
+    },
+    "insects": {
+      "name": "Insects",
+      "desc": "Amber with an insect ×3."
+    },
+    "birds": {
+      "name": "Birds",
+      "desc": "Guano feeds the land."
+    },
+    "herds": {
+      "name": "Herds",
+      "desc": "Many deaths, many burials."
+    },
+    "predators": {
+      "name": "Predator packs",
+      "desc": "Double the death rate of prey in their zone."
+    },
+    "fossor": {
+      "name": "Homo fossor — Diggers",
+      "desc": "Excavation +25%."
+    },
+    "vigil": {
+      "name": "Homo vigil — Watchers",
+      "desc": "Time +5%, memories surface more often."
+    },
+    "litoralis": {
+      "name": "Homo litoralis — Shorefolk",
+      "desc": "Live by the water. Energy from the sea +20%."
+    },
+    "lapis": {
+      "name": "Homo lapis — Stonebearers",
+      "desc": "The temple rises faster; they press the ground harder."
+    },
+    "tribe": {
+      "name": "Tribe",
+      "desc": "Settles by the artifact. Digs toward it in the last era."
+    }
   },
   "elements": {
     "header": "Elements",
@@ -69,18 +138,54 @@
     "autoSlots": "Auto slots {used}/{max}",
     "target": "Choose layers in the section (Esc to cancel)",
     "locked": "Awakens in era: {era}",
-    "rain": { "name": "Rain", "desc": "Washes carcasses downhill, brings silt." },
-    "flood": { "name": "Flood", "desc": "Buries the lowlands at once (burial ×5). Drowns the weak." },
-    "drought": { "name": "Drought", "desc": "Sand and dunes on land. Part of the land life dies." },
-    "groundwater": { "name": "Groundwater", "desc": "Chosen layers get water: fossils ×3, sandstone." },
-    "heat": { "name": "Deep heat", "desc": "+60 °C in chosen layers: oil window, marble, quartzite." },
-    "volcano": { "name": "Volcano", "desc": "Ash buries everything (×5), mass death, warms the depths." },
-    "seaAdvance": { "name": "Sea advances", "desc": "Water takes the coast; sea deposits ×2 there." },
-    "seaRetreat": { "name": "Sea retreats", "desc": "Land grows." },
-    "earthquake": { "name": "Earthquake", "desc": "Folds the layers, lifts deep rock, uncovers finds." },
-    "glacier": { "name": "Glacier", "desc": "Moraines and a crushing weight from above for 1,000 years." },
-    "meteor": { "name": "Meteorite", "desc": "Crater, iridium layer, rare minerals. Half of life dies." },
-    "magma": { "name": "Magma intrusion", "desc": "A pocket of magma warms its neighbours, cools into granite." }
+    "rain": {
+      "name": "Rain",
+      "desc": "Washes carcasses downhill, brings silt."
+    },
+    "flood": {
+      "name": "Flood",
+      "desc": "Buries the lowlands at once (burial ×5). Drowns the weak."
+    },
+    "drought": {
+      "name": "Drought",
+      "desc": "Sand and dunes on land. Part of the land life dies."
+    },
+    "groundwater": {
+      "name": "Groundwater",
+      "desc": "Chosen layers get water: fossils ×3, sandstone."
+    },
+    "heat": {
+      "name": "Deep heat",
+      "desc": "+60 °C in chosen layers: oil window, marble, quartzite."
+    },
+    "volcano": {
+      "name": "Volcano",
+      "desc": "Ash buries everything (×5), mass death, warms the depths."
+    },
+    "seaAdvance": {
+      "name": "Sea advances",
+      "desc": "Water takes the coast; sea deposits ×2 there."
+    },
+    "seaRetreat": {
+      "name": "Sea retreats",
+      "desc": "Land grows."
+    },
+    "earthquake": {
+      "name": "Earthquake",
+      "desc": "Folds the layers, lifts deep rock, uncovers finds."
+    },
+    "glacier": {
+      "name": "Glacier",
+      "desc": "Moraines and a crushing weight from above for 1,000 years."
+    },
+    "meteor": {
+      "name": "Meteorite",
+      "desc": "Crater, iridium layer, rare minerals. Half of life dies."
+    },
+    "magma": {
+      "name": "Magma intrusion",
+      "desc": "A pocket of magma warms its neighbours, cools into granite."
+    }
   },
   "upgrades": {
     "awakening": "Awakening",
@@ -90,25 +195,82 @@
     "howTo": "How: {how}",
     "ranks": "Rock ranks",
     "rankUp": "Rank {n} → {m}",
-    "impulse": { "name": "Impulse", "desc": "+1 Energy per click" },
-    "radiance": { "name": "Radiance", "desc": "+0.5 Energy/s" },
-    "striving": { "name": "Striving", "desc": "+5% time speed" },
-    "sediment": { "name": "Sediment", "desc": "+5% deposition speed" },
-    "impulsePower": { "name": "Force of impulse", "desc": "Click ×1.1, pulse +0.2 s" },
-    "resonance": { "name": "Life resonance", "desc": "+5% Energy from life, +2% sea room" },
-    "timeFlow": { "name": "Flow of time", "desc": "+3% time speed" },
-    "press": { "name": "Press", "desc": "+10% compaction speed" },
-    "boneSense": { "name": "Bone sense", "desc": "+5% fossil chance" },
-    "depthPull": { "name": "Pull of depth", "desc": "+5% weight of new layers" },
-    "fertility": { "name": "Fertility", "desc": "+5% land room" },
-    "coreHeat": { "name": "Core heat", "desc": "+2 °C everywhere underground" },
-    "voice": { "name": "Voice of the artifact", "desc": "+10% excavation, tribes drawn closer" },
-    "deepPress": { "name": "Deep press", "desc": "+0.5 maximum compaction k" },
-    "earthLight": { "name": "Light in the earth", "desc": "×1.25 all Energy" },
-    "peatPress": { "name": "Peat bed", "desc": "+4% compaction speed" },
-    "chalkLife": { "name": "Chalk shelves", "desc": "+2% Energy from life" },
-    "mudSettle": { "name": "Quiet mud", "desc": "+3% deposition speed" },
-    "rareSpark": { "name": "Star dust", "desc": "×1.1 all Energy" },
+    "impulse": {
+      "name": "Impulse",
+      "desc": "+1 Energy per click"
+    },
+    "radiance": {
+      "name": "Radiance",
+      "desc": "+0.5 Energy/s"
+    },
+    "striving": {
+      "name": "Striving",
+      "desc": "+5% time speed"
+    },
+    "sediment": {
+      "name": "Sediment",
+      "desc": "+5% deposition speed"
+    },
+    "impulsePower": {
+      "name": "Force of impulse",
+      "desc": "Click ×1.1, pulse +0.2 s"
+    },
+    "resonance": {
+      "name": "Life resonance",
+      "desc": "+5% Energy from life, +2% sea room"
+    },
+    "timeFlow": {
+      "name": "Flow of time",
+      "desc": "+3% time speed"
+    },
+    "press": {
+      "name": "Press",
+      "desc": "+10% compaction speed"
+    },
+    "boneSense": {
+      "name": "Bone sense",
+      "desc": "+5% fossil chance"
+    },
+    "depthPull": {
+      "name": "Pull of depth",
+      "desc": "+5% weight of new layers"
+    },
+    "fertility": {
+      "name": "Fertility",
+      "desc": "+5% land room"
+    },
+    "coreHeat": {
+      "name": "Core heat",
+      "desc": "+2 °C everywhere underground"
+    },
+    "voice": {
+      "name": "Voice of the artifact",
+      "desc": "+10% excavation, tribes drawn closer"
+    },
+    "deepPress": {
+      "name": "Deep press",
+      "desc": "+0.5 maximum compaction k"
+    },
+    "earthLight": {
+      "name": "Light in the earth",
+      "desc": "×1.25 all Energy"
+    },
+    "peatPress": {
+      "name": "Peat bed",
+      "desc": "+4% compaction speed"
+    },
+    "chalkLife": {
+      "name": "Chalk shelves",
+      "desc": "+2% Energy from life"
+    },
+    "mudSettle": {
+      "name": "Quiet mud",
+      "desc": "+3% deposition speed"
+    },
+    "rareSpark": {
+      "name": "Star dust",
+      "desc": "×1.1 all Energy"
+    },
     "milestone": "doubles at 10 / 25 / 50 / 100"
   },
   "rockHow": {
@@ -142,24 +304,90 @@
     "glowstone": "glowing life, buried"
   },
   "rocks": {
-    "stromatolite": "Stromatolite", "chalk": "Chalk", "limestone": "Limestone", "mudstone": "Mudstone", "peat": "Peat",
-    "lignite": "Lignite", "coal": "Coal", "sandstone": "Sandstone", "tuff": "Tuff", "phosphorite": "Phosphorite",
-    "amber": "Amber", "oil": "Oil", "gas": "Gas", "shale": "Shale", "slate": "Slate", "marble": "Marble",
-    "quartzite": "Quartzite", "anthracite": "Anthracite", "diamond": "Diamond", "rare": "Rare minerals",
-    "basalt": "Basalt", "obsidian": "Obsidian", "granite": "Granite", "gneiss": "Gneiss", "ruby": "Ruby",
-    "sapphire": "Sapphire", "graphite": "Graphite", "glowstone": "Glowstone"
+    "stromatolite": "Stromatolite",
+    "chalk": "Chalk",
+    "limestone": "Limestone",
+    "mudstone": "Mudstone",
+    "peat": "Peat",
+    "lignite": "Lignite",
+    "coal": "Coal",
+    "sandstone": "Sandstone",
+    "tuff": "Tuff",
+    "phosphorite": "Phosphorite",
+    "amber": "Amber",
+    "oil": "Oil",
+    "gas": "Gas",
+    "shale": "Shale",
+    "slate": "Slate",
+    "marble": "Marble",
+    "quartzite": "Quartzite",
+    "anthracite": "Anthracite",
+    "diamond": "Diamond",
+    "rare": "Rare minerals",
+    "basalt": "Basalt",
+    "obsidian": "Obsidian",
+    "granite": "Granite",
+    "gneiss": "Gneiss",
+    "ruby": "Ruby",
+    "sapphire": "Sapphire",
+    "graphite": "Graphite",
+    "glowstone": "Glowstone"
   },
   "materials": {
-    "void": "—", "soil": "Soil", "dust": "Dust", "silt": "Silt", "sand": "Sand", "clay": "Clay", "shellOoze": "Shell ooze",
-    "limeCrust": "Lime crust", "orgLand": "Land organics", "orgMarine": "Marine organics", "bone": "Bones", "resin": "Resin",
-    "guano": "Guano", "dung": "Dung", "ash": "Volcanic ash", "moraine": "Moraine", "meteor": "Meteoritic matter",
-    "hearth": "Hearth ash", "shards": "Potsherds", "peat": "Peat", "lignite": "Lignite", "coal": "Coal",
-    "anthracite": "Anthracite", "diamond": "Diamond", "oil": "Oil", "gas": "Gas", "chalk": "Chalk", "limestone": "Limestone",
-    "marble": "Marble", "sandstone": "Sandstone", "quartzite": "Quartzite", "mudstone": "Mudstone", "shale": "Shale",
-    "slate": "Slate", "tuff": "Tuff", "amber": "Amber", "amberInsect": "Amber with an insect", "phosphorite": "Phosphorite",
-    "stromatolite": "Stromatolite", "iridium": "Iridium layer", "magma": "Magma", "basalt": "Basalt", "obsidian": "Obsidian",
-    "granite": "Granite", "gneiss": "Gneiss", "ruby": "Ruby", "sapphire": "Sapphire", "graphite": "Graphite",
-    "glowstone": "Glowstone", "basement": "Ground of the old world", "foundation": "Foundation"
+    "void": "—",
+    "soil": "Soil",
+    "dust": "Dust",
+    "silt": "Silt",
+    "sand": "Sand",
+    "clay": "Clay",
+    "shellOoze": "Shell ooze",
+    "limeCrust": "Lime crust",
+    "orgLand": "Land organics",
+    "orgMarine": "Marine organics",
+    "bone": "Bones",
+    "resin": "Resin",
+    "guano": "Guano",
+    "dung": "Dung",
+    "ash": "Volcanic ash",
+    "moraine": "Moraine",
+    "meteor": "Meteoritic matter",
+    "hearth": "Hearth ash",
+    "shards": "Potsherds",
+    "peat": "Peat",
+    "lignite": "Lignite",
+    "coal": "Coal",
+    "anthracite": "Anthracite",
+    "diamond": "Diamond",
+    "oil": "Oil",
+    "gas": "Gas",
+    "chalk": "Chalk",
+    "limestone": "Limestone",
+    "marble": "Marble",
+    "sandstone": "Sandstone",
+    "quartzite": "Quartzite",
+    "mudstone": "Mudstone",
+    "shale": "Shale",
+    "slate": "Slate",
+    "tuff": "Tuff",
+    "amber": "Amber",
+    "amberInsect": "Amber with an insect",
+    "phosphorite": "Phosphorite",
+    "stromatolite": "Stromatolite",
+    "iridium": "Iridium layer",
+    "magma": "Magma",
+    "basalt": "Basalt",
+    "obsidian": "Obsidian",
+    "granite": "Granite",
+    "gneiss": "Gneiss",
+    "ruby": "Ruby",
+    "sapphire": "Sapphire",
+    "graphite": "Graphite",
+    "glowstone": "Glowstone",
+    "foundation": "Foundation",
+    "concrete": "Concrete crumbs",
+    "glassSand": "Glass sand",
+    "plastic": "Plastic pellets",
+    "metal": "Metal"
   },
   "tip": {
     "years": "{a} yrs ago",
@@ -174,7 +402,7 @@
     "fragment": "fragment: {s}",
     "pack": "{n} m of layers, {y0}–{y1}",
     "progress": "→ {rock} {p}%",
-    "click": "click: write it in the chronicle"
+    "click": "click: data card"
   },
   "epoch": {
     "header": "Epoch shift",
@@ -188,52 +416,92 @@
     "tree": "Density tree",
     "have": "Density: {v}",
     "max": "max",
-    "deepMemory": { "name": "Deep memory", "desc": "Start from a later era you have reached (2 → 5)" },
-    "agesPress": { "name": "Press of ages", "desc": "+15% compaction speed" },
-    "strongFound": { "name": "Strong foundation", "desc": "Foundation gives +25% pressure" },
-    "fertileSoil": { "name": "Fertile soil", "desc": "+15% Energy from life" },
-    "evolution": { "name": "Hastened evolution", "desc": "+10% time speed in every era" },
-    "warmDepths": { "name": "Warm depths", "desc": "+10% geothermal gradient" },
-    "tenacious": { "name": "Tenacious memory", "desc": "+20% fossil chance" },
-    "autoElements": { "name": "Self-moving elements", "desc": "One more element on auto-repeat" },
-    "legacy": { "name": "Legacy", "desc": "Keep 10% of each species after a shift" },
-    "longSleep": { "name": "Long sleep", "desc": "+2 h offline progress" }
+    "deepMemory": {
+      "name": "Deep memory",
+      "desc": "Start from a later era you have reached (2 → 5)"
+    },
+    "agesPress": {
+      "name": "Press of ages",
+      "desc": "+15% compaction speed"
+    },
+    "strongFound": {
+      "name": "Strong foundation",
+      "desc": "Foundation gives +25% pressure"
+    },
+    "fertileSoil": {
+      "name": "Fertile soil",
+      "desc": "+15% Energy from life"
+    },
+    "evolution": {
+      "name": "Hastened evolution",
+      "desc": "+10% time speed in every era"
+    },
+    "warmDepths": {
+      "name": "Warm depths",
+      "desc": "+10% geothermal gradient"
+    },
+    "tenacious": {
+      "name": "Tenacious memory",
+      "desc": "+20% fossil chance"
+    },
+    "autoElements": {
+      "name": "Self-moving elements",
+      "desc": "One more element on auto-repeat"
+    },
+    "legacy": {
+      "name": "Legacy",
+      "desc": "Keep 10% of each species after a shift"
+    },
+    "longSleep": {
+      "name": "Long sleep",
+      "desc": "+2 h offline progress"
+    }
   },
   "book": {
-    "chronicle": "Chronicle", "museum": "Museum", "notes": "Notes", "stats": "Records",
+    "chronicle": "Chronicle",
+    "museum": "Museum",
+    "notes": "Notes",
+    "stats": "Records",
     "chronicleEmpty": "Click a layer in the section to write its entry.",
     "notesEmpty": "Notes surface from the depths during epoch shifts and earthquakes.",
     "locked": "— not found —",
-    "common": "common", "rare": "rare", "fragments": "fragments {n}/3",
+    "common": "common",
+    "rare": "rare",
+    "fragments": "fragments {n}/3",
     "museumHint": "Each fossil: +2% transformation speed. Rare: +2% fossil chance, +1% Energy. A full era set: +10% Energy.",
     "st": {
-      "playthrough": "World", "prestiges": "Epoch shifts", "fossils": "Fossils", "time": "Time played", "maxEra": "Deepest era",
-      "rituals": "Rituals", "notes": "Notes", "discovered": "Rocks known"
+      "playthrough": "World",
+      "prestiges": "Epoch shifts",
+      "fossils": "Fossils",
+      "time": "Time played",
+      "maxEra": "Deepest era",
+      "rituals": "Rituals",
+      "notes": "Notes",
+      "discovered": "Rocks known"
     }
   },
   "chron": {
-    "head": "Layer {y0}–{y1}.",
-    "pack": "Layers {y0}–{y1}, {n} m thick.",
-    "mat": "{mat}.",
-    "under": "Under it: {mat}.",
-    "over": "Lies on {mat}.",
-    "bones": "Bones of {s} inside.",
-    "massBurial": "A mass burial — {s}.",
-    "preservation": { "great": "Preservation excellent.", "good": "Preservation good.", "poor": "Preservation poor." },
-    "fossil": "A fossil: {s}.",
-    "rare": "A perfect fossil: {s}.",
-    "water": "Water seeps through.",
-    "heat": "Warm to the touch.",
-    "pressed": "Pressed thin (k {k}).",
-    "turning": "Turning into {rock}.",
-    "deep": "Deep, {t} °C, {p} MPa."
+    "tag": {
+      "ash": "Ash.",
+      "impact": "Impact.",
+      "glacial": "Moraine.",
+      "rapidBurial": "Rapid burial.",
+      "massBurial": "Mass burial.",
+      "presHigh": "Preservation: high.",
+      "presMid": "Preservation: medium.",
+      "presLow": "Preservation: low.",
+      "groundwater": "Groundwater.",
+      "heated": "Heated.",
+      "compacted": "Compacted."
+    },
+    "other": "other"
   },
   "toast": {
     "rock": "New rock: {rock}",
     "fossil": "Fossil: {s}",
     "rare": "Perfect fossil: {s}!",
     "fragment": "Fragment: {s} ({n}/3)",
-    "note": "A note from 3011: {title}",
+    "note": "A note was found",
     "extinction": "{n} creatures died",
     "era": "A new era: {era}",
     "prestige": "Epoch shifted: +{n} Density",
@@ -242,73 +510,129 @@
     "imported": "Save imported",
     "importFailed": "Could not read that save"
   },
-  "memory": {
-    "m_train": "The last train leaves at noon. We will leave it here.",
-    "m_laugh": "They laughed: why bury something that will never break.",
-    "m_answer": "We found the answer. It was simpler than all our books.",
-    "m_someone": "Someone will come. Let them find at least something.",
-    "m_square": "There was a square here. I was here.",
-    "m_light": "Leave the light on, she said. Someone might need it.",
-    "m_list": "Things you cannot take: weight, names, the habit of waiting.",
-    "m_voices": "Voices again. Not ours. Close, though.",
-    "m_fire": "Fire. Somebody is keeping a fire above me.",
-    "m_hands": "Hands. I remember hands.",
-    "m_heavy": "Everything that was is getting heavier. That is how it stays.",
-    "m_stone": "Coal remembers being a forest. Diamond does not."
-  },
   "notes": {
-    "n01": { "title": "Announcement of the Transition", "text": "To all residents. The Transition begins at dawn on the 1st. Bring nothing. Platforms open at 06:00. There is nothing to fear. There never was." },
-    "n02": { "title": "A letter to a daughter", "text": "Mila — I put the old thing in the ground by the square, where you used to draw chalk circles. I know it is silly. Someone ought to stay, even if it is only an object." },
-    "n03": { "title": "A journal page", "text": "…the result has now been reproduced in every laboratory. The question that occupied philosophy for six thousand years has an answer, and the answer is not a sentence. It is a direction." },
-    "n04": { "title": "Conservation instructions", "text": "Do not clean. Do not polish. Do not open. Store below frost depth. The object requires no power. It will outlast the container, the site and the curator." },
-    "n05": { "title": "A child's drawing", "text": "A circle with rays. Under it, in big letters: THIS IS YOU. A smaller circle beside it: THIS IS ME LEAVING." },
-    "n06": { "title": "What you cannot take", "text": "Weight. Names. Pets (they come differently). Grudges. The habit of waiting. Keys — there will be no doors." },
-    "n07": { "title": "Last radio broadcast", "text": "…this is the city service, final transmission. The square is empty. The trains are gone. If anyone is listening, it is a beautiful morning. We are switching off now." },
-    "n08": { "title": "Diary of one who stayed", "text": "Day 40. The grass is already over the rails. I talk to the thing in the ground. It is warm. I swear it is warm." },
-    "n09": { "title": "A ticket stub", "text": "Platform 3. Seat: any. Destination field left blank, as instructed." },
-    "n10": { "title": "A museum label", "text": "Object of unknown purpose, c. 3011. Indestructible. Emits a faint warmth. Donated anonymously, with a note: 'for whoever is next'." },
-    "n11": { "title": "Graffiti", "text": "WE WERE HERE. WE WERE SO MUCH HERE." },
-    "n12": { "title": "The last page", "text": "I am the last. Tomorrow I go too. I leave you the light. Do something good with the time — there will be so much of it." }
+    "n01": {
+      "text": "THE SINGULARITY IS CLOSER THAN IT LOOKS. Leading institutes confirm: the acceleration curve is going vertical. “We are living in the last decade of the old world,” says Professor{lost}"
+    },
+    "n02": {
+      "text": "Five industries that will take off after the Singularity. Investors are already dividing up the immortality market. Editor’s advice: don’t keep your savings in anything that could lose its value overnight."
+    },
+    "n03": {
+      "text": "Third night in a row, the same dream: I’m standing in the square and there’s so much room around me. Not empty — just a lot of room. Woke up happy, no idea why. The pizza’s gone cold.",
+      "footer": "Likes: 2"
+    },
+    "n04": {
+      "text": "Son, all is well here. The seedlings are up, and Buba barked at the pigeons half the day again. Everyone keeps saying everything is about to change. I don’t really understand it, but I believe it. Come in the summer, while things are still the old way. Hugs."
+    },
+    "n05": {
+      "text": "We, class 4B, are burying this capsule for whoever opens it in the year 3111. We hope everything is already wonderful for you. Say hi to the Singularity!",
+      "footer": "Anya, Timur, Lyova, Dasha K., Dasha S., Misha, Sonya, Artyom"
+    },
+    "n06": {
+      "text": "That feeling again, as if someone is tuning the whole city like an instrument. I’d tell someone, but who? Going to bed. Deadline tomorrow."
+    },
+    "n07": {
+      "text": "Three speakers from the IT forum on the Singularity. “It will be the biggest leap in history,” says the founder of a lab. “We will finally stop being afraid of death,” says a researcher. “Every problem we have is a compute problem,” adds an investor. Last, we asked a junior developer. We print his answer as a curiosity: “You expect the machines to come alive. What if it’s the other way round?” {phrase}",
+      "authorPhrase": "Maybe it’s us who will stop being machines."
+    },
+    "n08": {
+      "text": "THEY ARE WAITING FOR THE WRONG THING! The end of the world will come while you are looking at the sky! Bury what you love most!",
+      "footer": "another lunatic"
+    },
+    "n09": {
+      "text": "Observatories are recording an anomaly that cannot yet be explained. There is no cause for concern. A statement will be published once the data have been checked."
+    },
+    "n10": {
+      "text": "Everyone is somehow quiet today. Even the neighbours. As if everyone is waiting for the same phone call."
+    },
+    "n11": {
+      "text": "A new avenue has opened in the city park. The pigeons are back on the main square. Yesterday’s match: 2–1. Tomorrow’s weather: clear, warm, no precipitation."
+    },
+    "n12": {
+      "text": "Opened the window for the first time in a month. The city is very quiet and very beautiful. I want to go out. Maybe tomorrow I will. Or right n"
+    }
   },
   "settings": {
-    "title": "Settings", "language": "Language", "music": "Music", "sfx": "Effects", "mute": "Mute all",
-    "quality": "Effects quality", "high": "High", "low": "Low", "integer": "Pixel-perfect scale",
-    "export": "Export save", "import": "Import save", "importPlaceholder": "Paste a save string here",
-    "reset": "Reset progress", "resetConfirm": "Erase all progress, including the museum and notes? This cannot be undone.",
-    "copied": "Copied to clipboard", "dev": "Developer mode"
+    "title": "Settings",
+    "language": "Language",
+    "music": "Music",
+    "sfx": "Effects",
+    "mute": "Mute all",
+    "quality": "Effects quality",
+    "high": "High",
+    "low": "Low",
+    "integer": "Pixel-perfect scale",
+    "export": "Export save",
+    "import": "Import save",
+    "importPlaceholder": "Paste a save string here",
+    "reset": "Reset progress",
+    "resetConfirm": "Erase all progress, including the museum and notes? This cannot be undone.",
+    "copied": "Copied to clipboard",
+    "dev": "Developer mode"
   },
-  "btn": { "ok": "OK", "cancel": "Cancel", "close": "Close", "confirm": "Confirm", "buy": "Buy", "import": "Import", "continue": "Continue", "newWorld": "A new world" },
+  "btn": {
+    "ok": "OK",
+    "cancel": "Cancel",
+    "close": "Close",
+    "confirm": "Confirm",
+    "buy": "Buy",
+    "import": "Import",
+    "continue": "Continue",
+    "newWorld": "A new world"
+  },
   "away": {
     "title": "While you were away",
     "years": "{v} years passed.",
     "layers": "New layers: {v}",
     "rocks": "Rocks",
     "fossils": "Fossils: {v}",
-    "notes": "A note surfaced: {v}",
+    "notes": "Notes: +{v}",
     "energy": "Energy: +{v}"
   },
   "finale": {
-    "descend": "",
     "choose": "What will they do with it?",
     "once": "Each ritual can be chosen once.",
-    "tradition": "The tribe will remember:",
     "after": "Year 1 of the Finding",
-    "newWorld": "History continues in a changed world.",
     "end": "The history is written. Other paths will open later.",
     "endStats": "Worlds lived: {w}. Fossils: {f}. Epoch shifts: {p}."
   },
   "ritual": {
-    "bury": { "name": "Bury it deeper", "act": "They lower it back into the earth, deeper — to return it.", "world": "A hot world: steeper heat, volcanoes wake on their own, magma, basalt, granite, gems. Organics burn above 150 °C." },
-    "eat": { "name": "Eat it", "act": "They grind it to powder and eat it.", "world": "A living world: mutations each era, rock ranks I–V, glowing life and glowstone." },
-    "shatter": { "name": "Break it and share", "act": "They split it and carry the pieces to different tribes.", "world": "A world of shards: three shards, three basins, a bonus for diversity. Three digs to finish." }
+    "bury": {
+      "name": "Bury it deeper",
+      "act": "They lower it back into the earth, deeper — to return it.",
+      "world": "A hot world: steeper heat, volcanoes wake on their own, magma, basalt, granite, gems. Organics burn above 150 °C."
+    },
+    "eat": {
+      "name": "Eat it",
+      "act": "They grind it to powder and eat it.",
+      "world": "A living world: mutations each era, rock ranks I–V, glowing life and glowstone."
+    },
+    "shatter": {
+      "name": "Break it and share",
+      "act": "They split it and carry the pieces to different tribes.",
+      "world": "A world of shards: three shards, three basins, a bonus for diversity. Three digs to finish."
+    }
   },
   "mutation": {
-    "title": "Mutation", "choose": "Life changes. Choose one:", "reroll": "Reroll (5 glowstone)",
-    "shell": "Shell — bones fossilise ×2", "swarm": "Swarm — room ×1.5, life −30%", "glow": "Glow — remains give glowstone",
-    "nomads": "Nomads — move between zones", "vigor": "Vigor — Energy ×1.5", "longlife": "Long life — lifespan ×1.6"
+    "title": "Mutation",
+    "choose": "Life changes. Choose one:",
+    "reroll": "Reroll (5 glowstone)",
+    "shell": "Shell — bones fossilise ×2",
+    "swarm": "Swarm — room ×1.5, life −30%",
+    "glow": "Glow — remains give glowstone",
+    "nomads": "Nomads — move between zones",
+    "vigor": "Vigor — Energy ×1.5",
+    "longlife": "Long life — lifespan ×1.6"
   },
   "dev": {
-    "title": "DEV", "fps": "FPS", "speed": "Time ×", "give": "Give", "era": "Era", "cooldowns": "No cooldowns", "reset": "Reset save",
-    "excavate": "Finish dig", "prestige": "Force shift"
+    "title": "DEV",
+    "fps": "FPS",
+    "speed": "Time ×",
+    "give": "Give",
+    "era": "Era",
+    "cooldowns": "No cooldowns",
+    "reset": "Reset save",
+    "excavate": "Finish dig",
+    "prestige": "Force shift"
   }
 }

@@ -11,12 +11,12 @@ export function prestigeGain(g: Game): number {
 
 /** Give the next 3011 note in fixed order. Returns its id or null. */
 export function giveNote(g: Game): string | null {
-  const all = CFG.story.notes;
-  const next = all.find((n) => !g.legacy.notes.includes(n));
+  const next = CFG.notes.find((n) => !g.legacy.notes.includes(n.id));
   if (!next) return null;
-  g.legacy.notes.push(next);
-  g.bus.emit('noteFound', { id: next });
-  return next;
+  g.legacy.notes.push(next.id);
+  g.bus.emit('noteFound', { id: next.id });
+  g.triggerEcho('note:' + next.id);
+  return next.id;
 }
 
 export function startEraFor(g: Game): number {
@@ -72,5 +72,4 @@ export function doPrestige(g: Game): void {
   g.statsDirty = true;
   g.refreshStats();
   g.bus.emit('prestige', { gain });
-  if (g.firstTime('prestige')) g.triggerMemory('firstPrestige');
 }

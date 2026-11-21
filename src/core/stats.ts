@@ -60,6 +60,8 @@ export function computeStats(s: GameState): Stats {
     if (m && m.common > 0) { st.transformSpeed += B.museumBonus; set.have++; }
     if (m && m.rare > 0) { st.fossilChance += B.museumBonus; st.energyMul *= 1.01; }
   }
+  // relics from the old world: a small permanent bonus each, like fossils
+  for (const rel of CFG.relics) if ((s.legacy.relics?.[rel.id] ?? 0) > 0) st.energyMul *= 1 + CFG.story.relicBonus;
   for (const k in eraSets) if (eraSets[k].total > 0 && eraSets[k].have === eraSets[k].total) st.energyMul *= 1 + B.museumSetBonus;
   // Hominid traits apply while the species lives.
   for (const sp of CFG.species) {

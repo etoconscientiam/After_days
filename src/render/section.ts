@@ -4,6 +4,7 @@ import { CFG, NMAT, M } from '../config';
 import type { Game } from '../core/game';
 import { CAP, F_FOSSIL, F_FRAGMENT, F_RARE, F_GLOW } from '../world/World';
 import { Layout, PAL_RGB, GRAIN_SCALE, NOISE, GRAIN, WW } from './common';
+import { hash2 } from '../core/rng';
 
 const DARK_LEVELS = 16;
 const SHADES = 5;
@@ -25,6 +26,27 @@ const EMISSIVE = CFG.materials.map((m) => !!m.emissive);
 const BANDED = CFG.materials.map((m) => !!m.banded);
 const BASEMENT = [[24, 22, 28], [30, 27, 33], [36, 32, 39], [42, 38, 45], [50, 45, 54]];
 const BASEMENT32 = BASEMENT.map(([r, g, b]) => (255 << 24) | (b << 16) | (g << 8) | r);
+const FOUND32 = [[16, 12, 18], [22, 18, 26], [28, 24, 32], [34, 30, 40]].map(([r, g, b]) => (255 << 24) | (b << 16) | (g << 8) | r);
+const EPOCH32 = (255 << 24) | (78 << 16) | (150 << 8) | 190;
+/** The technogenic horizon: concrete crumbs, glass sand, plastic pellets (bright dots), straight metal veins. Never changes. */
+const HORIZON32: Uint32Array = (() => {
+  const HR = CFG.story.horizon.rows;
+  const a = new Uint32Array(WW * HR);
+  const pack = (hex: string) => { const n = parseInt(hex.slice(1), 16); return (255 << 24) | ((n & 255) << 16) | (n & 0xff00) | ((n >> 16) & 255); };
+  const pal = (id: string) => CFG.materials.find((m) => m.id === id)!.palette;
+  const concrete = pal('concrete'), glass = pal('glassSand'), plastic = pal('plastic'), metal = pal('metal'), soil = pal('soil');
+  for (let x = 0; x < WW; x++) for (let r = 0; r < HR; r++) {
+    const u = hash2(x, r * 7 + 3);
+    let c: string;
+    if ((r === 2 || r === 5) && hash2(x >> 4, r) > 0.2) c = metal[1 + (x % 2)];
+    else if (u > 0.975) c = plastic[(hash2(x, r + 99) * 5) | 0];
+    else if (u > 0.85) c = glass[(hash2(x, r + 7) * 3) | 0];
+    else if (u > 0.75) c = soil[(hash2(x, r + 5) * 3) | 0];
+    else c = concrete[(hash2(x, r + 11) * 3) | 0];
+    a[x * HR + r] = pack(c);
+  }
+  return a;
+})();
 const RELIC32 = [[90, 84, 96], [120, 96, 60], [70, 90, 96], [140, 120, 80]].map(([r, g, b]) => (255 << 24) | (b << 16) | (g << 8) | r);
 
 export interface FossilMark { x: number; y: number; species: number; rare: boolean; fragment: boolean }
@@ -38,13 +60,17 @@ export class SectionRenderer {
   fossils: FossilMark[] = [];
   zones: ZoneMark[] = [];
   strataBottom = new Float32Array(WW); // section-local y where strata end per column
+  horizonTop = new Float32Array(WW);   // section-local y of the technogenic horizon per column
+  foundationTop = new Float32Array(WW);
+  foundationPx = 0;
+  glowPts: number[] = [];              // x, y pairs of glowing horizon pixels
   private lastRender = -1;
   private lastLayout = -1;
 
   constructor() {
     this.canvas = document.createElement('canvas');
     this.canvas.width = WW;
-    this.canvas.height = CFG.B.layout.sectionH;
+    this.canvas.height = CFG.B.layout.sectionH + CFG.B.layout.artifactH;
     this.ctx = this.canvas.getContext('2d')!;
     this.img = this.ctx.createImageData(WW, this.canvas.height);
     this.buf = new Uint32Array(this.img.data.buffer);
@@ -80,6 +106,7 @@ export class SectionRenderer {
     });
     const darkStep = (DARK_LEVELS - 1) / Math.max(1, H);
     const hMax = Math.min(H, this.canvas.height);
+    const total = Math.min(this.canvas.height, H + CFG.B.layout.artifactH);
 
     for (let x = 0; x < WW; x++) {
       const base = x * CAP;
@@ -160,9 +187,9 @@ export class SectionRenderer {
         buf[o] = fleck > 0.985 && ((x * 31 + y * 17) % 7 === 0) ? RELIC32[(x + y) % RELIC32.length] : BASEMENT32[bs];
       }
       if (!bottomSet) this.strataBottom[x] = hMax;
-      // pack finds (fossils folded into deep packs)
       void cellTopV;
     }
+    this.drawUnderStrata(g, total, revealY);
     // fossil marks inside packs
     let pv = 0;
     let avgCellV = 0;
@@ -179,6 +206,44 @@ export class SectionRenderer {
       if (pv > lay.vMax) break;
     }
     this.ctx.putImageData(this.img, 0, 0);
+  }
+
+  /** Foundation, then the technogenic horizon (with the thing in it), then the old ground — under each column's strata. */
+  private drawUnderStrata(g: Game, total: number, revealY: number): void {
+    const buf = this.buf;
+    const f = g.meta.foundation;
+    const fpx = f > 0 ? Math.round(Math.min(16, 2 + Math.sqrt(f) * 1.2)) : 0;
+    this.foundationPx = fpx;
+    const HR = CFG.story.horizon.rows;
+    const lines = g.meta.foundationLines;
+    this.glowPts.length = 0;
+    for (let x = 0; x < WW; x++) {
+      const ht = Math.min(this.strataBottom[x] + fpx, total - HR);
+      const ft = ht - fpx;
+      this.horizonTop[x] = ht;
+      this.foundationTop[x] = ft;
+      const gl = g.glow[x];
+      for (let y = Math.max(0, ft); y < total; y++) {
+        const o = y * WW + x;
+        if (y > revealY) { buf[o] = 0xff0d0b0e; continue; }
+        if (y < ht) {
+          // foundation: compressed epochs, dark, with faint epoch lines
+          const n = NOISE[((y * 7) & 255) * 256 + ((x * 7) & 255)];
+          let c = FOUND32[Math.min(3, (n * 4) | 0)];
+          for (const lv of lines) if (Math.round(ht - (lv / Math.max(f, 1e-6)) * fpx) === y) c = EPOCH32;
+          buf[o] = c;
+        } else if (y < ht + HR) {
+          const r = y - ht;
+          buf[o] = HORIZON32[x * HR + r];
+          if (hash2(x, r + 50) < gl * 0.1) this.glowPts.push(x, y);
+        } else {
+          const yy = y + ((x * 0.08) | 0);
+          const band = NOISE[((yy * 2) & 255) * 256 + ((x >> 3) & 255)];
+          const n3 = NOISE[((y * 5) & 255) * 256 + ((x * 5) & 255)] * 0.6 + band * 0.4;
+          buf[o] = BASEMENT32[Math.min(4, (n3 * 4.5 + (((x + y) & 1) ? 0.2 : 0)) | 0)];
+        }
+      }
+    }
   }
 
   private tintTargets(g: Game, c: number, x: number, birth: number, y: number): number {

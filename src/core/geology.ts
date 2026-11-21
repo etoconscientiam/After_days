@@ -49,6 +49,7 @@ export function geoTick(g: Game, dy: number): void {
   const glacierK = r.glacierLoad > 0 ? (0.3 / 100) * dy : 0;
   const fossilMul = 1 + st.fossilChance;
   let compact = 0;
+  let maxK = 1;
   let fertileCount = 0;
   let glints = 0;
   let sumBottomP = 0, sumLen = 0;
@@ -88,6 +89,7 @@ export function geoTick(g: Game, dy: number): void {
         w.k[j] = k;
       }
       const Peff = Pc * k;
+      if (k > maxK) maxK = k;
       compact += (Pc - P0) * k;
       const oxygen = depth < oxyRows;
       if (oxygen) {
@@ -156,6 +158,7 @@ export function geoTick(g: Game, dy: number): void {
   }
 
   r.compactMass = compact;
+  if (maxK >= CFG.story.echoCompactionK) g.triggerEcho('compactionVisible');
   r.fertility = Math.min(CFG.B.fertility.max, fertileCount * CFG.B.fertility.perPixel);
   if (r.era >= 7) {
     if (g.mods.shards) {
@@ -220,7 +223,7 @@ export function rollFossil(g: Game, x: number, j: number, mineral: number, fossi
     g.run.fossilsRun++;
     g.statsDirty = true;
     g.bus.emit('fossilFound', { species: sp.id, rare, fragment: false, complete: true, x, depth });
-    if (g.firstTime('fossil')) g.triggerMemory('firstFossil');
+    g.triggerEcho('firstFossil');
   } else if (u < chance * 2) {
     // near miss: a fragment; three make a whole fossil (bad-luck protection)
     w.flags[j] |= F_FRAGMENT;
@@ -233,7 +236,7 @@ export function rollFossil(g: Game, x: number, j: number, mineral: number, fossi
       g.run.fossilsRun++;
       complete = true;
       g.statsDirty = true;
-      if (g.firstTime('fossil')) g.triggerMemory('firstFossil');
+      g.triggerEcho('firstFossil');
     }
     g.bus.emit('fossilFound', { species: sp.id, rare: false, fragment: true, complete, x, depth });
   }

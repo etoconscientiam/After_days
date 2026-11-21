@@ -16,6 +16,7 @@ import { t, setLang, onLangChange, fmt } from './ui/i18n';
 import { audio } from './audio/audio';
 import { saveLocal, loadLocal, clearLocal, exportString, importString } from './save/save';
 import { rockColor } from './ui/dom';
+import { relicIcon } from './render/items';
 
 const DEV = import.meta.env.DEV || new URLSearchParams(location.search).has('dev');
 
@@ -75,11 +76,18 @@ function bind(g: Game): void {
     }
   });
   bus.on('extinction', (e) => { if (e.killed >= 3) hud.toast(t('toast.extinction', { n: e.killed }), '#c86a5a'); renderer.onExtinction(); audio.rumble(1.2); });
-  bus.on('eraChanged', (e) => { hud.toast(t('toast.era', { era: t('era.' + e.era) }), '#f2c14e'); audio.setEra(e.era); });
-  bus.on('noteFound', (e) => hud.toast(t('toast.note', { title: t('notes.' + e.id + '.title') }), '#f2c14e'));
+  bus.on('eraChanged', (e) => { hud.toast(t('toast.era', { era: t('era.' + e.era) }), '#f2c14e'); audio.setEra(e.era); renderer.onEra(e.era); });
+  bus.on('noteFound', () => hud.toast(t('toast.note'), '#f2c14e'));
   bus.on('prestigeStart', () => renderer.beginShift());
   bus.on('prestige', (e) => { hud.toast(t('toast.prestige', { n: e.gain }), '#c8b8ff'); audio.whoosh(); audio.rumble(2.5); save(); });
-  bus.on('memory', (e) => hud.memoryLine(e.id));
+  bus.on('echo', (e) => {
+    const def = CFG.echoes.echoes.find((x) => x.id === e.id);
+    if (!def) return;
+    renderer.showEcho(def.picture, e.alpha);
+    audio.echo(def.sound, e.alpha);
+  });
+  bus.on('relicFound', (e) => { hud.toast(relicIcon(e.id, true)); audio.fossil(false); });
+  bus.on('itemChosen', () => { audio.whoosh(); });
   bus.on('element', (e) => {
     if (e.id === 'earthquake') { renderer.onQuake(); audio.rumble(1.8); }
     else if (e.id === 'volcano' || e.id === 'meteor') audio.rumble(2.2);
@@ -115,6 +123,12 @@ drawer.onConfirm = (text, yes) => modals.confirm(text, yes);
 drawer.onBuy = () => {};
 input.onArtifact = (shard) => { audio.unlock(); game.click(shard); renderer.onClick(game.mods.shards ? game.shardXs()[shard] : 180); };
 input.onCast = () => {};
+input.onChoose = (i) => {
+  audio.unlock();
+  const items = game.availableItems();
+  const id = items[i];
+  if (id && game.chooseItem(id)) { renderer.beginSink(id, i, items.length); save(); }
+};
 modals.onSettingsChange = () => { applySettings(); drawer.relabel(); };
 modals.onExport = () => exportString(game);
 modals.onImport = (s) => {
@@ -171,6 +185,7 @@ function frame(now: number): void {
   drawer.update(dtReal);
   input.update(dtReal);
   modals.updateFinale();
+  ui.classList.toggle('choosing', game.state.phase === 'choose');
   dev.update(dtReal);
   if (game.state.phase === 'temple') audio.choirLevel(Math.min(1, game.state.templeProgress * 1.5));
   else if (game.state.phase === 'play') audio.choirLevel(0);
