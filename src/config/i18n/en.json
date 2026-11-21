@@ -19,14 +19,14 @@
     "7": "The Finding"
   },
   "cond": {
-    "energyEarned": "Gather {v} Energy ({cur})",
-    "oxygen": "Oxygen {cur}% / {v}%",
-    "marine": "Marine species {cur} / {v}",
-    "hominid": "Hominid species {cur} / {v}",
-    "forest": "Forest covers {cur}% of land / {v}%",
-    "animals": "Animal species {cur} / {v}, predators needed",
-    "settled": "Tribe settled at the artifact {cur} / {v}",
-    "excavation": "Excavation {cur} / {v} rows"
+    "energyEarned": "Needed: gather {v} Energy ({cur})",
+    "oxygen": "Needed: oxygen {v}% (now {cur}%)",
+    "marine": "Needed: {v} marine species ({cur}/{v})",
+    "hominid": "Needed: {v} hominid species ({cur}/{v})",
+    "forest": "Needed: forest on {v}% of the land (now {cur}%)",
+    "animals": "Needed: {v} animal species, predators among them ({cur}/{v})",
+    "settled": "Needed: a tribe settled by the thing ({cur}/{v})",
+    "excavation": "Needed: dig down to the thing ({cur}/{v})"
   },
   "hud": {
     "yps": "{v} yrs/s",
@@ -65,7 +65,14 @@
     "lockedEra": "Appears in era: {era}",
     "lockedOxygen": "Needs oxygen ≥ {v}%",
     "lockedAfter": "Appears after {species} ×{n}",
-    "mutation": "Mutation: {m}"
+    "mutation": "Mutation: {m}",
+    "perSec": "+{v} energy/s",
+    "lives": "lives: {v}",
+    "locked": "Opens in era: {era}",
+    "needO2": "Needs oxygen {v}%",
+    "after": "After {species} ×{n}",
+    "qtyMax": "max",
+    "zones": "Water {w} · Shore {s} · Land {l}"
   },
   "species": {
     "mats": {
@@ -185,7 +192,9 @@
     "magma": {
       "name": "Magma intrusion",
       "desc": "A pocket of magma warms its neighbours, cools into granite."
-    }
+    },
+    "tapLayers": "Tap the layers",
+    "autoShort": "auto"
   },
   "upgrades": {
     "awakening": "Awakening",
@@ -456,7 +465,11 @@
     "longSleep": {
       "name": "Long sleep",
       "desc": "+2 h offline progress"
-    }
+    },
+    "gainBig": "Density +{v}",
+    "foundationNote": "of the column will become foundation",
+    "holdHint": "Hold to shift the epoch",
+    "notYet": "Not enough compacted rock yet"
   },
   "book": {
     "chronicle": "Chronicle",
@@ -479,6 +492,27 @@
       "rituals": "Rituals",
       "notes": "Notes",
       "discovered": "Rocks known"
+    },
+    "fossilsShelf": "fossils",
+    "relicsShelf": "finds",
+    "bonusFossil": "+2% to the speed of rock transformations",
+    "bonusRare": "+2% fossil chance, +1% Energy",
+    "bonusRelic": "+1% Energy",
+    "media": {
+      "metal_sheet": "Metal sheet",
+      "memory_crystal": "Memory crystal",
+      "ceramic_plate": "Ceramic plate",
+      "school_tablet": "School tablet"
+    },
+    "type": {
+      "newspaper": "newspaper",
+      "magazine": "magazine",
+      "post": "post",
+      "letter": "letter",
+      "diary": "diary",
+      "capsule": "time capsule",
+      "flyer": "flyer",
+      "report": "report"
     }
   },
   "chron": {
@@ -495,7 +529,8 @@
       "heated": "Heated.",
       "compacted": "Compacted."
     },
-    "other": "other"
+    "other": "other",
+    "horizon": "Technogenic horizon"
   },
   "toast": {
     "rock": "New rock: {rock}",
@@ -570,7 +605,8 @@
     "resetConfirm": "Erase all progress, including the museum and notes? This cannot be undone.",
     "copied": "Copied to clipboard",
     "dev": "Developer mode",
-    "detailed": "Detailed mode (numbers)"
+    "detailed": "Detailed mode (numbers)",
+    "resetHold": "Hold 2 s to erase everything"
   },
   "btn": {
     "ok": "OK",
@@ -589,7 +625,8 @@
     "rocks": "Rocks",
     "fossils": "Fossils: {v}",
     "notes": "Notes: +{v}",
-    "energy": "Energy: +{v}"
+    "energy": "Energy: +{v}",
+    "passed": "{v} years passed"
   },
   "finale": {
     "choose": "What will they do with it?",
@@ -636,5 +673,22 @@
     "reset": "Reset save",
     "excavate": "Finish dig",
     "prestige": "Force shift"
+  },
+  "rocksView": {
+    "title": "Rocks"
+  },
+  "label": {
+    "more": "More",
+    "less": "Less",
+    "deep": "{d} m deep",
+    "years": "{a}–{b}"
+  },
+  "toastN": {
+    "era": "+{n} new eras",
+    "rock": "+{n} new rocks",
+    "fossil": "+{n} fossils",
+    "fragment": "+{n} fragments",
+    "note": "+{n} notes",
+    "extinction": "Mass deaths ×{n}"
   }
 }

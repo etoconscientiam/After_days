@@ -17,7 +17,7 @@ export interface WorldMods {
   geoGradientMul: number;
 }
 
-export interface Glint { x: number; depth: number; t: number; color: string }
+export interface Glint { x: number; depth: number; t: number; color: string; birth?: number }
 
 export class Game {
   state: GameState;
@@ -532,7 +532,7 @@ export class Game {
     return this.state.phase === 'play' && elementUnlocked(this, el) && (this.run.cooldowns[el.id] ?? 0) <= 0 && this.run.energy >= this.elementCost(el);
   }
 
-  cast(id: string, target?: { x: number; v: number }): boolean {
+  cast(id: string, target?: { x: number; v: number; b0?: number; b1?: number }): boolean {
     const el = CFG.elements.find((e) => e.id === id);
     if (!el || !this.canCast(el)) return false;
     if (el.kind === 'section' && !target) return false;

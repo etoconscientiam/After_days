@@ -71,72 +71,35 @@ export const ACCENT = '#f2c14e';
 
 // ---------- layout ----------
 /**
- * World layout in canvas px (180×320). Sky and the surface diorama take the upper half; the section below shows
- * the newest rows enlarged (2 px per row), then 1:1, then log-compressed depth. Opening the drawer pushes
- * the world up and squeezes the section so the thing in the ground stays visible.
+ * World layout in canvas px (180×320, 9:16): header 0–15% over the sky, sky to 35%, surface 35–52%,
+ * section 52–88%, tabs 88–100%. Opening the drawer lifts the camera so the surface and the top of the
+ * section stay visible above it; the section squeezes but always reaches the drawer.
  */
 export class Layout {
   drawer = 0;
   shift = 0;
   surfaceTop = L.surfaceTop;
   sectionTop = L.sectionTop;
-  sectionH = L.sectionH;
-  artifactY = L.sectionTop + L.sectionH;
-  vOf = new Float32Array(WH);
+  sectionH = WH - L.tabBarH - L.sectionTop;
+  artifactY = 0;
   version = 0;
-  private yBig = 0; private yLin = 0; private s = 1;
-  private bigPx = 1; private linPx = 1;
+  private last = -1;
 
   constructor() { this.update(0); }
 
-  /** Ground line of the land and the water level in the diorama. */
-  get groundBase(): number { return this.sectionTop - 50; }
-  get waterLevel(): number { return this.sectionTop - 30; }
-  /** Deepest visual depth to fit into the section (follows the actual strata so layers fill the space). */
-  vMax = L.vMax;
-  private lastDrawer = -1;
-
-  /** Fit the compressed depth to the strata (called about once a second). */
-  fitDepth(deepest: number): void {
-    const v = Math.max(L.vMin, Math.min(L.vMax, deepest * 1.04 + 6));
-    if (Math.abs(v - this.vMax) / this.vMax < 0.03) return;
-    this.vMax = v;
-    this.lastDrawer = -1;
-    this.update(this.drawer);
-  }
+  /** Back edge of the land field and the water level in the diorama. */
+  get groundBase(): number { return this.sectionTop - L.groundDepth; }
+  get waterLevel(): number { return this.sectionTop - L.waterDepth; }
 
   update(drawerPx: number): void {
-    const D = Math.max(0, Math.min(WH * L.drawerMax, drawerPx));
-    if (Math.abs(D - this.lastDrawer) < 0.01 && this.version > 0) return;
-    this.lastDrawer = D;
+    const D = Math.max(0, Math.min(WH * L.drawerMax, Number.isFinite(drawerPx) ? drawerPx : 0));
+    if (Math.abs(D - this.last) < 0.01 && this.version > 0) return;
+    this.last = D;
     this.drawer = D;
-    this.shift = Math.round(L.drawerShift * (D / (WH * L.drawerMax)));
+    this.shift = Math.round(L.drawerShift * Math.min(1, D / (WH * L.drawerMax)));
     this.surfaceTop = L.surfaceTop - this.shift;
     this.sectionTop = L.sectionTop - this.shift;
-    const bottom = WH - L.tabBarH - D - L.artifactH;
-    this.sectionH = Math.max(24, Math.round(bottom - this.sectionTop));
-    const f = Math.min(1, this.sectionH / L.sectionH);
-    this.bigPx = Math.max(1, L.bigRowPx * f);
-    this.yBig = L.bigRows * this.bigPx;
-    this.linPx = Math.max(0.4, f);
-    this.yLin = this.yBig + L.linearRows * this.linPx;
-    const v1 = L.bigRows + L.linearRows;
-    this.s = Math.max(1, (this.sectionH - this.yLin) / Math.log(Math.max(v1 * 1.2, this.vMax) / v1));
-    for (let y = 0; y < this.sectionH; y++) this.vOf[y] = this.yToV(y);
+    this.sectionH = Math.max(20, Math.round(WH - L.tabBarH - D - this.sectionTop));
     this.version++;
-  }
-
-  /** section-local y -> visual depth (compacted rows) */
-  yToV(y: number): number {
-    if (y < this.yBig) return y / this.bigPx;
-    if (y < this.yLin) return L.bigRows + (y - this.yBig) / this.linPx;
-    return (L.bigRows + L.linearRows) * Math.exp((y - this.yLin) / this.s);
-  }
-
-  /** visual depth -> section-local y */
-  vToY(v: number): number {
-    if (v < L.bigRows) return v * this.bigPx;
-    if (v < L.bigRows + L.linearRows) return this.yBig + (v - L.bigRows) * this.linPx;
-    return this.yLin + this.s * Math.log(v / (L.bigRows + L.linearRows));
   }
 }

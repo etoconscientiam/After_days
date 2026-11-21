@@ -1,0 +1,10 @@
+{
+  "_comment": "World palette (48 colours). prep-assets maps every pixel of world/ sprites to the nearest of these.",
+  "colors": [
+    "#0e0c10", "#1b1816", "#2e2925", "#4a423a", "#6a5e52", "#8a7c6c", "#b0a28e", "#d8ccb4", "#ede3d0", "#ffffff",
+    "#16121a", "#2a2630", "#3e3a48", "#5a5866", "#7e7c8c", "#a6a8b8", "#2a2219", "#4a3424", "#6b4d38", "#8a6a44",
+    "#a8844e", "#c8a050", "#e0b860", "#f2b54a", "#c9782a", "#a0501e", "#b5523b", "#7a2e22", "#ff7a2a", "#ffd978",
+    "#2a3a1e", "#3f5a2a", "#5a8a3a", "#6e8b4e", "#86c050", "#b8d070", "#12303e", "#1e4a5a", "#3e7c86", "#5aa0b0",
+    "#8ac8d8", "#c8e8f0", "#3a74c0", "#a8cfee", "#262a52", "#5a4870", "#b9a6e8", "#e890b0"
+  ]
+}

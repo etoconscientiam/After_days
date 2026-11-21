@@ -10,18 +10,13 @@
     "deepPackFrom": 3000
   },
   "layout": {
-    "surfaceTop": 84,
-    "sectionTop": 178,
-    "sectionH": 110,
-    "bigRows": 12,
-    "bigRowPx": 2,
-    "linearRows": 36,
-    "artifactH": 10,
-    "tabBarH": 22,
-    "drawerMax": 0.42,
-    "drawerShift": 44,
-    "vMax": 4000,
-    "vMin": 90
+    "surfaceTop": 104,
+    "sectionTop": 166,
+    "tabBarH": 38,
+    "drawerMax": 0.5,
+    "drawerShift": 60,
+    "groundDepth": 30,
+    "waterDepth": 22
   },
   "zones": {
     "startWater": 0.4,

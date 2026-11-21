@@ -12,7 +12,7 @@ export function elementUnlocked(g: Game, el: ElementDef): boolean {
 
 const zoneShares = (water: number, shore: number, land: number) => [water, shore, land];
 
-export function castElement(g: Game, el: ElementDef, target?: { x: number; v: number }): void {
+export function castElement(g: Game, el: ElementDef, target?: { x: number; v: number; b0?: number; b1?: number }): void {
   const r = g.run;
   const p = el.params;
   const w = g.world;
@@ -50,7 +50,9 @@ export function castElement(g: Game, el: ElementDef, target?: { x: number; v: nu
     case 'heat':
     case 'magma': {
       if (!target) return;
-      const t = g.targetFromSection(target.x, target.v, p.radiusX, p.radiusY)!;
+      const t = target.b0 !== undefined && target.b1 !== undefined
+        ? { kind: 'water' as const, x0: Math.max(0, target.x - p.radiusX), x1: Math.min(W - 1, target.x + p.radiusX), b0: target.b0, b1: target.b1, until: 0, heat: 0 }
+        : g.targetFromSection(target.x, target.v, p.radiusX, p.radiusY)!;
       t.kind = el.id === 'groundwater' ? 'water' : el.id === 'heat' ? 'heat' : 'magma';
       t.heat = p.heat ?? 0;
       t.until = r.year + el.duration;

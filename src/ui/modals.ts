@@ -1,137 +1,109 @@
-// Overlays: settings, confirm (never the system alert/confirm), return-from-offline, finale & rituals, dev panel.
+// Overlays without dialogs: ritual slabs, the return-from-away summary (after a short timelapse),
+// "1 year from the Finding" + New world, the end text, an exhibit view. Plus the developer panel.
 import { CFG } from '../config';
 import type { Game } from '../core/game';
 import type { OfflineReport } from '../core/offline';
 import { $, h, setText } from './dom';
-import { t, fmt, fmtInt, setLang, Lang } from './i18n';
+import { t, fmt, fmtInt } from './i18n';
+import { assetUrl } from '../render/assets';
+import { drawScene, VW, VH } from '../render/ritual';
+import { energyIcon, rockIcon, exhibit } from './icons';
 
 export class Modals {
   overlay = $('#overlay');
   private finaleShown: string | null = null;
-  onSettingsChange: () => void = () => {};
-  onExport: () => string = () => '';
-  onImport: (s: string) => boolean = () => false;
-  onReset: () => void = () => {};
+  private scenes: { cv: HTMLCanvasElement; ritual: string; src: HTMLCanvasElement }[] = [];
+  private tt = 0;
   onNewWorld: () => void = () => {};
-  onToast: (s: string) => void = () => {};
 
-  constructor(private g: () => Game) {}
+  constructor(private g: () => Game) {
+    this.overlay.addEventListener('click', (e) => { if (e.target === this.overlay && this.overlay.dataset.kind === 'exhibit') this.close(); });
+  }
 
-  get isOpen(): boolean { return this.overlay.classList.contains('show') && !this.overlay.classList.contains('clear'); }
+  get isOpen(): boolean { return this.overlay.classList.contains('show'); }
 
   close(): void {
-    this.overlay.classList.remove('show', 'clear');
+    this.overlay.classList.remove('show', 'dim');
     this.overlay.replaceChildren();
-    this.finaleShown = null;
+    this.overlay.dataset.kind = '';
+    this.scenes = [];
   }
 
-  private show(node: HTMLElement, clear = false): void {
-    this.overlay.replaceChildren(node);
+  private show(kind: string, dim: boolean, ...nodes: HTMLElement[]): void {
+    this.overlay.replaceChildren(...nodes);
+    this.overlay.dataset.kind = kind;
     this.overlay.classList.add('show');
-    this.overlay.classList.toggle('clear', clear);
+    this.overlay.classList.toggle('dim', dim);
   }
 
-  confirm(text: string, yes: () => void, danger = false): void {
-    const m = h('div', { class: 'modal' },
-      h('p', {}, text),
-      h('div', { class: 'actions' },
-        h('button', { class: 'btn ghost', onclick: () => this.close() }, t('btn.cancel')),
-        h('button', { class: 'btn' + (danger ? ' danger' : ''), onclick: () => { this.close(); yes(); } }, t('btn.confirm'))));
-    this.show(m);
-  }
-
-  settings(): void {
-    const g = this.g();
-    const s = g.state.settings;
-    const lang = h('select', {}, h('option', { value: 'en' }, 'English'), h('option', { value: 'ru' }, 'Русский')) as HTMLSelectElement;
-    lang.value = s.lang;
-    lang.addEventListener('change', () => { s.lang = lang.value as Lang; setLang(s.lang); this.onSettingsChange(); this.settings(); });
-    const range = (key: 'music' | 'sfx') => {
-      const r = h('input', { type: 'range', min: '0', max: '1', step: '0.05' }) as HTMLInputElement;
-      r.value = String(s[key]);
-      r.addEventListener('input', () => { s[key] = +r.value; this.onSettingsChange(); });
-      return r;
-    };
-    const check = (val: boolean, on: (v: boolean) => void) => {
-      const c = h('input', { type: 'checkbox' }) as HTMLInputElement;
-      c.checked = val;
-      c.addEventListener('change', () => { on(c.checked); this.onSettingsChange(); });
-      return c;
-    };
-    const quality = h('select', {}, h('option', { value: 'high' }, t('settings.high')), h('option', { value: 'low' }, t('settings.low'))) as HTMLSelectElement;
-    quality.value = s.quality;
-    quality.addEventListener('change', () => { s.quality = quality.value as any; this.onSettingsChange(); });
-    const ta = h('textarea', { placeholder: t('settings.importPlaceholder') }) as HTMLTextAreaElement;
-    const m = h('div', { class: 'modal' },
-      h('h2', {}, t('settings.title')),
-      h('div', { class: 'row' }, h('label', {}, t('settings.language')), lang),
-      h('div', { class: 'row' }, h('label', {}, t('settings.music')), range('music')),
-      h('div', { class: 'row' }, h('label', {}, t('settings.sfx')), range('sfx')),
-      h('div', { class: 'row' }, h('label', {}, t('settings.mute')), check(s.muted, (v) => (s.muted = v))),
-      h('div', { class: 'row' }, h('label', {}, t('settings.quality')), quality),
-      h('div', { class: 'row' }, h('label', {}, t('settings.integer')), check(s.integerScale, (v) => (s.integerScale = v))),
-      h('div', { class: 'row' }, h('label', {}, t('settings.detailed')), check(s.detailed, (v) => (s.detailed = v))),
-      ta,
-      h('div', { class: 'actions' },
-        h('button', { class: 'btn ghost', onclick: async () => {
-          const str = this.onExport();
-          ta.value = str;
-          ta.select();
-          try { await navigator.clipboard.writeText(str); this.onToast(t('settings.copied')); } catch { /* the text stays selected */ }
-        } }, t('settings.export')),
-        h('button', { class: 'btn ghost', onclick: () => { if (ta.value.trim()) { const ok = this.onImport(ta.value); this.onToast(t(ok ? 'toast.imported' : 'toast.importFailed')); if (ok) this.close(); } } }, t('settings.import'))),
-      h('div', { class: 'actions' },
-        h('button', { class: 'btn danger', onclick: () => this.confirm(t('settings.resetConfirm'), () => this.onReset(), true) }, t('settings.reset')),
-        h('button', { class: 'btn', onclick: () => this.close() }, t('btn.close'))));
-    this.show(m);
-  }
-
+  /** "While you were away, 4 200 years passed" — a museum label with what grew. */
   away(rep: OfflineReport): void {
-    const rocks = Object.entries(rep.rocks).sort((a, b) => b[1] - a[1]).slice(0, 6);
-    const m = h('div', { class: 'modal' },
-      h('h2', {}, t('away.title')),
-      h('div', { class: 'away-big' }, t('away.years', { v: fmtInt(rep.years) })),
-      h('div', { class: 'away-list' },
-        h('div', {}, t('away.energy', { v: fmt(rep.energy) })),
-        h('div', {}, t('away.layers', { v: fmtInt(rep.layers) })),
-        rocks.length ? h('div', {}, t('away.rocks') + ': ' + rocks.map(([k, v]) => `${t('rocks.' + k)} +${fmt(v)}`).join(', ')) : null,
+    const rocks = Object.entries(rep.rocks).filter(([, v]) => v >= 1).sort((a, b) => b[1] - a[1]).slice(0, 4);
+    const card = h('div', { class: 'summary label' },
+      h('div', { class: 'big' }, t('away.title') + ', ' + t('away.passed', { v: fmtInt(rep.years) })),
+      h('div', { class: 'rows' },
+        h('div', {}, energyIcon(16), '+' + fmt(rep.energy)),
+        rep.layers ? h('div', {}, t('away.layers', { v: fmtInt(rep.layers) })) : null,
+        ...rocks.map(([k, v]) => h('div', {}, rockIcon(k, 16), `${t('rocks.' + k)} +${fmt(v, 0)}`)),
         rep.fossils ? h('div', {}, t('away.fossils', { v: rep.fossils })) : null,
         rep.notes.length ? h('div', {}, t('away.notes', { v: rep.notes.length })) : null),
-      h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: () => this.close() }, t('btn.continue'))));
-    this.show(m, true);
+      h('button', { class: 'stone-btn', onclick: () => this.close() }, t('btn.continue')));
+    this.show('away', true, card);
   }
 
-  /** Called every frame: shows the finale overlays for the current phase. */
-  updateFinale(): void {
+  /** A find, enlarged, with its bonus. Tap anywhere to close. */
+  exhibitView(kind: 'fossil' | 'relic', id: string): void {
     const g = this.g();
+    const rare = kind === 'fossil' && (g.legacy.museum[id]?.rare ?? 0) > 0;
+    const bonus = kind === 'relic' ? t('book.bonusRelic') : rare ? t('book.bonusFossil') + '; ' + t('book.bonusRare') : t('book.bonusFossil');
+    const view = h('div', { class: 'exhibit-view' }, h('div', { class: 'case' }, exhibit(kind, id, rare, 6)), h('div', { class: 'label' }, h('div', { class: 'l-sub' }, bonus)));
+    view.addEventListener('click', () => this.close());
+    this.show('exhibit', true, view);
+  }
+
+  private slabArt(ritual: string): HTMLElement {
+    const url = assetUrl(`ui/ritual_${ritual}.png`);
+    if (url) return h('img', { src: url, alt: '' });
+    const src = document.createElement('canvas');
+    src.width = VW; src.height = VH;
+    const cv = document.createElement('canvas');
+    cv.width = 64; cv.height = 90;
+    this.scenes.push({ cv, ritual, src });
+    return cv;
+  }
+
+  /** Called every frame: finale overlays for the current phase, and the living ritual previews. */
+  update(dt: number): void {
+    const g = this.g();
+    this.tt += dt;
+    for (const s of this.scenes) {
+      const c = s.src.getContext('2d')!;
+      drawScene(c, s.ritual, 0.35 + 0.3 * (0.5 + 0.5 * Math.sin(this.tt * 0.4)), this.tt, g.legacy.items[g.legacy.items.length - 1] ?? 'artifact_a');
+      const d = s.cv.getContext('2d')!;
+      d.imageSmoothingEnabled = false;
+      d.clearRect(0, 0, 64, 90);
+      d.drawImage(s.src, (VW - 64) / 2, 0, 64, VH, 0, 0, 64, 90);
+    }
     const ph = g.state.phase;
     const key = ph + ':' + g.legacy.rituals.length + ':' + g.state.settings.lang;
-    if (ph === 'play' || ph === 'temple') {
-      if (this.finaleShown && this.finaleShown !== 'none') this.close();
-      this.finaleShown = ph === 'temple' ? 'none' : null;
+    if (ph === 'play' || ph === 'temple' || ph === 'choose') {
+      if (this.finaleShown && this.finaleShown !== 'none' && this.overlay.dataset.kind?.startsWith('finale')) this.close();
+      this.finaleShown = null;
       return;
     }
     if (this.finaleShown === key) return;
     this.finaleShown = key;
     if (ph === 'finale') {
+      this.scenes = [];
       const avail = CFG.rituals.filter((r) => !g.legacy.rituals.includes(r.id));
-      const box = h('div', { class: 'finale' }, h('h3', {}, t('finale.choose')),
-        ...avail.map((r) => h('div', { class: 'ritual-card', onclick: () => { g.chooseRitual(r.id); this.close(); this.finaleShown = 'none'; } },
-          h('div', { class: 'r-name' }, t('ritual.' + r.id + '.name')),
-          h('div', { class: 'r-act' }, t('ritual.' + r.id + '.act')),
-          h('div', { class: 'r-world' }, t('ritual.' + r.id + '.world')))),
-        h('div', { class: 'c-desc', style: 'text-align:center' }, t('finale.once')));
-      this.show(box, true);
+      const slabs = h('div', { class: 'slabs' }, ...avail.map((r) => h('button', { class: 'slab', 'aria-label': t('ritual.' + r.id + '.name'), onclick: () => { g.chooseRitual(r.id); this.close(); this.finaleShown = 'none'; } },
+        h('div', { class: 'art' }, this.slabArt(r.id)), h('b', {}, t('ritual.' + r.id + '.name')))));
+      this.show('finale', false, h('div', { class: 'overlay-q' }, t('finale.choose')), slabs);
     } else if (ph === 'newWorld') {
-      const box = h('div', { class: 'finding' },
-        h('button', { class: 'btn big', onclick: () => { this.close(); this.onNewWorld(); } }, t('btn.newWorld')));
-      this.show(box, true);
+      this.show('finale-new', false, h('button', { class: 'stone-btn big center-cta', onclick: () => { this.close(); this.onNewWorld(); } }, t('btn.newWorld')));
     } else if (ph === 'end') {
       const L = g.legacy;
-      const box = h('div', { class: 'finding' },
-        h('p', {}, t('finale.end')),
-        h('p', { style: 'color:#9a9284' }, t('finale.endStats', { w: L.playthrough, f: L.fossils, p: L.totalPrestiges })));
-      this.show(box, true);
+      this.show('finale-end', false, h('div', { class: 'end-text' }, t('finale.end'), h('small', {}, t('finale.endStats', { w: L.playthrough, f: L.fossils, p: L.totalPrestiges }))));
     }
   }
 }

@@ -1,0 +1,15 @@
+{
+  "_comment": "UI colour tokens («Stone and amber»). Applied as CSS variables --<name> at startup; the renderer reads them too.",
+  "night": "#0E0C10",
+  "stone-900": "#1B1816",
+  "stone-700": "#2E2925",
+  "stone-500": "#4A423A",
+  "bone": "#EDE3D0",
+  "bone-dim": "#A89B88",
+  "amber": "#F2B54A",
+  "amber-deep": "#C9782A",
+  "density": "#B9A6E8",
+  "sea": "#3E7C86",
+  "moss": "#6E8B4E",
+  "rust": "#B5523B"
+}

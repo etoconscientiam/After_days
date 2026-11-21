@@ -1,0 +1,632 @@
+{
+ "_comment": "Asset targets for npm run prep-assets: raw/<name>.png -> <dest>. type world = nearest-neighbour + world palette + binary alpha; ui = Lanczos to size x2, soft edges. grid: [cols, rows] splits a sheet into names in reading order.",
+ "assets": {
+  "panel_stone": {
+   "dest": "ui/panel_stone.png",
+   "size": [
+    96,
+    96
+   ],
+   "type": "ui",
+   "slice": 24
+  },
+  "energy": {
+   "dest": "ui/icons/energy.png",
+   "size": [
+    32,
+    32
+   ],
+   "type": "ui"
+  },
+  "tab_life": {
+   "dest": "ui/icons/tab_life.png",
+   "size": [
+    40,
+    40
+   ],
+   "type": "ui"
+  },
+  "tab_elements": {
+   "dest": "ui/icons/tab_elements.png",
+   "size": [
+    40,
+    40
+   ],
+   "type": "ui"
+  },
+  "tab_upgrades": {
+   "dest": "ui/icons/tab_upgrades.png",
+   "size": [
+    40,
+    40
+   ],
+   "type": "ui"
+  },
+  "tab_epoch": {
+   "dest": "ui/icons/tab_epoch.png",
+   "size": [
+    40,
+    40
+   ],
+   "type": "ui"
+  },
+  "tab_book": {
+   "dest": "ui/icons/tab_book.png",
+   "size": [
+    40,
+    40
+   ],
+   "type": "ui"
+  },
+  "portrait_mats": {
+   "dest": "ui/portraits/mats.png",
+   "size": [
+    96,
+    96
+   ],
+   "type": "ui"
+  },
+  "portrait_plankton": {
+   "dest": "ui/portraits/plankton.png",
+   "size": [
+    96,
+    96
+   ],
+   "type": "ui"
+  },
+  "portrait_molluscs": {
+   "dest": "ui/portraits/molluscs.png",
+   "size": [
+    96,
+    96
+   ],
+   "type": "ui"
+  },
+  "portrait_fish": {
+   "dest": "ui/portraits/fish.png",
+   "size": [
+    96,
+    96
+   ],
+   "type": "ui"
+  },
+  "portrait_mosses": {
+   "dest": "ui/portraits/mosses.png",
+   "size": [
+    96,
+    96
+   ],
+   "type": "ui"
+  },
+  "portrait_trees": {
+   "dest": "ui/portraits/trees.png",
+   "size": [
+    96,
+    96
+   ],
+   "type": "ui"
+  },
+  "portrait_insects": {
+   "dest": "ui/portraits/insects.png",
+   "size": [
+    96,
+    96
+   ],
+   "type": "ui"
+  },
+  "portrait_birds": {
+   "dest": "ui/portraits/birds.png",
+   "size": [
+    96,
+    96
+   ],
+   "type": "ui"
+  },
+  "portrait_herds": {
+   "dest": "ui/portraits/herds.png",
+   "size": [
+    96,
+    96
+   ],
+   "type": "ui"
+  },
+  "portrait_predators": {
+   "dest": "ui/portraits/predators.png",
+   "size": [
+    96,
+    96
+   ],
+   "type": "ui"
+  },
+  "portrait_fossor": {
+   "dest": "ui/portraits/fossor.png",
+   "size": [
+    96,
+    96
+   ],
+   "type": "ui"
+  },
+  "portrait_vigil": {
+   "dest": "ui/portraits/vigil.png",
+   "size": [
+    96,
+    96
+   ],
+   "type": "ui"
+  },
+  "portrait_litoralis": {
+   "dest": "ui/portraits/litoralis.png",
+   "size": [
+    96,
+    96
+   ],
+   "type": "ui"
+  },
+  "portrait_lapis": {
+   "dest": "ui/portraits/lapis.png",
+   "size": [
+    96,
+    96
+   ],
+   "type": "ui"
+  },
+  "portrait_tribe": {
+   "dest": "ui/portraits/tribe.png",
+   "size": [
+    96,
+    96
+   ],
+   "type": "ui"
+  },
+  "rock_stromatolite": {
+   "dest": "ui/icons/rock_stromatolite.png",
+   "size": [
+    40,
+    40
+   ],
+   "type": "ui"
+  },
+  "rock_chalk": {
+   "dest": "ui/icons/rock_chalk.png",
+   "size": [
+    40,
+    40
+   ],
+   "type": "ui"
+  },
+  "rock_limestone": {
+   "dest": "ui/icons/rock_limestone.png",
+   "size": [
+    40,
+    40
+   ],
+   "type": "ui"
+  },
+  "rock_mudstone": {
+   "dest": "ui/icons/rock_mudstone.png",
+   "size": [
+    40,
+    40
+   ],
+   "type": "ui"
+  },
+  "rock_peat": {
+   "dest": "ui/icons/rock_peat.png",
+   "size": [
+    40,
+    40
+   ],
+   "type": "ui"
+  },
+  "rock_lignite": {
+   "dest": "ui/icons/rock_lignite.png",
+   "size": [
+    40,
+    40
+   ],
+   "type": "ui"
+  },
+  "rock_coal": {
+   "dest": "ui/icons/rock_coal.png",
+   "size": [
+    40,
+    40
+   ],
+   "type": "ui"
+  },
+  "rock_sandstone": {
+   "dest": "ui/icons/rock_sandstone.png",
+   "size": [
+    40,
+    40
+   ],
+   "type": "ui"
+  },
+  "rock_tuff": {
+   "dest": "ui/icons/rock_tuff.png",
+   "size": [
+    40,
+    40
+   ],
+   "type": "ui"
+  },
+  "rock_phosphorite": {
+   "dest": "ui/icons/rock_phosphorite.png",
+   "size": [
+    40,
+    40
+   ],
+   "type": "ui"
+  },
+  "rock_amber": {
+   "dest": "ui/icons/rock_amber.png",
+   "size": [
+    40,
+    40
+   ],
+   "type": "ui"
+  },
+  "rock_oil": {
+   "dest": "ui/icons/rock_oil.png",
+   "size": [
+    40,
+    40
+   ],
+   "type": "ui"
+  },
+  "rock_gas": {
+   "dest": "ui/icons/rock_gas.png",
+   "size": [
+    40,
+    40
+   ],
+   "type": "ui"
+  },
+  "rock_shale": {
+   "dest": "ui/icons/rock_shale.png",
+   "size": [
+    40,
+    40
+   ],
+   "type": "ui"
+  },
+  "rock_slate": {
+   "dest": "ui/icons/rock_slate.png",
+   "size": [
+    40,
+    40
+   ],
+   "type": "ui"
+  },
+  "rock_marble": {
+   "dest": "ui/icons/rock_marble.png",
+   "size": [
+    40,
+    40
+   ],
+   "type": "ui"
+  },
+  "rock_quartzite": {
+   "dest": "ui/icons/rock_quartzite.png",
+   "size": [
+    40,
+    40
+   ],
+   "type": "ui"
+  },
+  "rock_anthracite": {
+   "dest": "ui/icons/rock_anthracite.png",
+   "size": [
+    40,
+    40
+   ],
+   "type": "ui"
+  },
+  "rock_diamond": {
+   "dest": "ui/icons/rock_diamond.png",
+   "size": [
+    40,
+    40
+   ],
+   "type": "ui"
+  },
+  "rock_rare": {
+   "dest": "ui/icons/rock_rare.png",
+   "size": [
+    40,
+    40
+   ],
+   "type": "ui"
+  },
+  "rock_basalt": {
+   "dest": "ui/icons/rock_basalt.png",
+   "size": [
+    40,
+    40
+   ],
+   "type": "ui"
+  },
+  "rock_obsidian": {
+   "dest": "ui/icons/rock_obsidian.png",
+   "size": [
+    40,
+    40
+   ],
+   "type": "ui"
+  },
+  "rock_granite": {
+   "dest": "ui/icons/rock_granite.png",
+   "size": [
+    40,
+    40
+   ],
+   "type": "ui"
+  },
+  "rock_gneiss": {
+   "dest": "ui/icons/rock_gneiss.png",
+   "size": [
+    40,
+    40
+   ],
+   "type": "ui"
+  },
+  "rock_ruby": {
+   "dest": "ui/icons/rock_ruby.png",
+   "size": [
+    40,
+    40
+   ],
+   "type": "ui"
+  },
+  "rock_sapphire": {
+   "dest": "ui/icons/rock_sapphire.png",
+   "size": [
+    40,
+    40
+   ],
+   "type": "ui"
+  },
+  "rock_graphite": {
+   "dest": "ui/icons/rock_graphite.png",
+   "size": [
+    40,
+    40
+   ],
+   "type": "ui"
+  },
+  "rock_glowstone": {
+   "dest": "ui/icons/rock_glowstone.png",
+   "size": [
+    40,
+    40
+   ],
+   "type": "ui"
+  },
+  "element_rain": {
+   "dest": "ui/icons/element_rain.png",
+   "size": [
+    56,
+    56
+   ],
+   "type": "ui"
+  },
+  "element_flood": {
+   "dest": "ui/icons/element_flood.png",
+   "size": [
+    56,
+    56
+   ],
+   "type": "ui"
+  },
+  "element_drought": {
+   "dest": "ui/icons/element_drought.png",
+   "size": [
+    56,
+    56
+   ],
+   "type": "ui"
+  },
+  "element_groundwater": {
+   "dest": "ui/icons/element_groundwater.png",
+   "size": [
+    56,
+    56
+   ],
+   "type": "ui"
+  },
+  "element_heat": {
+   "dest": "ui/icons/element_heat.png",
+   "size": [
+    56,
+    56
+   ],
+   "type": "ui"
+  },
+  "element_volcano": {
+   "dest": "ui/icons/element_volcano.png",
+   "size": [
+    56,
+    56
+   ],
+   "type": "ui"
+  },
+  "element_seaAdvance": {
+   "dest": "ui/icons/element_seaAdvance.png",
+   "size": [
+    56,
+    56
+   ],
+   "type": "ui"
+  },
+  "element_seaRetreat": {
+   "dest": "ui/icons/element_seaRetreat.png",
+   "size": [
+    56,
+    56
+   ],
+   "type": "ui"
+  },
+  "element_earthquake": {
+   "dest": "ui/icons/element_earthquake.png",
+   "size": [
+    56,
+    56
+   ],
+   "type": "ui"
+  },
+  "element_glacier": {
+   "dest": "ui/icons/element_glacier.png",
+   "size": [
+    56,
+    56
+   ],
+   "type": "ui"
+  },
+  "element_meteor": {
+   "dest": "ui/icons/element_meteor.png",
+   "size": [
+    56,
+    56
+   ],
+   "type": "ui"
+  },
+  "element_magma": {
+   "dest": "ui/icons/element_magma.png",
+   "size": [
+    56,
+    56
+   ],
+   "type": "ui"
+  },
+  "media_metal_sheet": {
+   "dest": "ui/media/metal_sheet.png",
+   "size": [
+    320,
+    220
+   ],
+   "type": "ui"
+  },
+  "media_memory_crystal": {
+   "dest": "ui/media/memory_crystal.png",
+   "size": [
+    320,
+    220
+   ],
+   "type": "ui"
+  },
+  "media_ceramic_plate": {
+   "dest": "ui/media/ceramic_plate.png",
+   "size": [
+    320,
+    220
+   ],
+   "type": "ui"
+  },
+  "media_school_tablet": {
+   "dest": "ui/media/school_tablet.png",
+   "size": [
+    320,
+    220
+   ],
+   "type": "ui"
+  },
+  "ritual_eat": {
+   "dest": "ui/ritual_eat.png",
+   "size": [
+    150,
+    210
+   ],
+   "type": "ui"
+  },
+  "legend_eat": {
+   "dest": "world/legend_eat.png",
+   "size": [
+    40,
+    32
+   ],
+   "type": "world"
+  },
+  "ritual_bury": {
+   "dest": "ui/ritual_bury.png",
+   "size": [
+    150,
+    210
+   ],
+   "type": "ui"
+  },
+  "legend_bury": {
+   "dest": "world/legend_bury.png",
+   "size": [
+    40,
+    32
+   ],
+   "type": "world"
+  },
+  "ritual_shatter": {
+   "dest": "ui/ritual_shatter.png",
+   "size": [
+    150,
+    210
+   ],
+   "type": "ui"
+  },
+  "legend_shatter": {
+   "dest": "world/legend_shatter.png",
+   "size": [
+    40,
+    32
+   ],
+   "type": "world"
+  },
+  "temple_1": {
+   "dest": "world/temple_1.png",
+   "size": [
+    56,
+    48
+   ],
+   "type": "world"
+  },
+  "temple_2": {
+   "dest": "world/temple_2.png",
+   "size": [
+    56,
+    48
+   ],
+   "type": "world"
+  },
+  "temple_3": {
+   "dest": "world/temple_3.png",
+   "size": [
+    56,
+    48
+   ],
+   "type": "world"
+  },
+  "temple_4": {
+   "dest": "world/temple_4.png",
+   "size": [
+    56,
+    48
+   ],
+   "type": "world"
+  },
+  "temple_sheet": {
+   "dest": "world/temple_{n}.png",
+   "size": [
+    56,
+    48
+   ],
+   "type": "world",
+   "grid": [
+    2,
+    2
+   ],
+   "names": [
+    "temple_1",
+    "temple_2",
+    "temple_3",
+    "temple_4"
+   ]
+  }
+ }
+}

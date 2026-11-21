@@ -1,19 +1,23 @@
-// Pointer input on the world canvas: artifact clicks, layer tooltips, chronicle notes, targeting for underground elements.
-import { CFG, ElementDef, RULES_BY_MAT, eraOfYear } from '../config';
+// Pointer input on the world canvas: artifact clicks, layer labels (museum style), targeting for underground
+// elements (the drawer hides, a ghost glow follows the finger, a tap applies, ✕ cancels), tap-on-world closes the drawer.
+import { CFG, ElementDef, eraOfYear } from '../config';
 import type { Game } from '../core/game';
 import type { Renderer } from '../render/renderer';
 import { CAP, F_FOSSIL, F_FRAGMENT } from '../world/World';
-import { $, h, setText, matSwatch } from './dom';
+import { $, h, setText } from './dom';
 import { WW, WH } from '../render/common';
+import { t, fmt } from './i18n';
+import { fmtCountdown } from './hud';
+import { makeEntry, chronicleCard } from './chronicle';
+import { rockIcon } from './icons';
+
 /** UI units (360×640) per canvas pixel. */
 const UI = 360 / WW;
-import { t, fmt, fmtInt } from './i18n';
-import { makeEntry, chronicleCard } from './chronicle';
 
 export class Input {
   private tooltip = $('#tooltip');
   private fieldnote = $('#fieldnote');
-  private hint = $('#target-hint');
+  private bar = $('#target-bar');
   private canvas = $('#world') as HTMLCanvasElement;
   targeting: ElementDef | null = null;
   /** Last input was a finger: bigger hit areas, no hover. */
@@ -22,12 +26,17 @@ export class Input {
   private noteTimer = 0;
   private mouse: { x: number; y: number } | null = null;
   onArtifact: (shard: number) => void = () => {};
-  onCast: () => void = () => {};
+  onCast: (x: number, y: number) => void = () => {};
   onChoose: (index: number) => void = () => {};
+  /** Returns true when a tap on the world only closed the drawer. */
+  onWorldTap: () => boolean = () => false;
+  onTargetEnd: () => void = () => {};
 
   constructor(private g: () => Game, private ren: Renderer) {
     const c = this.canvas;
-    c.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse' || e.pointerType === 'pen') this.move(e); });
+    c.addEventListener('pointermove', (e) => {
+      if (e.pointerType === 'mouse' || e.pointerType === 'pen' || this.targeting) this.move(e);
+    });
     c.addEventListener('pointerleave', () => { this.mouse = null; this.ren.hover = null; this.tooltip.hidden = true; });
     c.addEventListener('pointerdown', (e) => {
       if (e.pointerType === 'mouse' && e.button !== 0) return;
@@ -37,7 +46,8 @@ export class Input {
     });
     c.addEventListener('contextmenu', (e) => { if (this.targeting) { e.preventDefault(); this.cancelTarget(); } });
     window.addEventListener('keydown', (e) => { if (e.key === 'Escape') this.cancelTarget(); });
-    this.fieldnote.addEventListener('click', () => { this.fieldnote.hidden = true; });
+    this.fieldnote.addEventListener('click', (e) => { if (!(e.target as HTMLElement).closest('.l-toggle')) this.fieldnote.hidden = true; });
+    $('#target-cancel').addEventListener('click', () => this.cancelTarget());
   }
 
   private world(e: MouseEvent): { x: number; y: number } {
@@ -48,21 +58,24 @@ export class Input {
   startTarget(el: ElementDef): void {
     if (!this.g().canCast(el)) return;
     this.targeting = el;
-    this.hint.hidden = false;
-    setText(this.hint, t('elements.target'));
+    this.bar.hidden = false;
+    setText($('#target-text'), t('elements.' + el.id + '.name') + ' · ' + t('elements.tapLayers'));
     this.canvas.classList.add('target');
+    this.fieldnote.hidden = true;
   }
 
   cancelTarget(): void {
+    if (!this.targeting) return;
     this.targeting = null;
     this.ren.targeting = null;
-    this.hint.hidden = true;
+    this.bar.hidden = true;
     this.canvas.classList.remove('target');
+    this.onTargetEnd();
   }
 
   update(dt: number): void {
     if (this.noteTimer > 0) { this.noteTimer -= dt; if (this.noteTimer <= 0) this.fieldnote.hidden = true; }
-    if (this.mouse) this.refreshHover();
+    if (this.mouse && !this.finger) this.refreshHover();
   }
 
   private move(e: MouseEvent): void {
@@ -72,14 +85,18 @@ export class Input {
 
   private chooseIndex(g: Game, m: { x: number; y: number }): number {
     const xs = this.ren.chooseXs(g.availableItems().length);
-    for (let i = 0; i < xs.length; i++) if (Math.abs(m.x - xs[i]) < 20 && Math.abs(m.y - 160) < 22) return i;
+    for (let i = 0; i < xs.length; i++) if (Math.abs(m.x - xs[i]) < 22 && Math.abs(m.y - 160) < 26) return i;
     return -1;
   }
 
-  /** Is (x, section y) inside the technogenic horizon band? */
-  private onHorizon(x: number, sy: number): boolean {
-    const top = this.ren.section.horizonTop[x];
-    return sy >= top && sy < top + CFG.story.horizon.rows;
+  private col(x: number): number { return Math.max(0, Math.min(WW - 1, Math.floor(x))); }
+
+  private placeTarget(m: { x: number; y: number }): void {
+    const sy = this.ren.sectionY(m.y);
+    const p = this.targeting!.params;
+    // only the strata take a target; snap into them
+    const y = sy === null ? null : Math.min(Math.max(2, sy), Math.max(2, this.ren.section.strataH - 2));
+    this.ren.targeting = y !== null ? { rx: p.radiusX, ry: p.radiusY, x: this.col(m.x), y, kind: this.targeting!.id } : null;
   }
 
   private refreshHover(): void {
@@ -91,78 +108,49 @@ export class Input {
       this.tooltip.hidden = true;
       return;
     }
+    if (this.targeting) { this.placeTarget(m); this.tooltip.hidden = true; return; }
     const art = this.ren.isArtifact(m.x, m.y, g);
-    this.canvas.classList.toggle('pointer', art >= 0 && !this.targeting);
+    this.canvas.classList.toggle('pointer', art >= 0);
     const sy = this.ren.sectionY(m.y);
-    const x = Math.max(0, Math.min(WW - 1, Math.floor(m.x)));
-    if (this.targeting) {
-      const p = this.targeting.params;
-      this.ren.targeting = sy !== null ? { rx: p.radiusX, ry: p.radiusY, x, y: sy, kind: this.targeting.id } : null;
-      this.tooltip.hidden = true;
-      return;
-    }
-    if (sy === null || art >= 0) { this.ren.hover = null; this.tooltip.hidden = true; return; }
-    if (this.onHorizon(x, Math.floor(sy))) {
-      this.ren.hover = { x, y: Math.floor(sy) };
-      this.tooltip.replaceChildren(h('div', { class: 't-head' }, '⟡'), h('div', { class: 't-row' }, fmtInt(CFG.zeroYear - CFG.startYear) + '⟡'), h('div', { class: 't-hint' }, t('tip.click')));
-      this.tooltip.hidden = false;
-      this.tooltip.style.left = Math.max(4, m.x * UI > 200 ? m.x * UI - 120 : m.x * UI + 10) + 'px';
-      this.tooltip.style.top = Math.min(560, Math.max(60, m.y * UI - 20)) + 'px';
-      return;
-    }
+    if (sy === null || art >= 0 || g.state.phase !== 'play') { this.ren.hover = null; this.tooltip.hidden = true; return; }
+    const x = this.col(m.x);
     this.ren.hover = { x, y: Math.floor(sy) };
-    this.showTooltip(g, x, Math.floor(sy), m);
+    this.showTooltip(g, x, sy, m);
   }
 
+  /** A small museum label on hover: rock name and era (numbers only in detailed mode). */
   private showTooltip(g: Game, x: number, sy: number, m: { x: number; y: number }): void {
-    const lay = this.ren.lay;
+    const loc = this.ren.section.locateAt(g, x, sy);
     const w = g.world;
-    let v = lay.vOf[sy];
-    if (w.fold[x]) v = Math.max(0, v + w.fold[x] * (v / (v + 30)));
-    const loc = w.locate(x, v);
-    const rows: string[] = [];
-    let head = '';
-    let icon = '';
     const detailed = !!g.state.settings.detailed;
-    if (!loc) {
-      head = '—';
-    } else if (loc.kind === 'cell') {
+    let head = '', icon = '', sub = '';
+    const rows: string[] = [];
+    if (loc.kind === 'horizon') { head = t('chron.horizon'); sub = fmtCountdown(CFG.zeroYear - CFG.startYear) + '⟡'; }
+    else if (loc.kind === 'bedrock' || loc.kind === 'foundation') { this.tooltip.hidden = true; return; }
+    else if (loc.kind === 'cell') {
       const j = x * CAP + loc.i;
       const mat = CFG.materials[w.mat[j]];
-      head = t('materials.' + mat.id);
-      const b = w.birth[j];
-      icon = mat.id;
-      rows.push(t('tip.epoch', { era: t('era.' + eraOfYear(b)) }));
-      if (detailed) {
-        rows.push(t('tip.laid', { y: fmtInt(Math.max(0, CFG.zeroYear - b)) + '⟡' }) + ' · ' + t('tip.depth', { d: fmt(loc.depth, 0) }));
-        rows.push(`${t('tip.P', { v: fmt(w.P[j], 2) })} · ${t('tip.T', { v: fmt(w.T[j], 0) })} · ${t('tip.k', { v: fmt(w.k[j], 2) })}`);
-      }
+      head = t('materials.' + mat.id); icon = mat.id;
+      sub = t('era.' + eraOfYear(w.birth[j]));
+      if (detailed) rows.push(t('tip.laid', { y: fmtCountdown(CFG.zeroYear - w.birth[j]) + '⟡' }) + ' · ' + t('tip.depth', { d: fmt(loc.depth, 0) }));
       const fl = w.flags[j];
       if (fl & F_FOSSIL) rows.push(t('tip.fossil', { s: t('species.' + CFG.species[w.spec[j] - 1]?.id + '.name') }));
       else if (fl & F_FRAGMENT) rows.push(t('tip.fragment', { s: t('species.' + CFG.species[w.spec[j] - 1]?.id + '.name') }));
-      const rule = RULES_BY_MAT[w.mat[j]].find((r) => (!r.world || (r.world === 'hot' && g.mods.hot)) && r.years > 0 && r.yield > 0);
-      if (detailed && rule && w.prog[j] > 0) rows.push(t('tip.progress', { rock: t('rocks.' + rule.rock), p: fmt(Math.min(99, (w.prog[j] / rule.years) * 100), 0) }));
-      for (const tz of g.run.targets) if (x >= tz.x0 && x <= tz.x1 && b >= tz.b0 && b <= tz.b1) rows.push(t(tz.kind === 'water' ? 'tip.water' : 'tip.heat'));
     } else {
       const pk = w.packs[loc.p];
       let best = 0, bm = 0;
       pk.amt.forEach((a, mm) => { if (a > best) { best = a; bm = mm; } });
-      head = t('materials.' + CFG.materials[bm].id);
-      icon = CFG.materials[bm].id;
-      rows.push(t('tip.epoch', { era: t('era.' + eraOfYear((pk.ageMin + pk.ageMax) / 2)) }));
-      if (detailed) {
-        rows.push(t('tip.pack', { n: fmt(pk.rows, 0), y0: fmtInt(CFG.zeroYear - pk.ageMax), y1: fmtInt(CFG.zeroYear - pk.ageMin) + '⟡' }));
-        rows.push(t('tip.depth', { d: fmt(loc.depth, 0) }));
-        rows.push(`${t('tip.P', { v: fmt(pk.P, 1) })} · ${t('tip.T', { v: fmt(pk.T, 0) })} · ${t('tip.k', { v: fmt(pk.k, 2) })}`);
-      }
+      head = t('materials.' + CFG.materials[bm].id); icon = CFG.materials[bm].id;
+      sub = t('era.' + eraOfYear((pk.ageMin + pk.ageMax) / 2));
+      if (detailed) rows.push(t('tip.pack', { n: fmt(pk.rows, 0), y0: fmtCountdown(CFG.zeroYear - pk.ageMax), y1: fmtCountdown(CFG.zeroYear - pk.ageMin) + '⟡' }));
     }
     const tip = this.tooltip;
-    tip.replaceChildren(h('div', { class: 't-head' }, icon ? matSwatch(icon) : '', head), ...rows.map((r) => h('div', { class: 't-row' }, r)), loc ? h('div', { class: 't-hint' }, t('tip.click')) : '');
+    tip.replaceChildren(h('div', { class: 'l-head' }, icon ? rockIcon(icon, 18) : h('span', { class: 'l-sym' }, '⟡'), h('span', {}, head)),
+      h('div', { class: 'l-sub' }, sub), ...rows.map((r) => h('div', { class: 'l-sub' }, r)));
     tip.hidden = false;
-    const tx = m.x * UI > 200 ? m.x * UI - 196 : m.x * UI + 10;
-    const ty = Math.min(560, Math.max(60, m.y * UI - 20));
-    tip.style.left = Math.max(4, tx) + 'px';
-    tip.style.top = ty + 'px';
+    const tx = m.x * UI > 190 ? m.x * UI - 176 : m.x * UI + 12;
+    tip.style.left = Math.max(6, tx) + 'px';
+    tip.style.top = Math.min(540, Math.max(110, m.y * UI - 24)) + 'px';
   }
 
   private down(e: MouseEvent): void {
@@ -173,36 +161,29 @@ export class Input {
       if (i >= 0) this.onChoose(i);
       return;
     }
-    const art = this.ren.isArtifact(m.x, m.y, g, this.finger ? 1.7 : 1);
+    if (g.state.phase !== 'play' && g.state.phase !== 'temple') return;
     if (this.targeting) {
-      const sy = this.ren.sectionY(m.y);
-      if (sy === null) { this.cancelTarget(); return; }
-      if (this.finger) {
-        // first tap places the frame, a tap inside it confirms
-        const tg = this.ren.targeting;
-        const p = this.targeting.params;
-        const inside = tg && Math.abs(m.x - tg.x) <= tg.rx && Math.abs(sy - tg.y) <= 14;
-        if (!inside) { this.ren.targeting = { rx: p.radiusX, ry: p.radiusY, x: Math.floor(m.x), y: Math.floor(sy), kind: this.targeting.id }; return; }
-      }
-      const x = Math.max(0, Math.min(WW - 1, Math.floor(m.x)));
-      let v = this.ren.lay.vOf[Math.floor(sy)];
-      if (g.cast(this.targeting.id, { x, v })) this.onCast();
+      this.placeTarget(m);
+      const tg = this.ren.targeting;
+      if (!tg) { if (m.y < this.ren.lay.sectionTop - 4) this.cancelTarget(); return; }
+      const half = Math.max(2, tg.ry * 0.6);
+      const [b0, b1] = this.ren.section.birthRange(tg.y - half, tg.y + half);
+      const v = this.ren.section.vOfY(tg.y);
+      if (g.cast(this.targeting.id, { x: tg.x, v, b0, b1 })) this.onCast(tg.x, this.ren.lay.sectionTop + tg.y);
       this.cancelTarget();
       return;
     }
+    const art = this.ren.isArtifact(m.x, m.y, g, this.finger ? 1.7 : 1);
     if (art >= 0) { this.onArtifact(art); return; }
+    if (this.onWorldTap()) return;
     const sy = this.ren.sectionY(m.y);
-    if (sy !== null) {
-      const x = Math.max(0, Math.min(WW - 1, Math.floor(m.x)));
-      let v = this.ren.lay.vOf[Math.floor(sy)];
-      if (g.world.fold[x]) v = Math.max(0, v + g.world.fold[x] * (v / (v + 30)));
-      const entry = makeEntry(g, x, v, this.onHorizon(x, Math.floor(sy)));
-      if (entry) {
-        this.fieldnote.replaceChildren(chronicleCard(entry, !!g.state.settings.detailed));
-        this.fieldnote.hidden = false;
-        this.fieldnote.style.top = Math.max(100, Math.min(470, m.y * UI - 60)) + 'px';
-        this.noteTimer = 7;
-      }
-    }
+    if (sy === null) { this.fieldnote.hidden = true; return; }
+    const x = this.col(m.x);
+    const entry = makeEntry(g, x, this.ren.section.locateAt(g, x, sy));
+    if (!entry) { this.fieldnote.hidden = true; return; }
+    this.fieldnote.replaceChildren(chronicleCard(entry, !!g.state.settings.detailed));
+    this.fieldnote.hidden = false;
+    this.fieldnote.style.top = Math.max(150, Math.min(420, m.y * UI - 70)) + 'px';
+    this.noteTimer = 8;
   }
 }

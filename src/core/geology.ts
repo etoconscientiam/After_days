@@ -116,7 +116,7 @@ export function geoTick(g: Game, dy: number): void {
               g.addRock(rule.rock, y * CFG.B.rockYield, x);
               if (glints < 60) {
                 glints++;
-                g.glints.push({ x, depth, t: 0.6, color: CFG.materials[rule.toIdx].palette[4] });
+                g.glints.push({ x, depth, t: 0.6, color: CFG.materials[rule.toIdx].palette[4], birth: w.birth[j] });
               }
             }
             w.version++;
@@ -192,7 +192,7 @@ function packTransforms(g: Game, pk: Pack, Peff: number, T: number, heat: number
         pk.amt[to] += conv;
         if (rule.yield > 0) {
           g.addRock(rule.rock, conv * rule.yield * CFG.B.rockYield);
-          g.glints.push({ x: Math.floor(g.rng.next() * W), depth: depth + pk.rows * g.rng.next(), t: 0.8, color: CFG.materials[to].palette[4] });
+          g.glints.push({ x: Math.floor(g.rng.next() * W), depth: depth + pk.rows * g.rng.next(), t: 0.8, color: CFG.materials[to].palette[4], birth: pk.ageMin + (pk.ageMax - pk.ageMin) * g.rng.next() });
         }
         g.world.version++;
       }
