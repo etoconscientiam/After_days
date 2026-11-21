@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "sim": "tsx sim/sim.ts",
     "zip": "node scripts/zip.mjs",
-    "prep-assets": "node tools/prep-assets.mjs"
+    "prep-assets": "node tools/prep-assets.mjs",
+    "font": "python3 tools/font/build.py && python3 tools/font/check.py"
   },
   "devDependencies": {
     "@fontsource/cormorant-garamond": "^5.3.0",

@@ -1,0 +1,92 @@
+// Diacritic marks used by compose.txt. Rows are free-height (top= is arbitrary, placement is automatic):
+// a mark is centred on the base's ink and sits one empty row above the highest ink under it.
+// Variants .odd / .even are picked by the parity of the base's ink width, so marks centre exactly.
+// round=up|down decides the half-pixel when parity still differs (acute leans right, grave left).
+
+=== acute top=1 round=up
+.#
+#.
+
+=== grave top=1 round=down
+#.
+.#
+
+=== dieresis.odd top=0
+#.#
+
+=== dieresis.even top=0
+#..#
+
+=== circumflex.odd top=1
+.#.
+#.#
+
+=== circumflex.even top=1
+.##.
+#..#
+
+=== caron.odd top=1
+#.#
+.#.
+
+=== caron.even top=1
+#..#
+.##.
+
+=== breve.odd top=1
+#...#
+.###.
+
+=== breve.even top=1
+#....#
+.####.
+
+=== tilde.odd top=1
+.##.#
+#..#.
+
+=== tilde.even top=1
+.#.#
+#.#.
+
+=== macron.odd top=0
+###
+
+=== macron.even top=0
+####
+
+=== dotaccent top=0 round=up
+#
+
+=== ring.odd top=2
+.#.
+#.#
+.#.
+
+=== ring.even top=2
+.##.
+#..#
+.##.
+
+=== hungarumlaut top=1 round=up
+.#..#
+#..#.
+
+=== cedilla top=-1
+.#.
+..#
+##.
+
+=== commabelow top=-1
+.#
+#.
+
+=== ogonek top=-1
+.#
+#.
+.#
+
+// apostrophe-shaped caron for ď ľ ť Ľ
+=== caronright top=1
+.#
+#.
