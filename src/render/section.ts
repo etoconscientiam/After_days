@@ -8,6 +8,7 @@ import type { Game } from '../core/game';
 import { CAP, F_FOSSIL, F_FRAGMENT, F_RARE, F_GLOW } from '../world/World';
 import { Layout, PAL_RGB, GRAIN_SCALE, NOISE, GRAIN, WW, WH } from './common';
 import { hash2 } from '../core/rng';
+import { skinPixels, SkinPixels } from './assets';
 
 const DARK = 16, SH = 5;
 const SHADE: Uint32Array[] = PAL_RGB.map((pal) => {
@@ -32,6 +33,35 @@ const HR = 6; // horizon rows on screen
 const BEDROCK_MIN = 8;
 const MAX_ROW_PX = 8;
 const LOG_C = 10;
+const FOUND_K = CFG.B.physics.foundationK;
+
+/** Scale a packed ABGR colour by f (and optionally tint it by an RGB colour, using the texel's brightness). */
+function shadePx(c: number, f: number, tint?: number[], mean = 128): number {
+  let r = c & 255, g = (c >> 8) & 255, b = (c >> 16) & 255;
+  if (tint) { const l = (r * 0.3 + g * 0.59 + b * 0.11) / mean; r = tint[0] * l; g = tint[1] * l; b = tint[2] * l; }
+  r *= f; g *= f; b *= f * 0.95 + 0.05;
+  return (255 << 24) | ((b > 255 ? 255 : b) << 16) | ((g > 255 ? 255 : g) << 8) | (r > 255 ? 255 : r);
+}
+/** Materials without a painted texture borrow a related one, tinted with their own colour. */
+const TEX_ALIAS: Record<string, string> = {
+  mudstone: 'silt', orgMarine: 'silt', chalk: 'sand', glassSand: 'sand', shellOoze: 'limestone', limeCrust: 'limestone',
+  marble: 'limestone', stromatolite: 'limestone', quartzite: 'sandstone', phosphorite: 'sandstone', slate: 'shale',
+  lignite: 'peat', orgLand: 'peat', anthracite: 'coal', graphite: 'coal', obsidian: 'coal', guano: 'soil', dung: 'soil',
+  hearth: 'soil', ash: 'dust', tuff: 'dust', moraine: 'dust', basalt: 'bedrock', granite: 'bedrock', gneiss: 'bedrock',
+  concrete: 'technogenic',
+};
+const meanLum = new WeakMap<SkinPixels, number>();
+function lumOf(t: SkinPixels): number {
+  let m = meanLum.get(t);
+  if (m === undefined) {
+    let s = 0;
+    for (let i = 0; i < t.px.length; i++) { const c = t.px[i]; s += (c & 255) * 0.3 + ((c >> 8) & 255) * 0.59 + ((c >> 16) & 255) * 0.11; }
+    m = Math.max(8, s / t.px.length);
+    meanLum.set(t, m);
+  }
+  return m;
+}
+const texAt = (t: SkinPixels, x: number, y: number) => t.px[(((y % t.h) + t.h) % t.h) * t.w + (((x % t.w) + t.w) % t.w)];
 
 /** The technogenic horizon pattern (concrete crumbs, glass sand, plastic dots, straight metal veins). */
 const HORIZON32: Uint32Array = (() => {
@@ -227,6 +257,14 @@ export class SectionRenderer {
     const kCol = new Float32Array(sH);
     const cellCol = new Int32Array(sH);
     const darkStep = (DARK - 1) / Math.max(1, sH);
+    // painted layer textures (assets/world/tex/<material>.png), when present
+    const own = CFG.materials.map((mm) => (mm.emissive ? null : skinPixels(`world/tex/${mm.id}.png`)));
+    const tex = CFG.materials.map((mm, i) => own[i] ?? (TEX_ALIAS[mm.id] ? skinPixels(`world/tex/${TEX_ALIAS[mm.id]}.png`) : null));
+    const texCompacted = skinPixels('world/tex/compacted.png');
+    const texBedrock = skinPixels('world/tex/bedrock.png');
+    const texTechno = skinPixels('world/tex/technogenic.png');
+    const MID = PAL_RGB.map((pal) => pal[Math.min(2, pal.length - 1)]);
+    const MIDL = MID.map(([r, g2, b]) => r * 0.3 + g2 * 0.59 + b * 0.11);
     if (this.matAll.length < WW * sH) { this.matAll = new Int16Array(WW * sH); this.kAll = new Float32Array(WW * sH); }
     const matAll = this.matAll, kAll = this.kAll;
 
@@ -285,8 +323,10 @@ export class SectionRenderer {
       }
       // 3) paint: palette + noise inside the band, boundary line one tone darker, deeper and denser = darker
       let lastFossilCell = -2;
+      let bandStart = 0;
       for (let y = 0; y < sH; y++) {
         const o = y * WW + x;
+        if (y > 0 && matCol[y] !== matCol[y - 1]) bandStart = y;
         if (y > revealY) { buf[o] = 0xff0d0b0e; continue; }
         const m = matCol[y];
         const gs = GRAIN_SCALE[m];
@@ -306,7 +346,19 @@ export class SectionRenderer {
           }
           if (fl & F_GLOW) d = 0;
         }
-        let c = SHADE[m][d * SH + s];
+        let c: number;
+        const k = kCol[y];
+        const tx = k >= FOUND_K && texCompacted ? texCompacted : tex[m];
+        if (tx && !(ci >= 0 && (w.flags[base + ci] & F_GLOW))) {
+          // texture anchored to its band (it moves with the layer); compaction squeezes it vertically
+          const seed = (hash2(m, Math.floor(this.bOfY[bandStart] / 50)) * 997) | 0;
+          const sq = 1 + Math.max(0, k - 1) * 0.35;
+          const px = texAt(tx, x + seed, Math.floor((y - bandStart) * sq) + seed);
+          const tinted = tx === texCompacted ? tex[m] !== texCompacted : !own[m];
+          // a painted texture keeps its hue but takes the brightness of the material's palette
+          const norm = tinted ? 1 : Math.max(0.6, Math.min(1.6, MIDL[m] / lumOf(tx)));
+          c = shadePx(px, (0.92 - (d / (DARK - 1)) * 0.56) * norm, tinted ? MID[m] : undefined, lumOf(tx));
+        } else c = SHADE[m][d * SH + s];
         if (targets.length) c = this.tint(g, c, x, this.bOfY[y], y);
         buf[o] = c;
       }
@@ -316,17 +368,18 @@ export class SectionRenderer {
         if (y > revealY) { buf[o] = 0xff0d0b0e; continue; }
         if (y < hTop) {
           const n = NOISE[((y * 7) & 255) * 256 + ((x * 7) & 255)];
-          let c = FOUND[Math.min(3, (n * 4) | 0)];
+          let c = texCompacted ? shadePx(texAt(texCompacted, x, y), 1, [52, 46, 66], lumOf(texCompacted)) : FOUND[Math.min(3, (n * 4) | 0)];
           for (const lv of g.meta.foundationLines) if (Math.round(hTop - (lv / Math.max(f, 1e-6)) * fpx) === y) c = EPOCH;
           buf[o] = c;
         } else if (y < hTop + HR) {
           const r = y - hTop;
-          buf[o] = HORIZON32[x * HR + r];
+          buf[o] = texTechno ? texAt(texTechno, x, Math.floor(((r + 0.5) * texTechno.h) / HR)) | 0xff000000 : HORIZON32[x * HR + r];
           if (hash2(x, r + 50) < g.glow[x] * 0.12) this.glowPts.push(x, y);
         } else {
           // bedrock: coarse grey-blue blocks, rare cracks, veins and inclusions
           const ny = y - hTop - HR;
           const n = NOISE[((((ny + 40) * 3) & 255) << 8) | ((x * 3) & 255)] * 0.7 + NOISE[(((ny * 11) & 255) << 8) | ((x * 11 + 50) & 255)] * 0.3;
+          if (texBedrock) { buf[o] = shadePx(texAt(texBedrock, x, ny), Math.max(0.7, 1 - ny * 0.004)); continue; }
           let c = BEDROCK[Math.min(4, (n * 5) | 0)];
           const crack = Math.abs(Math.sin(x * 0.21 + ny * 0.6 + NOISE[((ny * 5) & 255) * 256 + ((x * 2) & 255)] * 6)) < 0.04;
           if (crack && hash2(x >> 2, ny >> 2) > 0.55) c = CRACK;

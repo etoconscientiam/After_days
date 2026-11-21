@@ -1,5 +1,5 @@
 {
- "_comment": "Asset targets for npm run prep-assets: raw/<name>.png -> <dest>. type world = nearest-neighbour + world palette + binary alpha; ui = Lanczos to size x2, soft edges. grid: [cols, rows] splits a sheet into names in reading order.",
+ "_comment": "Asset targets for npm run prep-assets: raw/<name>.png -> <dest>. type world = nearest-neighbour + world palette + binary alpha; ui = Lanczos to size x2, soft edges. grid: [cols, rows] splits a sheet into names in reading order ({n} in dest = 1..). fit: contain (default) | fill (stretch, for tiles) | width (scale to the width, keep aspect). trim: false keeps the frame (tiles). palette: false keeps the source colours (textures are tinted by depth in code). variants: extra sizes of the same picture. Any raw tex_<id>.png without an entry goes to world/tex/<id>.png (64x64 tile). crop: [x0,y0,x1,y1] fractions cut before trimming. straighten: shift each column up so the top edge is flat. tile: flatten the painted lighting and make the tile seamless (64x64: the painted textures carry ~68 big pixels across, 32 would alias them into noise).",
  "assets": {
   "panel_stone": {
    "dest": "ui/panel_stone.png",
@@ -627,6 +627,221 @@
     "temple_3",
     "temple_4"
    ]
+  },
+  "sky_sun": {
+   "dest": "world/sky/sun.png",
+   "size": [
+    16,
+    16
+   ],
+   "type": "world",
+   "palette": false
+  },
+  "sky_moon": {
+   "dest": "world/sky/moon.png",
+   "size": [
+    14,
+    14
+   ],
+   "type": "world",
+   "palette": false
+  },
+  "sky_clouds": {
+   "dest": "world/sky/cloud_{n}.png",
+   "size": [
+    48,
+    24
+   ],
+   "type": "world",
+   "grid": [
+    2,
+    2
+   ],
+   "palette": false
+  },
+  "hills_far": {
+   "dest": "world/hills/far.png",
+   "size": [
+    200,
+    40
+   ],
+   "type": "world",
+   "fit": "width",
+   "palette": false
+  },
+  "hills_mid": {
+   "dest": "world/hills/mid.png",
+   "size": [
+    200,
+    40
+   ],
+   "type": "world",
+   "fit": "width",
+   "palette": false
+  },
+  "hills_near": {
+   "dest": "world/hills/near.png",
+   "size": [
+    220,
+    40
+   ],
+   "type": "world",
+   "fit": "width",
+   "palette": false
+  },
+  "surface_grass": {
+   "dest": "world/surface/grass.png",
+   "size": [
+    300,
+    40
+   ],
+   "type": "world",
+   "fit": "width",
+   "palette": false,
+   "straighten": true
+  },
+  "surface_beach": {
+   "dest": "world/surface/beach.png",
+   "size": [
+    220,
+    40
+   ],
+   "type": "world",
+   "fit": "width",
+   "palette": false,
+   "straighten": true,
+   "crop": [
+    0.32,
+    0,
+    1,
+    0.5
+   ]
+  },
+  "surface_water": {
+   "dest": "world/surface/water.png",
+   "size": [
+    220,
+    40
+   ],
+   "type": "world",
+   "fit": "width",
+   "palette": false,
+   "straighten": true,
+   "crop": [
+    0.3,
+    0,
+    1,
+    0.5
+   ]
+  },
+  "surface_barren": {
+   "dest": "world/surface/barren.png",
+   "size": [
+    300,
+    40
+   ],
+   "type": "world",
+   "fit": "width",
+   "palette": false,
+   "straighten": true
+  },
+  "tex_bedrock": {
+   "dest": "world/tex/bedrock.png",
+   "size": [
+    64,
+    64
+   ],
+   "type": "world",
+   "fit": "fill",
+   "trim": false,
+   "palette": false,
+   "tile": true
+  },
+  "tex_technogenic": {
+   "dest": "world/tex/technogenic.png",
+   "size": [
+    64,
+    64
+   ],
+   "type": "world",
+   "fit": "fill",
+   "trim": false,
+   "palette": false,
+   "tile": true
+  },
+  "tex_compacted": {
+   "dest": "world/tex/compacted.png",
+   "size": [
+    64,
+    64
+   ],
+   "type": "world",
+   "fit": "fill",
+   "trim": false,
+   "palette": false,
+   "tile": true
+  },
+  "artifact_a": {
+   "dest": "world/items/artifact_a.png",
+   "size": [
+    32,
+    32
+   ],
+   "type": "world",
+   "palette": false,
+   "variants": [
+    {
+     "dest": "world/items/artifact_a_small.png",
+     "size": [
+      14,
+      14
+     ]
+    }
+   ]
+  },
+  "artifact_b": {
+   "dest": "world/items/artifact_b.png",
+   "size": [
+    32,
+    32
+   ],
+   "type": "world",
+   "palette": false,
+   "variants": [
+    {
+     "dest": "world/items/artifact_b_small.png",
+     "size": [
+      14,
+      14
+     ]
+    }
+   ]
+  },
+  "artifact_c": {
+   "dest": "world/items/artifact_c.png",
+   "size": [
+    32,
+    32
+   ],
+   "type": "world",
+   "palette": false,
+   "variants": [
+    {
+     "dest": "world/items/artifact_c_small.png",
+     "size": [
+      14,
+      14
+     ]
+    }
+   ]
+  },
+  "density": {
+   "dest": "ui/icons/density.png",
+   "size": [
+    32,
+    32
+   ],
+   "type": "ui"
   }
  }
 }

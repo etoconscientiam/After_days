@@ -24,3 +24,26 @@ export function skin(path: string): HTMLImageElement | null {
 export function hasAsset(path: string): boolean {
   return assetUrl(path) !== null;
 }
+
+/** Pixels of a loaded asset as packed ABGR (canvas ImageData order), for code that writes pixel buffers. */
+export interface SkinPixels { w: number; h: number; px: Uint32Array }
+const pixelCache = new Map<string, SkinPixels | null>();
+export function skinPixels(path: string): SkinPixels | null {
+  const hit = pixelCache.get(path);
+  if (hit !== undefined) return hit;
+  const img = skin(path);
+  if (!img) { if (!hasAsset(path)) pixelCache.set(path, null); return null; }
+  const c = document.createElement('canvas');
+  c.width = img.naturalWidth; c.height = img.naturalHeight;
+  const x = c.getContext('2d', { willReadFrequently: true })!;
+  x.drawImage(img, 0, 0);
+  const d = x.getImageData(0, 0, c.width, c.height);
+  const res = { w: c.width, h: c.height, px: new Uint32Array(d.data.buffer.slice(0)) };
+  pixelCache.set(path, res);
+  return res;
+}
+
+/** Start loading a group of skins early (images load asynchronously; code falls back until they arrive). */
+export function preloadSkins(prefix: string): void {
+  for (const k of Object.keys(files)) if (k.startsWith('/assets/' + prefix)) skin(k.slice('/assets/'.length));
+}

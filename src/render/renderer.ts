@@ -4,6 +4,8 @@
 import { CFG } from '../config';
 import type { Game } from '../core/game';
 import { totalPop } from '../core/life';
+import { skin, preloadSkins } from './assets';
+import { tintedCanvas, drawTinted, tintInto } from './sprites';
 import { hash2 } from '../core/rng';
 import { Layout, WW, WH, NOISE, lerp, lerp3, hex3, rgb, ACCENT } from './common';
 import { SectionRenderer } from './section';
@@ -12,7 +14,6 @@ import { CREATURES, Pose, birdFlying, hominid } from './creatures';
 import { drawItem } from './items';
 import { renderEcho, EW, EH } from './echoes';
 import { drawScene, pictogram, VW, VH } from './ritual';
-import { skin } from './assets';
 
 interface Particle { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string; size: number; kind?: 'mote' | 'firefly' | 'spark' }
 interface Flyer { x: number; y: number; vx: number; vy: number; tx: number; ty: number; t: number; color: string; done?: () => void }
@@ -75,6 +76,7 @@ export class Renderer {
   private sceneCanvas = document.createElement('canvas');
   private maskCanvas = document.createElement('canvas');
   private zoom = 1;
+  private cloudsSkinned = false;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -82,6 +84,7 @@ export class Renderer {
     canvas.height = WH;
     this.ctx = canvas.getContext('2d', { alpha: false })!;
     this.ctx.imageSmoothingEnabled = false;
+    preloadSkins('world/');
     for (let i = 0; i < 80; i++) this.stars.push({ x: hash2(i, 1) * WW, y: 30 + hash2(i, 2) * 80, b: 0.3 + hash2(i, 3) * 0.7 });
     for (let l = 0; l < 3; l++) this.clouds.push(this.makeClouds(l));
     // three planes: far mountains, middle hills, near hills (heights above their baselines)
@@ -104,6 +107,19 @@ export class Renderer {
     const c = document.createElement('canvas');
     c.width = WW; c.height = 40;
     const x = c.getContext('2d')!;
+    const sprites = [1, 2, 3, 4].map((n) => skin(`world/sky/cloud_${n}.png`)).filter((im): im is HTMLImageElement => !!im);
+    if (sprites.length) {
+      // painted clouds: far layer small and few, near layer large; wrapped so the strip tiles
+      x.imageSmoothingEnabled = false;
+      const n = [4, 3, 2][layer], sc = [0.55, 0.8, 1][layer];
+      for (let i = 0; i < n; i++) {
+        const im = sprites[Math.floor(hash2(i, layer + 70) * sprites.length)];
+        const w = Math.round(im.naturalWidth * sc), h = Math.round(im.naturalHeight * sc);
+        const cx = (i + 0.2 + hash2(i, layer + 71) * 0.6) * (WW / n), cy = 6 + hash2(i, layer + 72) * Math.max(1, 34 - h);
+        for (const ox of [0, -WW, WW]) x.drawImage(im, Math.round(cx - w / 2 + ox), Math.round(cy), w, h);
+      }
+      return c;
+    }
     const n = [5, 4, 3][layer], size = [0.6, 1, 1.5][layer];
     for (let i = 0; i < n; i++) {
       const cx = (i + hash2(i, layer + 40) * 0.6) * (WW / n), cy = 22 + hash2(i, layer + 41) * 10;
@@ -295,14 +311,22 @@ export class Renderer {
     }
     this.drawSatellites(g, alt);
     this.drawSunMoon(sky);
-    const cloudA = (0.35 + 0.5 * sky.light) * (g.run.oxygen > 5 ? 1 : 0.5);
+    if (!this.cloudsSkinned && skin('world/sky/cloud_1.png')) {
+      this.cloudsSkinned = true;
+      this.clouds = [0, 1, 2].map((l) => this.makeClouds(l));
+    }
+    const cloudA = (this.cloudsSkinned ? 0.55 + 0.4 * sky.light : 0.35 + 0.5 * sky.light) * (g.run.oxygen > 5 ? 1 : 0.5);
+    // clouds take the colour of the hour: white by day, peach at sunset, grey-blue at night
+    const low = this.sunPos?.up ? this.sunPos.low : 0;
+    const ct = lerp3(lerp3([255, 255, 255], [255, 186, 150], low * Math.min(1, sky.light * 1.6)), [96, 106, 150], 1 - sky.light);
     for (let l = 0; l < this.clouds.length; l++) {
       const speed = [1.2, 2.6, 5][l];
       const off = (this.t * speed) % WW;
       const y = [62, 50, 38][l] - lay.shift * (0.4 + l * 0.2);
+      const cl = tintedCanvas(this.clouds[l], WW, this.clouds[l].height, lerp3(ct, sky.hor, [0.35, 0.18, 0][l]));
       c.globalAlpha = cloudA * [0.45, 0.6, 0.75][l];
-      c.drawImage(this.clouds[l], -Math.round(off), Math.round(y));
-      c.drawImage(this.clouds[l], WW - Math.round(off), Math.round(y));
+      c.drawImage(cl, 0, 0, WW, this.clouds[l].height, -Math.round(off), Math.round(y), WW, this.clouds[l].height);
+      c.drawImage(cl, 0, 0, WW, this.clouds[l].height, WW - Math.round(off), Math.round(y), WW, this.clouds[l].height);
     }
     c.globalAlpha = 1;
     if (g.run.active.some((a) => a.id === 'rain' || a.id === 'flood')) {
@@ -360,7 +384,7 @@ export class Renderer {
         band.addColorStop(0, rgb(255, 140, 70, 0.35 * low)); band.addColorStop(1, 'rgba(255,120,60,0)');
         c.fillStyle = band; c.fillRect(x - 90, horizon - 60, 180, 70);
       }
-      disc(x, y, R, (dx, dy) => (dx * dx + dy * dy > (R - 1) * (R - 1) ? rgb(core[0], core[1] * 0.92, core[2] * 0.8) : rgb(core[0], core[1], core[2])));
+      if (!drawTinted(c, 'world/sky/sun.png', x, y, core)) disc(x, y, R, (dx, dy) => (dx * dx + dy * dy > (R - 1) * (R - 1) ? rgb(core[0], core[1] * 0.92, core[2] * 0.8) : rgb(core[0], core[1], core[2])));
       this.sunPos = { x, y, up: su > 0 && su < 1, low };
     } else this.sunPos = null;
     const mu = ((this.dayPhase + 0.25) % 1) / 0.5;
@@ -370,8 +394,20 @@ export class Renderer {
       const glow = c.createRadialGradient(x, y, 1, x, y, 16);
       glow.addColorStop(0, `rgba(210,220,255,${0.25 * Math.sin(phase * Math.PI) + 0.05})`); glow.addColorStop(1, 'rgba(200,210,255,0)');
       c.fillStyle = glow; c.fillRect(x - 16, y - 16, 32, 32);
-      const R = 3, term = Math.cos(phase * 2 * Math.PI);
-      disc(x, y, R, (dx, dy) => {
+      const moonImg = skin('world/sky/moon.png');
+      const R = moonImg ? Math.floor(moonImg.naturalWidth / 2) : 3, term = Math.cos(phase * 2 * Math.PI);
+      const shadow = rgb(sky.top[0] * 1.15 + 8, sky.top[1] * 1.15 + 8, sky.top[2] * 1.15 + 12);
+      if (moonImg) {
+        // the painted moon, cooled by the night, with its phase shadow on top
+        drawTinted(c, 'world/sky/moon.png', x, y, [225, 230, 250]);
+        c.globalAlpha = 0.88;
+        disc(x, y, R - 1, (dx, dy) => {
+          const w = Math.sqrt(Math.max(0, R * R - dy * dy)) || 1;
+          const lit = phase < 0.5 ? dx / w > term : dx / w < -term;
+          return lit ? null : shadow;
+        });
+        c.globalAlpha = 1;
+      } else disc(x, y, R, (dx, dy) => {
         const w = Math.sqrt(Math.max(0, R * R - dy * dy)) || 1;
         const lit = phase < 0.5 ? dx / w > term : dx / w < -term;
         return lit ? (dx < 0 && dy < 0 ? '#f4f6fb' : '#dde2ee') : rgb(sky.top[0] * 1.15 + 8, sky.top[1] * 1.15 + 8, sky.top[2] * 1.15 + 12);
@@ -443,7 +479,22 @@ export class Renderer {
     const fogTop = bases[0] - 38, fogBot = bases[0] - 4;
     for (let l = 0; l < 3; l++) {
       const h = this.planes[l];
-      for (let x = 0; x < WW; x++) {
+      const img = skin(`world/hills/${['far', 'mid', 'near'][l]}.png`);
+      if (img) {
+        // painted hills: multiplied by the air between us and them (far = more horizon colour) and by the night
+        const iw = img.naturalWidth, ih = img.naturalHeight;
+        // before land life the green hills are bare: multiplied toward ochre-brown, greening with mosses and trees
+        const bare = l === 0 ? 0 : 1 - green;
+        const base = lerp3([255, 255, 255], [205, 150, 120], bare * 0.85);
+        const tint = lerp3(base, sky.hor, [0.5, 0.24, 0.08][l]).map((v) => v * (1 - night * 0.55));
+        const t = tintedCanvas(img, iw, ih, tint, l === 0 ? 0.12 : 0);
+        // far: sits on the horizon; mid and near: their crest only a little above the land, the rest behind it
+        const top = Math.round(l === 0 ? bases[0] + 6 - ih : bases[l] - [0, 22, 18][l]);
+        for (let ox = 0; ox < WW; ox += iw) c.drawImage(t, 0, 0, iw, ih, ox, top, iw, ih);
+        // fill below the picture down to the ground line so no sky shows through
+        const bot = top + ih;
+        if (bot < lay.groundBase + 4) { c.fillStyle = rgb(cols[l][0], cols[l][1], cols[l][2]); c.fillRect(0, bot, WW, lay.groundBase + 4 - bot); }
+      } else for (let x = 0; x < WW; x++) {
         const y = Math.round(bases[l] - h[x]);
         c.fillStyle = rgb(cols[l][0], cols[l][1], cols[l][2]);
         c.fillRect(x, y, 1, lay.groundBase + 4 - y);
@@ -501,9 +552,9 @@ export class Renderer {
     const dust = drought ? [200, 170, 120] : r.era < 3 ? [146, 126, 102] : [150, 130, 100];
     const sand = [206, 180, 124];
     const nf = (k: number) => 1 - night * k;
+    // 1) the ground plane and the water body
     for (let x = 0; x < WW; x++) {
       const gy = this.gy[x];
-      // the ground plane from the back edge to the cut, sand near the water, grass up the slope
       const wet = Math.max(0, Math.min(1, (gy - sea + 8) / 10));
       let top = lerp3(r.era < 3 || green < 0.05 ? dust : lerp3(dust, grass, green), sand, wet);
       if (glacier || winter) top = lerp3(top, [232, 238, 246], gy < sea ? 0.9 : 0.4);
@@ -515,7 +566,6 @@ export class Renderer {
         c.fillStyle = rgb(top[0] * shade * nf(0.55) * under, top[1] * shade * nf(0.55) * (under + (1 - under) * 0.1), top[2] * shade * nf(0.5) * (under + (1 - under) * 0.3));
         c.fillRect(x, y, 1, 1);
       }
-      // water over the seabed and the lower slope: reflects the sky, ripples, light shafts
       if (gy > sea) {
         for (let y = sea; y < gy; y++) {
           const k = (y - sea) / Math.max(1, bottom - sea);
@@ -524,20 +574,6 @@ export class Renderer {
           const a = Math.min(1, 0.55 + (y - sea) * 0.08);
           c.fillStyle = rgb(base[0] * nf(0.5) + shaft * 120, base[1] * nf(0.5) + shaft * 140, base[2] * nf(0.45) + shaft * 120, a);
           c.fillRect(x, y, 1, 1);
-        }
-        const wave = Math.sin(x * 0.5 + t * 2) + Math.sin(x * 0.2 - t * 1.3);
-        c.fillStyle = rgb(200, 230, 245, 0.45 + wave * 0.15);
-        c.fillRect(x, sea + (wave > 1 ? -1 : 0), 1, 1);
-        // the sun (or moon) glitters on the water under it
-        if (this.sunPos && this.sunPos.up && Math.abs(x - this.sunPos.x) < 6 + this.sunPos.low * 10 && Math.sin(t * 7 + x * 1.7) > 0.4) {
-          c.fillStyle = rgb(255, 240, 200, 0.75 - this.sunPos.low * 0.2);
-          c.fillRect(x, sea + 1 + ((x * 3) % 3), 1, 1);
-        }
-        if (glacier) { c.fillStyle = 'rgba(220,235,245,0.85)'; c.fillRect(x, sea, 1, 2); }
-        // surf: foam where the water meets the slope
-        if (gy - sea <= 3 && (x === 0 || this.gy[x - 1] > sea + 3 || this.gy[x + 1] > sea + 3 || gy - sea <= 1)) {
-          const fm = Math.sin(t * 2.4 + x * 0.9);
-          if (fm > -0.3) { c.fillStyle = rgb(240, 246, 250, 0.55 + fm * 0.35); c.fillRect(x, sea + (fm > 0.5 ? 0 : 1), 1, 1); }
         }
       } else if (g.zoneMap[x] === 2 && green > 0.15 && !winter) {
         for (let q = 0; q < 2; q++) {
@@ -551,6 +587,26 @@ export class Renderer {
         }
       }
     }
+    // 2) painted top edges of the zones: barren (era 0, before land life) → grass with it; beach at the shore;
+    //    the water surface strip. Zones blend over ~20 px, so no vertical walls.
+    this.drawSurfaceEdges(g, sea, night, green, glacier || winter);
+    // 3) water life on top: ripples, the sun's glitter, surf foam, ice
+    for (let x = 0; x < WW; x++) {
+      const gy = this.gy[x];
+      if (gy <= sea) continue;
+      const wave = Math.sin(x * 0.5 + t * 2) + Math.sin(x * 0.2 - t * 1.3);
+      c.fillStyle = rgb(200, 230, 245, 0.45 + wave * 0.15);
+      c.fillRect(x, sea + (wave > 1 ? -1 : 0), 1, 1);
+      if (this.sunPos && this.sunPos.up && Math.abs(x - this.sunPos.x) < 6 + this.sunPos.low * 10 && Math.sin(t * 7 + x * 1.7) > 0.4) {
+        c.fillStyle = rgb(255, 240, 200, 0.75 - this.sunPos.low * 0.2);
+        c.fillRect(x, sea + 1 + ((x * 3) % 3), 1, 1);
+      }
+      if (glacier) { c.fillStyle = 'rgba(220,235,245,0.85)'; c.fillRect(x, sea, 1, 2); }
+      if (gy - sea <= 3 && (x === 0 || this.gy[x - 1] > sea + 3 || this.gy[x + 1] > sea + 3 || gy - sea <= 1)) {
+        const fm = Math.sin(t * 2.4 + x * 0.9);
+        if (fm > -0.3) { c.fillStyle = rgb(240, 246, 250, 0.55 + fm * 0.35); c.fillRect(x, sea + (fm > 0.5 ? 0 : 1), 1, 1); }
+      }
+    }
     this.drawTraces(g);
     const vfx = r.active.find((a) => a.id === 'volcanoFx');
     if (vfx && vfx.x !== undefined) {
@@ -558,6 +614,56 @@ export class Renderer {
       for (let k = 0; k < 10; k++) { c.fillStyle = k < 2 ? '#ff7a2a' : '#4a3a34'; c.fillRect(Math.round(vfx.x - 10 + k), gy - k, Math.round(20 - k * 2), 1); }
     }
   }
+
+  /** Zone edge weights, blurred over ±10 columns (recomputed when the zones change). */
+  private edgeW: { sig: string; land: Float32Array } = { sig: '', land: new Float32Array(WW) };
+
+  private drawSurfaceEdges(g: Game, sea: number, night: number, green: number, snow: boolean): void {
+    const imgs = { grass: skin('world/surface/grass.png'), beach: skin('world/surface/beach.png'), water: skin('world/surface/water.png'), barren: skin('world/surface/barren.png') };
+    if (!imgs.grass && !imgs.beach && !imgs.water && !imgs.barren) return;
+    const c = this.ctx;
+    let sig = '';
+    for (let x = 0; x < WW; x += 6) sig += g.zoneMap[x];
+    if (sig !== this.edgeW.sig) {
+      this.edgeW.sig = sig;
+      for (let x = 0; x < WW; x++) {
+        let n = 0, k = 0;
+        for (let d = -10; d <= 10; d++) { const xx = x + d; if (xx < 0 || xx >= WW) continue; n++; if (g.zoneMap[xx] === 2) k++; }
+        this.edgeW.land[x] = n ? k / n : 0;
+      }
+    }
+    const LIFT = 3; // tile rows that stand above the ground line (blades, pebbles)
+    // the strips take the night and the snow like the rest of the ground (tinted copies, so the sky behind is untouched)
+    const f = 1 - night * 0.55;
+    const tint = snow ? [235, 240, 250].map((v) => v * f) : [255 * f, 255 * f, 255 * (1 - night * 0.45)];
+    const T: Record<string, HTMLCanvasElement | null> = {};
+    for (const k of ['grass', 'beach', 'water', 'barren'] as const) {
+      const im = imgs[k];
+      T[k] = im ? (this.edgeTiles[k] = tintInto(this.edgeTiles[k], im, tint)) : null;
+    }
+    const col = (img: HTMLCanvasElement | null, x: number, y: number, a: number, limit: number) => {
+      if (!img || a <= 0.01) return;
+      const h = Math.min(img.height, limit - y);
+      if (h <= 0) return;
+      c.globalAlpha = Math.min(1, a);
+      c.drawImage(img, x % img.width, 0, 1, h, x, y, 1, h);
+    };
+    const floor = this.lay.sectionTop;
+    for (let x = 0; x < WW; x++) {
+      const gy = this.gy[x];
+      if (gy > sea + 1) {
+        // under water: the surface strip of the water itself (ripples and glints go on top)
+        col(T.water, x, sea - 1, Math.min(1, (gy - sea) / 4) * 0.8, gy);
+        continue;
+      }
+      const lw = this.edgeW.land[x];
+      col(T.beach ?? T.barren, x, gy - LIFT, 1, floor);
+      col(T.barren ?? T.grass, x, gy - LIFT, lw, floor);
+      if (!snow) col(T.grass, x, gy - LIFT, lw * green, floor);
+    }
+    c.globalAlpha = 1;
+  }
+  private edgeTiles: Record<string, HTMLCanvasElement | undefined> = {};
 
   private drawTraces(g: Game): void {
     const r = g.run;
@@ -1076,7 +1182,7 @@ export class Renderer {
     const x = s.x0 + (WW / 2 - s.x0) * Math.min(1, k * 1.6);
     const y = 160 + (this.ayAt(WW / 2) - 160) * k * k;
     c.globalAlpha = 1 - Math.max(0, (k - 0.75) / 0.25);
-    drawItem(c, s.id, x, y, k < 0.5 ? 32 : 16, 'silhouette');
+    drawItem(c, s.id, x, y, k < 0.5 ? 32 : 16, 'hover');
     c.globalAlpha = 1;
     if (k > 0.6) {
       // the layers close over it

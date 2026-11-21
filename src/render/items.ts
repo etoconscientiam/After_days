@@ -1,6 +1,8 @@
 // The three things (artifact_a/b/c) and the small relics of the old world, rasterised pixel by pixel.
 // Placeholder art: shapes are plain and neutral, drawn the same way as any other object.
 import { drawPattern } from './skins';
+import { skin } from './assets';
+import { tintedCanvas } from './sprites';
 
 type Shape = (u: number, v: number) => number; // 0 = empty, 1 = body, 2 = detail
 
@@ -76,7 +78,31 @@ export function itemCanvas(id: string, size: number, style: ItemStyle, lying = f
   return c;
 }
 
+/** The painted thing (assets/world/items/<id>.png; a small variant for the bottom of the section), styled. */
+const spriteCache = new Map<string, HTMLCanvasElement>();
+function itemSprite(id: string, size: number, style: ItemStyle): HTMLCanvasElement | null {
+  const img = (size <= 16 && skin(`world/items/${id}_small.png`)) || skin(`world/items/${id}.png`);
+  if (!img) return null;
+  const key = `${id}|${img.naturalWidth}|${style}`;
+  let c = spriteCache.get(key);
+  if (c) return c;
+  c = document.createElement('canvas');
+  c.width = img.naturalWidth; c.height = img.naturalHeight;
+  const x = c.getContext('2d')!;
+  // the unchosen things are dark shapes; hover warms them; in the ground the thing glows in its own colours
+  const tint = style === 'silhouette' ? [70, 64, 82] : style === 'hover' ? [235, 220, 200] : [255, 255, 255];
+  x.drawImage(tintedCanvas(img, c.width, c.height, tint), 0, 0, c.width, c.height, 0, 0, c.width, c.height);
+  spriteCache.set(key, c);
+  return c;
+}
+
 export function drawItem(ctx: CanvasRenderingContext2D, id: string, cx: number, cy: number, size: number, style: ItemStyle, lying = false, part = -1, scale = 1): void {
+  const sp = part < 0 ? itemSprite(id, size, style) : null;
+  if (sp) {
+    const w = sp.width * scale, h = sp.height * scale;
+    ctx.drawImage(sp, Math.round(cx - w / 2), Math.round(cy - h / 2), w, h);
+    return;
+  }
   const c = itemCanvas(id, size, style, lying, part);
   const w = size * scale;
   ctx.drawImage(c, Math.round(cx - w / 2), Math.round(cy - w / 2), w, w);

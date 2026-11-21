@@ -30,7 +30,8 @@ function imgOr(path: string, size: number, draw: () => HTMLElement): HTMLElement
 
 /** The energy spark: a four-pointed amber star with a halo. */
 export function energyIcon(size = 18): HTMLElement {
-  return imgOr('ui/icons/energy.png', size, () => {
+  // the painted icon is a dark tile: only at sizes where it reads (small inline sparks stay procedural)
+  return imgOr(size >= 24 ? 'ui/icons/energy.png' : 'ui/icons/__none.png', size, () => {
     const [c, x] = canvas(size);
     const s = size / 2;
     const g = x.createRadialGradient(s, s, 0, s, s, s);
@@ -54,7 +55,7 @@ function hexRgb(h: string): number[] { const n = parseInt(h.slice(1), 16); retur
 
 /** A pebble of the rock: soft lit stone with grains in its own palette. */
 export function rockIcon(rock: string, size = 22): HTMLElement {
-  return imgOr(`ui/icons/rock_${rock}.png`, size, () => {
+  return imgOr(size >= 24 ? `ui/icons/rock_${rock}.png` : 'ui/icons/__none.png', size, () => {
     const [c, x] = canvas(size);
     const m = CFG.materials.find((mm) => mm.rock === rock && mm.id !== 'amberInsect') ?? CFG.materials.find((mm) => mm.id === rock) ?? CFG.materials[1];
     const pal = m.palette.map(hexRgb);
