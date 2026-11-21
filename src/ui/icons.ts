@@ -176,21 +176,32 @@ export function portrait(speciesId: string, size = 64, locked = false): HTMLElem
     const [c, x] = canvas(size);
     const water = sp.zone === 'water';
     const g = x.createRadialGradient(size * 0.45, size * 0.38, 2, size / 2, size / 2, size * 0.62);
-    g.addColorStop(0, water ? '#3e7c86' : '#6e8b4e'); g.addColorStop(1, water ? '#0e2228' : '#1e2414');
+    if (locked) { g.addColorStop(0, '#4a423a'); g.addColorStop(1, '#141210'); }
+    else { g.addColorStop(0, water ? '#3e7c86' : '#6e8b4e'); g.addColorStop(1, water ? '#0e2228' : '#1e2414'); }
     x.fillStyle = g;
     x.beginPath(); x.ellipse(size / 2, size / 2, size * 0.47, size * 0.47, 0, 0, 7); x.fill();
-    const ic = creatureIcon(sp.sprite, sp.tint, water);
+    let ic: HTMLCanvasElement = creatureIcon(sp.sprite, sp.tint, water);
+    if (locked) {
+      // a dark silhouette of the creature on the stone
+      const sc = document.createElement('canvas');
+      sc.width = ic.width; sc.height = ic.height;
+      const sx = sc.getContext('2d')!;
+      sx.drawImage(ic, 0, 0);
+      sx.globalCompositeOperation = 'source-in';
+      sx.fillStyle = '#0c0a09'; sx.fillRect(0, 0, sc.width, sc.height);
+      ic = sc;
+    }
     x.imageSmoothingEnabled = false;
     const k = Math.floor((size * 0.68) / ic.width) || 1;
     x.save(); x.beginPath(); x.ellipse(size / 2, size / 2, size * 0.45, size * 0.45, 0, 0, 7); x.clip();
-    x.globalCompositeOperation = 'lighten';
+    x.globalCompositeOperation = locked ? 'source-over' : 'lighten';
     x.drawImage(ic, Math.round((size - ic.width * k) / 2), Math.round((size - ic.height * k) / 2), ic.width * k, ic.height * k);
     x.restore();
     x.strokeStyle = 'rgba(237,227,208,0.25)'; x.lineWidth = 1.2;
     x.beginPath(); x.ellipse(size / 2, size / 2, size * 0.47, size * 0.47, 0, 0, 7); x.stroke();
     return c;
   });
-  if (locked) el.classList.add('silhouette');
+  if (locked && el.tagName === 'IMG') el.classList.add('silhouette');
   return el;
 }
 

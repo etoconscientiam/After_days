@@ -323,4 +323,5 @@ function frame(now: number): void {
 fit();
 requestAnimationFrame(frame);
 void energyIcon;
-(window as any).__strata = { get game() { return game; }, renderer, save, dev, drawer, input, modals, away: (sec: number) => offline(Date.now() - sec * 1000) };
+(window as any).__strata = { get game() { return game; }, renderer, save, dev, drawer, input, modals, away: (sec: number) => offline(Date.now() - sec * 1000),
+  lang: (l: 'en' | 'ru') => { game.state.settings.lang = l; setLang(l); drawer.relabel(); } };
