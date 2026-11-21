@@ -1,0 +1,14 @@
+{
+  "startYear": 3011,
+  "zeroYear": 101011,
+  "eras": [
+    { "id": 0, "key": "silence",  "start": 3011,   "end": 4000,   "yps": 200, "cond": { "type": "energyEarned", "value": 50 } },
+    { "id": 1, "key": "primal",   "start": 4000,   "end": 20000,  "yps": 150, "cond": { "type": "oxygen", "value": 20 } },
+    { "id": 2, "key": "sea",      "start": 20000,  "end": 40000,  "yps": 100, "cond": { "type": "speciesCount", "group": "marine", "value": 3 } },
+    { "id": 3, "key": "land",     "start": 40000,  "end": 62000,  "yps": 50,  "cond": { "type": "forest", "value": 0.333 } },
+    { "id": 4, "key": "beasts",   "start": 62000,  "end": 86000,  "yps": 20,  "cond": { "type": "animals", "value": 5, "predator": true } },
+    { "id": 5, "key": "hominids", "start": 86000,  "end": 99000,  "yps": 5,   "cond": { "type": "speciesCount", "group": "hominid", "value": 2 } },
+    { "id": 6, "key": "tribes",   "start": 99000,  "end": 100800, "yps": 1,   "cond": { "type": "settled", "value": 10 } },
+    { "id": 7, "key": "finding",  "start": 100800, "end": 101011, "yps": 0.1, "cond": { "type": "excavation" } }
+  ]
+}

@@ -1,0 +1,48 @@
+// Offline progress: simplified, in batches of ~50 game years. Era cannot change offline.
+import { CFG } from '../config';
+import type { Game } from './game';
+import { geoTick } from './geology';
+
+export interface OfflineReport { seconds: number; years: number; layers: number; rocks: Record<string, number>; fossils: number; notes: string[]; energy: number }
+
+export function runOffline(g: Game, seconds: number): OfflineReport | null {
+  const T = CFG.B.time;
+  const maxSec = (T.offlineMaxHours + g.stats.offlineHours) * 3600;
+  const sec = Math.min(seconds, maxSec);
+  const r = g.run;
+  if (sec < 30 || g.state.phase !== 'play') return null;
+  const end = g.eraDef().end;
+  const yps = g.yps(false) * T.offlineSpeed;
+  const years = Math.min(yps * sec, Math.max(0, end - r.year));
+  const rocksBefore = { ...r.rocksEarned };
+  const layersBefore = r.layers;
+  const fossilsBefore = r.fossilsRun;
+  const notesBefore = g.legacy.notes.length;
+  const energy = g.incomePerSec(false) * sec * T.offlineSpeed;
+  r.energy += energy;
+  r.energyEarned += energy;
+  const wasHeadless = g.headless;
+  g.headless = true;
+  g.bus.muted = true;
+  let left = years;
+  const step = Math.max(T.offlineStepYears, years / 400);
+  while (left > 1e-6) {
+    const dy = Math.min(step, left);
+    r.year += dy;
+    g.simulate(dy);
+    geoTick(g, dy);
+    left -= dy;
+  }
+  g.bus.muted = false;
+  g.headless = wasHeadless;
+  for (const k in r.cooldowns) r.cooldowns[k] = 0;
+  const rocks: Record<string, number> = {};
+  for (const k in r.rocksEarned) {
+    const d = r.rocksEarned[k] - (rocksBefore[k] ?? 0);
+    if (d > 0.5) rocks[k] = d;
+  }
+  return {
+    seconds: sec, years, layers: r.layers - layersBefore, rocks, fossils: r.fossilsRun - fossilsBefore,
+    notes: g.legacy.notes.slice(notesBefore), energy,
+  };
+}

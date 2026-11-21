@@ -1,0 +1,41 @@
+{
+  "_comment": "In-run upgrades. price = base * growth^level (per-upgrade growth overrides). Effect doubles at each milestone level when milestones=true. effect.kind: add (value*level) or mul (value^level).",
+  "growth": 1.15,
+  "milestones": [10, 25, 50, 100],
+  "upgrades": [
+    { "id": "impulse",     "branch": "awakening", "currency": "energy",       "base": 15, "stat": "clickAdd",      "kind": "add", "value": 1, "milestones": true },
+    { "id": "radiance",    "branch": "awakening", "currency": "energy",       "base": 25, "stat": "passiveAdd",    "kind": "add", "value": 0.5, "milestones": true },
+    { "id": "striving",    "branch": "awakening", "currency": "energy",       "base": 50, "stat": "timeSpeed",     "kind": "add", "value": 0.05, "growth": 1.35 },
+    { "id": "sediment",    "branch": "awakening", "currency": "energy",       "base": 40, "stat": "deposition",    "kind": "add", "value": 0.05, "growth": 1.35 },
+    { "id": "impulsePower","branch": "rock", "currency": "stromatolite", "base": 10, "stat": "clickMul",      "kind": "mul", "value": 1.1, "milestones": true, "extra": { "stat": "boostMax", "value": 0.2 } },
+    { "id": "resonance",   "branch": "rock", "currency": "limestone",    "base": 10, "stat": "lifeEnergy",    "kind": "add", "value": 0.05, "milestones": true, "extra": { "stat": "seaCapacity", "value": 0.02 } },
+    { "id": "timeFlow",    "branch": "rock", "currency": "oil",          "base": 20, "stat": "timeSpeed",     "kind": "add", "value": 0.03, "growth": 1.35 },
+    { "id": "press",       "branch": "rock", "currency": "coal",         "base": 10, "stat": "press",         "kind": "add", "value": 0.10 },
+    { "id": "boneSense",   "branch": "rock", "currency": "amber",        "base": 5,  "stat": "fossilChance",  "kind": "add", "value": 0.05 },
+    { "id": "depthPull",   "branch": "rock", "currency": "sandstone",    "base": 15, "stat": "layerWeight",   "kind": "add", "value": 0.05 },
+    { "id": "fertility",   "branch": "rock", "currency": "phosphorite",  "base": 15, "stat": "landCapacity",  "kind": "add", "value": 0.05 },
+    { "id": "coreHeat",    "branch": "rock", "currency": "tuff",         "base": 20, "stat": "geoHeat",       "kind": "add", "value": 2 },
+    { "id": "voice",       "branch": "rock", "currency": "marble",       "base": 10, "stat": "excavation",    "kind": "add", "value": 0.10, "extra": { "stat": "tribeAttract", "value": 0.05 } },
+    { "id": "deepPress",   "branch": "rock", "currency": "anthracite",   "base": 10, "stat": "kMax",          "kind": "add", "value": 0.5 },
+    { "id": "earthLight",  "branch": "rock", "currency": "diamond",      "base": 1,  "stat": "energyMul",     "kind": "mul", "value": 1.25 },
+    { "id": "peatPress",   "branch": "rock", "currency": "peat",         "base": 20, "stat": "press",         "kind": "add", "value": 0.04 },
+    { "id": "chalkLife",   "branch": "rock", "currency": "chalk",        "base": 20, "stat": "lifeEnergy",    "kind": "add", "value": 0.02 },
+    { "id": "mudSettle",   "branch": "rock", "currency": "mudstone",     "base": 20, "stat": "deposition",    "kind": "add", "value": 0.03 },
+    { "id": "rareSpark",   "branch": "rock", "currency": "rare",         "base": 100,"stat": "energyMul",     "kind": "mul", "value": 1.1 }
+  ],
+  "density": {
+    "_comment": "Prestige tree, bought with Density. price = base * mult^level.",
+    "nodes": [
+      { "id": "deepMemory",   "base": 2, "mult": 3,   "max": 4,  "stat": "startEra",     "value": 1 },
+      { "id": "agesPress",    "base": 1, "mult": 2,   "max": 30, "stat": "press",        "value": 0.15 },
+      { "id": "strongFound",  "base": 2, "mult": 2.5, "max": 20, "stat": "foundation",   "value": 0.25 },
+      { "id": "fertileSoil",  "base": 1, "mult": 2,   "max": 30, "stat": "lifeEnergy",   "value": 0.15 },
+      { "id": "evolution",    "base": 1, "mult": 2,   "max": 30, "stat": "timeSpeed",    "value": 0.10 },
+      { "id": "warmDepths",   "base": 2, "mult": 2.5, "max": 20, "stat": "geoGradient",  "value": 0.10 },
+      { "id": "tenacious",    "base": 2, "mult": 2.5, "max": 20, "stat": "fossilChance", "value": 0.20 },
+      { "id": "autoElements", "base": 3, "mult": 3,   "max": 6,  "stat": "autoSlots",    "value": 1 },
+      { "id": "legacy",       "base": 4, "mult": 3,   "max": 5,  "stat": "legacy",       "value": 0.10 },
+      { "id": "longSleep",    "base": 2, "mult": 2.5, "max": 8,  "stat": "offlineHours", "value": 2 }
+    ]
+  }
+}
