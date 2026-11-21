@@ -47,6 +47,7 @@ export class Renderer {
   private t = 0;
   private dt = 1 / 60;
   private depthTimer = 0;
+  private dayCount = 3;
   private alarm = -99;               // time of the last startle (click, catastrophe)
   private clouds: HTMLCanvasElement[] = [];
   private hills: Float32Array[] = [];
@@ -159,8 +160,10 @@ export class Renderer {
     this.t += dt;
     this.dt = dt;
     const yps = g.state.phase === 'play' ? g.yps() : 0.02;
-    this.daySeconds = g.state.phase !== 'play' ? 20 : Math.max(0.6, Math.min(20, 20 * Math.sqrt(0.1 / Math.max(1e-3, yps))));
-    this.dayPhase = (this.dayPhase + dt / this.daySeconds) % 1;
+    // a visual day lasts 6–24 s: long enough to watch the sun and moon cross the sky even when centuries fly by
+    this.daySeconds = g.state.phase !== 'play' ? 24 : Math.max(6, Math.min(24, 20 * Math.sqrt(0.1 / Math.max(1e-3, yps))));
+    this.dayPhase += dt / this.daySeconds;
+    if (this.dayPhase >= 1) { this.dayPhase -= 1; this.dayCount++; }
     this.seasonPhase = (this.seasonPhase + dt / (this.daySeconds * 10)) % 1;
     this.skyDim = Math.max(0, this.skyDim - dt * 0.08);
     this.flash = Math.max(0, this.flash - dt * 2.5);
@@ -216,9 +219,10 @@ export class Renderer {
     const fast = Math.max(0, Math.min(1, (2.5 - this.daySeconds) / 2));
     alt = lerp(alt, 0.35 + alt * 0.25, fast);
     let top: number[], hor: number[];
-    if (alt < -0.25) { top = SKY.night.top; hor = SKY.night.hor; }
-    else if (alt < 0.1) { const k = (alt + 0.25) / 0.35; top = lerp3(SKY.night.top, SKY.twilight.top, k); hor = lerp3(SKY.night.hor, SKY.twilight.hor, k); }
-    else if (alt < 0.4) { const k = (alt - 0.1) / 0.3; top = lerp3(SKY.twilight.top, SKY.day.top, k); hor = lerp3(SKY.twilight.hor, SKY.day.hor, k); }
+    // a longer golden hour around sunrise and sunset
+    if (alt < -0.3) { top = SKY.night.top; hor = SKY.night.hor; }
+    else if (alt < 0.12) { const k = (alt + 0.3) / 0.42; top = lerp3(SKY.night.top, SKY.twilight.top, k); hor = lerp3(SKY.night.hor, SKY.twilight.hor, k); }
+    else if (alt < 0.5) { const k = (alt - 0.12) / 0.38; top = lerp3(SKY.twilight.top, SKY.day.top, k); hor = lerp3(SKY.twilight.hor, SKY.day.hor, k * k); }
     else { top = SKY.day.top; hor = SKY.day.hor; }
     const rust = Math.max(0, 1 - g.run.oxygen / 16) * 0.75;
     const light = Math.max(0.25, Math.min(1, (alt + 0.3) / 0.7));
@@ -247,23 +251,7 @@ export class Renderer {
       c.fillRect(Math.round(s.x), Math.round(s.y - lay.shift), 1, 1);
     }
     this.drawSatellites(g, alt, fast);
-    // sun & moon with a soft glow
-    const horizon = lay.groundBase - 6;
-    if (!fast) {
-      const ang = (this.dayPhase - 0.25) * Math.PI * 2;
-      const sx = WW / 2 - Math.cos(ang) * WW * 0.45, sy = horizon - Math.sin(ang) * 70;
-      if (sy < horizon + 4) {
-        const grd = c.createRadialGradient(sx, sy, 1, sx, sy, 22);
-        grd.addColorStop(0, 'rgba(255,230,170,0.5)'); grd.addColorStop(1, 'rgba(255,200,120,0)');
-        c.fillStyle = grd; c.fillRect(sx - 22, sy - 22, 44, 44);
-        c.fillStyle = '#ffe9b0'; c.beginPath(); c.arc(Math.round(sx), Math.round(sy), 3, 0, 7); c.fill();
-      }
-      const mx = WW / 2 + Math.cos(ang) * WW * 0.45, my = horizon + Math.sin(ang) * 64;
-      if (my < horizon + 4) {
-        c.fillStyle = '#dfe4f0'; c.beginPath(); c.arc(Math.round(mx), Math.round(my), 3, 0, 7); c.fill();
-        c.fillStyle = rgb(sky.top[0], sky.top[1], sky.top[2]); c.beginPath(); c.arc(Math.round(mx) + 1.5, Math.round(my) - 1, 2.6, 0, 7); c.fill();
-      }
-    }
+    this.drawSunMoon(sky);
     // three cloud layers: far ones slow and small, near ones fast and large
     const cloudA = (0.35 + 0.5 * sky.light) * (g.run.oxygen > 5 ? 1 : 0.5);
     for (let l = 0; l < this.clouds.length; l++) {
@@ -301,6 +289,67 @@ export class Renderer {
     const m = g.run.active.find((a) => a.id === 'meteorFx');
     if (m && m.x !== undefined && !this.meteorFxSeen.has(m.until)) { this.meteorFxSeen.add(m.until); this.flash = 1; this.shake = 5; this.skyDim = 1; this.alarm = this.t; }
     this.drawFlyingBirds(g);
+  }
+
+  /**
+   * The sun rises behind the hills on the left, climbs and sets on the right; the moon follows at night
+   * with its phase changing day by day. Both pass behind the clouds and the hills.
+   */
+  private drawSunMoon(sky: { top: number[] }): void {
+    const c = this.ctx;
+    const lay = this.lay;
+    const horizon = lay.groundBase - 4;
+    const peak = Math.max(30, 46 - lay.shift * 0.4);
+    const arc = (u: number) => ({ x: -8 + u * (WW + 16), y: horizon - Math.sin(u * Math.PI) * (horizon - peak) });
+    const disc = (cx: number, cy: number, r: number, col: (dx: number, dy: number) => string | null) => {
+      for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+        if (dx * dx + dy * dy > r * r + r * 0.6) continue;
+        const k = col(dx, dy);
+        if (!k) continue;
+        c.fillStyle = k;
+        c.fillRect(Math.round(cx) + dx, Math.round(cy) + dy, 1, 1);
+      }
+    };
+    // sun: day is dayPhase 0.25..0.75
+    const su = (this.dayPhase - 0.25) / 0.5;
+    if (su > -0.05 && su < 1.05) {
+      const { x, y } = arc(Math.max(0, Math.min(1, su)));
+      const low = Math.max(0, 1 - (horizon - y) / 40);          // 1 at the horizon
+      const core = lerp3([255, 248, 214], [255, 150, 70], low);
+      const R = 4 + Math.round(low * 1.5);
+      const glow = c.createRadialGradient(x, y, 1, x, y, 26 + low * 14);
+      glow.addColorStop(0, rgb(core[0], core[1], core[2], 0.55));
+      glow.addColorStop(1, rgb(core[0], core[1] * 0.8, core[2] * 0.6, 0));
+      c.fillStyle = glow;
+      c.fillRect(x - 40, y - 40, 80, 80);
+      if (low > 0.3) {
+        // sunrise / sunset: the horizon burns around the sun
+        const band = c.createRadialGradient(x, horizon, 2, x, horizon, 90);
+        band.addColorStop(0, rgb(255, 140, 70, 0.35 * low));
+        band.addColorStop(1, 'rgba(255,120,60,0)');
+        c.fillStyle = band;
+        c.fillRect(x - 90, horizon - 60, 180, 70);
+      }
+      disc(x, y, R, (dx, dy) => (dx * dx + dy * dy > (R - 1) * (R - 1) ? rgb(core[0], core[1] * 0.92, core[2] * 0.8) : rgb(core[0], core[1], core[2])));
+    }
+    // moon: night is dayPhase 0.75..1.25
+    const mu = (((this.dayPhase + 0.25) % 1)) / 0.5;
+    if (mu > -0.05 && mu < 1.05) {
+      const { x, y } = arc(Math.max(0, Math.min(1, mu)));
+      const phase = ((this.dayCount % 10) + mu * 0.1) / 10;      // 0 new .. 0.5 full .. 1 new
+      const glow = c.createRadialGradient(x, y, 1, x, y, 16);
+      glow.addColorStop(0, `rgba(210,220,255,${0.25 * Math.sin(phase * Math.PI) + 0.05})`);
+      glow.addColorStop(1, 'rgba(200,210,255,0)');
+      c.fillStyle = glow;
+      c.fillRect(x - 16, y - 16, 32, 32);
+      const R = 3;
+      const term = Math.cos(phase * 2 * Math.PI);                // terminator position
+      disc(x, y, R, (dx, dy) => {
+        const w = Math.sqrt(Math.max(0, R * R - dy * dy)) || 1;
+        const lit = phase < 0.5 ? dx / w > term : dx / w < -term;
+        return lit ? (dx < 0 && dy < 0 ? '#f4f6fb' : '#dde2ee') : rgb(sky.top[0] * 1.15 + 8, sky.top[1] * 1.15 + 8, sky.top[2] * 1.15 + 12);
+      });
+    }
   }
 
   private drawSatellites(g: Game, alt: number, fast: boolean): void {
