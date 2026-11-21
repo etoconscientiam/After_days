@@ -39,10 +39,12 @@ const ui = $('#ui');
 function fit(): void {
   const s = game.state.settings;
   const W = window.innerWidth, H = window.innerHeight;
-  let scale = Math.min(W / 360, H / 640);
-  if (s.integerScale && scale >= 1) scale = Math.floor(scale);
-  column.style.width = 360 * scale + 'px';
-  column.style.height = 640 * scale + 'px';
+  // the world is 180×320 pixels; integer scaling keeps every pixel the same size
+  let k = Math.min(W / 180, H / 320);
+  if (s.integerScale && k >= 1) k = Math.floor(k);
+  const scale = k / 2; // UI is laid out in 360×640 units
+  column.style.width = 180 * k + 'px';
+  column.style.height = 320 * k + 'px';
   ui.style.transform = `scale(${scale})`;
   input.scale = scale;
 }
@@ -121,7 +123,7 @@ function resetAll(): void {
 drawer.onTarget = (el) => { input.startTarget(el); };
 drawer.onConfirm = (text, yes) => modals.confirm(text, yes);
 drawer.onBuy = () => {};
-input.onArtifact = (shard) => { audio.unlock(); game.click(shard); renderer.onClick(game.mods.shards ? game.shardXs()[shard] : 180); };
+input.onArtifact = (shard) => { audio.unlock(); game.click(shard); renderer.onClick(game.mods.shards ? game.shardXs()[shard] : 90); };
 input.onCast = () => {};
 input.onChoose = (i) => {
   audio.unlock();
@@ -186,6 +188,7 @@ function frame(now: number): void {
   input.update(dtReal);
   modals.updateFinale();
   ui.classList.toggle('choosing', game.state.phase === 'choose');
+  ui.classList.toggle('detailed', !!game.state.settings.detailed);
   dev.update(dtReal);
   if (game.state.phase === 'temple') audio.choirLevel(Math.min(1, game.state.templeProgress * 1.5));
   else if (game.state.phase === 'play') audio.choirLevel(0);

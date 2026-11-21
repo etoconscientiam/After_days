@@ -118,3 +118,12 @@ export const M = {
   concrete: mat('concrete'), glassSand: mat('glassSand'), plastic: mat('plastic'), metal: mat('metal'),
 };
 export const NMAT = materials.length;
+
+/** Horizontal scale of the world relative to the original 360-px design (numbers written for 360 px are multiplied by this). */
+export const SX = CFG.B.world.width / 360;
+
+/** Era index a game year belongs to. */
+export function eraOfYear(year: number): number {
+  for (let i = CFG.eras.length - 1; i >= 0; i--) if (year >= CFG.eras[i].start) return i;
+  return 0;
+}

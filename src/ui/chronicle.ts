@@ -1,11 +1,11 @@
 // Chronicle of layers: a dry data card per clicked layer — years (countdown), depth, composition in %,
 // P, T, k, finds as icons without captions, and short template tags. No narrator, no "I", no judgements.
-import { CFG } from '../config';
+import { CFG, eraOfYear } from '../config';
 import type { Game } from '../core/game';
 import type { ChronicleEntry } from '../core/state';
 import { CAP, F_FOSSIL, F_RARE, F_FAST } from '../world/World';
 import { t, fmtInt, fmt } from './i18n';
-import { h, fossilIcon } from './dom';
+import { h, fossilIcon, matSwatch } from './dom';
 
 const cd = (year: number) => fmtInt(Math.max(0, CFG.zeroYear - year));
 
@@ -40,7 +40,7 @@ export function makeEntry(g: Game, x: number, v: number, horizon = false): Chron
       const counts = new Map<number, number>();
       const bones = new Map<number, number>();
       let decaySum = 0, decayN = 0, fast = 0;
-      for (let xx = Math.max(0, x - 30); xx < Math.min(w.len.length, x + 30); xx++) {
+      for (let xx = Math.max(0, x - 15); xx < Math.min(w.len.length, x + 15); xx++) {
         for (let i = 0; i < w.len[xx]; i++) {
           const jj = xx * CAP + i;
           const bb = w.birth[jj];
@@ -93,8 +93,19 @@ export function makeEntry(g: Game, x: number, v: number, horizon = false): Chron
 const matName = (id: string) => (id === 'other' ? t('chron.other') : t('materials.' + id));
 
 /** The data card as DOM. */
-export function chronicleCard(e: ChronicleEntry): HTMLElement {
+export function chronicleCard(e: ChronicleEntry, detailed = false): HTMLElement {
   const d = e.data;
+  if (!detailed) {
+    const main = (d.comp as [string, number][])[0]?.[0] ?? 'soil';
+    const era = d.horizon ? '⟡' : t('era.' + eraOfYear((e.y0 + e.y1) / 2));
+    const rows2: (HTMLElement | string)[] = [
+      h('div', { class: 'cc-head' }, h('b', {}, matSwatch(main), matName(main)), h('span', {}, era)),
+      h('div', { class: 'cc-bar' }, ...(d.comp as [string, number][]).filter(([m]) => m !== 'other').map(([m, p]) => h('i', { style: `flex:${p};background:${CFG.materials.find((mm) => mm.id === m)?.palette[2] ?? '#555'}`, title: matName(m) }))),
+    ];
+    if (d.tags?.length) rows2.push(h('div', { class: 'cc-tags' }, (d.tags as string[]).filter((tg) => !tg.startsWith('pres') && tg !== 'compacted').map((tg) => t('chron.tag.' + tg)).join(' ')));
+    if (d.finds?.length) rows2.push(h('div', { class: 'cc-finds' }, ...(d.finds as { s: string; rare: boolean }[]).map((f) => fossilIcon(f.s, f.rare, true))));
+    return h('div', { class: 'chron-card' }, ...rows2);
+  }
   const head = d.horizon ? `${cd(e.y1)}⟡` : `${cd(e.y1)}–${cd(e.y0)}⟡`;
   const rows: (HTMLElement | string)[] = [
     h('div', { class: 'cc-head' }, head, h('span', {}, t('tip.depth', { d: fmt(d.depth ?? 0, 0) }))),

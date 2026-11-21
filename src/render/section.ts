@@ -70,7 +70,7 @@ export class SectionRenderer {
   constructor() {
     this.canvas = document.createElement('canvas');
     this.canvas.width = WW;
-    this.canvas.height = CFG.B.layout.sectionH + CFG.B.layout.artifactH;
+    this.canvas.height = CFG.B.world.height;
     this.ctx = this.canvas.getContext('2d')!;
     this.img = this.ctx.createImageData(WW, this.canvas.height);
     this.buf = new Uint32Array(this.img.data.buffer);
@@ -203,7 +203,7 @@ export class SectionRenderer {
         if (y >= 0 && y < hMax && this.fossils.length < 400) this.fossils.push({ x: f.x, y, species: f.species, rare: f.rare, fragment: false });
       }
       pv += thick;
-      if (pv > lay.vMax) break;
+      if (pv > CFG.B.layout.vMax) break;
     }
     this.ctx.putImageData(this.img, 0, 0);
   }

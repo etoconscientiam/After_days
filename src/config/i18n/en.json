@@ -402,7 +402,8 @@
     "fragment": "fragment: {s}",
     "pack": "{n} m of layers, {y0}–{y1}",
     "progress": "→ {rock} {p}%",
-    "click": "click: data card"
+    "click": "click: data card",
+    "epoch": "era: {era}"
   },
   "epoch": {
     "header": "Epoch shift",
@@ -568,7 +569,8 @@
     "reset": "Reset progress",
     "resetConfirm": "Erase all progress, including the museum and notes? This cannot be undone.",
     "copied": "Copied to clipboard",
-    "dev": "Developer mode"
+    "dev": "Developer mode",
+    "detailed": "Detailed mode (numbers)"
   },
   "btn": {
     "ok": "OK",

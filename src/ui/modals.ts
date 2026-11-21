@@ -70,6 +70,7 @@ export class Modals {
       h('div', { class: 'row' }, h('label', {}, t('settings.mute')), check(s.muted, (v) => (s.muted = v))),
       h('div', { class: 'row' }, h('label', {}, t('settings.quality')), quality),
       h('div', { class: 'row' }, h('label', {}, t('settings.integer')), check(s.integerScale, (v) => (s.integerScale = v))),
+      h('div', { class: 'row' }, h('label', {}, t('settings.detailed')), check(s.detailed, (v) => (s.detailed = v))),
       ta,
       h('div', { class: 'actions' },
         h('button', { class: 'btn ghost', onclick: async () => {
@@ -160,7 +161,7 @@ export class DevPanel {
         const el = CFG.elements.find((e) => e.id === elSel.value)!;
         gg.run.cooldowns[el.id] = 0;
         gg.run.energy += gg.elementCost(el);
-        gg.cast(el.id, el.kind === 'section' ? { x: 180, v: 80 } : undefined);
+        gg.cast(el.id, el.kind === 'section' ? { x: 90, v: 30 } : undefined);
       })),
       h('div', {}, btn(t('dev.cooldowns'), () => (this.noCooldown = !this.noCooldown)), btn(t('dev.excavate'), () => { const r = this.g().run; r.excavation = r.excavationNeed + 1; r.excavationShards = [1e9, 1e9, 1e9]; })),
       h('div', {}, btn(t('dev.prestige'), () => { const gg = this.g(); gg.run.compactMass = Math.max(gg.run.compactMass, CFG.B.prestige.divisor * 30); gg.prestige(); }), btn(t('dev.reset'), () => this.onReset())),

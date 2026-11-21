@@ -83,8 +83,8 @@ function botElements() {
   };
   if (r.era >= 1) cast('flood');
   cast('rain');
-  if (r.era >= 1) cast('groundwater', { x: 60, v: 120 });
-  if (r.era >= 2) cast('heat', { x: 80, v: 60 });
+  if (r.era >= 1) cast('groundwater', { x: 30, v: 120 });
+  if (r.era >= 2) cast('heat', { x: 40, v: 60 });
   if (r.era >= 2 && g.rng.next() < 0.02) cast('volcano');
   if (r.era >= 4 && g.rng.next() < 0.01) cast('glacier');
 }

@@ -1,5 +1,5 @@
 // Elements: surface catastrophes and underground interventions.
-import { CFG, ElementDef, M, mat } from '../config';
+import { CFG, ElementDef, M, mat, SX } from '../config';
 import type { Game } from './game';
 import { W, CAP } from '../world/World';
 import { giveNote } from './prestige';
@@ -74,9 +74,9 @@ export function castElement(g: Game, el: ElementDef, target?: { x: number; v: nu
     }
     case 'volcano': {
       let vent: number;
-      if (g.mods.shards) vent = g.lastShard * 120 + 30 + Math.floor(g.rng.next() * 60);
+      if (g.mods.shards) vent = Math.round((g.lastShard * 120 + 30 + g.rng.next() * 60) * SX);
       else vent = Math.floor(r.waterEnd + g.rng.next() * Math.max(20, W - r.waterEnd - 10));
-      vent = Math.max(4, Math.min(W - 5, vent));
+      vent = Math.max(2, Math.min(W - 3, vent));
       r.active.push({ id: 'volcanoFx', until: r.year + 30, x: vent });
       // burial ×5: ash takes the whole carcass pool
       for (let x = 0; x < W; x++) {
@@ -92,10 +92,10 @@ export function castElement(g: Game, el: ElementDef, target?: { x: number; v: nu
       const shares = [0.1, 0.1, 0.1];
       shares[vz] = p.kill;
       g.kill(shares, 'volcano');
-      r.targets.push({ kind: 'heat', x0: Math.max(0, vent - 24), x1: Math.min(W - 1, vent + 24), b0: -1e9, b1: 1e9, until: r.year + p.heatYears, heat: p.heat });
+      r.targets.push({ kind: 'heat', x0: Math.max(0, vent - Math.round(24 * SX)), x1: Math.min(W - 1, vent + Math.round(24 * SX)), b0: -1e9, b1: 1e9, until: r.year + p.heatYears, heat: p.heat });
       if (g.mods.hot) {
         // lava at the surface near the vent
-        for (let x = vent - 10; x <= vent + 10; x++) if (x >= 0 && x < W) w.deposit(x, M.magma, r.year);
+        for (let x = vent - Math.round(10 * SX); x <= vent + Math.round(10 * SX); x++) if (x >= 0 && x < W) w.deposit(x, M.magma, r.year);
       }
       w.version++;
       break;
@@ -120,7 +120,7 @@ export function castElement(g: Game, el: ElementDef, target?: { x: number; v: nu
       break;
     }
     case 'earthquake': {
-      const x0 = Math.floor(40 + g.rng.next() * (W - 80));
+      const x0 = Math.floor((40 + g.rng.next() * 280) * SX);
       const rightUp = g.rng.next() < 0.5;
       const lift = g.rng.int(p.liftMin, p.liftMax);
       const A = g.rng.range(p.foldMin, p.foldMax);
@@ -166,7 +166,7 @@ export function castElement(g: Game, el: ElementDef, target?: { x: number; v: nu
       break;
     }
     case 'meteor': {
-      const cx = Math.floor(30 + g.rng.next() * (W - 60));
+      const cx = Math.floor((30 + g.rng.next() * 300) * SX);
       const R = p.craterRadius;
       for (let x = 0; x < W; x++) {
         const d = Math.abs(x - cx);

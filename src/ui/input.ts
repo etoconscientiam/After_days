@@ -1,9 +1,12 @@
 // Pointer input on the world canvas: artifact clicks, layer tooltips, chronicle notes, targeting for underground elements.
-import { CFG, ElementDef, RULES_BY_MAT } from '../config';
+import { CFG, ElementDef, RULES_BY_MAT, eraOfYear } from '../config';
 import type { Game } from '../core/game';
 import type { Renderer } from '../render/renderer';
 import { CAP, F_FOSSIL, F_FRAGMENT } from '../world/World';
-import { $, h, setText } from './dom';
+import { $, h, setText, matSwatch } from './dom';
+import { WW, WH } from '../render/common';
+/** UI units (360×640) per canvas pixel. */
+const UI = 360 / WW;
 import { t, fmt, fmtInt } from './i18n';
 import { makeEntry, chronicleCard } from './chronicle';
 
@@ -32,7 +35,7 @@ export class Input {
 
   private world(e: MouseEvent): { x: number; y: number } {
     const r = this.canvas.getBoundingClientRect();
-    return { x: ((e.clientX - r.left) / r.width) * 360, y: ((e.clientY - r.top) / r.height) * 640 };
+    return { x: ((e.clientX - r.left) / r.width) * WW, y: ((e.clientY - r.top) / r.height) * WH };
   }
 
   startTarget(el: ElementDef): void {
@@ -62,7 +65,7 @@ export class Input {
 
   private chooseIndex(g: Game, m: { x: number; y: number }): number {
     const xs = this.ren.chooseXs(g.availableItems().length);
-    for (let i = 0; i < xs.length; i++) if (Math.abs(m.x - xs[i]) < 38 && Math.abs(m.y - 320) < 40) return i;
+    for (let i = 0; i < xs.length; i++) if (Math.abs(m.x - xs[i]) < 20 && Math.abs(m.y - 160) < 22) return i;
     return -1;
   }
 
@@ -84,7 +87,7 @@ export class Input {
     const art = this.ren.isArtifact(m.x, m.y, g);
     this.canvas.classList.toggle('pointer', art >= 0 && !this.targeting);
     const sy = this.ren.sectionY(m.y);
-    const x = Math.max(0, Math.min(359, Math.floor(m.x)));
+    const x = Math.max(0, Math.min(WW - 1, Math.floor(m.x)));
     if (this.targeting) {
       const p = this.targeting.params;
       this.ren.targeting = sy !== null ? { rx: p.radiusX, ry: p.radiusY, x, y: sy, kind: this.targeting.id } : null;
@@ -96,8 +99,8 @@ export class Input {
       this.ren.hover = { x, y: Math.floor(sy) };
       this.tooltip.replaceChildren(h('div', { class: 't-head' }, '⟡'), h('div', { class: 't-row' }, fmtInt(CFG.zeroYear - CFG.startYear) + '⟡'), h('div', { class: 't-hint' }, t('tip.click')));
       this.tooltip.hidden = false;
-      this.tooltip.style.left = Math.max(4, m.x > 200 ? m.x - 120 : m.x + 10) + 'px';
-      this.tooltip.style.top = Math.min(560, Math.max(60, m.y - 20)) + 'px';
+      this.tooltip.style.left = Math.max(4, m.x * UI > 200 ? m.x * UI - 120 : m.x * UI + 10) + 'px';
+      this.tooltip.style.top = Math.min(560, Math.max(60, m.y * UI - 20)) + 'px';
       return;
     }
     this.ren.hover = { x, y: Math.floor(sy) };
@@ -112,6 +115,8 @@ export class Input {
     const loc = w.locate(x, v);
     const rows: string[] = [];
     let head = '';
+    let icon = '';
+    const detailed = !!g.state.settings.detailed;
     if (!loc) {
       head = '—';
     } else if (loc.kind === 'cell') {
@@ -119,28 +124,36 @@ export class Input {
       const mat = CFG.materials[w.mat[j]];
       head = t('materials.' + mat.id);
       const b = w.birth[j];
-      rows.push(t('tip.laid', { y: fmtInt(Math.max(0, CFG.zeroYear - b)) + '⟡' }) + ' · ' + t('tip.depth', { d: fmt(loc.depth, 0) }));
-      rows.push(`${t('tip.P', { v: fmt(w.P[j], 2) })} · ${t('tip.T', { v: fmt(w.T[j], 0) })} · ${t('tip.k', { v: fmt(w.k[j], 2) })}`);
+      icon = mat.id;
+      rows.push(t('tip.epoch', { era: t('era.' + eraOfYear(b)) }));
+      if (detailed) {
+        rows.push(t('tip.laid', { y: fmtInt(Math.max(0, CFG.zeroYear - b)) + '⟡' }) + ' · ' + t('tip.depth', { d: fmt(loc.depth, 0) }));
+        rows.push(`${t('tip.P', { v: fmt(w.P[j], 2) })} · ${t('tip.T', { v: fmt(w.T[j], 0) })} · ${t('tip.k', { v: fmt(w.k[j], 2) })}`);
+      }
       const fl = w.flags[j];
       if (fl & F_FOSSIL) rows.push(t('tip.fossil', { s: t('species.' + CFG.species[w.spec[j] - 1]?.id + '.name') }));
       else if (fl & F_FRAGMENT) rows.push(t('tip.fragment', { s: t('species.' + CFG.species[w.spec[j] - 1]?.id + '.name') }));
       const rule = RULES_BY_MAT[w.mat[j]].find((r) => (!r.world || (r.world === 'hot' && g.mods.hot)) && r.years > 0 && r.yield > 0);
-      if (rule && w.prog[j] > 0) rows.push(t('tip.progress', { rock: t('rocks.' + rule.rock), p: fmt(Math.min(99, (w.prog[j] / rule.years) * 100), 0) }));
+      if (detailed && rule && w.prog[j] > 0) rows.push(t('tip.progress', { rock: t('rocks.' + rule.rock), p: fmt(Math.min(99, (w.prog[j] / rule.years) * 100), 0) }));
       for (const tz of g.run.targets) if (x >= tz.x0 && x <= tz.x1 && b >= tz.b0 && b <= tz.b1) rows.push(t(tz.kind === 'water' ? 'tip.water' : 'tip.heat'));
     } else {
       const pk = w.packs[loc.p];
       let best = 0, bm = 0;
       pk.amt.forEach((a, mm) => { if (a > best) { best = a; bm = mm; } });
       head = t('materials.' + CFG.materials[bm].id);
-      rows.push(t('tip.pack', { n: fmt(pk.rows, 0), y0: fmtInt(CFG.zeroYear - pk.ageMax), y1: fmtInt(CFG.zeroYear - pk.ageMin) + '⟡' }));
-      rows.push(t('tip.depth', { d: fmt(loc.depth, 0) }));
-      rows.push(`${t('tip.P', { v: fmt(pk.P, 1) })} · ${t('tip.T', { v: fmt(pk.T, 0) })} · ${t('tip.k', { v: fmt(pk.k, 2) })}`);
+      icon = CFG.materials[bm].id;
+      rows.push(t('tip.epoch', { era: t('era.' + eraOfYear((pk.ageMin + pk.ageMax) / 2)) }));
+      if (detailed) {
+        rows.push(t('tip.pack', { n: fmt(pk.rows, 0), y0: fmtInt(CFG.zeroYear - pk.ageMax), y1: fmtInt(CFG.zeroYear - pk.ageMin) + '⟡' }));
+        rows.push(t('tip.depth', { d: fmt(loc.depth, 0) }));
+        rows.push(`${t('tip.P', { v: fmt(pk.P, 1) })} · ${t('tip.T', { v: fmt(pk.T, 0) })} · ${t('tip.k', { v: fmt(pk.k, 2) })}`);
+      }
     }
     const tip = this.tooltip;
-    tip.replaceChildren(h('div', { class: 't-head' }, head), ...rows.map((r) => h('div', { class: 't-row' }, r)), loc ? h('div', { class: 't-hint' }, t('tip.click')) : '');
+    tip.replaceChildren(h('div', { class: 't-head' }, icon ? matSwatch(icon) : '', head), ...rows.map((r) => h('div', { class: 't-row' }, r)), loc ? h('div', { class: 't-hint' }, t('tip.click')) : '');
     tip.hidden = false;
-    const tx = m.x > 200 ? m.x - 196 : m.x + 10;
-    const ty = Math.min(560, Math.max(60, m.y - 20));
+    const tx = m.x * UI > 200 ? m.x * UI - 196 : m.x * UI + 10;
+    const ty = Math.min(560, Math.max(60, m.y * UI - 20));
     tip.style.left = Math.max(4, tx) + 'px';
     tip.style.top = ty + 'px';
   }
@@ -157,7 +170,7 @@ export class Input {
     if (this.targeting) {
       const sy = this.ren.sectionY(m.y);
       if (sy === null) { this.cancelTarget(); return; }
-      const x = Math.floor(m.x);
+      const x = Math.max(0, Math.min(WW - 1, Math.floor(m.x)));
       let v = this.ren.lay.vOf[Math.floor(sy)];
       if (g.cast(this.targeting.id, { x, v })) this.onCast();
       this.cancelTarget();
@@ -166,14 +179,14 @@ export class Input {
     if (art >= 0) { this.onArtifact(art); return; }
     const sy = this.ren.sectionY(m.y);
     if (sy !== null) {
-      const x = Math.max(0, Math.min(359, Math.floor(m.x)));
+      const x = Math.max(0, Math.min(WW - 1, Math.floor(m.x)));
       let v = this.ren.lay.vOf[Math.floor(sy)];
       if (g.world.fold[x]) v = Math.max(0, v + g.world.fold[x] * (v / (v + 30)));
       const entry = makeEntry(g, x, v, this.onHorizon(x, Math.floor(sy)));
       if (entry) {
-        this.fieldnote.replaceChildren(chronicleCard(entry));
+        this.fieldnote.replaceChildren(chronicleCard(entry, !!g.state.settings.detailed));
         this.fieldnote.hidden = false;
-        this.fieldnote.style.top = Math.max(100, Math.min(470, m.y - 60)) + 'px';
+        this.fieldnote.style.top = Math.max(100, Math.min(470, m.y * UI - 60)) + 'px';
         this.noteTimer = 7;
       }
     }

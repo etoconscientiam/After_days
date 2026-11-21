@@ -119,8 +119,8 @@
   "horizon": {
     "rows": 8,
     "glowBonus": 0.1,
-    "glowWidth": 60,
-    "lifeSeedX": 70,
+    "glowWidth": 30,
+    "lifeSeedX": 35,
     "mix": {
       "concrete": 0.62,
       "metal": 0.15,

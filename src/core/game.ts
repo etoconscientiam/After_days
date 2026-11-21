@@ -1,5 +1,5 @@
 // The Game: owns state + world, advances time, exposes player actions. No DOM access (runs in Node for the sim).
-import { CFG, M, ZONES, ZoneId, SpeciesDef, ElementDef } from '../config';
+import { CFG, M, ZONES, ZoneId, SpeciesDef, ElementDef, SX } from '../config';
 import { World, W, CAP, F_ROLLED } from '../world/World';
 import { EventBus } from './events';
 import { RNG, hash2 } from './rng';
@@ -46,7 +46,7 @@ export class Game {
     this.world = world ?? new World();
     if (!world) this.world.reset();
     this.rng = new RNG(this.state.seed);
-    for (let x = 0; x < W; x++) this.colNoise[x] = 0.85 + 0.3 * (0.5 + 0.5 * Math.sin(x * 0.071) * Math.cos(x * 0.023 + 1.3));
+    for (let x = 0; x < W; x++) this.colNoise[x] = 0.85 + 0.3 * (0.5 + 0.5 * Math.sin((x / SX) * 0.071) * Math.cos((x / SX) * 0.023 + 1.3));
     this.refreshMods();
     this.recomputeZones();
     this.refreshStats();
@@ -82,11 +82,12 @@ export class Game {
     if (this.mods.shards) {
       // three basins: sea | forest | steppe, separated by ridges
       for (let x = 0; x < W; x++) {
-        const b = x < 120 ? 0 : x < 240 ? 1 : 2;
+        const u = x / SX;
+        const b = u < 120 ? 0 : u < 240 ? 1 : 2;
         this.basinMap[x] = b;
         let z = 2;
-        if (b === 0) z = x < 84 ? 0 : 1;
-        else if (b === 1) z = x < 132 || x >= 228 ? 1 : 2;
+        if (b === 0) z = u < 84 ? 0 : 1;
+        else if (b === 1) z = u < 132 || u >= 228 ? 1 : 2;
         this.zoneMap[x] = z;
       }
     } else {
@@ -94,7 +95,7 @@ export class Game {
     }
     this.zoneWidth = [0, 0, 0];
     for (let x = 0; x < W; x++) this.zoneWidth[this.zoneMap[x]]++;
-    const R = 18;
+    const R = Math.round(18 * SX);
     for (let x = 0; x < W; x++) {
       const m = [0, 0, 0];
       let n = 0;
@@ -113,7 +114,7 @@ export class Game {
     for (let x = 0; x < W; x++) {
       let b = 0.12;
       for (const c of centers) b += 0.88 * Math.exp(-(((x - c) / H.glowWidth) ** 2));
-      if (hash2(x >> 3, 913) > 0.86) b += 0.25;
+      if (hash2(Math.floor(x / (8 * SX)), 913) > 0.86) b += 0.25;
       this.glow[x] = Math.min(1, b);
       sum[this.zoneMap[x]] += this.glow[x];
     }

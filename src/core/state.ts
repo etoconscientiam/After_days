@@ -96,6 +96,7 @@ export interface Settings {
   muted: boolean;
   quality: 'high' | 'low';
   integerScale: boolean;
+  detailed: boolean;
 }
 
 export type Phase = 'choose' | 'play' | 'finale' | 'temple' | 'newWorld' | 'end';
@@ -182,7 +183,7 @@ export function newLegacy(): LegacyState {
 
 export function defaultSettings(): Settings {
   // English by default (spec); the player switches language in settings.
-  return { lang: 'en', music: 0.5, sfx: 0.7, muted: false, quality: 'high', integerScale: true };
+  return { lang: 'en', music: 0.5, sfx: 0.7, muted: false, quality: 'high', integerScale: true, detailed: false };
 }
 
 export function newGameState(seed = (Math.random() * 2 ** 31) | 0): GameState {

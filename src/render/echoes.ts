@@ -318,9 +318,9 @@ export function renderEcho(target: HTMLCanvasElement, picture: string, t: number
   c.fillStyle = 'rgba(210,190,160,0.18)';
   c.fillRect(0, 0, EW, EH);
   c.globalCompositeOperation = 'destination-in';
-  const g = c.createRadialGradient(EW / 2, EH / 2, 6, EW / 2, EH / 2, EW * 0.62);
+  const g = c.createRadialGradient(EW / 2, EH / 2, 4, EW / 2, EH / 2, EW * 0.55);
   g.addColorStop(0, 'rgba(0,0,0,1)');
-  g.addColorStop(0.7, 'rgba(0,0,0,0.85)');
+  g.addColorStop(0.55, 'rgba(0,0,0,0.8)');
   g.addColorStop(1, 'rgba(0,0,0,0)');
   c.fillStyle = g;
   c.fillRect(0, 0, EW, EH);

@@ -1,6 +1,7 @@
 // DOM helpers and small procedural icons (skins) for cards.
 import { CFG } from '../config';
-import { SKINS, drawPattern, drawFossil, fossilKind } from '../render/skins';
+import { drawPattern, drawFossil, fossilKind } from '../render/skins';
+import { creatureIcon } from '../render/creatures';
 
 export function $(sel: string): HTMLElement { return document.querySelector(sel) as HTMLElement; }
 
@@ -32,24 +33,7 @@ function iconCanvas(draw: (c: CanvasRenderingContext2D) => void): HTMLCanvasElem
 
 export function speciesIcon(id: string): HTMLCanvasElement {
   const sp = CFG.speciesById[id];
-  return iconCanvas((c) => {
-    c.fillStyle = sp.zone === 'water' ? '#16303e' : '#2a2219';
-    c.fillRect(0, 0, 11, 11);
-    const fn = SKINS[sp.sprite];
-    const opts = { t: 0.3, i: 1, season: 0.3, tint: sp.tint };
-    switch (sp.sprite) {
-      case 'tree': fn(c, 5, 11, { ...opts, i: 0 }); break;
-      case 'fish': drawPattern(c, 3, 4, [' bb ', 'bbbbt', ' bb '], { b: '#8ab0c8', t: '#6a90a8' }); break;
-      case 'plankton': for (let i = 0; i < 6; i++) { c.fillStyle = '#aadcc8'; c.fillRect(2 + (i * 3) % 7, 2 + (i * 5) % 7, 1, 1); } break;
-      case 'mat': c.fillStyle = '#6a8a42'; c.fillRect(1, 8, 9, 2); c.fillStyle = '#8aaa5a'; c.fillRect(2, 7, 2, 1); c.fillRect(6, 7, 3, 1); break;
-      case 'insect': c.fillStyle = '#e8e0a0'; c.fillRect(3, 4, 1, 1); c.fillRect(7, 6, 1, 1); c.fillRect(5, 2, 1, 1); break;
-      case 'bird': fn(c, 5, 5, opts); fn(c, 2, 3, { ...opts, i: 2 }); fn(c, 8, 7, { ...opts, i: 3 }); break;
-      case 'herd': case 'predator': fn(c, 2, 9, opts); break;
-      case 'mollusc': fn(c, 4, 8, opts); break;
-      case 'moss': fn(c, 2, 10, opts); fn(c, 6, 10, { ...opts, i: 1 }); break;
-      default: fn(c, 4, 10, opts);
-    }
-  });
+  return creatureIcon(sp.sprite, sp.tint, sp.zone === 'water');
 }
 
 const ELEMENT_ICONS: Record<string, [string[], Record<string, string>]> = {
@@ -111,4 +95,44 @@ export function fossilIcon(speciesId: string, rare: boolean, has: boolean): HTML
 
 export function rockColor(rock: string): string {
   return CFG.rocks.find((r) => r.id === rock)?.icon ?? '#888';
+}
+
+const TAB_ICONS: Record<string, [string[], Record<string, string>]> = {
+  life: [[
+    '     gg     ', '    gGGg    ', '   gGGGg  g ', '   gGGg  gGg', '    gg  gGGg', '     s  gGg ',
+    '     s gGg  ', '     ssg    ', '     s      ', '  bbbsbbb   ', ' bbbbbbbbb  ', '            '], { g: '#4a8a3a', G: '#8ad05a', s: '#6a8a4a', b: '#7a5a3a' }],
+  elements: [[
+    '   cccc     ', '  cCCCCc    ', ' cCCCCCCcc  ', 'cCCCCCCCCCc ', ' ccccccccc  ', '    yy      ',
+    '   yy  d  d ', '  yyyy  d  d', '    yy d  d ', '   yy   d   ', '  y      d  ', '            '], { c: '#8a96a8', C: '#d8e0ec', y: '#f2c14e', d: '#7ab8e8' }],
+  upgrades: [[
+    '     aa     ', '    aAAa    ', '   aAAAAa   ', '  aAAaaAAa  ', ' aaa aa aaa ', '    aAAa    ',
+    '    aAAa    ', '    aAAa    ', '    aAAa    ', '    aAAa    ', '    aaaa    ', '            '], { a: '#b8862a', A: '#f2c14e' }],
+  epoch: [[
+    '            ', 'aaaaaaaaaaaa', 'AAAAAAAAAAAA', 'bbbbbbbbbbbb', 'BBBBBBBBBBBB', 'cccccccccccc',
+    'cccccccccccc', 'dddddddddddd', 'ddddddDDdddd', 'ddddddDDdddd', 'dddddddddddd', '            '], { a: '#7a9a52', A: '#5a7a3a', b: '#b8a070', B: '#8a7450', c: '#6a6070', d: '#2a2630', D: '#f2c14e' }],
+  book: [[
+    '            ', ' pppp  pppp ', 'pPPPPp pPPPp', 'pPllPp pPllp', 'pPPPPp pPPPp', 'pPllPp pPllp',
+    'pPPPPp pPPPp', 'pPllPp pPllp', 'pPPPPpppPPPp', ' ppppp ppppp', '     pp     ', '            '], { p: '#6a4a2a', P: '#e8dcc0', l: '#9a8a70' }],
+};
+
+/** Pixel icon for a drawer tab (12×12, shown large and crisp). */
+export function tabIcon(id: string): HTMLCanvasElement {
+  const cv = document.createElement('canvas');
+  cv.width = 12; cv.height = 12;
+  cv.className = 'tab-ico';
+  const c = cv.getContext('2d')!;
+  const p = TAB_ICONS[id];
+  if (p) drawPattern(c, 0, 0, p[0], p[1]);
+  return cv;
+}
+
+/** A small swatch of a material's palette (for tooltips and cards). */
+export function matSwatch(matId: string): HTMLCanvasElement {
+  const m = CFG.materials.find((mm) => mm.id === matId) ?? CFG.materials[0];
+  const cv = document.createElement('canvas');
+  cv.width = 6; cv.height = 6;
+  cv.className = 'tip-ico';
+  const c = cv.getContext('2d')!;
+  for (let y = 0; y < 6; y++) for (let x = 0; x < 6; x++) { c.fillStyle = m.palette[(x * 7 + y * 13 + ((x * y) % 5)) % m.palette.length]; c.fillRect(x, y, 1, 1); }
+  return cv;
 }

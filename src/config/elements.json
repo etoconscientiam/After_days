@@ -9,11 +9,11 @@
     { "id": "drought",     "era": 1, "cost": 30,  "cooldown": 60,  "duration": 100,  "kind": "surface", "icon": "drought",
       "params": { "depositBoost": { "land": 0.04, "shore": 0.02 }, "mat": "sand", "kill": { "land": 0.3 } } },
     { "id": "groundwater", "era": 1, "cost": 45,  "cooldown": 90,  "duration": 500,  "kind": "section", "icon": "water",
-      "params": { "radiusX": 40, "radiusY": 24 } },
+      "params": { "radiusX": 20, "radiusY": 24 } },
     { "id": "heat",        "era": 2, "cost": 45,  "cooldown": 90,  "duration": 1500, "kind": "section", "icon": "heat",
-      "params": { "radiusX": 40, "radiusY": 24, "heat": 60 } },
+      "params": { "radiusX": 20, "radiusY": 24, "heat": 60 } },
     { "id": "volcano",     "era": 2, "cost": 90,  "cooldown": 180, "duration": 0,    "kind": "surface", "icon": "volcano",
-      "params": { "ashRows": 15, "radius": 90, "kill": 0.4, "burial": 5, "heat": 40, "heatYears": 800, "kDelta": -0.5 } },
+      "params": { "ashRows": 15, "radius": 45, "kill": 0.4, "burial": 5, "heat": 40, "heatYears": 800, "kDelta": -0.5 } },
     { "id": "seaAdvance",  "era": 2, "cost": 120, "cooldown": 300, "duration": 0,    "kind": "surface", "icon": "seaUp",
       "params": { "shift": 64, "kDelta": 0.5 } },
     { "id": "seaRetreat",  "era": 2, "cost": 120, "cooldown": 300, "duration": 0,    "kind": "surface", "icon": "seaDown",
@@ -23,8 +23,8 @@
     { "id": "glacier",     "era": 4, "cost": 120, "cooldown": 300, "duration": 1000, "kind": "surface", "icon": "glacier",
       "params": { "load": 20, "moraineRows": 10, "kPer100": 0.3, "kill": { "land": 0.2, "shore": 0.1 } } },
     { "id": "meteor",      "era": 4, "cost": 300, "cooldown": 600, "duration": 0,    "kind": "surface", "icon": "meteor",
-      "params": { "kill": 0.5, "kDelta": 1.0, "rare": 200, "craterRadius": 40 } },
+      "params": { "kill": 0.5, "kDelta": 1.0, "rare": 200, "craterRadius": 20 } },
     { "id": "magma",       "era": 1, "cost": 60,  "cooldown": 120, "duration": 3000, "kind": "section", "icon": "magma", "world": "hot",
-      "params": { "radiusX": 14, "radiusY": 8, "heat": 220 } }
+      "params": { "radiusX": 7, "radiusY": 8, "heat": 220 } }
   ]
 }

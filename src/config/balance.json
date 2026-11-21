@@ -1,8 +1,8 @@
 {
   "world": {
-    "width": 360,
-    "height": 640,
-    "ref640": 0.5625,
+    "width": 180,
+    "height": 320,
+    "ref640": 0.28125,
     "pixelRows": 320,
     "minKeepRows": 40,
     "packRows": 10,
@@ -10,16 +10,18 @@
     "deepPackFrom": 3000
   },
   "layout": {
-    "skyH": 150,
-    "surfaceH": 50,
-    "sectionTop": 200,
-    "sectionH": 380,
-    "linearPx": 200,
-    "logScale": 60,
-    "artifactH": 24,
-    "tabBarH": 36,
+    "surfaceTop": 84,
+    "sectionTop": 178,
+    "sectionH": 110,
+    "bigRows": 12,
+    "bigRowPx": 2,
+    "linearRows": 36,
+    "artifactH": 10,
+    "tabBarH": 22,
     "drawerMax": 0.42,
-    "drawerShift": 84
+    "drawerShift": 44,
+    "vMax": 4000,
+    "vMin": 90
   },
   "zones": {
     "startWater": 0.4,
@@ -84,7 +86,7 @@
     "landNeeds": 15
   },
   "prestige": {
-    "divisor": 200000000.0,
+    "divisor": 100000000.0,
     "power": 0.3333333,
     "glowAt": 0.5,
     "noteChance": 0.35
@@ -122,5 +124,5 @@
     "autosave": 30,
     "version": 1
   },
-  "rockYield": 0.02
+  "rockYield": 0.04
 }
