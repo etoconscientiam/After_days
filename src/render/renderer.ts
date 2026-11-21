@@ -39,6 +39,7 @@ export class Renderer {
   private stars: { x: number; y: number; b: number }[] = [];
   private t = 0;
   private meteorFxSeen = new Set<number>();
+  private shiftFx: { img: HTMLCanvasElement; t: number; top: number; h: number } | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -93,6 +94,46 @@ export class Renderer {
       this.particles.push({ x, y: this.lay.artifactY, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0, max: 0.6 + Math.random() * 0.6, color: Math.random() < 0.5 ? ACCENT : '#fff2c0', size: 1 });
     }
   }
+  /** Snapshot the section before an epoch shift; the snapshot then sinks, darkens and crumbles. */
+  beginShift(): void {
+    const c = document.createElement('canvas');
+    c.width = WW; c.height = this.lay.sectionH;
+    c.getContext('2d')!.drawImage(this.section.canvas, 0, 0, WW, this.lay.sectionH, 0, 0, WW, this.lay.sectionH);
+    this.shiftFx = { img: c, t: 0, top: this.lay.sectionTop, h: this.lay.sectionH };
+    this.reveal = Infinity;
+  }
+
+  private drawShift(dt: number): void {
+    const fx = this.shiftFx;
+    if (!fx) return;
+    fx.t += dt;
+    const c = this.ctx;
+    const k = Math.min(1, fx.t / 2.6);
+    const sink = k * k * fx.h;
+    c.save();
+    c.beginPath();
+    c.rect(0, fx.top, WW, fx.h);
+    c.clip();
+    c.globalAlpha = 1 - k * 0.85;
+    c.drawImage(fx.img, 0, fx.top + sink);
+    c.fillStyle = `rgba(6,4,10,${0.25 + k * 0.6})`;
+    c.fillRect(0, fx.top + sink, WW, fx.h);
+    c.restore();
+    c.globalAlpha = 1;
+    // top layers lighten and fall apart into dust
+    if (k < 0.8 && this.quality === 'high') {
+      for (let i = 0; i < 6; i++) {
+        const x = Math.random() * WW;
+        this.particles.push({ x, y: fx.top + sink + Math.random() * 6, vx: (Math.random() - 0.5) * 8, vy: -8 - Math.random() * 18, life: 0, max: 1 + Math.random(), color: Math.random() < 0.5 ? '#b8ae98' : '#8a8070', size: 1 });
+      }
+    }
+    if (k >= 1) {
+      this.shiftFx = null;
+      this.flash = 0.8;
+      this.reveal = 0;
+    }
+  }
+
   onExtinction(): void { this.skyDim = Math.min(1, this.skyDim + 0.6); this.shake = Math.min(4, this.shake + 2); }
   onQuake(): void { this.shake = 5; }
 
@@ -129,6 +170,7 @@ export class Renderer {
     this.drawSky(g);
     this.drawSection(g);
     this.drawSurface(g);
+    this.drawShift(dt);
     this.drawArtifactZone(g);
     this.drawParticles(dt);
     this.drawLight(g);
@@ -296,6 +338,13 @@ export class Renderer {
     const lay = this.lay;
     const zi = g.zoneMap[Math.max(0, Math.min(WW - 1, x | 0))];
     const sea = lay.surfaceY + 36;
+    if (g.mods.shards) {
+      // rocky ridges divide the three basins
+      for (const rx of [120, 240]) {
+        const d = Math.abs(x - rx);
+        if (d < 14) return Math.round(lay.surfaceY + 33 - 16 * Math.pow(1 - d / 14, 1.4) + (hash2(x, 77) < 0.3 ? 1 : 0));
+      }
+    }
     if (zi === 0) return lay.surfaceY + 49;
     const n = NOISE[(40 << 8) | ((x * 2) & 255)];
     if (zi === 1) {
@@ -308,9 +357,6 @@ export class Renderer {
       const leftWater = edge > 0 && g.zoneMap[edge - 1] === 0;
       const kk = leftWater ? k : 1 - k;
       return Math.round(sea + 3 - kk * 6 + n * 1.5);
-    }
-    if (g.mods.shards && (Math.abs(x - 120) < 7 || Math.abs(x - 240) < 7)) {
-      return Math.round(lay.surfaceY + 20 + Math.abs(x % 120 > 60 ? 120 - (x % 120) : x % 120) * 1.8);
     }
     return Math.round(lay.surfaceY + 32 - n * 3 - Math.sin(x * 0.04) * 1.5);
   }

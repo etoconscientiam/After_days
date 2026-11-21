@@ -70,7 +70,8 @@ function makeRoom(id: string) {
   if (g.run.energy < g.speciesCost(sp)) return;
   const zones = g.habitatZones(sp);
   const victims = CFG.species.filter((v) => v.id !== id && v.eps < sp.eps && zones.some((z) => g.run.pop[v.id][z] > 0)).sort((a, b) => a.eps - b.eps);
-  if (victims.length) g.releaseSpecies(victims[0].id);
+  for (let k = 0; k < 4 && victims.length && g.freeZoneFor(sp) < 0; k++) g.releaseSpecies(victims[0].id);
+  g.buySpecies(id);
 }
 
 function botElements() {
@@ -93,8 +94,8 @@ while (g.state.legacy.totalRealTime < end) {
   while (clickAcc >= 1) { g.click(); clickAcc -= 1; }
   g.update(DT);
   if (Math.floor(g.state.legacy.totalRealTime) % 2 === 0) {
-    const need: Record<number, string[]> = { 3: ['trees'], 5: ['fossor', 'vigil', 'litoralis'], 6: ['tribe'], 7: ['tribe'] };
-    for (const id of need[g.run.era] ?? []) makeRoom(id);
+    const need: Record<number, string[]> = { 2: ['molluscs', 'fish'], 3: ['trees'], 4: ['herds', 'predators'], 5: ['fossor', 'vigil', 'litoralis'], 6: ['tribe'], 7: ['tribe'] };
+    for (const id of need[g.run.era] ?? []) { makeRoom(id); while (g.run.energy >= g.speciesCost(CFG.speciesById[id]) && g.freeZoneFor(CFG.speciesById[id]) >= 0 && g.speciesUnlocked(CFG.speciesById[id])) g.buySpecies(id); }
     botBuy(); botElements();
   }
   if (g.state.phase === 'finale') g.chooseRitual(CFG.rituals.find((r) => !g.legacy.rituals.includes(r.id))!.id);
@@ -114,6 +115,10 @@ while (g.state.legacy.totalRealTime < end) {
   }
 }
 log('end', `density=${g.meta.density} prestiges=${g.meta.prestiges}`);
+if (process.env.DEBUG_DUMP) {
+  const pops = Object.fromEntries(Object.entries(g.run.pop).filter(([, v]) => v[0] + v[1] + v[2] > 0));
+  console.log('DUMP era', g.run.era, 'E', g.run.energy.toExponential(2), 'inc', g.incomePerSec(false).toExponential(2), 'cap', [0, 1, 2].map((z) => `${g.used(z).toFixed(0)}/${g.capacity(z)}`).join(' '), 'settle', g.settlePop().toFixed(1), 'tribeCost', g.speciesCost(CFG.speciesById.tribe).toExponential(2), JSON.stringify(pops), 'zoneMap center', g.zoneMap[180], 'unlocked tribe', g.speciesUnlocked(CFG.speciesById.tribe));
+}
 mkdirSync('sim/out', { recursive: true });
 writeFileSync(`sim/out/sim_${seed}.csv`, rows.join('\n'));
 console.log(`wrote sim/out/sim_${seed}.csv`);

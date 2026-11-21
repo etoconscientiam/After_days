@@ -625,6 +625,7 @@ export class Game {
 
   prestige(): boolean {
     if (this.prestigeGain() < 1 || this.state.phase !== 'play') return false;
+    this.bus.emit('prestigeStart', {});
     doPrestige(this);
     return true;
   }

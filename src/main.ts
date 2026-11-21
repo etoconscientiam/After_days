@@ -77,7 +77,8 @@ function bind(g: Game): void {
   bus.on('extinction', (e) => { if (e.killed >= 3) hud.toast(t('toast.extinction', { n: e.killed }), '#c86a5a'); renderer.onExtinction(); audio.rumble(1.2); });
   bus.on('eraChanged', (e) => { hud.toast(t('toast.era', { era: t('era.' + e.era) }), '#f2c14e'); audio.setEra(e.era); });
   bus.on('noteFound', (e) => hud.toast(t('toast.note', { title: t('notes.' + e.id + '.title') }), '#f2c14e'));
-  bus.on('prestige', (e) => { hud.toast(t('toast.prestige', { n: e.gain }), '#c8b8ff'); audio.whoosh(); renderer.reveal = 0; save(); });
+  bus.on('prestigeStart', () => renderer.beginShift());
+  bus.on('prestige', (e) => { hud.toast(t('toast.prestige', { n: e.gain }), '#c8b8ff'); audio.whoosh(); audio.rumble(2.5); save(); });
   bus.on('memory', (e) => hud.memoryLine(e.id));
   bus.on('element', (e) => {
     if (e.id === 'earthquake') { renderer.onQuake(); audio.rumble(1.8); }
@@ -179,4 +180,4 @@ function frame(now: number): void {
 fit();
 requestAnimationFrame(frame);
 void fmt;
-(window as any).__strata = { get game() { return game; }, renderer, save, dev, drawer, input };
+(window as any).__strata = { get game() { return game; }, renderer, save, dev, drawer, input, away: (sec: number) => offline(Date.now() - sec * 1000) };

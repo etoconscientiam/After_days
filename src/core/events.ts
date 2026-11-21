@@ -7,6 +7,7 @@ export interface GameEvents {
   extinction: { cause: string; killed: number };
   eraChanged: { era: number };
   noteFound: { id: string };
+  prestigeStart: {};
   prestige: { gain: number };
   temple: { ritual: string };
   click: { energy: number; boost: number };
