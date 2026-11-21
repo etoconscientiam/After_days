@@ -3,6 +3,7 @@
 import { CFG, ZONES, mat, M } from '../config';
 import type { Game } from './game';
 import { F_INSECT, F_FAST, F_GLOW } from '../world/World';
+import { valueNoise } from './rng';
 
 interface ZoneSource { rate: number; mats: number[]; cum: number[] }
 
@@ -59,16 +60,27 @@ export function depositionStep(g: Game, dy: number): void {
   const src = buildSources(g);
   const depMul = 1 + g.stats.deposition;
   const advFrom = r.startWaterEnd;
+  const mix = g.zoneMix;
   for (let x = 0; x < w.len.length; x++) {
     const zi = g.zoneMap[x];
+    const m0 = mix[x * 3], m1 = mix[x * 3 + 1], m2 = mix[x * 3 + 2];
+    // rates blend smoothly across zone borders so layers don't form vertical walls
+    let rate = src[0].rate * m0 + src[1].rate * m1 + src[2].rate * m2;
     let mul = depMul * g.colNoise[x];
     if (zi === 0 && x >= advFrom && !g.mods.shards) mul *= 2; // advanced sea: double deposition
     if (g.mods.shards && r.shardBoost[g.basinMap[x]] > 0) mul *= 2;
-    w.h[x] += src[zi].rate * dy * mul;
+    w.h[x] += rate * dy * mul;
     let guard = 0;
     while (w.h[x] >= 1 && guard++ < 64) {
       w.h[x] -= 1;
-      depositCell(g, x, pick(src[zi], g.rng.next()), zi, 1);
+      // which zone's material falls here (blended near borders)
+      // keyed on time, so the same moment forms the same lamina across columns
+      const ty = r.year / 160 + w.h[x] * 0.3;
+      const uz = valueNoise(x / 9, ty * 0.6 + 31.7);
+      const zsrc = uz < m0 ? 0 : uz < m0 + m1 ? 1 : 2;
+      // spatially coherent choice: lenses and laminae instead of salt-and-pepper
+      const u = valueNoise(x / 22 + zsrc * 50, ty) * 0.8 + g.rng.next() * 0.2;
+      depositCell(g, x, pick(src[zsrc], u), zi, 1);
     }
   }
 }

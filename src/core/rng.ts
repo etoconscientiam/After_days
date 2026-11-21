@@ -34,3 +34,12 @@ export function hash2(x: number, y: number): number {
   h ^= h >>> 16;
   return (h >>> 0) / 4294967296;
 }
+
+/** Smooth 2D value noise in [0,1) from integer hashing (deterministic, no tables). */
+export function valueNoise(x: number, y: number): number {
+  const x0 = Math.floor(x), y0 = Math.floor(y);
+  const fx = x - x0, fy = y - y0;
+  const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
+  const a = hash2(x0, y0), b = hash2(x0 + 1, y0), c = hash2(x0, y0 + 1), d = hash2(x0 + 1, y0 + 1);
+  return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
+}

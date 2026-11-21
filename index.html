@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Strata</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%230e0d0b'/%3E%3Crect y='9' width='16' height='2' fill='%235a4030'/%3E%3Crect y='11' width='16' height='2' fill='%23787866'/%3E%3Crect y='13' width='16' height='3' fill='%23242428'/%3E%3Crect x='6' y='12' width='4' height='3' fill='%23f2c14e'/%3E%3C/svg%3E" />
+  </head>
+  <body>
+    <div id="app">
+      <div id="column">
+        <canvas id="world"></canvas>
+        <div id="ui">
+          <div id="hud">
+            <div class="hud-top">
+              <div id="countdown"><span id="cd-num">98 000</span><span id="cd-sym">⟡</span></div>
+              <button id="gear" class="icon-btn" aria-label="Settings">⚙</button>
+            </div>
+            <div id="era-line"><span id="era-name"></span><span id="speed"></span></div>
+            <div id="era-bar"><div id="era-fill"></div><div id="cond-fill"></div><span id="cond-text"></span></div>
+            <div id="res-row">
+              <div id="energy"><span class="e-ico"></span><b id="energy-val">0</b><small id="energy-rate"></small></div>
+              <div id="rocks"></div>
+              <div id="density" hidden></div>
+            </div>
+          </div>
+          <div id="memory"></div>
+          <div id="toasts"></div>
+          <div id="tooltip" hidden></div>
+          <div id="fieldnote" hidden></div>
+          <div id="target-hint" hidden></div>
+          <div id="drawer" aria-hidden="true">
+            <div class="drawer-head"><span id="drawer-title"></span><div id="drawer-sub"></div><button id="drawer-close" class="icon-btn" aria-label="Close">×</button></div>
+            <div id="drawer-body"></div>
+          </div>
+          <nav id="tabbar"></nav>
+          <div id="overlay"></div>
+          <div id="dev" hidden></div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

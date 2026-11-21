@@ -28,6 +28,7 @@ export class Game {
   zoneMap = new Uint8Array(W);          // 0 water, 1 shore, 2 land
   basinMap = new Uint8Array(W);         // shard world basin index
   zoneWidth = [0, 0, 0];
+  zoneMix = new Float32Array(W * 3);   // per column: share of water/shore/land in a ±18 px window (smooth borders)
   colNoise = new Float32Array(W);
   glints: Glint[] = [];
   geoAcc = 0;
@@ -90,6 +91,18 @@ export class Game {
     }
     this.zoneWidth = [0, 0, 0];
     for (let x = 0; x < W; x++) this.zoneWidth[this.zoneMap[x]]++;
+    const R = 18;
+    for (let x = 0; x < W; x++) {
+      const m = [0, 0, 0];
+      let n = 0;
+      for (let d = -R; d <= R; d++) {
+        const xx = x + d;
+        if (xx < 0 || xx >= W) continue;
+        const w = 1 - Math.abs(d) / (R + 1);
+        m[this.zoneMap[xx]] += w; n += w;
+      }
+      for (let z = 0; z < 3; z++) this.zoneMix[x * 3 + z] = m[z] / n;
+    }
   }
 
   zoneIndex(z: ZoneId): number { return ZONES.indexOf(z); }
