@@ -38,6 +38,8 @@
     { "from": "ochre",      "to": "jasper",       "pMin": 0.5, "years": 400,  "yield": 3 },
     { "from": "tephra",     "to": "bentonite",    "pMin": 0.5, "years": 600,  "yield": 4 },
     { "from": "boundary",   "to": "boundaryRock", "pMin": 0.5, "years": 600,  "yield": 2 },
-    { "from": "floodSilt",  "to": "mudstone",     "pMin": 2,   "years": 1500, "yield": 1 }
+    { "from": "floodSilt",  "to": "mudstone",     "pMin": 2,   "years": 1500, "yield": 1 },
+    { "from": "dust",       "to": "siltstone",    "pMin": 2,   "years": 600,  "yield": 0.5 },
+    { "from": "soil",       "to": "paleosol",     "pMin": 2,   "noOxygen": true, "years": 800, "yield": 0.5 }
   ]
 }

@@ -36,7 +36,13 @@ export function stepFull(g: Grid, rng: Rng, water: Water | null, tick: number): 
       if (!g.blockAwake(x, y)) continue;
       const wet = inWater(water, x, y);
       if (wet && tick % S.waterFallEvery !== 0) { g.wake(x, y); continue; }
-      if (!mat[below + x]) { g.move(i, below + x); moved++; continue; }
+      if (!mat[below + x]) {
+        // free fall is quicker than sliding: two cells a step when there is room (sand drops, then pours)
+        const below2 = below + GW;
+        g.move(i, !wet && y + 2 < g.floor && !mat[below2 + x] ? below2 + x : below + x);
+        moved++;
+        continue;
+      }
       if (kind !== K_LOOSE) continue;
       const slip = SLIP[m] * (wet ? S.waterSlipMul : 1);
       if (rng.next() >= slip) { if (canSlide(g, x, y)) g.wake(x, y); continue; }

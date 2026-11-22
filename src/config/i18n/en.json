@@ -419,7 +419,9 @@
     "floodSilt": "Flood silt",
     "jasper": "Jasper",
     "bentonite": "Bentonite",
-    "boundaryRock": "Boundary layer"
+    "boundaryRock": "Boundary layer",
+    "siltstone": "Siltstone",
+    "paleosol": "Paleosol"
   },
   "tip": {
     "years": "{a} yrs ago",

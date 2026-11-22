@@ -949,26 +949,22 @@ export class Renderer {
       c.fillStyle = z.kind === 'water' ? rgb(140, 200, 255, ph * 0.8) : rgb(255, 140 + 60 * ph, 60, ph * 0.7);
       c.fillRect(z.pts[i], top + z.pts[i + 1], 1, 1);
     }
-    // a rock is born: a small local sparkle where it happened (not a line across the whole layer), soft and few
-    let shown = 0;
+    // a rock is born: a spark where it happened — a white-hot core and arms in the colour of the new rock
     for (const gl of g.glints) {
-      if (shown++ >= 10) break;
       if (gl.x >= SW) continue;
       const gy = Math.round(gl.y + gdy);
       if (gy - top >= sec.cut) continue;
-      const a = Math.min(1, gl.t * 1.6) * 0.55;
+      const a = Math.min(1, gl.t / 0.3);
       c.globalAlpha = a;
       c.fillStyle = gl.color;
-      c.fillRect(gl.x, gy, 1, 1);
-      c.globalAlpha = a * 0.45;
       c.fillRect(gl.x - 1, gy, 1, 1); c.fillRect(gl.x + 1, gy, 1, 1);
       c.fillRect(gl.x, gy - 1, 1, 1); c.fillRect(gl.x, gy + 1, 1, 1);
+      c.fillStyle = '#fffaE6';
+      c.fillRect(gl.x, gy, 1, 1);
       c.globalAlpha = 1;
     }
     if (this.hover && !this.targeting) {
-      const b = sec.bAt(this.hover.x, this.hover.y);
-      c.fillStyle = 'rgba(242,181,74,0.3)';
-      if (this.hover.y < sec.strataH) for (let x = 0; x < SW; x++) c.fillRect(x, Math.round(top + sec.yAt(x, b)), 1, 1);
+      // only a small marker: a year does not lie on one line across the particles, so no band across the section
       c.fillStyle = 'rgba(242,181,74,0.9)'; c.fillRect(this.hover.x, top + this.hover.y - 1, 1, 3);
     }
     if (this.geologist) this.drawGeologist(g);

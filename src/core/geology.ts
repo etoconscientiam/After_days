@@ -60,10 +60,9 @@ export function geoEnv(g: Game, dy: number): GeoEnv {
     onTransform: (i, x, y, _from, to, rule, insect) => {
       if (insect) r.insectAmber++;
       const yv = insect ? rule.insectYield! : rule.yield;
-      if (yv > 0) {
-        g.addRock(rule.rock, yv * CFG.B.rockYield * CPP * S.rockYieldMul, wx(x));
-        if (glints++ < 60) g.glints.push({ x: wx(x), y: y * 2 + 1, t: 0.6, color: CFG.materials[to].palette[4] });
-      }
+      if (yv > 0) g.addRock(rule.rock, yv * CFG.B.rockYield * CPP * S.rockYieldMul, wx(x));
+      // every grain that turns to rock flashes: a small bright spark in the colour of the new rock
+      if (glints++ < 90 && g.glints.length < 160) g.glints.push({ x: wx(x), y: y * 2 + 1, t: 0.6, color: CFG.materials[to].palette[3] ?? CFG.materials[to].palette[0] });
       if (pr) {
         const dx = x - pr.x, dyy = y - pr.y;
         if (dx * dx + dyy * dyy <= pr.r * pr.r && g.pressFlashes.length < 80) g.pressFlashes.push({ x: wx(x), y: y * 2 + 1, t: 0.9, color: CFG.materials[to].palette[4] });

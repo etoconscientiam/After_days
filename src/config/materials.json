@@ -900,6 +900,34 @@
       "rock": "rare",
       "glint": true,
       "marker": true
+    },
+    {
+      "id": "siltstone",
+      "density": 2.3,
+      "palette": [
+        "#4a4844",
+        "#56534e",
+        "#625f58",
+        "#6e6a62",
+        "#7a756c"
+      ],
+      "grain": 4,
+      "kind": "rock",
+      "rock": "mudstone"
+    },
+    {
+      "id": "paleosol",
+      "density": 2.2,
+      "palette": [
+        "#4e2a20",
+        "#5e3428",
+        "#6e4030",
+        "#7e4c3a",
+        "#8e5844"
+      ],
+      "grain": 3,
+      "kind": "rock",
+      "rock": "mudstone"
     }
   ],
   "rocks": [

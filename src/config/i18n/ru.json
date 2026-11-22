@@ -416,7 +416,9 @@
     "floodSilt": "Ил паводка",
     "jasper": "Яшма",
     "bentonite": "Бентонит",
-    "boundaryRock": "Пограничный слой"
+    "boundaryRock": "Пограничный слой",
+    "siltstone": "Алевролит",
+    "paleosol": "Палеопочва"
   },
   "tip": {
     "years": "{a} лет назад",

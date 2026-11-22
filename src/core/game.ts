@@ -417,14 +417,15 @@ export class Game {
     }
   }
 
-  /** Particles fall (full mode, a fixed 60 steps a second), the conveyor sinks the oldest rows, waiting marker beds
+  /** Particles fall (full mode, a fixed number of steps a second), the conveyor sinks the oldest rows, waiting marker beds
    *  are laid. dt = real seconds. In the balance run and offline (headless) particles settle at once, no steps. */
   strataStep(dt: number): void {
     const r = this.run;
     if (!this.headless) {
-      this.physAcc = Math.min(this.physAcc + dt, 4 / 60);
-      while (this.physAcc >= 1 / 60) {
-        this.physAcc -= 1 / 60;
+      const step = 1 / SAND.stepsPerSecond;
+      this.physAcc = Math.min(this.physAcc + dt, step * 6);
+      while (this.physAcc >= step) {
+        this.physAcc -= step;
         this.moving = stepFull(this.grid, this.rng, this.water, this.physTick++);
       }
     } else this.moving = 0;
