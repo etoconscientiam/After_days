@@ -207,6 +207,25 @@ export class Renderer {
       this.particles.push({ x, y: ay, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0, max: 0.5 + Math.random() * 0.4, color: ACCENT, size: 1 });
     }
   }
+  /** The thing absorbed a line of the strata: it glows in the line's colour, a spark flies to the counter
+   *  (a dearer line — brighter, more sparks). */
+  onAbsorb(matId: string, value: number): void {
+    const m = CFG.materials[CFG.matIndex[matId]];
+    const col = m ? m.palette[Math.min(4, m.palette.length - 1)] : ACCENT;
+    const k = Math.min(1, value / 400);
+    this.absorb = { t: 0, color: col, k: Math.max(this.absorb && this.absorb.t < 0.3 ? this.absorb.k : 0, 0.35 + 0.65 * k) };
+    const xs = this.lastAbsorbX = (this.lastAbsorbX + 1) % 3;
+    const x = WW / 2 + (xs - 1) * 3, ay = this.ayAt(WW / 2) - 2;
+    const target = this.sparkTarget();
+    const n = value > 250 ? 2 : 1;
+    for (let i = 0; i < n && target && this.flyers.length < 40; i++) {
+      const a = -Math.PI / 2 + (Math.random() - 0.5) * 1.6, sp = 30 + Math.random() * 30;
+      this.flyers.push({ x, y: ay, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, tx: target.x, ty: target.y, t: 0, color: col });
+    }
+  }
+  private absorb: { t: number; color: string; k: number } | null = null;
+  private lastAbsorbX = 0;
+
   onExtinction(): void { this.skyDim = 1; this.shake = Math.min(3, this.shake + 2); this.alarm = this.t; }
   onQuake(): void { this.shake = 4; this.alarm = this.t; }
   onEra(era: number): void { if (era === 1) this.seedThread = 0; }
@@ -1658,6 +1677,21 @@ export class Renderer {
       grd.addColorStop(0.4, rgb(200, 120, 40, 0.15));
       grd.addColorStop(1, 'rgba(0,0,0,0)');
       c.fillStyle = grd; c.fillRect(x - R, a - R, R * 2, R * 2);
+    }
+    // a line just absorbed: the thing glows in its colour for a moment
+    if (this.absorb) {
+      const ab = this.absorb;
+      ab.t += this.dt;
+      const f = Math.max(0, 1 - ab.t / 0.6) * ab.k;
+      if (f <= 0) this.absorb = null;
+      else {
+        const a = this.ayAt(WW / 2) - 3, R = 12 + 10 * ab.k;
+        const grd = c.createRadialGradient(WW / 2, a, 1, WW / 2, a, R);
+        const [cr, cg, cb] = hex3(ab.color);
+        grd.addColorStop(0, rgb(cr, cg, cb, 0.55 * f));
+        grd.addColorStop(1, 'rgba(0,0,0,0)');
+        c.fillStyle = grd; c.fillRect(WW / 2 - R, a - R, R * 2, R * 2);
+      }
     }
     for (let x = 0; x < WW; x += 3) {
       c.fillStyle = rgb(242, 170, 70, g.glow[x] * (0.1 + 0.03 * Math.sin(this.t * 1.7 + x * 0.1)));

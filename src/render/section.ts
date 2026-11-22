@@ -209,10 +209,14 @@ export class SectionRenderer {
     this.sparks.length = 0;
     this.fossils.length = 0;
     const BONE = CFG.matIndex.bone;
+    // the band above the thing: its bottom rows squeeze into 1-px lines (core/absorb.ts)
+    const bandN = CFG.B.sand.absorb.bandRows;
+    const band0 = grid.sinkRow - bandN + 1;
     // the strata
     for (let r = 0; r < grid.floor; r++) {
       const yPix = r * 2;
       if (yPix - BASE > revealY) break;
+      if (r >= band0 && r <= grid.sinkRow) continue;
       for (let x = 0; x < GW; x++) {
         const i = r * GW + x, m = grid.mat[i];
         if (!m || KIND[m] === K_NONE) continue;
@@ -232,6 +236,7 @@ export class SectionRenderer {
         }
       }
     }
+    this.drawBand(g, band0 * 2, bandN);
     // the technogenic horizon (the thing lies in it), the foundation of past epochs, the bedrock
     const hTop = grid.floor * 2;
     const bed = (GH - CFG.B.sand.bedRows) * 2;
@@ -261,6 +266,44 @@ export class SectionRenderer {
     for (let x = 0; x < WW; x++) if (hash2(x, 41) < g.glow[x] * 0.12) this.glowPts.push(x, hTop + 2 + ((hash2(x, 43) * (HR - 3)) | 0) - BASE);
     this.buildEras(g);
     this.buildZones(g);
+  }
+
+  /** The squeeze above the thing: first the bottom rows of the strata, then the lines the conveyor already took,
+   *  1 px each; the lines darken a little toward the thing (they are pressed thin) and warm in its light. */
+  private drawBand(g: Game, y0: number, n: number): void {
+    const grid = g.grid, buf = this.buf, px = this.px;
+    const ax0 = grid.artifacts.length ? grid.artifacts[0] * 2 : WW / 2;
+    const row = new Uint32Array(WW);
+    const line = (k: number, mats: ArrayLike<number>, looks: ArrayLike<number>, rowOff = 0) => {
+      const y = y0 + k, depth = k / (2 * n);
+      // pressed thin: the line evens out toward its mean colour, more so near the thing; neighbouring lines differ a
+      // little in brightness, so each reads as its own lamina
+      let sr = 0, sg = 0, sb = 0, cnt = 0;
+      row.fill(0);
+      for (let x = 0; x < GW; x++) {
+        const m = mats[rowOff + x];
+        if (!m || KIND[m] === K_NONE || KIND[m] === K_SOLID) continue;
+        particlePx(m, looks[rowOff + x], px);
+        row[x * 2] = px[0]; row[x * 2 + 1] = px[1];
+        for (const c of [px[0], px[1]]) { sr += c & 255; sg += (c >> 8) & 255; sb += (c >> 16) & 255; cnt++; }
+      }
+      if (!cnt) return;
+      const mean = pack32(sr / cnt, sg / cnt, sb / cnt);
+      const even = 0.45 + 0.45 * depth;
+      const lit = (k & 1 ? 0.9 : 1.04) * (1 - 0.22 * depth);
+      for (let xx = 0; xx < WW; xx++) {
+        const c = row[xx];
+        if (!c) continue;
+        // the thing's warmth on the lowest lines
+        const warm = Math.max(0, 1 - Math.abs(xx - ax0 - 4) / 40) * depth * 0.5;
+        buf[y * WW + xx] = tint(shade(mix(c, mean, even), lit), warm);
+      }
+    };
+    for (let k = 0; k < n; k++) line(k, grid.mat, grid.look, (grid.sinkRow - n + 1 + k) * GW);
+    for (let k = 0; k < n; k++) {
+      const L = g.band[k];
+      if (L) line(n + k, L.mats, L.looks);
+    }
   }
 
   /** Epoch spans down the middle column (away from the thing), youngest first. */
@@ -348,4 +391,17 @@ export class SectionRenderer {
 function shade(c: number, f: number): number {
   const r = (c & 255) * f, g = ((c >> 8) & 255) * f, b = ((c >> 16) & 255) * f;
   return pack32(r, g, b);
+}
+
+/** Mix two pixels (k 0..1 toward b). */
+function mix(a: number, b: number, k: number): number {
+  const ar = a & 255, ag = (a >> 8) & 255, ab = (a >> 16) & 255;
+  return pack32(ar + ((b & 255) - ar) * k, ag + (((b >> 8) & 255) - ag) * k, ab + (((b >> 16) & 255) - ab) * k);
+}
+
+/** Mix a pixel toward the thing's warm light (k 0..1). */
+function tint(c: number, k: number): number {
+  if (k <= 0) return c;
+  const r = (c & 255), g = (c >> 8) & 255, b = (c >> 16) & 255;
+  return pack32(r + (255 - r) * k * 0.9, g + (214 - g) * k * 0.8, b + (120 - b) * k * 0.6);
 }

@@ -1,0 +1,25 @@
+OK   tap: a pile falls where the finger is, energy comes — +239 particles
+OK   press: hold on the strata 
+OK   Geologist: view, plates and the lens — lens: Sand · Epoch 0
+OK   era ruler: epochs of the section and the archive, focus — 2 segments
+OK   chronicle: an entry from a particle — {"id":"29:silt","y0":2860,"y1":3160,"data":{"tags":[],"finds":[],"comp":[["silt"
+OK   rare event: spawn and claim — ancient → ancient
+OK   Bed button: an ochre bed over the surface, then a cooldown — cooldown 25 s
+OK   branch «pile composition»: size and shares — pile 50 → 65, peat locked in epoch 2
+OK   element: rain — cast
+OK   element: flood — cast
+OK   element: drought — cast
+OK   element: groundwater — cast
+OK   element: heat — cast
+OK   element: volcano — cast
+OK   element: seaAdvance — cast
+OK   element: seaRetreat — cast
+OK   element: earthquake — cast
+OK   element: glacier — cast
+OK   element: meteor — cast
+OK   element: magma — cast
+OK   debug panel: particles, archive, physics — physics 0.26 ms · blocks 21/240 · moving 3
+OK   save and load (v3) — 211 KB
+OK   offline 2 h — +23961 yr
+OK   prestige: a new world on the foundation — particles 7386
+console errors: none

@@ -42,6 +42,7 @@
  },
  "energy": {
   "click": 1,
+  "clickIncomeShare": 0.02,
   "passive": 0.5,
   "boostMul": 2,
   "boostPerClick": 1,
@@ -174,6 +175,23 @@
   "rockYieldMul": 0.75,
   "archiveYieldMul": 0.65,
   "startBelowLine": 3,
+  "absorb": {
+   "_comment": "The thing absorbs the strata: the bottom bandRows rows of the visible strata are drawn as 1-px lines, then as many rows the conveyor took, also 1 px each; the lowest line touches the thing and is absorbed. Energy of a line = sum over its particles of value × (flat × energyMul + incomePerSec × incomeShare). value: by kind (loose, rock, marker), then by material (overrides); a fossil bone × fossilMul.",
+   "bandRows": 8,
+   "flat": 0.004,
+   "incomeShare": 0.0008,
+   "fossilMul": 3,
+   "kind": { "loose": 1, "rock": 3, "marker": 8 },
+   "mat": {
+    "orgLand": 2, "orgMarine": 2, "resin": 4, "bone": 6, "guano": 3, "dung": 2, "ash": 2, "meteor": 20, "hearth": 6, "shards": 10,
+    "peat": 4, "lignite": 5, "coal": 7, "anthracite": 10, "diamond": 60, "oil": 8, "gas": 8,
+    "chalk": 4, "limestone": 4, "marble": 9, "sandstone": 3, "quartzite": 7, "mudstone": 2, "shale": 3, "slate": 5,
+    "tuff": 5, "amber": 14, "amberInsect": 40, "phosphorite": 6, "stromatolite": 5, "iridium": 40,
+    "basalt": 5, "obsidian": 9, "granite": 6, "gneiss": 7, "ruby": 50, "sapphire": 50, "graphite": 8, "glowstone": 20,
+    "ochre": 8, "tephra": 6, "boundary": 15, "floodSilt": 3, "jasper": 14, "bentonite": 6, "boundaryRock": 20,
+    "siltstone": 2, "paleosol": 3
+   }
+  },
   "relief": { "sea": 7, "shore": 1, "land": -5, "spill": 40 },
   "stepsPerSecond": 120,
   "stepsPerSecondLow": 60,

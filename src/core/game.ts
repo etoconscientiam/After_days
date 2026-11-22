@@ -4,6 +4,7 @@ import { Grid, GW, P_OLD } from '../world/Grid';
 import { Archive } from '../world/Archive';
 import { stepFull, Water } from './sand';
 import { sinkStep } from './pressure';
+import { BandLine, captureRow, pushBand } from './absorb';
 import { coat } from './beds';
 import { drizzle, reliefRow, tapPile, zoneSourcesBase } from './sources';
 import { geoTickGame } from './geology';
@@ -96,6 +97,7 @@ export class Game {
     this.dripAcc.fill(0);
     this.run.sink = { acc: 0, rows: 0 };
     this.run.beds = [];
+    this.band = [];
     this.prefill();
   }
 
@@ -362,8 +364,9 @@ export class Game {
   clickValue(): number {
     const st = this.stats;
     let e = (CFG.B.energy.click + st.clickAdd) * st.clickMul * st.energyMul;
-    // clicks scale gently with passive income so they never become worthless
-    e += this.incomePerSec(false) * 0.05;
+    // clicks scale gently with passive income so they never become worthless (most of a tap's energy comes later,
+    // when its pile reaches the thing and is absorbed: core/absorb.ts)
+    e += this.incomePerSec(false) * CFG.B.energy.clickIncomeShare;
     if (this.run.boost > 0) e *= CFG.B.energy.boostMul;
     return e;
   }
@@ -449,6 +452,8 @@ export class Game {
       this.geoYears = 0;
     }
     this.strataStep(dt);
+    // the absorbed energy a second, eased over a few seconds (the lines come in bursts)
+    if (dt > 0) { this.absorbRate += (this.absorbAcc / dt - this.absorbRate) * Math.min(1, dt / 4); this.absorbAcc = 0; }
     this.autoElements(dt);
     this.checkEra();
     if (this.meta.prestiges === 0 && r.year >= CFG.story.traces.endYear) triggerEcho(this, 'tracesErased');
@@ -467,6 +472,11 @@ export class Game {
 
   /** Particles fall (full mode, a fixed number of steps a second), the conveyor sinks the oldest rows, waiting marker beds
    *  are laid. dt = real seconds. In the balance run and offline (headless) particles settle at once, no steps. */
+  /** The band of squeezed lines above the thing (newest first): it absorbs the lowest one (core/absorb.ts). */
+  band: BandLine[] = [];
+  /** Energy absorbed since the last update, and its rate a second (eased) for the counter. */
+  absorbAcc = 0;
+  absorbRate = 0;
   /** Weak phones (quality «low»): fewer physics steps a second. */
   lowPhysics = false;
   /** Particles that turned to rock so far (the screen ticks a quiet sound on new ones). */
@@ -487,7 +497,7 @@ export class Game {
       // for the debug panel: physics time a frame, eased
       this.physMs += (performance.now() - t0 - this.physMs) * 0.1;
     } else this.moving = 0;
-    sinkStep(this.grid, r.sink, dt, (g, y) => this.archive.addRow(g, y));
+    sinkStep(this.grid, r.sink, dt, (g, y) => { pushBand(this, captureRow(g, y)); this.archive.addRow(g, y); });
     this.layBeds(dt);
     r.bedT = Math.max(0, r.bedT - dt);
   }

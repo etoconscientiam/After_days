@@ -1,0 +1,64 @@
+
+> strata@0.1.0 sim
+> tsx sim/sim.ts
+
+[0.1 min] rock mudstone
+[0.1 min] rock sandstone
+[0.1 min] era 1
+[0.2 min] rock rare
+[0.2 min] rock stromatolite
+[0.5 min] rock shale
+[1.0 min] era 2
+[1.0 min] rock slate
+[1.1 min] rock chalk
+[1.3 min] rock limestone
+[1.5 min] rock oil
+[1.7 min] order mudstone40
+[2.0 min] era 3
+[2.0 min] order limestone30
+[2.0 min] rock peat
+[2.3 min] rock lignite
+[2.6 min] rock amber
+[2.7 min] rock coal
+[3.3 min] rock anthracite
+[3.5 min] era 4
+[3.6 min] note n01
+[3.6 min] prestige gain=2 total=4 foundation=15.1
+[3.7 min] era 1
+[4.2 min] order stromatolite12
+[4.5 min] era 2
+[4.8 min] order limestone30
+[5.4 min] era 3
+[5.5 min] order shale60
+[7.0 min] era 4
+[7.3 min] fossil birds
+[7.5 min] fossil fish
+[7.6 min] fossil molluscs
+[7.6 min] rock phosphorite
+[7.7 min] fossil fish
+[8.2 min] rock gas
+[8.6 min] fossil herds
+[9.8 min] era 5
+[9.9 min] order oil1
+  .. 10m era=5 year=86472 E=3.75e+5 inc=3.27e+5 yps=19.4 O2=21.0 particles=9146 archive=160 sunk=2277 gain=4 cond=0.00 fossils=13 mudstone:57 sandstone:15 rare:84 stromatolite:333 shale:10204 slate:18150 chalk:181 limestone:2138 oil:277 peat:490 lignite:9089 amber:327 coal:390 anthracite:455 phosphorite:6 gas:425
+[10.1 min] order predatorFossil
+[10.9 min] rock quartzite
+[13.3 min] rock marble
+[14.0 min] prestige gain=6 total=8 foundation=37.4
+[14.4 min] order shale60
+[15.2 min] era 3
+[15.3 min] order limestone30
+[16.0 min] order peat20
+[17.0 min] era 4
+[19.6 min] era 5
+[19.8 min] order limestone30
+  .. 20m era=5 year=86983 E=8.74e+5 inc=3.35e+5 yps=21.3 O2=21.0 particles=8955 archive=160 sunk=1976 gain=3 cond=0.00 fossils=164 mudstone:115 stromatolite:6 sandstone:15 shale:8626 rare:76 chalk:110 limestone:1370 slate:15707 peat:388 lignite:8423 oil:54 coal:1912 amber:358 anthracite:337 phosphorite:51 gas:354
+[24.2 min] era 6
+[24.3 min] order oil1
+[27.5 min] era 7
+[28.2 min] order coal20
+[28.9 min] order predatorFossil
+[29.6 min] temple bury
+[29.6 min] done playthrough 1
+[29.6 min] end density=4 prestiges=2
+wrote sim/out/sim_1.csv

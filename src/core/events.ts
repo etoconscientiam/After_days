@@ -11,6 +11,8 @@ export interface GameEvents {
   prestige: { gain: number };
   temple: { ritual: string };
   click: { energy: number; boost: number };
+  /** the thing absorbed a line of the strata (core/absorb.ts) */
+  absorb: { energy: number; mat: string; value: number };
   element: { id: string; x?: number; depth?: number };
   echo: { id: string; alpha: number };
   relicFound: { id: string };

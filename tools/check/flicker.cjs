@@ -19,6 +19,7 @@ const { chromium, devices } = require('playwright');
   const tap = setInterval(() => p.mouse.click(40 + Math.random() * 300, 220).catch(() => {}), 300);
   const r = await p.evaluate(async () => {
     const s = window.__strata, sec = s.renderer.section, grid = s.game.grid, W = 180, GW = grid.W;
+    const band = 8;
     const frames = [];
     for (let i = 0; i < 40; i++) {
       await new Promise((res) => setTimeout(res, 100));
@@ -32,7 +33,8 @@ const { chromium, devices } = require('playwright');
       for (let j = 0; j < grid.floor * GW; j++) {
         const x = j % GW, y = (j / GW) | 0;
         const y1 = y + s1, y2 = y + s2;
-        if (y2 >= grid.floor || y > grid.sinkRow) continue;
+        // the band above the thing is drawn as 1-px lines by design (core/absorb.ts): not judged here
+        if (y2 >= grid.floor || y2 > grid.sinkRow - band) continue;
         const j1 = y1 * GW + x, j2 = y2 * GW + x;
         if (!a.mat[j]) continue;
         cells++;

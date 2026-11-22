@@ -107,7 +107,7 @@ export class Hud {
     this.eraFill.style.width = (k * 100).toFixed(1) + '%';
     this.sym.style.animationDuration = r.boost > 0 ? '1.2s' : '4s';
     setText(this.energyVal, fmt(r.energy));
-    setText(this.energyRate, t('hud.perSec', { v: fmt(g.incomePerSec()) }));
+    setText(this.energyRate, t('hud.perSec', { v: fmt(g.incomePerSec() + g.absorbRate) }));
     // the three rocks needed for the nearest upgrades (closest to buying first)
     const last = this.neededRocks(g);
     const sig = last.join(',') + g.state.settings.lang;

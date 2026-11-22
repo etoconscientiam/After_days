@@ -238,6 +238,17 @@ export class Audio {
   }
   private sandHiss: { gain: GainNode; filter: BiquadFilterNode } | null = null;
 
+  /** The thing absorbed a line: a soft low pluck, a little brighter for a dear line (level 0..1). Very quiet and
+   *  at most a few a second (the lines come one by one). */
+  absorb(level: number): void {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    if (now - this.lastAbsorb < 0.18) return;
+    this.lastAbsorb = now;
+    this.tone(0, 110 + level * 110, 0.35, 0.025 + level * 0.03, 'triangle', 82 + level * 60);
+  }
+  private lastAbsorb = 0;
+
   /** A grain turned to rock: a tiny glassy tick, high and very quiet (the caller keeps it to a few a second). */
   tick(): void {
     if (!this.ctx) return;
