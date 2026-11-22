@@ -16,6 +16,7 @@ import { $ } from './ui/dom';
 import { t, setLang, onLangChange } from './ui/i18n';
 import { rockIcon, energyIcon, exhibit } from './ui/icons';
 import { audio } from './audio/audio';
+import { setWear, wearFrom } from './ui/wear';
 import { saveLocal, loadLocal, clearLocal, exportString, importString } from './save/save';
 
 const DEV = import.meta.env.DEV || new URLSearchParams(location.search).has('dev');
@@ -106,7 +107,11 @@ renderer.onSparkArrive = () => hud.bump();
 let slowmo = 0;
 function eraTitle(era: number): void {
   const el = $('#era-title');
-  (el.firstChild as HTMLElement).textContent = t('era.' + era);
+  const span = el.firstChild as HTMLElement;
+  span.textContent = t('era.' + era);
+  // the oldest eras are the most weathered (Strata Stone wear levels)
+  span.classList.add('stone');
+  setWear(span, wearFrom((7 - era) / 7, 1.4));
   el.hidden = false;
   el.classList.remove('show');
   void el.offsetWidth;

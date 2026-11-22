@@ -173,6 +173,13 @@ export function habitatIcon(zone: string, size = 14): HTMLElement {
 /** Portrait of a species: painted asset, or a placeholder — the pixel creature in a soft oval frame. */
 export function portrait(speciesId: string, size = 64, locked = false): HTMLElement {
   const sp = CFG.speciesById[speciesId];
+  // painted pixel portraits (tools/draw_portraits.py): a locked species has its own silhouette-on-stone picture
+  const own = locked ? `ui/portraits/${speciesId}_locked.png` : `ui/portraits/${speciesId}.png`;
+  if (assetUrl(own)) {
+    const img = imgOr(own, size, () => document.createElement('span'));
+    img.classList.add('pix');
+    return img;
+  }
   const el = imgOr(`ui/portraits/${speciesId}.png`, size, () => {
     const [c, x] = canvas(size);
     const water = sp.zone === 'water';

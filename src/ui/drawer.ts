@@ -403,7 +403,7 @@ export class Drawer {
     const name = h('div', { class: 'r-name' });
     const price = h('span', {});
     const btn = h('button', { class: 'buy', onclick: () => g.buyDensity(n.id) }, price) as HTMLButtonElement;
-    const row = h('div', { class: 'row' }, h('div', { class: 'r-ico', style: 'color:var(--density);font-size:22px' }, '◆'), name, h('div', { class: 'r-act' }, btn), h('div', { class: 'r-eff' }, t('epoch.' + n.id + '.desc')));
+    const row = h('div', { class: 'row' }, h('div', { class: 'r-ico', style: 'color:var(--density);font-size:32px;line-height:1' }, '◆'), name, h('div', { class: 'r-act' }, btn), h('div', { class: 'r-eff' }, t('epoch.' + n.id + '.desc')));
     this.refreshers.push(() => {
       const lvl = g.meta.tree[n.id] ?? 0;
       name.replaceChildren(t('epoch.' + n.id + '.name'), h('small', { style: 'color:var(--density)' }, `${lvl}/${n.max}`));
