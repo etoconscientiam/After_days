@@ -1,0 +1,804 @@
+<title>Песочница слоёв</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: one 9:16 screen — the pixel world on a canvas, a thin HUD over the sky, a sheet of upgrades from below.
+   Single dark look, the palette of the main game («Камень и янтарь»). */
+:root {
+  --night: #0e0c10;
+  --stone-900: #1b1816;
+  --stone-700: #2e2925;
+  --stone-500: #4a423a;
+  --bone: #ede3d0;
+  --bone-dim: #a89b88;
+  --amber: #f2b54a;
+  --amber-deep: #c9782a;
+  --display: "Pixelify Sans", "Courier New", monospace;
+  --body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  background: var(--night); color: var(--bone); font-family: var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 8px; box-sizing: border-box; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+}
+#game { position: relative; width: 360px; height: 640px; flex: none; overflow: hidden; border-radius: 10px; background: #000; touch-action: manipulation; }
+#cv { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; cursor: pointer; }
+.hud { position: absolute; left: 0; right: 0; top: 0; padding: calc(10px * var(--s)) calc(12px * var(--s)) calc(18px * var(--s));
+  background: linear-gradient(rgba(14,12,16,.72), rgba(14,12,16,0)); pointer-events: none; display: grid; gap: calc(4px * var(--s)); }
+.row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.num { font-family: var(--display); font-weight: 600; font-variant-numeric: tabular-nums; }
+#energy { font-size: calc(26px * var(--s)); color: var(--amber); }
+#energy small { font-family: var(--body); font-size: calc(11px * var(--s)); color: var(--bone-dim); font-weight: 500; margin-left: 4px; }
+#stone { font-size: calc(18px * var(--s)); color: var(--bone); }
+.epoch { display: flex; align-items: center; gap: calc(8px * var(--s)); font-size: calc(12px * var(--s)); color: var(--bone-dim); }
+.epoch b { font-family: var(--display); font-weight: 600; color: var(--bone); font-size: calc(14px * var(--s)); letter-spacing: .02em; }
+.bar { flex: 1; height: calc(4px * var(--s)); background: rgba(237,227,208,.14); border-radius: 2px; overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; background: var(--amber); transition: width .3s; }
+.bottom { position: absolute; left: 0; right: 0; bottom: 0; padding: calc(18px * var(--s)) calc(12px * var(--s)) calc(12px * var(--s));
+  background: linear-gradient(rgba(14,12,16,0), rgba(14,12,16,.8)); display: grid; gap: calc(8px * var(--s)); pointer-events: none; }
+.mix { display: flex; height: calc(8px * var(--s)); border-radius: 2px; overflow: hidden; outline: 1px solid rgba(237,227,208,.18); }
+.mix i { display: block; height: 100%; }
+.mixlbl { display: flex; justify-content: space-between; font-size: calc(11px * var(--s)); color: var(--bone-dim); }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+#openUp { pointer-events: auto; justify-self: center; font-family: var(--display); font-weight: 600; font-size: calc(16px * var(--s));
+  padding: calc(9px * var(--s)) calc(22px * var(--s)); border-radius: calc(8px * var(--s)); border: 1px solid var(--stone-500);
+  background: var(--stone-900); color: var(--bone); box-shadow: 0 2px 0 #000; position: relative; }
+#openUp .dot { position: absolute; top: -4px; right: -4px; width: 9px; height: 9px; border-radius: 50%; background: var(--amber); }
+#pline { position: absolute; left: calc(12px * var(--s)); font-size: calc(10px * var(--s)); color: var(--amber); opacity: .7; pointer-events: none; transform: translateY(-120%); letter-spacing: .04em; }
+#hint { position: absolute; left: 0; right: 0; top: 42%; text-align: center; font-family: var(--display); font-size: calc(16px * var(--s));
+  color: var(--bone); text-shadow: 0 1px 0 #000, 0 0 8px #000; pointer-events: none; transition: opacity .6s; }
+#toast { position: absolute; left: calc(14px * var(--s)); right: calc(14px * var(--s)); top: calc(88px * var(--s));
+  background: rgba(27,24,22,.92); border: 1px solid var(--stone-500); border-radius: calc(8px * var(--s));
+  padding: calc(10px * var(--s)) calc(12px * var(--s)); font-size: calc(12.5px * var(--s)); line-height: 1.4; pointer-events: none;
+  opacity: 0; transform: translateY(-6px); transition: opacity .4s, transform .4s; }
+#toast.on { opacity: 1; transform: none; }
+#toast b { display: block; font-family: var(--display); font-size: calc(16px * var(--s)); color: var(--amber); margin-bottom: 2px; }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; height: 58%; background: var(--stone-900); border-top: 1px solid var(--stone-500);
+  border-radius: calc(12px * var(--s)) calc(12px * var(--s)) 0 0; transform: translateY(100%); transition: transform .28s ease;
+  display: flex; flex-direction: column; box-shadow: 0 -8px 24px rgba(0,0,0,.5); }
+.sheet.on { transform: none; }
+.sheet header { display: flex; justify-content: space-between; align-items: center; padding: calc(10px * var(--s)) calc(14px * var(--s)) calc(6px * var(--s)); }
+.sheet header h2 { margin: 0; font-family: var(--display); font-weight: 600; font-size: calc(18px * var(--s)); }
+.sheet header button { background: none; border: 0; font-size: calc(13px * var(--s)); color: var(--bone-dim); padding: 6px; }
+.list { overflow-y: auto; padding: 0 calc(12px * var(--s)) calc(14px * var(--s)); display: grid; gap: calc(12px * var(--s)); }
+.sec h3 { margin: 0 0 calc(6px * var(--s)); font-size: calc(10.5px * var(--s)); text-transform: uppercase; letter-spacing: .1em; color: var(--bone-dim); font-weight: 600; }
+.up { display: grid; grid-template-columns: auto 1fr auto; gap: calc(10px * var(--s)); align-items: center;
+  padding: calc(8px * var(--s)) calc(10px * var(--s)); background: var(--stone-700); border-radius: calc(8px * var(--s)); margin-bottom: calc(6px * var(--s)); }
+.sw { width: calc(22px * var(--s)); height: calc(22px * var(--s)); border-radius: 3px; image-rendering: pixelated; }
+.up .t { min-width: 0; font-size: calc(12.5px * var(--s)); line-height: 1.3; }
+.up .t b { font-weight: 600; }
+.up .t span { display: block; color: var(--bone-dim); font-size: calc(11px * var(--s)); }
+.buy { min-width: calc(74px * var(--s)); padding: calc(7px * var(--s)) calc(8px * var(--s)); border-radius: calc(6px * var(--s));
+  border: 1px solid var(--amber-deep); background: rgba(242,181,74,.14); color: var(--amber); font-family: var(--display); font-weight: 600; font-size: calc(13px * var(--s)); }
+.buy:disabled { border-color: var(--stone-500); background: none; color: var(--bone-dim); cursor: default; }
+.buy.stone { border-color: #8c8478; background: rgba(237,227,208,.08); color: var(--bone); }
+.locked { opacity: .45; }
+.rocks { display: grid; grid-template-columns: repeat(auto-fill, minmax(calc(100px * var(--s)), 1fr)); gap: calc(6px * var(--s)); }
+.rock { display: flex; align-items: center; gap: 6px; font-size: calc(11.5px * var(--s)); background: var(--stone-700); border-radius: 6px; padding: 5px 7px; min-width: 0; }
+.rock span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rock .sw { width: calc(12px * var(--s)); height: calc(12px * var(--s)); flex: none; }
+.test { display: flex; gap: 8px; flex-wrap: wrap; }
+.test button { padding: 7px 12px; border-radius: 6px; border: 1px solid var(--stone-500); background: none; color: var(--bone); font-size: calc(12px * var(--s)); }
+.test button.on { border-color: var(--amber); color: var(--amber); }
+@media (prefers-reduced-motion: reduce) { .sheet, #toast, .bar i { transition: none; } }
+</style>
+
+<div id="game">
+  <canvas id="cv" width="180" height="320" aria-label="Мир: небо, поверхность и толща слоёв над артефактом"></canvas>
+  <div class="hud">
+    <div class="row">
+      <div id="energy" class="num">0<small id="eps"></small></div>
+      <div id="stone" class="num" title="Камень: даёт уплотнение слоёв">◆ 0</div>
+    </div>
+    <div class="epoch"><b id="epName">Голая земля</b><span class="bar"><i id="epBar"></i></span><span id="epNext"></span></div>
+  </div>
+  <div id="pline">уровень уплотнения</div>
+  <div id="hint">Нажмите на экран —<br>упадёт кучка пыли</div>
+  <div id="toast"></div>
+  <div class="bottom">
+    <div class="mixlbl"><span>Состав кучек в среднем</span><span id="pileN"></span></div>
+    <div class="mix" id="mix"></div>
+    <button id="openUp" type="button">Улучшения</button>
+  </div>
+  <div class="sheet" id="sheet" aria-hidden="true">
+    <header><h2>Улучшения</h2><button id="closeUp" type="button">Закрыть</button></header>
+    <div class="list" id="list"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+// ---------------- world ----------------
+const GW = 90, GH = 160;          // particle grid (one particle = 2×2 pixels)
+const CW = 180, CH = 320;         // canvas pixels
+const BED = GH - 26;              // first bedrock row (the bedrock lies under the bottom panel)
+const SPAWN = 3;                  // piles appear here and fall
+const PLAY_H = BED - 30;          // the column height the pressure thresholds are measured against
+const N = GW * GH;
+const SQ = BED - 4;               // the row right above the thing: the oldest rock here sinks into the depth
+const SQ_TH = 0.8;                // load (share of PLAY_H) at which it sinks
+const STONE_K = 0.04;             // stone per point of rock value
+
+const hexRGB = (h) => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+const pack = (r, g, b) => (255 << 24) | (b << 16) | (g << 8) | r;
+const hex32 = (h) => { const [r, g, b] = hexRGB(h); return pack(r, g, b); };
+
+// kind: loose (slides, angle of repose by `slip`), rock (falls only straight down), solid (never moves)
+const MATS = [];
+const MI = {};
+function def(id, name, pal, o = {}) {
+  const m = Object.assign({ id, name, hex: pal[0], pal: pal.map(hex32), i: MATS.length, kind: 'loose', slip: 0.8, to: null, th: 0, time: 0, loss: 0, value: 0 }, o);
+  MATS.push(m); MI[id] = m.i; return m;
+}
+def('empty', '', ['#000000'], { kind: 'none' });
+// loose deposits
+def('dust', 'Пыль', ['#8b8070', '#7d7264', '#9a8f7e', '#6e6458'], { slip: 0.85, to: 'siltstone', th: 0.6, time: 3, loss: 0.3 });
+def('sand', 'Песок', ['#c6a872', '#d3b67f', '#b89a66', '#dec28c'], { slip: 0.95, to: 'sandstone', th: 0.6, time: 3, loss: 0.25 });
+def('gravel', 'Галька', ['#8e8a84', '#6f6b66', '#a8a39c', '#5a5652'], { slip: 1, to: 'conglomerate', th: 0.62, time: 4, loss: 0.2 });
+def('ash', 'Пепел', ['#747478', '#838387', '#656569', '#929296'], { slip: 0.7, to: 'tuff', th: 0.55, time: 2.5, loss: 0.35 });
+def('clay', 'Глина', ['#9a6e52', '#a87a5c', '#8c6248', '#b48666'], { slip: 0.4, to: 'mudstone', th: 0.6, time: 3.5, loss: 0.3 });
+def('litter', 'Опад', ['#4f5c28', '#5d6a30', '#424c22', '#6b7434'], { slip: 0.5, to: 'peat', th: 0.5, time: 2.5, loss: 0.4 });
+def('resin', 'Смола', ['#d89030', '#e6a040', '#c88028', '#f0b050'], { slip: 0.3, to: 'amber', th: 0.65, time: 5, loss: 0.1 });
+def('bone', 'Кости', ['#e4ddc8', '#ede7d6', '#d6ceb8', '#f5f1e4'], { slip: 0.6, to: 'fossil', th: 0.65, time: 6, loss: 0 });
+// rocks (made by pressure)
+const R = { kind: 'rock' };
+def('siltstone', 'Алевролит', ['#6a6459', '#5f5a52', '#746d62', '#56514a'], { ...R, value: 1 });
+def('sandstone', 'Песчаник', ['#b68256', '#a8764c', '#c48e60', '#9a6a42'], { ...R, value: 2, to: 'quartzite', th: 0.85, time: 7, loss: 0.15 });
+def('quartzite', 'Кварцит', ['#e0d0c8', '#d4c4bc', '#ece0d8', '#c8b8b0'], { ...R, value: 6 });
+def('conglomerate', 'Конгломерат', ['#857b70', '#6e665e', '#9a8f82', '#5c554e'], { ...R, value: 2 });
+def('tuff', 'Туф', ['#b4a48e', '#a69682', '#c2b29a', '#988876'], { ...R, value: 3 });
+def('mudstone', 'Аргиллит', ['#7e6864', '#725e5a', '#8a726e', '#665450'], { ...R, value: 1, to: 'shale', th: 0.8, time: 6, loss: 0.2 });
+def('shale', 'Сланец', ['#585a62', '#4e5058', '#62646c', '#44464e'], { ...R, value: 4, to: 'slate', th: 1.0, time: 10, loss: 0.1 });
+def('slate', 'Кровельный сланец', ['#424850', '#3a4048', '#4a5058', '#323840'], { ...R, value: 8 });
+def('peat', 'Торф', ['#4c3a20', '#42321c', '#564224', '#382a18'], { ...R, value: 1, to: 'lignite', th: 0.7, time: 5, loss: 0.3 });
+def('lignite', 'Бурый уголь', ['#423224', '#3a2c20', '#4a3828', '#32261c'], { ...R, value: 2, to: 'coal', th: 0.85, time: 8, loss: 0.2 });
+def('coal', 'Уголь', ['#2c2c32', '#242428', '#34343c', '#1c1c1e'], { ...R, value: 5, to: 'anthracite', th: 1.05, time: 12, loss: 0.1 });
+def('anthracite', 'Антрацит', ['#282836', '#1c1c26', '#4a4a6a', '#14141a'], { ...R, value: 12 });
+def('amber', 'Янтарь', ['#f49c30', '#e88a20', '#ffb040', '#d47818'], { ...R, value: 30 });
+def('amberInsect', 'Янтарь с насекомым', ['#f49c30', '#3a2008', '#ffb040', '#e88a20'], { ...R, value: 150 });
+def('fossil', 'Окаменелость', ['#c8b898', '#b8a888', '#d8c8a8', '#a89878'], { ...R, value: 25 });
+// fixed
+def('bedrock', 'Коренная порода', ['#363a48', '#2e323f', '#3e4352', '#262a36'], { kind: 'solid' });
+def('artifact', 'Артефакт', ['#f2b54a', '#ffd27a', '#c9782a', '#fff0c0'], { kind: 'solid' });
+for (const m of MATS) m.toI = m.to ? MI[m.to] : -1;
+// volume is squeezed out only as whole rows sinking into the depth (see squeeze): particles never vanish one by one,
+// so the strata above move down together and keep their layers (no vertical drips)
+for (const m of MATS) m.loss = 0;
+const ROCKS = MATS.filter((m) => m.kind === 'rock');
+
+// ---------------- epochs, upgrades ----------------
+const EPOCHS = [
+  { name: 'Голая земля', need: 0, unlock: [], feat: null, text: 'Пустая равнина. Роняйте кучки пыли на артефакт — когда толща поднимется почти до верха, низ начнёт уплотняться.' },
+  { name: 'Горы', need: 30, unlock: ['sand', 'gravel'], feat: 'mtn', text: 'Поднимаются горы. Открыты песок и галька — их можно подмешивать в кучку.' },
+  { name: 'Вулканы', need: 150, unlock: ['ash'], feat: 'vol', text: 'Проснулись вулканы и иногда сыплют пеплом. Открыт пепел: из него быстро выходит туф.' },
+  { name: 'Мхи', need: 450, unlock: ['clay'], feat: 'moss', text: 'Камни и свежие кучки зарастают мхом. Открыта глина: аргиллит, сланец, кровельный сланец.' },
+  { name: 'Растения', need: 900, unlock: ['litter'], feat: 'plant', text: 'Появились растения. Открыт опад: торф → бурый уголь → уголь → антрацит.' },
+  { name: 'Леса', need: 2500, unlock: ['resin'], feat: 'forest', text: 'Выросли леса. Открыта смола: под давлением она становится янтарём.' },
+  { name: 'Насекомые', need: 6000, unlock: [], feat: 'insect', text: 'Летают насекомые. Иногда смола ловит их — получается янтарь с насекомым.' },
+  { name: 'Животные', need: 12000, unlock: ['bone'], feat: 'animal', text: 'Бродят животные. Открыты кости: под толщей они становятся окаменелостями.' },
+  { name: 'Дальше — люди', need: 22000, unlock: [], feat: 'end', text: 'Здесь прототип заканчивается. Дальше были бы люди.' },
+];
+const DUST_W = 6;
+const MAT_UP = {
+  sand: { base: 200, w: 1.5 }, gravel: { base: 260, w: 1.2 }, ash: { base: 600, w: 1.5 }, clay: { base: 1500, w: 1.5 },
+  litter: { base: 3500, w: 1.5 }, resin: { base: 8000, w: 0.5 }, bone: { base: 16000, w: 0.4 },
+};
+const UPS = {
+  pile: { name: 'Кучка побольше', desc: (l) => `${pileSize(l)} → ${pileSize(l + 1)} частиц`, base: 80, g: 1.5, cur: 'energy' },
+  wind: { name: 'Ветер', desc: (l) => l ? `кучка сама каждые ${windEvery(l).toFixed(1)} → ${windEvery(l + 1).toFixed(1)} с` : 'сам роняет кучки', base: 400, g: 1.7, cur: 'energy' },
+  press: { name: 'Пресс', desc: (l) => `давление в толще ×${pressMul(l).toFixed(2)} → ×${pressMul(l + 1).toFixed(2)}: глубже уголь, антрацит, сланец`, base: 8, g: 1.7, cur: 'stone' },
+};
+const pileSize = (l) => 50 + 12 * l;
+const windEvery = (l) => 10 / l;
+const pressMul = (l) => 1 + 0.12 * l;
+const cost = (base, g, l) => Math.ceil(base * Math.pow(g, l));
+
+// ---------------- state ----------------
+const mat = new Uint8Array(N), look = new Uint8Array(N), prog = new Float32Array(N);
+let S;
+function newState() {
+  return { v: 1, energy: 0, earned: 0, stone: 0, stoneTotal: 0, rocks: {}, lv: { pile: 0, wind: 0, press: 0 }, mlv: {}, epoch: 0,
+    grow: { mtn: 0, vol: 0, moss: 0, plant: 0, forest: 0, insect: 0, animal: 0 }, clicks: 0, windT: 0, eruptT: 30, speed: 1, sec: -1 };
+}
+function resetWorld() {
+  mat.fill(0); look.fill(0); prog.fill(0);
+  for (let y = BED; y < GH; y++) for (let x = 0; x < GW; x++) { mat[y * GW + x] = MI.bedrock; look[y * GW + x] = (Math.random() * 256) | 0; }
+  // the thing lies on the bedrock in the middle
+  const ax = (GW >> 1) - 2;
+  for (let y = BED - 3; y < BED; y++) for (let x = ax; x < ax + 4; x++) { mat[y * GW + x] = MI.artifact; look[y * GW + x] = (x - ax) + (y - BED + 3) * 4; }
+}
+
+// ---------------- save ----------------
+const KEY = 'strata-sandbox-v1';
+const b64 = (u8) => { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
+const unb64 = (s) => { const b = atob(s), u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; };
+function serialize() {
+  const p8 = new Uint8Array(N);
+  for (let i = 0; i < N; i++) { const t = MATS[mat[i]].time; p8[i] = t ? Math.min(255, Math.round((prog[i] / t) * 255)) : 0; }
+  return JSON.stringify({ S, mat: b64(mat), look: b64(look), prog: b64(p8) });
+}
+function deserialize(json) {
+  const d = JSON.parse(json);
+  if (!d || !d.S || d.S.v !== 1) return false;
+  const m = unb64(d.mat), l = unb64(d.look), p = unb64(d.prog);
+  if (m.length !== N) return false;
+  mat.set(m); look.set(l);
+  for (let i = 0; i < N; i++) prog[i] = (p[i] / 255) * (MATS[mat[i]].time || 0);
+  S = Object.assign(newState(), d.S);
+  S.grow = Object.assign(newState().grow, d.S.grow);
+  return true;
+}
+function saveLocal() { try { localStorage.setItem(KEY, serialize()); } catch (e) { /* storage may be blocked */ } }
+function loadLocal() { try { const s = localStorage.getItem(KEY); return s ? deserialize(s) : false; } catch (e) { return false; } }
+
+// ---------------- physics ----------------
+let flip = 0;
+function physicsStep() {
+  flip ^= 1;
+  for (let y = BED - 1; y >= 0; y--) {
+    const row = y * GW, below = row + GW;
+    for (let k = 0; k < GW; k++) {
+      const x = flip ? k : GW - 1 - k;
+      const i = row + x, m = mat[i];
+      if (!m) continue;
+      const M = MATS[m];
+      if (M.kind === 'solid') continue;
+      if (y + 1 < GH && !mat[below + x]) { move(i, below + x); continue; }
+      if (M.kind !== 'loose' || Math.random() > M.slip) continue;
+      const d = Math.random() < 0.5 ? -1 : 1;
+      for (let t = 0; t < 2; t++) {
+        const xx = x + (t ? -d : d);
+        if (xx < 0 || xx >= GW) continue;
+        if (!mat[row + xx] && !mat[below + xx]) { move(i, below + xx); break; }
+      }
+    }
+  }
+}
+function move(a, b) {
+  mat[b] = mat[a]; look[b] = look[a]; prog[b] = prog[a];
+  mat[a] = 0; prog[a] = 0;
+}
+
+/** Pressure: the load on a particle is the column above it. Under enough load a particle turns into rock — once,
+ *  with a small sparkle — and some of the volume is squeezed out (the particle disappears, the column above sinks). */
+const tops = new Int16Array(GW);
+let rockCells = 0;
+function compact(dt) {
+  const pm = pressMul(S.lv.press), sp = 1 + 0.15 * S.lv.press;
+  rockCells = 0;
+  for (let x = 0; x < GW; x++) {
+    let load = 0;
+    for (let y = 0; y < BED; y++) {
+      const i = y * GW + x, m = mat[i];
+      if (!m) continue;
+      load++;
+      const M = MATS[m];
+      if (M.kind === 'rock') rockCells++;
+      if (M.toI < 0) continue;
+      const eff = load * pm, th = M.th * PLAY_H;
+      if (eff < th) continue;
+      const r = eff / th;
+      prog[i] += dt * r * r * sp;
+      if (prog[i] < M.time) continue;
+      // transform
+      let to = M.toI;
+      if (m === MI.resin && S.epoch >= 6 && Math.random() < 0.25) to = MI.amberInsect;
+      const T = MATS[to];
+      gainRock(T, x, y);
+      if (Math.random() < M.loss) { mat[i] = 0; prog[i] = 0; load--; }
+      else { mat[i] = to; prog[i] = 0; }
+    }
+  }
+}
+/** The oldest rock right above the thing sinks into the depth as a whole row: everything above moves down one
+ *  row at the same moment (a conveyor, never column by column). The busier the strata above, the more often. */
+let sqAcc = 0, sqRows = 0;
+function squeeze(dt) {
+  let rocks = 0, load = 0;
+  for (let x = 0; x < GW; x++) {
+    if (MATS[mat[SQ * GW + x]].kind === 'rock') rocks++;
+    load += SQ + 1 - tops[x];
+  }
+  load /= GW;
+  const r = load / (SQ_TH * PLAY_H);
+  if (rocks < GW * 0.85 || r < 1) { sqAcc = 0; return; }
+  sqAcc += dt * 2 * r * r * r * r;
+  for (let n = 0; sqAcc >= 1 && n < 4; n++) {
+    sqAcc -= 1; sqRows++;
+    let gain = 0;
+    for (let x = 0; x < GW; x++) gain += MATS[mat[SQ * GW + x]].value * 0.5;
+    S.stone += gain * STONE_K; S.stoneTotal += gain * STONE_K;
+    mat.copyWithin(GW, 0, SQ * GW); look.copyWithin(GW, 0, SQ * GW); prog.copyWithin(GW, 0, SQ * GW);
+    mat.fill(0, 0, GW); prog.fill(0, 0, GW);
+    for (let x = 0; x < GW; x++) tops[x] = Math.min(BED, tops[x] + 1);
+    if (MATS[mat[SQ * GW]].kind !== 'rock') break;
+  }
+  if (sqAcc > 1) sqAcc = 1;
+  dirtyUI = true;
+}
+function gainRock(T, x, y) {
+  S.rocks[T.id] = (S.rocks[T.id] || 0) + 1;
+  S.stone += T.value * STONE_K; S.stoneTotal += T.value * STONE_K;
+  if (sparks.length < 90 && Math.random() < 0.35) sparks.push({ x: x * 2 + 1, y: y * 2 + 1, t: 0.6, c: T.pal[2] });
+  if (T.id === 'fossil' && !S.rocks._fossilSeen) { S.rocks._fossilSeen = 1; toast('Окаменелость!', 'Кость под толщей стала камнем. Это самая ценная находка в слоях после янтаря с насекомым.'); }
+  if (T.id === 'amberInsect' && !S.rocks._insectSeen) { S.rocks._insectSeen = 1; toast('Янтарь с насекомым', 'Смола поймала насекомое и под давлением стала янтарём.'); }
+  dirtyUI = true;
+}
+
+// ---------------- piles ----------------
+function pileMix() {
+  const out = [{ m: MI.dust, w: DUST_W }];
+  for (const id in MAT_UP) { const l = S.mlv[id] || 0; if (l > 0) out.push({ m: MI[id], w: l * MAT_UP[id].w }); }
+  return out;
+}
+/** Drop a pile of n particles at column cx (random if not given). The share of each material follows the upgrades;
+ *  inside the pile the materials lie in wavy bands, so the strata read as lenses and layers, not as salt and pepper. */
+function drop(n, cx, only) {
+  let mix = pileMix();
+  if (only !== undefined) mix = [{ m: only, w: 1 }];
+  else if (mix.length > 2) {
+    // one new material per pile, and it stays for a few piles in a row: the strata get layers and lenses
+    const extra = mix.slice(1), et = extra.reduce((s, q) => s + q.w, 0);
+    if (!extra.some((q) => q.m === S.sec) || Math.random() < 0.25) {
+      let u = Math.random() * et; S.sec = extra[extra.length - 1].m;
+      for (const q of extra) { u -= q.w; if (u <= 0) { S.sec = q.m; break; } }
+    }
+    mix = [mix[0], { m: S.sec, w: et }];
+  }
+  const tot = mix.reduce((s, q) => s + q.w, 0);
+  if (cx === undefined) cx = 5 + Math.floor(Math.random() * (GW - 10));
+  const r = Math.sqrt(n / Math.PI) * 1.15;
+  const cells = [];
+  for (let tries = 0; tries < n * 4 && cells.length < n; tries++) {
+    const a = Math.random() * Math.PI * 2, d = Math.sqrt(Math.random()) * r;
+    const x = Math.round(cx + Math.cos(a) * d * 1.3), y = Math.round(SPAWN + r + Math.sin(a) * d);
+    if (x < 0 || x >= GW || y < 0 || y >= BED) continue;
+    const i = y * GW + x;
+    if (mat[i] || cells.includes(i)) continue;
+    cells.push(i);
+  }
+  // counts per material, in a random order of bands
+  const order = mix.map((q) => ({ m: q.m, n: (q.w / tot) * cells.length })).sort(() => Math.random() - 0.5);
+  const ph = Math.random() * 6, amp = 0.8 + Math.random() * 1.5;
+  const key = (i) => Math.floor(i / GW) + amp * Math.sin((i % GW) * 0.6 + ph);
+  cells.sort((a, b) => key(a) - key(b));
+  let k = 0, acc = 0;
+  for (const q of order) {
+    acc += q.n;
+    for (; k < Math.round(acc) && k < cells.length; k++) { const i = cells[k]; mat[i] = q.m; look[i] = (Math.random() * 256) | 0; prog[i] = 0; }
+  }
+  for (; k < cells.length; k++) { const i = cells[k]; mat[i] = order[0].m; look[i] = (Math.random() * 256) | 0; prog[i] = 0; }
+  return cells.length;
+}
+function clickDrop() {
+  const n = drop(pileSize(S.lv.pile));
+  S.energy += n; S.earned += n; S.clicks++;
+  if (S.clicks === 3) document.getElementById('hint').style.opacity = 0;
+  if (n === 0 && toastT <= 0) toast('Толща упёрлась в небо', 'Места сверху нет. Подождите, пока низ уплотнится, или купите Пресс.');
+  dirtyUI = true;
+}
+
+// ---------------- epochs ----------------
+function checkEpoch() {
+  const nx = EPOCHS[S.epoch + 1];
+  if (nx && S.stoneTotal >= nx.need) {
+    S.epoch++;
+    toast(nx.name, nx.text);
+    dirtyUI = true;
+    buildList();
+  }
+}
+const featOn = (f) => { for (let e = 0; e <= S.epoch; e++) if (EPOCHS[e].feat === f) return true; return false; };
+
+// ---------------- render ----------------
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const img = ctx.createImageData(CW, CH);
+const buf = new Uint32Array(img.data.buffer);
+const sparks = [], smoke = [];
+let hY = (BED) * 2;              // smoothed horizon (canvas px): the mean height of the surface
+const stab = new Float32Array(GW);  // seconds since the top of each column last changed (tufts grow on stable tops)
+const lastTop = new Int16Array(GW).fill(-1);
+const hash = (a, b) => { let h = Math.imul(a | 0, 374761393) + Math.imul(b | 0, 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+const lerp = (a, b, t) => a + (b - a) * t;
+function mixC(c1, c2, t) { return [lerp(c1[0], c2[0], t), lerp(c1[1], c2[1], t), lerp(c1[2], c2[2], t)]; }
+const SKY = [
+  [hexRGB('#1d1a26'), hexRGB('#4b3f4c')], [hexRGB('#1f2436'), hexRGB('#5c5a6c')], [hexRGB('#2a1c22'), hexRGB('#7a4436')],
+  [hexRGB('#22323e'), hexRGB('#6e8a86')], [hexRGB('#2c5470'), hexRGB('#9cbab0')], [hexRGB('#3a6a96'), hexRGB('#bcd2c8')],
+  [hexRGB('#3a6a96'), hexRGB('#c8d8c4')], [hexRGB('#40709c'), hexRGB('#d2dcc0')], [hexRGB('#4a5a8a'), hexRGB('#e0c49a')],
+];
+let skyT = 0;   // eased epoch index for the sky colour
+function put(x, y, c) { if (x >= 0 && x < CW && y >= 0 && y < CH) buf[(y | 0) * CW + (x | 0)] = c; }
+function blend(x, y, rgb, a) {
+  x |= 0; y |= 0;
+  if (x < 0 || x >= CW || y < 0 || y >= CH || a <= 0) return;
+  const j = y * CW + x, c = buf[j];
+  const r = c & 255, g = (c >> 8) & 255, b = (c >> 16) & 255;
+  buf[j] = pack(Math.round(r + (rgb[0] - r) * a), Math.round(g + (rgb[1] - g) * a), Math.round(b + (rgb[2] - b) * a));
+}
+function add(x, y, rgb, a) {
+  x |= 0; y |= 0;
+  if (x < 0 || x >= CW || y < 0 || y >= CH || a <= 0) return;
+  const j = y * CW + x, c = buf[j];
+  buf[j] = pack(Math.min(255, (c & 255) + rgb[0] * a) | 0, Math.min(255, ((c >> 8) & 255) + rgb[1] * a) | 0, Math.min(255, ((c >> 16) & 255) + rgb[2] * a) | 0);
+}
+const ridge = (x, s) => 0.5 + 0.28 * Math.sin(x * 0.045 + s) + 0.14 * Math.sin(x * 0.11 + s * 2.3) + 0.08 * Math.sin(x * 0.27 + s * 4.1);
+const C = {
+  mtnFar: hexRGB('#3c4258'), mtnNear: hexRGB('#2c2f3e'), moss: hexRGB('#3e5a32'), mossLight: hexRGB('#5d7a3e'),
+  land: hexRGB('#2e2822'), landFar: hexRGB('#5a4e40'), vol: hexRGB('#3a2c2c'), lava: hexRGB('#ff7a20'), glow: [255, 170, 60],
+  leaf: hexRGB('#2f5a2c'), leafL: hexRGB('#4c7a3a'), trunk: hexRGB('#4a3424'), fern: hexRGB('#4e7a34'),
+  star: hexRGB('#d8d0c0'), smoke: hexRGB('#8a8480'), animal: hexRGB('#6a4a30'), insect: hexRGB('#1e1a14'),
+};
+const VOLC = [34, 140];
+const critters = Array.from({ length: 5 }, (_, i) => ({ x: 20 + i * 33, v: (i % 2 ? -1 : 1) * (4 + i), ph: i }));
+let now = 0, erupting = 0, eruptX = VOLC[0];
+
+function render(dt) {
+  // sky
+  skyT += (S.epoch - skyT) * Math.min(1, dt * 0.6);
+  const e0 = Math.floor(skyT), e1 = Math.min(SKY.length - 1, e0 + 1), ft = skyT - e0;
+  const top0 = mixC(SKY[e0][0], SKY[e1][0], ft), bot0 = mixC(SKY[e0][1], SKY[e1][1], ft);
+  const hy = Math.round(hY);
+  for (let y = 0; y < CH; y++) {
+    const t = Math.min(1, y / Math.max(40, hy));
+    const c = pack(lerp(top0[0], bot0[0], t) | 0, lerp(top0[1], bot0[1], t) | 0, lerp(top0[2], bot0[2], t) | 0);
+    buf.fill(c, y * CW, y * CW + CW);
+  }
+  // stars in the dark first epochs
+  if (skyT < 2) for (let k = 0; k < 40; k++) { const x = (hash(k, 1) * CW) | 0, y = (hash(k, 2) * hy * 0.7) | 0; blend(x, y, C.star, (0.5 + 0.5 * Math.sin(now * 1.3 + k)) * 0.7 * (1 - skyT / 2)); }
+  else { // a pale sun
+    const sx = 136, sy = Math.max(62, hy * 0.3);
+    for (let dy = -5; dy <= 5; dy++) for (let dx = -5; dx <= 5; dx++) { const d = dx * dx + dy * dy; if (d <= 25) blend(sx + dx, sy + dy, [255, 240, 200], d <= 16 ? 0.9 : 0.4); }
+  }
+  // low dunes of the empty plain
+  { const dc = mixC(bot0, C.landFar, 0.55);
+    for (let x = 0; x < CW; x++) { const h = 3 + 3 * ridge(x * 0.6, 9.1); for (let y = Math.round(hy - h); y < hy; y++) put(x, y, pack(dc[0] | 0, dc[1] | 0, dc[2] | 0)); } }
+  // far mountains, volcanoes, near mountains (their foot is the horizon)
+  const gM = S.grow.mtn, gV = S.grow.vol, gMo = S.grow.moss;
+  if (gM > 0) for (let x = 0; x < CW; x++) {
+    const h = gM * 70 * ridge(x, 1.7);
+    for (let y = Math.round(hy - h); y < hy; y++) put(x, y, pack(...C.mtnFar.map((v) => v | 0)));
+  }
+  if (gV > 0) for (const vx of VOLC) {
+    const H = 64 * gV, half = 30;
+    for (let x = vx - half; x <= vx + half; x++) {
+      const d = Math.abs(x - vx) / half;
+      let h = H * (1 - Math.pow(d, 0.8));
+      if (Math.abs(x - vx) <= 3) h -= 3 * gV;
+      for (let y = Math.round(hy - h); y < hy; y++) {
+        const lava = erupting > 0 && eruptX === vx && Math.abs(x - vx) <= 1 + (hy - y) * 0.05 && hash(x, y + ((now * 8) | 0)) > 0.45 && y < hy - h * 0.35;
+        put(x, y, lava ? pack(...C.lava) : pack(...C.vol));
+      }
+    }
+  }
+  if (gM > 0) for (let x = 0; x < CW; x++) {
+    const h = gM * 40 * ridge(x, 4.2);
+    const y0 = Math.round(hy - h);
+    for (let y = y0; y < hy; y++) {
+      let c = C.mtnNear;
+      if (gMo > 0) { const f = (y - y0) / Math.max(1, h); if (f > 0.35) c = mixC(c, hash(x, y) > 0.5 ? C.moss : C.mossLight, Math.min(1, gMo * (f - 0.35) * 2.5)); }
+      put(x, y, pack(c[0] | 0, c[1] | 0, c[2] | 0));
+    }
+  }
+  // the distant land below the horizon (shows through valleys between piles)
+  const landTop = gMo > 0 ? mixC(C.landFar, C.moss, gMo * 0.8) : C.landFar;
+  for (let y = hy; y < CH; y++) {
+    const f = Math.min(1, (y - hy) / 60);
+    const c = mixC(landTop, C.land, f);
+    buf.fill(pack(c[0] | 0, c[1] | 0, c[2] | 0), y * CW, y * CW + CW);
+  }
+  // plants and forests on the horizon
+  const gP = S.grow.plant, gF = S.grow.forest;
+  if (gP > 0) for (let k = 0; k < 46; k++) {
+    if (hash(k, 7) > gP) continue;
+    const x = (hash(k, 8) * CW) | 0, h = 2 + ((hash(k, 9) * 3) | 0);
+    for (let y = 0; y < h; y++) put(x, hy - 1 - y, pack(...C.fern));
+    put(x - 1, hy - h + 1, pack(...C.fern)); put(x + 1, hy - h, pack(...C.fern));
+  }
+  if (gF > 0) for (let k = 0; k < 26; k++) {
+    if (hash(k, 17) > gF) continue;
+    const x = (hash(k, 18) * CW) | 0, g = Math.min(1, gF * 1.4 - hash(k, 17) * 0.4);
+    if (g <= 0) continue;
+    const H = (9 + hash(k, 19) * 10) * g, r = (3 + hash(k, 20) * 2.5) * g;
+    for (let y = 0; y < H; y++) put(x, hy - 1 - y, pack(...C.trunk));
+    const cy = hy - H - r * 0.4;
+    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      if (dx * dx + dy * dy > r * r) continue;
+      put(x + dx, cy + dy, pack(...((dx + dy < -r * 0.4) ? C.leafL : C.leaf)));
+    }
+  }
+  // critters on the horizon
+  if (S.grow.animal > 0) for (let k = 0; k < critters.length; k++) {
+    if (k / critters.length > S.grow.animal) continue;
+    const a = critters[k];
+    a.x += a.v * dt; if (a.x < 4 || a.x > CW - 4) { a.v = -a.v; a.x = Math.max(4, Math.min(CW - 4, a.x)); }
+    const x = a.x | 0, leg = ((now * 6 + a.ph) | 0) & 1, dir = a.v > 0 ? 1 : -1;
+    for (let dx = -2; dx <= 1; dx++) { put(x + dx, hy - 4, pack(...C.animal)); put(x + dx, hy - 3, pack(...C.animal)); }
+    put(x + 2 * dir, hy - 5, pack(...C.animal)); put(x + 2 * dir, hy - 4, pack(...C.animal));
+    put(x - 2 + leg, hy - 2, pack(...C.animal)); put(x + 1 - leg, hy - 2, pack(...C.animal));
+    put(x - 2 + leg, hy - 1, pack(...C.animal)); put(x + 1 - leg, hy - 1, pack(...C.animal));
+  }
+  // smoke from the volcanoes
+  for (let k = smoke.length - 1; k >= 0; k--) {
+    const p = smoke[k]; p.t -= dt; p.x += p.vx * dt; p.y += p.vy * dt;
+    if (p.t <= 0) { smoke.splice(k, 1); continue; }
+    const a = Math.min(1, p.t / 2) * 0.55;
+    for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) blend(p.x + dx, p.y + dy, p.hot ? C.lava : C.smoke, p.hot ? a * 1.4 : a);
+  }
+
+  // ---------- the particles ----------
+  for (let y = 0; y < GH; y++) {
+    for (let x = 0; x < GW; x++) {
+      const i = y * GW + x, m = mat[i];
+      if (!m) continue;
+      const M = MATS[m], P = M.pal, l = look[i];
+      let main, acc, pos;
+      if (M.kind === 'rock') { main = P[l & 1]; acc = main; pos = 0; }
+      else { main = P[l & 1]; acc = P[2 + ((l >> 4) & 1)]; pos = l & 0x40 ? (l >> 2) & 3 : 4; }
+      const o = (y * 2) * CW + x * 2;
+      buf[o] = pos === 0 ? acc : main; buf[o + 1] = pos === 1 ? acc : main;
+      buf[o + CW] = pos === 2 ? acc : main; buf[o + CW + 1] = pos === 3 ? acc : main;
+    }
+  }
+  // tufts on stable tops of the strata (moss, then grass)
+  for (let x = 0; x < GW; x++) {
+    const ty = tops[x];
+    if (ty !== lastTop[x]) { lastTop[x] = ty; stab[x] = 0; } else stab[x] += dt;
+    if (ty >= BED || gMo <= 0) continue;
+    const a = Math.min(1, (stab[x] - 1.5) / 3) * gMo;
+    if (a <= 0) continue;
+    const tall = S.grow.plant > 0.5 ? 1 + ((hash(x, ty) * 3) | 0) : 1;
+    const c = hash(x, ty + 5) > 0.5 ? C.moss : C.mossLight;
+    for (let k = 0; k < 2; k++) {
+      if (hash(x * 2 + k, ty) < 0.35) continue;
+      for (let h = 0; h < tall; h++) blend(x * 2 + k, ty * 2 - 1 - h, c, a);
+    }
+    if (S.grow.forest > 0.5 && hash(x, ty + 9) > 0.93) blend(x * 2, ty * 2 - 3, [230, 200, 90], a);
+  }
+  // insects over the land
+  if (S.grow.insect > 0) for (let k = 0; k < 14; k++) {
+    if (k / 14 > S.grow.insect) continue;
+    const bx = hash(k, 31) * CW, x = bx + Math.sin(now * (1.5 + hash(k, 32)) + k) * 10, y = hy - 12 - hash(k, 33) * 18 + Math.sin(now * 3.1 + k * 2) * 4;
+    blend(x, y, C.insect, 0.9);
+  }
+  // the thing glows through the strata
+  const ax = GW, ay = (BED - 1.5) * 2, pulse = 0.85 + 0.15 * Math.sin(now * 2);
+  const R = 14 + Math.min(26, rockCells * 0.01);
+  for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
+    const d = Math.sqrt(dx * dx + dy * dy) / R;
+    if (d >= 1) continue;
+    add(ax + dx, ay + dy, C.glow, (1 - d) * (1 - d) * 0.22 * pulse);
+  }
+  // pressure line: when the strata reach it, the bottom starts to turn into rock
+  const ly = lineY();
+  for (let x = 0; x < CW; x += 4) { blend(x, ly, [242, 181, 74], 0.35); blend(x + 1, ly, [242, 181, 74], 0.35); }
+  for (let k = 0; k < 4; k++) blend(CW - 1 - k, ly, [242, 181, 74], 0.9);
+  // sparkles of new rock
+  for (let k = sparks.length - 1; k >= 0; k--) {
+    const s = sparks[k]; s.t -= dt;
+    if (s.t <= 0) { sparks.splice(k, 1); continue; }
+    const a = Math.min(1, s.t / 0.3), c = s.c;
+    const rgb = [c & 255, (c >> 8) & 255, (c >> 16) & 255];
+    blend(s.x, s.y, [255, 250, 230], a); blend(s.x - 1, s.y, rgb, a * 0.7); blend(s.x + 1, s.y, rgb, a * 0.7);
+    blend(s.x, s.y - 1, rgb, a * 0.7); blend(s.x, s.y + 1, rgb, a * 0.7);
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+const lineY = () => Math.round((SQ + 1 - SQ_TH * PLAY_H) * 2);
+// ---------------- UI ----------------
+const $ = (id) => document.getElementById(id);
+const fmt = (v) => { v = Math.floor(v); if (v < 1e4) return String(v); const u = ['', 'K', 'M', 'B', 'T']; let i = 0; while (v >= 1000 && i < u.length - 1) { v /= 1000; i++; } return v.toFixed(v < 10 ? 2 : v < 100 ? 1 : 0) + u[i]; };
+const roman = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
+let dirtyUI = true, toastT = 0;
+function toast(title, text) {
+  const el = $('toast');
+  el.innerHTML = '';
+  const b = document.createElement('b'); b.textContent = title; el.appendChild(b);
+  el.appendChild(document.createTextNode(text));
+  el.classList.add('on'); toastT = 6;
+}
+function swatch(m) {
+  const c = document.createElement('canvas'); c.width = 4; c.height = 4; c.className = 'sw';
+  const x = c.getContext('2d'), d = x.createImageData(4, 4), u = new Uint32Array(d.data.buffer);
+  for (let i = 0; i < 16; i++) u[i] = m.pal[(hash(i, m.i) * m.pal.length) | 0];
+  x.putImageData(d, 0, 0); return c;
+}
+function upRow(sw, title, sub, price, cur, onBuy, locked) {
+  const r = document.createElement('div'); r.className = 'up' + (locked ? ' locked' : '');
+  if (sw) r.appendChild(sw); else { const s = document.createElement('span'); s.className = 'sw'; r.appendChild(s); }
+  const t = document.createElement('div'); t.className = 't';
+  const b = document.createElement('b'); b.textContent = title; t.appendChild(b);
+  const s = document.createElement('span'); s.textContent = sub; t.appendChild(s);
+  r.appendChild(t);
+  const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'buy' + (cur === 'stone' ? ' stone' : '');
+  btn.textContent = locked ? 'закрыто' : (cur === 'stone' ? '◆ ' : '✦ ') + fmt(price);
+  btn.dataset.cost = price; btn.dataset.cur = cur;
+  btn.disabled = !!locked;
+  if (!locked) btn.addEventListener('click', (e) => { e.stopPropagation(); onBuy(); });
+  r.appendChild(btn);
+  return r;
+}
+function buildList() {
+  const L = $('list'); L.innerHTML = '';
+  const sec = (title) => { const s = document.createElement('div'); s.className = 'sec'; const h = document.createElement('h3'); h.textContent = title; s.appendChild(h); L.appendChild(s); return s; };
+  // strength
+  const s2 = sec('Сила');
+  for (const id in UPS) {
+    const U = UPS[id], l = S.lv[id], c = cost(U.base, U.g, l);
+    s2.appendChild(upRow(null, `${U.name} · ур. ${l}`, U.desc(l), c, U.cur, () => {
+      const have = U.cur === 'stone' ? S.stone : S.energy;
+      if (have < c) return;
+      if (U.cur === 'stone') S.stone -= c; else S.energy -= c;
+      S.lv[id]++; buildList(); dirtyUI = true;
+    }));
+  }
+  // materials of the pile
+  const s1 = sec('Материалы кучки');
+  const mix = pileMix(), tot = mix.reduce((a, q) => a + q.w, 0);
+  const share = (m) => { const q = mix.find((z) => z.m === m); return q ? Math.round((q.w / tot) * 100) : 0; };
+  const dustRow = document.createElement('div'); dustRow.className = 'up';
+  dustRow.appendChild(swatch(MATS[MI.dust]));
+  const dt = document.createElement('div'); dt.className = 't'; dt.innerHTML = '<b>Пыль</b>';
+  const dts = document.createElement('span'); dts.textContent = `основа кучки · ${share(MI.dust)}%`; dt.appendChild(dts);
+  dustRow.appendChild(dt); dustRow.appendChild(document.createElement('span')); s1.appendChild(dustRow);
+  for (const id in MAT_UP) {
+    const ep = EPOCHS.findIndex((e) => e.unlock.includes(id));
+    const locked = ep > S.epoch;
+    if (ep > S.epoch + 1) continue;
+    const l = S.mlv[id] || 0, M = MATS[MI[id]], c = cost(MAT_UP[id].base, 1.45, l);
+    const path = []; let k = M.toI; while (k >= 0) { path.push(MATS[k].name.toLowerCase()); k = MATS[k].toI; }
+    const sub = locked ? `откроется в эпоху «${EPOCHS[ep].name}»` : `ур. ${l} · ${share(MI[id])}% кучки · → ${path.join(' → ')}`;
+    s1.appendChild(upRow(swatch(M), M.name, sub, c, 'energy', () => { if (S.energy >= c) { S.energy -= c; S.mlv[id] = l + 1; buildList(); dirtyUI = true; } }, locked));
+  }
+  // collection
+  const s3 = sec('Породы в толще');
+  const g = document.createElement('div'); g.className = 'rocks';
+  let any = false;
+  for (const M of ROCKS) {
+    const n = S.rocks[M.id] || 0; if (!n) continue; any = true;
+    const r = document.createElement('div'); r.className = 'rock'; r.appendChild(swatch(M));
+    const s = document.createElement('span'); s.textContent = M.name; r.appendChild(s);
+    const b = document.createElement('b'); b.className = 'num'; b.textContent = fmt(n); r.appendChild(b);
+    g.appendChild(r);
+  }
+  if (!any) { const p = document.createElement('div'); p.style.cssText = 'font-size:12px;color:var(--bone-dim)'; p.textContent = 'Пока пусто: породы появятся, когда толща поднимется до пунктирной линии и низ начнёт уплотняться.'; s3.appendChild(p); }
+  else s3.appendChild(g);
+  // test
+  const s4 = sec('Для теста');
+  const t = document.createElement('div'); t.className = 'test';
+  const sp = document.createElement('button'); sp.type = 'button'; sp.id = 'spd'; sp.textContent = `Скорость ×${S.speed === 1 ? 5 : 1}`;
+  if (S.speed > 1) sp.classList.add('on');
+  sp.addEventListener('click', (e) => { e.stopPropagation(); S.speed = S.speed === 1 ? 5 : 1; buildList(); });
+  const rs = document.createElement('button'); rs.type = 'button'; rs.id = 'rst'; rs.textContent = 'Начать заново';
+  rs.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!rs.dataset.armed) { rs.dataset.armed = '1'; rs.textContent = 'Точно? Нажмите ещё раз'; rs.classList.add('on'); return; }
+    S = newState(); resetWorld(); saveLocal(); buildList(); dirtyUI = true; $('hint').style.opacity = 1;
+  });
+  t.appendChild(sp); t.appendChild(rs); s4.appendChild(t);
+  refreshButtons();
+}
+function refreshButtons() {
+  let canBuy = false;
+  for (const b of document.querySelectorAll('#list .buy')) {
+    if (b.textContent === 'закрыто') continue;
+    const have = b.dataset.cur === 'stone' ? S.stone : S.energy;
+    b.disabled = have < +b.dataset.cost;
+    if (!b.disabled) canBuy = true;
+  }
+  const btn = $('openUp');
+  let dot = btn.querySelector('.dot');
+  if (canBuy && !dot) { dot = document.createElement('span'); dot.className = 'dot'; btn.appendChild(dot); }
+  if (!canBuy && dot) dot.remove();
+}
+function updateHUD() {
+  const passive = rockCells * 0.01;
+  $('energy').firstChild.nodeValue = '✦ ' + fmt(S.energy);
+  $('eps').textContent = passive >= 0.1 ? `+${passive < 10 ? passive.toFixed(1) : fmt(passive)}/с` : '';
+  $('stone').textContent = '◆ ' + fmt(S.stone);
+  const E = EPOCHS[S.epoch], nx = EPOCHS[S.epoch + 1];
+  $('epName').textContent = `${roman[S.epoch]} · ${E.name}`;
+  $('epBar').style.width = nx ? Math.min(100, ((S.stoneTotal - E.need) / (nx.need - E.need)) * 100) + '%' : '100%';
+  $('epNext').textContent = nx ? `◆ ${fmt(S.stoneTotal)}/${fmt(nx.need)}` : '';
+  const mix = pileMix(), tot = mix.reduce((a, q) => a + q.w, 0);
+  const el = $('mix'); el.innerHTML = '';
+  for (const q of mix) { const i = document.createElement('i'); i.style.width = (q.w / tot) * 100 + '%'; i.style.background = MATS[q.m].hex; i.title = MATS[q.m].name; el.appendChild(i); }
+  $('pline').style.top = (lineY() / CH) * 100 + '%';
+  $('pileN').textContent = `${pileSize(S.lv.pile)} частиц`;
+  refreshButtons();
+}
+
+// ---------------- input ----------------
+const sheet = $('sheet');
+const openSheet = (on) => { sheet.classList.toggle('on', on); sheet.setAttribute('aria-hidden', on ? 'false' : 'true'); if (on) buildList(); };
+$('openUp').addEventListener('click', (e) => { e.stopPropagation(); openSheet(true); });
+$('closeUp').addEventListener('click', (e) => { e.stopPropagation(); openSheet(false); });
+sheet.addEventListener('pointerdown', (e) => e.stopPropagation());
+$('game').addEventListener('pointerdown', (e) => {
+  if (sheet.classList.contains('on')) { openSheet(false); return; }
+  clickDrop();
+});
+
+// ---------------- fit ----------------
+function fit() {
+  const bw = document.body.clientWidth - parseFloat(getComputedStyle(document.body).paddingLeft) - parseFloat(getComputedStyle(document.body).paddingRight);
+  const bh = document.body.clientHeight - 16;
+  let w = Math.min(bw, (bh * 9) / 16);
+  w = Math.max(200, Math.floor(w));
+  const g = $('game');
+  g.style.width = w + 'px'; g.style.height = Math.round((w * 16) / 9) + 'px';
+  g.style.setProperty('--s', (w / 360).toFixed(4));
+}
+window.addEventListener('resize', fit);
+
+// ---------------- loop ----------------
+let last = 0, geoAcc = 0, saveAcc = 0, uiAcc = 0;
+function frame(t) {
+  const rdt = Math.min(0.05, (t - last) / 1000 || 0.016);
+  last = t; now += rdt;
+  const dt = rdt * S.speed;
+  // physics: 2 sub-steps a frame (5× speed: more)
+  const steps = S.speed > 1 ? 6 : 2;
+  for (let k = 0; k < steps; k++) physicsStep();
+  // surface tops and the horizon
+  let sum = 0;
+  for (let x = 0; x < GW; x++) { let y = 0; while (y < BED && !mat[y * GW + x]) y++; tops[x] = y; sum += y; }
+  hY += (sum / GW * 2 - hY) * Math.min(1, rdt * 0.8);
+  // pressure, every 0.2 s
+  geoAcc += dt;
+  if (geoAcc >= 0.2) { compact(geoAcc); squeeze(geoAcc); geoAcc = 0; checkEpoch(); }
+  // passive energy from the rock above the thing
+  const inc = rockCells * 0.01 * dt;
+  S.energy += inc; S.earned += inc;
+  // wind
+  if (S.lv.wind > 0) { S.windT += dt; if (S.windT >= windEvery(S.lv.wind)) { S.windT = 0; const n = drop(Math.round(pileSize(S.lv.pile) * 0.6)); S.energy += n; S.earned += n; } }
+  // volcanoes
+  if (featOn('vol') && S.grow.vol > 0.8) {
+    S.eruptT -= dt;
+    if (Math.random() < dt * 3) { const vx = VOLC[(Math.random() * 2) | 0]; smoke.push({ x: vx + (Math.random() - 0.5) * 3, y: hY - 62 * S.grow.vol, vx: 2 + Math.random() * 3, vy: -4 - Math.random() * 4, t: 3 + Math.random() * 2 }); }
+    if (S.eruptT <= 0) {
+      S.eruptT = 25 + Math.random() * 20; erupting = 2.5; eruptX = VOLC[(Math.random() * 2) | 0];
+      drop(40 + 10 * S.lv.pile, Math.round(eruptX / 2 + (Math.random() - 0.5) * 20), MI.ash);
+    }
+    if (erupting > 0) {
+      erupting -= dt;
+      for (let k = 0; k < 3; k++) smoke.push({ x: eruptX, y: hY - 60 * S.grow.vol, vx: (Math.random() - 0.5) * 30, vy: -20 - Math.random() * 20, t: 0.8 + Math.random(), hot: Math.random() < 0.4 });
+    }
+  }
+  // what the epochs grow in the background
+  for (const f in S.grow) if (featOn(f) && S.grow[f] < 1) S.grow[f] = Math.min(1, S.grow[f] + dt * 0.12);
+  render(rdt);
+  // ui
+  uiAcc += rdt;
+  if (dirtyUI || uiAcc > 0.25) { updateHUD(); dirtyUI = false; uiAcc = 0; }
+  if (toastT > 0 && (toastT -= rdt) <= 0) $('toast').classList.remove('on');
+  saveAcc += rdt;
+  if (saveAcc > 5) { saveAcc = 0; saveLocal(); }
+  requestAnimationFrame(frame);
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) saveLocal(); });
+
+function start(data) {
+  S = newState(); resetWorld();
+  let ok = false;
+  try { if (data && data.save) ok = deserialize(data.save); } catch (e) { ok = false; }
+  if (!ok) { S = newState(); resetWorld(); ok = loadLocal(); }
+  if (!ok) { S = newState(); resetWorld(); }
+  if (S.clicks >= 3) $('hint').style.opacity = 0;
+  skyT = S.epoch;
+  fit(); buildList(); updateHUD();
+  for (let k = 0; k < 400; k++) physicsStep();
+  requestAnimationFrame((t) => { last = t; requestAnimationFrame(frame); });
+}
+window.__sand = { get S() { return S; }, drop, clickDrop, mat, MATS, MI, tops, get rockCells() { return rockCells; } };
+const hot = window.claude && window.claude.hot;
+if (hot && typeof hot.snapshot === 'function') hot.snapshot(() => ({ save: serialize() }));
+if (hot && typeof hot.ready === 'function') hot.ready(start); else start((hot && hot.data) || {});
+</script>
