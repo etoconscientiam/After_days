@@ -325,6 +325,28 @@ window.addEventListener('keydown', (e) => {
   if (DEV && (e.key === '`' || e.key === '~' || e.key === 'ё')) dev.toggle();
 });
 window.addEventListener('pointerdown', () => audio.unlock(), { once: true });
+// Any pop-up closes when you tap anywhere outside it (the tap still does what it does there).
+// Openers are left out so their own click can toggle the pop-up instead of reopening it at once.
+{
+  const pops: [string, string][] = [
+    ['#cond-pop', '#goal, #era-name'],
+    ['#rock-pop', '#rocks'],
+    ['#hint-pop', '[data-tip]'],
+    ['#fieldnote', ''],
+    ['#tooltip', ''],
+  ];
+  document.addEventListener('pointerdown', (e) => {
+    const tgt = e.target as HTMLElement;
+    for (const [sel, openers] of pops) {
+      const el = $(sel);
+      if (el.hidden || el.contains(tgt)) continue;
+      if (openers && tgt.closest(openers)) continue;
+      el.hidden = true;
+    }
+    // the lens: taps on the world are handled by the input (another layer moves it, off the layers closes it)
+    if (!tgt.closest('#lens, #geo-btn, #world')) geo.closeLens();
+  }, true);
+}
 // touch has no hover: things with a tooltip explain themselves on tap
 {
   const pop = $('#hint-pop');

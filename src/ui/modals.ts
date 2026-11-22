@@ -17,7 +17,11 @@ export class Modals {
   onNewWorld: () => void = () => {};
 
   constructor(private g: () => Game) {
-    this.overlay.addEventListener('click', (e) => { if (e.target === this.overlay && this.overlay.dataset.kind === 'exhibit') this.close(); });
+    // a tap on the free space around a card closes it (the finale choices stay: they are the game's own step)
+    this.overlay.addEventListener('click', (e) => {
+      const kind = this.overlay.dataset.kind ?? '';
+      if (e.target === this.overlay && !kind.startsWith('finale')) this.close();
+    });
   }
 
   get isOpen(): boolean { return this.overlay.classList.contains('show'); }

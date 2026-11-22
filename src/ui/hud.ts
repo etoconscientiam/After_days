@@ -31,6 +31,7 @@ export class Hud {
   private plates: Plate[] = [];
   private rockSig = '';
   private condTimer = 0;
+  private condKind = '';
   onRocks: () => void = () => {};
   /** second tap on a rock in the header: open its upgrades */
   onRockJump: (rock: string) => void = () => {};
@@ -67,6 +68,8 @@ export class Hud {
   }
 
   private showCondition(): void {
+    if (!this.condPop.hidden && this.condKind === 'era') { this.condPop.hidden = true; this.condTimer = 0; return; }
+    this.condKind = 'era';
     const g = this.g();
     this.condPop.replaceChildren(h('div', { class: 'label' }, h('div', { class: 'l-head' }, t('era.' + g.run.era)), h('div', { class: 'l-sub' }, this.condString(g))));
     this.condPop.hidden = false;
@@ -189,6 +192,8 @@ export class Hud {
 
   /** Tap on the goal line: all current goals with their progress. */
   private showGoals(): void {
+    if (!this.condPop.hidden && this.condKind === 'goals') { this.condPop.hidden = true; this.condTimer = 0; return; }
+    this.condKind = 'goals';
     const g = this.g();
     const gs = this.goals(g);
     const rows = gs.length ? gs.map((x) => {
