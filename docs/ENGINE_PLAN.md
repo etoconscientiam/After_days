@@ -1,5 +1,9 @@
 # Strata — layer engine rewrite (handoff for a new session)
 
+> **Superseded (22.11.2026).** Stage 1 below is done (`docs/engine/STAGES.md`). Stages 2–5 are replaced by the
+> merge with the falling-sand engine: see `docs/MERGE_PLAN.md`. The layer model of stage 1 becomes the archive of the
+> depth there.
+
 Start here. This file is the whole context needed to continue: the project, the rules of work, what is wrong with
 the current layer engine, the new design, and the stages with their checks. Talk to the user in Russian.
 
