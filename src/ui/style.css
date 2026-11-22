@@ -39,15 +39,18 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 .num { font-family: var(--num); font-variant-numeric: tabular-nums; }
 
 /* ---------- header ---------- */
-#hud { position: absolute; left: 0; right: 0; top: 0; height: 132px; padding: 4px 12px 0; pointer-events: none;
-  background: linear-gradient(to bottom, rgba(14,12,16,0.7), rgba(14,12,16,0.35) 62%, rgba(14,12,16,0)); }
+/* The world comes first: the header is a compact strip at the top — the year small at the top left, the era line,
+   Energy and rocks, the goal as one line without a plate. */
+#hud { position: absolute; left: 0; right: 0; top: 0; height: 104px; padding: 6px 10px 0; pointer-events: none;
+  background: linear-gradient(to bottom, rgba(14,12,16,0.62), rgba(14,12,16,0.25) 60%, rgba(14,12,16,0)); }
+#top-row { display: flex; align-items: center; gap: 6px; padding-right: 40px; min-height: 32px; }
 #hud button { pointer-events: auto; }
-#countdown { text-align: center; font-family: var(--display);  font-size: 64px; line-height: 1; letter-spacing: 1px;
+#countdown { text-align: left; font-family: var(--display);  font-size: 32px; line-height: 1; letter-spacing: 1px;
   color: var(--bone); text-shadow: 0 0 18px rgba(242,181,74,0.35), 0 2px 2px rgba(0,0,0,0.6); font-variant-numeric: lining-nums; }
-#countdown.finding { font-size: 32px; padding-top: 12px; color: var(--amber); }
-#cd-sym { text-align: center; color: var(--amber); font-size: 16px; line-height: 1; margin-top: -2px; animation: sym 4s ease-in-out infinite; text-shadow: 0 0 10px rgba(242,181,74,0.6); }
+#countdown.finding { font-size: 32px; color: var(--amber); }
+#cd-sym { color: var(--amber); font-size: 16px; line-height: 1; animation: sym 4s ease-in-out infinite; text-shadow: 0 0 10px rgba(242,181,74,0.6); }
 @keyframes sym { 50% { opacity: 0.55; transform: scale(0.92); } }
-#era-arc { position: relative; height: 2px; margin: 4px 70px 0; background: rgba(237,227,208,0.12); border-radius: 2px; overflow: hidden; }
+#era-arc { position: relative; height: 2px; margin: 4px 0 0; background: rgba(237,227,208,0.12); border-radius: 2px; overflow: hidden; }
 #era-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, var(--amber-deep), var(--amber)); box-shadow: 0 0 6px var(--amber); }
 #era-line { display: flex; justify-content: space-between; align-items: baseline; margin-top: 3px; }
 #era-name { font-family: var(--text);  text-transform: uppercase; letter-spacing: 1px; font-size: 16px; color: var(--bone); text-shadow: 0 1px 2px #000; }
@@ -57,7 +60,7 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 #gear { position: absolute; right: 8px; top: 8px; width: 30px; height: 30px; border-radius: 50%; color: var(--bone-dim); display: flex; align-items: center; justify-content: center;
   background: rgba(27,24,22,0.55); box-shadow: inset 0 1px 0 rgba(255,240,210,0.08), 0 2px 6px rgba(0,0,0,0.4); }
 #gear:hover { color: var(--amber); }
-#cond-pop { position: absolute; left: 10px; top: 140px; max-width: 270px; z-index: 6; }
+#cond-pop { position: absolute; left: 10px; top: 108px; max-width: 270px; z-index: 6; }
 #res-row { display: flex; align-items: center; gap: 8px; margin-top: 5px; flex-wrap: nowrap; white-space: nowrap; }
 #energy { display: flex; align-items: center; gap: 5px; pointer-events: auto; text-align: left; }
 #energy .e-col { display: flex; flex-direction: column; line-height: 1; }
@@ -89,7 +92,7 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 .icon-inline { display: inline-flex; vertical-align: middle; }
 
 /* ---------- notifications ---------- */
-#notes { position: absolute; left: 10px; top: 156px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; max-width: 190px; }
+#notes { position: absolute; left: 10px; top: 112px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; max-width: 190px; }
 .note-plate { background: rgba(27,24,22,0.85); color: var(--bone); border-radius: 8px; padding: 5px 9px; font-size: 16px; font-family: var(--text);
   box-shadow: 0 3px 10px rgba(0,0,0,0.35); animation: plateIn 0.3s ease-out; display: flex; align-items: center; gap: 6px; }
 .note-plate.out { animation: plateOut 0.5s ease-in forwards; }
@@ -304,12 +307,13 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 
 /* developer panel */
 /* Debug & cheats: the beetle button (top left) and its panel */
-.dbg-btn { position: absolute; left: 8px; top: 8px; width: 30px; height: 30px; border-radius: 50%; z-index: 21; display: flex; align-items: center; justify-content: center; padding: 0;
+/* the beetle lives in the Book now (Book → Debug); the hidden button keeps its state classes */
+.dbg-btn { display: none !important; position: absolute; left: 8px; top: 8px; width: 30px; height: 30px; border-radius: 50%; z-index: 21; display: flex; align-items: center; justify-content: center; padding: 0;
   background: rgba(27,24,22,0.55); box-shadow: inset 0 1px 0 rgba(255,240,210,0.08), 0 2px 6px rgba(0,0,0,0.4); pointer-events: auto; }
 .dbg-btn.on { background: rgba(70,52,30,0.9); box-shadow: 0 0 0 2px var(--amber), 0 0 10px rgba(242,181,74,0.5); }
 .dbg-btn.fast::after { content: ''; position: absolute; right: 1px; top: 1px; width: 7px; height: 7px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 6px var(--amber); }
 #ui.choosing .dbg-btn { display: none; }
-#dev { position: absolute; left: 8px; top: 44px; width: 236px; max-height: calc(100% - 140px); overflow-y: auto; z-index: 21; pointer-events: auto;
+#dev { position: absolute; left: 8px; top: 8px; width: 236px; max-height: calc(100% - 140px); overflow-y: auto; z-index: 21; pointer-events: auto;
   background: rgba(20,17,15,0.94); color: var(--bone); border-radius: 10px; padding: 8px 9px 10px; font-family: var(--text); font-size: 14px; line-height: 1.1;
   box-shadow: inset 0 1px 0 rgba(255,240,210,0.08), 0 0 0 1px rgba(242,181,74,0.25), 0 8px 24px rgba(0,0,0,0.6); }
 #dev[hidden] { display: none; }
@@ -397,13 +401,14 @@ html[data-tremor] #ui { animation: letterTremor 0.14s steps(1) infinite; }
 #ui.choosing .geo-btn, #ui.finale .geo-btn { display: none; }
 
 /* goal line under the resources (brief 5, Б2) */
-#goal { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; margin-top: 4px; pointer-events: auto; text-align: left; max-width: 100%;
-  /* brief 6.8: a dark plate so the line does not get lost on the world */
-  background: rgba(20,17,15,0.66); padding: 3px 9px 4px; border-radius: 8px; box-shadow: inset 0 1px 0 rgba(255,240,210,0.07), 0 2px 6px rgba(0,0,0,0.35); }
+#goal { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; margin-top: 3px; pointer-events: auto; text-align: left; max-width: 78%;
+  /* one line, no plate: it must not hide the world; the condition and all goals open on a tap */
+  background: none; padding: 0; }
+#goal .g-main { text-shadow: 1px 1px 0 #000, 0 0 4px #000; }
 #goal .g-row { display: flex; gap: 8px; align-items: baseline; white-space: nowrap; max-width: 100%; }
 #goal .g-main { color: var(--bone); text-shadow: 0 1px 2px #000; overflow: hidden; text-overflow: ellipsis; }
 #goal .g-bar, .goal-row .g-bar { color: var(--amber); letter-spacing: -1px; text-shadow: 0 0 6px rgba(242,181,74,0.5); }
-#goal .g-sub { color: var(--bone-dim); text-shadow: 0 1px 2px #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+#goal .g-sub { display: none; }
 #goal[hidden] { display: none; }
 .goal-row { display: flex; justify-content: space-between; gap: 10px; }
 #rock-pop { position: absolute; z-index: 7; min-width: 110px; }
@@ -477,3 +482,6 @@ html[data-tremor] #ui { animation: letterTremor 0.14s steps(1) infinite; }
   background: radial-gradient(circle at 32% 26%, rgba(255,255,255,0.22), rgba(255,255,255,0) 38%), radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 62%, rgba(0,0,0,0.35) 100%); }
 #lens .lens-label { display: flex; align-items: center; gap: 5px; padding: 2px 8px 3px 4px; border-radius: 7px; white-space: nowrap; font-size: 16px; line-height: 1;
   background: rgba(20,17,15,0.85); color: var(--bone); box-shadow: 0 2px 6px rgba(0,0,0,0.5); margin-top: 6px; }
+
+/* Book → Debug */
+.book-debug { display: flex; align-items: center; gap: 8px; margin-top: 16px; opacity: 0.8; }

@@ -282,6 +282,7 @@ drawer.onImport = (s) => {
   } catch { return false; }
 };
 drawer.onReset = () => resetAll();
+drawer.onDebug = () => { drawer.close(); dev.toggle(true); };
 drawer.onToast = (s) => hud.notify('sys', s, '#EDE3D0');
 input.onArtifact = (shard) => { audio.unlock(); game.click(shard); renderer.onClick(game.mods.shards ? game.shardXs()[shard] : WW / 2); };
 input.onCast = (x, y) => renderer.burst(x, y, '#9fd0ff', 8);

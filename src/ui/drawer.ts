@@ -10,7 +10,7 @@ import { $, h, setText, toggle } from './dom';
 import { t, fmt, setLang, Lang } from './i18n';
 import { chronicleCard } from './chronicle';
 import { energyIcon, rockIcon, tabIcon, elementIcon, oxygenIcon, portrait, exhibit } from './icons';
-import { habitatPixel, releasePixel } from './pixelIcons';
+import { habitatPixel, releasePixel, bugPixel } from './pixelIcons';
 import { WW } from '../render/common';
 import { assetUrl } from '../render/assets';
 
@@ -41,6 +41,8 @@ export class Drawer {
   onExport: () => string = () => '';
   onImport: (s: string) => boolean = () => false;
   onReset: () => void = () => {};
+  /** Book → Debug: the cheats and debugging panel (the beetle) */
+  onDebug: () => void = () => {};
   onToast: (s: string) => void = () => {};
   /** the burial window is open: flood and volcano pulse */
   burialPulse = false;
@@ -588,6 +590,8 @@ export class Drawer {
       }
       this.body.append(list);
     }
+    // the debug & cheats panel (the beetle) lives at the bottom of the Book
+    this.body.append(h('button', { class: 'stone-btn book-debug', onclick: () => this.onDebug() }, bugPixel(16), t('book.debug')));
   }
 
   // ---------- Rocks & Settings ----------
