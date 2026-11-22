@@ -14,10 +14,10 @@ const S = CFG.B.sand;
 export function coat(g: Grid, m: number, x0 = 0, x1 = GW - 1, onCell?: (i: number) => void): number {
   let n = 0;
   for (let x = Math.max(0, x0); x <= Math.min(GW - 1, x1); x++) {
-    for (let y = g.tops[x], k = 0; y < g.sinkRow && k < S.coatDepth; y++, k++) {
+    for (let y = g.surf[x], k = 0; y < g.sinkRow && k < S.coatDepth; y++, k++) {
       const i = y * GW + x, cur = g.mat[i];
       if (!cur) continue;
-      const exposed = y === g.tops[x] || (x > 0 && !g.mat[i - 1]) || (x < GW - 1 && !g.mat[i + 1]);
+      const exposed = y === g.surf[x] || (x > 0 && !g.mat[i - 1]) || (x < GW - 1 && !g.mat[i + 1]);
       if (!exposed) break;
       if (KIND[cur] !== K_LOOSE || MARKER[cur]) continue;
       g.mat[i] = m; g.prog[i] = 0;

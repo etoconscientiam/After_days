@@ -8,7 +8,7 @@
 // land soil can lie in one layer side by side), its own transformation progress (a local heat zone or a press acts on
 // some segments only) and its own displayed rock. The thickness profile is interpolated between segment centres.
 import { CFG, NMAT, M, eraOfYear } from '../config';
-import { World, Pack, W, CAP, F_FOSSIL, F_ROLLED, F_RARE, F_FRAGMENT, F_INSECT, F_FAST } from './World';
+import { LegacyWorld as World, Pack, W, CAP, F_FOSSIL, F_ROLLED, F_RARE, F_FRAGMENT, F_INSECT, F_FAST } from './LegacyWorld';
 
 /** Segments across the width. */
 export const NS = 12;
@@ -236,7 +236,8 @@ interface Bin { amt: Float32Array; prog: Float32Array; insect: Float32Array; kSu
 
 /** Build the layer list from an old save's cells and packs, by birth years. Existing games survive the rewrite:
  *  the same rocks in the same order, the same amounts (rock yields keep their balance), the bones with their state. */
-export function strataFromWorld(w: World, now: number): Strata {
+/** `openTop`: the youngest layer stays open up to `now` (the stage-1 model); false for the archive of the depth. */
+export function strataFromWorld(w: World, now: number, openTop = true): Strata {
   const st = new Strata();
   const nE = CFG.eras.length;
   const NB = nE * BINS_PER_ERA;
@@ -416,8 +417,10 @@ export function strataFromWorld(w: World, now: number): Strata {
   out.reverse();   // top first
   st.layers = out;
   if (out.length) {
-    out[0].open = true;
-    out[0].y1 = Math.max(out[0].y1, now);
+    if (openTop) {
+      out[0].open = true;
+      out[0].y1 = Math.max(out[0].y1, now);
+    }
   }
   st.version++;
   return st;

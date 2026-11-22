@@ -3,7 +3,8 @@
 import { CFG, eraOfYear } from '../config';
 import type { Game } from '../core/game';
 import type { ChronicleEntry } from '../core/state';
-import { CAP, F_FOSSIL, F_RARE, F_FAST } from '../world/World';
+import { GW, P_FOSSIL, P_RARE, P_FAST, KIND, K_SOLID } from '../world/Grid';
+import { conditionsAt } from '../core/forecast';
 import { t, fmt } from './i18n';
 import { fmtCountdown } from './hud';
 import { h, fossilIcon } from './dom';
@@ -24,64 +25,57 @@ function composition(counts: Map<number, number>): [string, number][] {
 
 /** Inspect what lies at column x (location from the section renderer) and record an entry. */
 export function makeEntry(g: Game, x: number, loc: Loc): ChronicleEntry | null {
-  const w = g.world;
-  if (loc.kind === 'bedrock' || loc.kind === 'foundation') return null;
+  const grid = g.grid;
+  if (loc.kind !== 'horizon' && loc.kind !== 'particle') return null;
   const horizon = loc.kind === 'horizon';
   const data: Record<string, any> = { tags: [] as string[], finds: [] as { s: string; rare: boolean }[] };
   let y0: number, y1: number;
   if (horizon) {
     y0 = CFG.startYear - 20; y1 = CFG.startYear;
     data.comp = Object.entries(CFG.story.horizon.mix).map(([k, v2]) => [k, (v2 as number) * 100]);
-    data.depth = w.columnRows(x) + g.meta.foundation;
+    data.depth = g.artifactDepth(x);
     data.P = null; data.T = null; data.k = 1;
     data.horizon = true;
   } else {
-    if (loc.kind === 'cell') {
-      const j = x * CAP + loc.i;
-      const b = w.birth[j];
-      y0 = b - 150; y1 = b + 150;
-      const counts = new Map<number, number>();
-      const bones = new Map<number, number>();
-      let decaySum = 0, decayN = 0, fast = 0;
-      for (let xx = Math.max(0, x - 15); xx < Math.min(w.len.length, x + 15); xx++) {
-        for (let i = 0; i < w.len[xx]; i++) {
-          const jj = xx * CAP + i;
-          const bb = w.birth[jj];
-          if (bb < y0 || bb > y1) continue;
-          const m = w.mat[jj];
-          counts.set(m, (counts.get(m) ?? 0) + 1);
-          if (w.spec[jj]) { bones.set(w.spec[jj] - 1, (bones.get(w.spec[jj] - 1) ?? 0) + 1); decaySum += w.decay[jj] / 255; decayN++; }
-          if (w.flags[jj] & F_FAST) fast++;
-          if ((w.flags[jj] & F_FOSSIL) && data.finds.length < 6) data.finds.push({ s: CFG.species[w.spec[jj] - 1]?.id, rare: !!(w.flags[jj] & F_RARE) });
-        }
+    // what lies around the spot: ±15 world columns, ±150 years
+    const j = loc.i;
+    const b = grid.birth[j];
+    y0 = b - 150; y1 = b + 150;
+    const counts = new Map<number, number>();
+    const bones = new Map<number, number>();
+    let decaySum = 0, decayN = 0, fast = 0;
+    for (let xx = Math.max(0, (x >> 1) - 8); xx < Math.min(GW, (x >> 1) + 8); xx++) {
+      for (let r = grid.surf[xx]; r < grid.floor; r++) {
+        const jj = r * GW + xx;
+        const m = grid.mat[jj];
+        if (!m || KIND[m] === K_SOLID) continue;
+        const bb = grid.birth[jj];
+        if (bb < y0 || bb > y1) continue;
+        counts.set(m, (counts.get(m) ?? 0) + 1);
+        if (grid.spec[jj]) { bones.set(grid.spec[jj] - 1, (bones.get(grid.spec[jj] - 1) ?? 0) + 1); decaySum += grid.decay[jj] / 255; decayN++; }
+        if (grid.flags[jj] & P_FAST) fast++;
+        if ((grid.flags[jj] & P_FOSSIL) && data.finds.length < 6) data.finds.push({ s: CFG.species[grid.spec[jj] - 1]?.id, rare: !!(grid.flags[jj] & P_RARE) });
       }
-      data.comp = composition(counts);
-      const tags: string[] = data.tags;
-      const has = (id: string) => counts.has(CFG.matIndex[id]);
-      if (has('ash')) tags.push('ash');
-      if (has('meteor') || has('iridium')) tags.push('impact');
-      if (has('moraine')) tags.push('glacial');
-      if (fast > 0) tags.push('rapidBurial');
-      let boneTotal = 0;
-      bones.forEach((n) => (boneTotal += n));
-      if (boneTotal >= 6) tags.push('massBurial');
-      if (decayN) { const d = decaySum / decayN; tags.push(d < 0.3 ? 'presHigh' : d < 0.65 ? 'presMid' : 'presLow'); }
-      if (g.run.targets.some((tz) => tz.kind === 'water' && x >= tz.x0 && x <= tz.x1 && b >= tz.b0 && b <= tz.b1)) tags.push('groundwater');
-      if (g.run.targets.some((tz) => tz.kind !== 'water' && x >= tz.x0 && x <= tz.x1 && b >= tz.b0 && b <= tz.b1)) tags.push('heated');
-      if (w.k[j] >= 2.5) tags.push('compacted');
-      data.k = w.k[j]; data.P = w.P[j]; data.T = w.T[j];
-      data.depth = loc.depth;
-    } else if (loc.kind === 'pack') {
-      const pk = w.packs[loc.p];
-      y0 = pk.ageMin; y1 = pk.ageMax;
-      const counts = new Map<number, number>();
-      pk.amt.forEach((a, m) => { if (a > 0.05) counts.set(m, a); });
-      data.comp = composition(counts);
-      data.k = pk.k; data.P = pk.P; data.T = pk.T;
-      data.depth = loc.depth;
-      for (const f of pk.finds.slice(0, 6)) data.finds.push({ s: CFG.species[f.species]?.id, rare: f.rare });
-      if (pk.k >= 2.5) data.tags.push('compacted');
-    } else return null;
+    }
+    data.comp = composition(counts);
+    const tags: string[] = data.tags;
+    const has = (id: string) => counts.has(CFG.matIndex[id]);
+    if (has('ash') || has('tephra') || has('bentonite')) tags.push('ash');
+    if (has('meteor') || has('iridium')) tags.push('impact');
+    if (has('moraine')) tags.push('glacial');
+    if (fast > 0) tags.push('rapidBurial');
+    let boneTotal = 0;
+    bones.forEach((n) => (boneTotal += n));
+    if (boneTotal >= 6) tags.push('massBurial');
+    if (decayN) { const d = decaySum / decayN; tags.push(d < 0.3 ? 'presHigh' : d < 0.65 ? 'presMid' : 'presLow'); }
+    if (g.run.targets.some((tz) => tz.kind === 'water' && x >= tz.x0 && x <= tz.x1 && b >= tz.b0 && b <= tz.b1)) tags.push('groundwater');
+    if (g.run.targets.some((tz) => tz.kind !== 'water' && x >= tz.x0 && x <= tz.x1 && b >= tz.b0 && b <= tz.b1)) tags.push('heated');
+    const c = conditionsAt(g, loc.x, loc.y);
+    // the particles do not thin out (k): compaction shows as the pressure the grain bears
+    const k = 1 + c.Peff / 10;
+    if (k >= 2.5) tags.push('compacted');
+    data.k = k; data.P = c.Peff; data.T = c.T;
+    data.depth = loc.depth * 2;
   }
   const id = horizon ? 'horizon' : `${Math.round(y0 / 100)}:${data.comp[0]?.[0]}`;
   const entry: ChronicleEntry = { id, y0, y1, data, at: Date.now() };

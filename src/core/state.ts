@@ -1,4 +1,4 @@
-// Serializable game state (everything except the pixel world, which lives in world/World.ts).
+// Serializable game state (everything except the strata: the particle grid lives in world/Grid.ts, the depth in world/Archive.ts).
 import { CFG, ZoneId } from '../config';
 
 export interface Pool {
@@ -15,8 +15,12 @@ export interface Pool {
 export interface ActiveEffect { id: string; until: number; x?: number; data?: any }
 export interface TargetZone { kind: 'water' | 'heat' | 'magma'; x0: number; x1: number; b0: number; b1: number; until: number; heat: number }
 
-/** Press: a finger holding the section. x0..x1 columns and b0..b1 birth years under it; power after paying. */
-export interface PressState { x: number; x0: number; x1: number; b0: number; b1: number; power: number }
+/** Press: a finger holding the strata — a circle in grid cells (particle columns/rows); power after paying. */
+export interface PressState { x: number; y: number; r: number; power: number }
+/** The conveyor into the archive (core/pressure.ts). */
+export interface SinkRun { acc: number; rows: number }
+/** A marker bed waiting for the air to clear (core/beds.ts). */
+export interface BedRun { m: number; x0: number; x1: number; wait: number }
 /** An epoch order: a small task with a reward (config/orders.json). */
 export interface OrderState { id: string; start: number; done: boolean }
 export interface BuffState { energyMul: number; energyT: number; timeMul: number; timeT: number }
@@ -70,7 +74,7 @@ export interface RunState {
   timeAtEra: number[];            // real seconds when each era was reached
   deaths: number;
   fossilsRun: number;
-  layers: number;
+  layers: number;                 // particles laid in this run (the away report)
   press: PressState | null;       // the finger pressing the layers (not a long-term state)
   buffs: BuffState;               // short boosts from rare surface events (real seconds left)
   recentKills: number[];          // [year, count, year, count, ...] of violent deaths, for the burial window
@@ -83,6 +87,10 @@ export interface RunState {
   pressMoved: number;             // compacted thickness done by pressing (orders)
   insectAmber: number;            // pieces of amber with an insect made in this run (orders)
   faults: FaultState[];           // earthquakes leave a fault: older layers are shifted and bent (section view)
+  sink: SinkRun;                  // the conveyor into the archive
+  beds: BedRun[];                 // marker beds waiting to be laid
+  pileSec: number;                // the material that lies in the piles for a few piles in a row (bands and lenses)
+  bedT: number;                   // real seconds until the «Bed» button is ready again
 }
 
 export interface MetaState {
@@ -206,6 +214,10 @@ export function newRun(era = 0): RunState {
     pressMoved: 0,
     insectAmber: 0,
     faults: [],
+    sink: { acc: 0, rows: 0 },
+    beds: [],
+    pileSec: -1,
+    bedT: 0,
   };
 }
 

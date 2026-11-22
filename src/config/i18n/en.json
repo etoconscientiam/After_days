@@ -733,9 +733,9 @@
     "clock": "world",
     "yps": "yrs/s",
     "zones": "zones",
-    "cells": "cells",
-    "packs": "packs",
-    "layers": "layers",
+    "cells": "particles",
+    "packs": "archive layers",
+    "layers": "rows sunk",
     "mass": "mass",
     "foundation": "foundation"
   },

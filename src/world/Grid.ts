@@ -52,8 +52,11 @@ export class Grid {
   birth = new Float32Array(this.N);
   /** progress of the running transformation, game years */
   prog = new Float32Array(this.N);
-  /** first occupied row per column (floor if the column is empty) */
+  /** first occupied row per column (floor if the column is empty), particles in the air included */
   tops = new Int16Array(GW);
+  /** the settled surface per column: the top of the unbroken column that stands on the floor (particles in the air
+   *  do not count). The ground line, the load of the conveyor, marker beds and depths all use it. */
+  surf = new Int16Array(GW);
   /** first solid row (top of the foundation / bedrock) */
   floor = GH - S.bedRows;
   /** the row right above the thing: the oldest rock here sinks into the archive */
@@ -111,6 +114,7 @@ export class Grid {
     this.mat[i] = m; this.look[i] = look; this.birth[i] = birth;
     this.flags[i] = flags; this.spec[i] = spec; this.decay[i] = decay; this.prog[i] = 0;
     if (y < this.tops[x]) this.tops[x] = y;
+    if (y === this.surf[x] - 1) { let t = y; while (t > 0 && this.mat[(t - 1) * GW + x]) t--; this.surf[x] = t; }
     this.wake(x, y);
     this.version++;
     return i;
@@ -122,6 +126,7 @@ export class Grid {
     this.mat[i] = 0; this.prog[i] = 0; this.flags[i] = 0; this.spec[i] = 0; this.decay[i] = 0;
     const x = i % GW, y = (i / GW) | 0;
     if (this.tops[x] === y) { let t = y; while (t < this.floor && !this.mat[t * GW + x]) t++; this.tops[x] = t; }
+    if (y >= this.surf[x]) this.surf[x] = y + 1;
     this.wake(x, y);
     this.version++;
   }
@@ -165,6 +170,9 @@ export class Grid {
       let y = 0;
       while (y < this.floor && !this.mat[y * GW + x]) y++;
       this.tops[x] = y;
+      let s = this.floor;
+      while (s > 0 && this.mat[(s - 1) * GW + x]) s--;
+      this.surf[x] = s;
     }
   }
 

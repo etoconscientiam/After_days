@@ -94,7 +94,7 @@ export function geoTick(g: Grid, env: GeoEnv, rep: GeoReport = newReport()): Geo
     let depth = -1;
     const marine = env.marine(x);
     let hot = 0, hotY = 0;
-    for (let y = g.tops[x]; y < g.floor; y++) {
+    for (let y = g.surf[x]; y < g.floor; y++) {
       const i = y * GW + x, m = mat[i];
       const kind = KIND[m];
       if (kind === K_NONE) continue;          // a gap under an overhang: no weight, no depth
@@ -154,7 +154,7 @@ export function columnLoad(g: Grid): number {
   let s = 0, n = 0;
   for (let x = 0; x < GW; x++) {
     if (g.isArtifactCol(x)) continue;
-    s += Math.max(0, g.sinkRow + 1 - g.tops[x]); n++;
+    s += Math.max(0, g.sinkRow + 1 - g.surf[x]); n++;
   }
   return n ? s / n : 0;
 }

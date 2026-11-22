@@ -93,7 +93,9 @@ export class Layout {
 
   /** Back edge of the land field and the water level in the diorama. */
   get groundBase(): number { return this.sectionTop - L.groundDepth; }
-  get waterLevel(): number { return this.sectionTop - L.waterDepth; }
+  get waterLevel(): number { return this.seaY >= 0 ? this.seaY : this.sectionTop - L.waterDepth; }
+  /** the water line of the sea (world y), set by the renderer from the game (-1: the old fixed level) */
+  seaY = -1;
 
   update(drawerPx: number): void {
     const D = Math.max(0, Math.min(WH * L.drawerMax, Number.isFinite(drawerPx) ? drawerPx : 0));

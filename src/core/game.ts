@@ -1,14 +1,18 @@
 // The Game: owns state + world, advances time, exposes player actions. No DOM access (runs in Node for the sim).
 import { CFG, M, ZONES, ZoneId, SpeciesDef, ElementDef, SX } from '../config';
-import { World, W, CAP, F_ROLLED } from '../world/World';
-import { Strata, strataFromWorld } from '../world/Strata';
+import { Grid, GW } from '../world/Grid';
+import { Archive } from '../world/Archive';
+import { stepFull, Water } from './sand';
+import { sinkStep } from './pressure';
+import { coat } from './beds';
+import { drizzle, tapPile, zoneSourcesBase } from './sources';
+import { geoTickGame } from './geology';
+import type { GeoReport } from './pressure';
 import { EventBus } from './events';
 import { RNG, hash2 } from './rng';
 import { GameState, newGameState, newRun, newMeta, TargetZone } from './state';
 import { computeStats, Stats, upgradePrice, densityPrice } from './stats';
 import { lifeStep, killShare, addCarcass, totalPop, speciesAlive } from './life';
-import { depositionStep, depositCell } from './deposition';
-import { geoTick, rollFossil } from './geology';
 import { castElement, elementUnlocked } from './elements';
 import { prestigeGain, doPrestige } from './prestige';
 import { nextRareIn, spawnRare, claimRare, RareEvent } from './rare';
@@ -20,13 +24,28 @@ export interface WorldMods {
   geoGradientMul: number;
 }
 
-export interface Glint { x: number; depth: number; t: number; color: string; birth?: number }
+/** A sparkle of a new rock (world pixels). */
+export interface Glint { x: number; y: number; t: number; color: string }
+
+const W = CFG.B.world.width;
+const SAND = CFG.B.sand;
 
 export class Game {
   state: GameState;
-  world: World;
-  /** the strata as layers (the new model; for now rebuilt from the cells, see syncStrata) */
-  strata: Strata;
+  /** the visible strata: falling particles (world/Grid.ts) */
+  grid: Grid;
+  /** the depth below them: layers the conveyor took (world/Archive.ts) */
+  archive: Archive;
+  /** sea columns and the water line, for the physics */
+  water: Water = { col: new Uint8Array(GW), level: 0 };
+  /** per particle column: the drizzle of sediment waiting to fall (fractions of a particle) */
+  dripAcc = new Float32Array(GW);
+  /** the last geology report (heat glow, pressure) */
+  geoReport: GeoReport | null = null;
+  /** particles that moved on the last physics step (marker beds wait for the air to clear) */
+  moving = 0;
+  private physAcc = 0;
+  private physTick = 0;
   bus = new EventBus();
   rng: RNG;
   stats!: Stats;
@@ -37,15 +56,13 @@ export class Game {
   zoneMix = new Float32Array(W * 3);   // per column: share of water/shore/land in a ±18 px window (smooth borders)
   colNoise = new Float32Array(W);
   glints: Glint[] = [];
-  /** pixels that turned into rock under a press or a glowing-layer event: they flash */
-  pressFlashes: { x: number; birth: number; t: number; color: string }[] = [];
-  /** transformations under heat or deep pressure running now, per column: strength 0..1 and the birth year of the hottest cell */
-  hotNow = new Float32Array(W);
-  hotB = new Float64Array(W);
-  /** the same for deep packs: birth range, strength, column range */
+  /** particles that turned into rock under a press or a glowing-layer event: they flash (world pixels) */
+  pressFlashes: { x: number; y: number; t: number; color: string }[] = [];
+  /** transformations under heat running now, per particle column: strength 0..1 and the row of the hottest one */
+  hotNow = new Float32Array(GW);
+  hotY = new Int16Array(GW);
   /** debug panel switches (not saved) */
   cheats = { capMul: 1, freeElements: false, infiniteEnergy: false };
-  hotPacks: { b0: number; b1: number; v: number; x0: number; x1: number }[] = [];
   /** the rare surface event on screen, if any (brief 5, В1) */
   rare: RareEvent | null = null;
   rareTimer = 90;
@@ -59,21 +76,55 @@ export class Game {
   zoneGlow = [0, 0, 0];                 // mean glow of the technogenic horizon under each zone
   glow = new Float32Array(W);           // horizon glow profile (energy source)
 
-  constructor(state?: GameState, world?: World, strata?: Strata) {
+  constructor(state?: GameState, grid?: Grid, archive?: Archive) {
     this.state = state ?? newGameState();
-    this.world = world ?? new World();
-    if (!world) this.world.reset();
-    this.strata = strata ?? strataFromWorld(this.world, this.state.run.year);
     this.rng = new RNG(this.state.seed);
+    this.grid = grid ?? new Grid();
+    this.archive = archive ?? new Archive();
     for (let x = 0; x < W; x++) this.colNoise[x] = 0.85 + 0.3 * (0.5 + 0.5 * Math.sin((x / SX) * 0.071) * Math.cos((x / SX) * 0.023 + 1.3));
     this.refreshMods();
     this.recomputeZones();
+    if (!grid) this.resetStrata();
     this.refreshStats();
-    // bones folded into deep packs before they were rolled get their one fossil roll now
-    this.world.foldHook = (x, j) => {
-      const w = this.world;
-      if (w.mat[j] === M.bone && !(w.flags[j] & F_ROLLED)) rollFossil(this, x, j, 1, 1 + this.stats.fossilChance, w.len[x]);
-    };
+  }
+
+  /** An empty world: bedrock, the foundation of past epochs, the thing(s) on it; no archive. */
+  resetStrata(): void {
+    const centers = this.mods.shards ? this.shardXs().map((x) => x / 2) : [GW / 2];
+    this.grid.reset(centers, this.meta.foundation / 2);
+    this.archive.reset();
+    this.dripAcc.fill(0);
+    this.run.sink = { acc: 0, rows: 0 };
+    this.run.beds = [];
+    this.prefill();
+  }
+
+  /** A world starts on the ground of the old one: the strata filled up to just under the line (the sea floor lower),
+   *  of what each zone lays down — dust (or soil, once land life has been), sand on the shore, silt under the sea. */
+  prefill(): void {
+    const g = this.grid;
+    const line = this.lineRow() + SAND.startBelowLine;
+    const src = zoneSourcesBase(this);
+    let seed = this.state.seed >>> 0;
+    const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) >>> 24);
+    for (let x = 0; x < GW; x++) {
+      const zi = this.zoneMap[x * 2 + 1];
+      const wave = Math.round(Math.sin(x * 0.11 + 1.3) * 1.5 + Math.sin(x * 0.037) * 1.5);
+      const top = line + wave + (zi === 0 ? SAND.seaFloorBelow : zi === 1 ? Math.round(SAND.seaFloorBelow / 3) : 0);
+      const bottom = g.isArtifactCol(x) ? g.sinkRow : g.floor - 1;
+      for (let y = Math.max(0, top); y <= bottom; y++) g.put(x, y, src[zi], rnd(), this.run.year - 1);
+    }
+    g.computeTops();
+  }
+
+  /** The row of the line where the strata settle (the conveyor holds them there). */
+  lineRow(): number {
+    return this.grid.sinkRow + 1 - Math.round(SAND.sinkLine * SAND.refRows);
+  }
+
+  private updateWater(): void {
+    for (let x = 0; x < GW; x++) this.water.col[x] = this.zoneMap[x * 2 + 1] === 0 ? 1 : 0;
+    this.water.level = this.lineRow() - SAND.seaAboveLine;
   }
 
   // ---------- derived ----------
@@ -138,6 +189,7 @@ export class Game {
       sum[this.zoneMap[x]] += this.glow[x];
     }
     for (let z = 0; z < 3; z++) this.zoneGlow[z] = this.zoneWidth[z] ? sum[z] / this.zoneWidth[z] : 0;
+    this.updateWater();
   }
 
   zoneIndex(z: ZoneId): number { return ZONES.indexOf(z); }
@@ -344,10 +396,11 @@ export class Game {
     this.geoAcc += dt;
     this.geoYears += dy;
     if (this.geoAcc >= CFG.B.time.geoTick) {
-      geoTick(this, this.geoYears);
+      geoTickGame(this, this.geoYears);
       this.geoAcc = 0;
       this.geoYears = 0;
     }
+    this.strataStep(dt);
     this.autoElements(dt);
     this.checkEra();
     if (this.meta.prestiges === 0 && r.year >= CFG.story.traces.endYear) triggerEcho(this, 'tracesErased');
@@ -364,12 +417,62 @@ export class Game {
     }
   }
 
+  /** Particles fall (full mode, a fixed 60 steps a second), the conveyor sinks the oldest rows, waiting marker beds
+   *  are laid. dt = real seconds. In the balance run and offline (headless) particles settle at once, no steps. */
+  strataStep(dt: number): void {
+    const r = this.run;
+    if (!this.headless) {
+      this.physAcc = Math.min(this.physAcc + dt, 4 / 60);
+      while (this.physAcc >= 1 / 60) {
+        this.physAcc -= 1 / 60;
+        this.moving = stepFull(this.grid, this.rng, this.water, this.physTick++);
+      }
+    } else this.moving = 0;
+    sinkStep(this.grid, r.sink, dt, (g, y) => this.archive.addRow(g, y));
+    this.layBeds(dt);
+    r.bedT = Math.max(0, r.bedT - dt);
+  }
+
+  /** Lay the first waiting marker bed once nothing is falling (or it has waited long enough). */
+  private layBeds(dt: number): void {
+    const b = this.run.beds[0];
+    if (!b) return;
+    b.wait += dt;
+    if (this.moving > 6 && b.wait < SAND.coatWait) return;
+    this.run.beds.shift();
+    let shown = 0;
+    const n = coat(this.grid, b.m, b.x0, b.x1, (i) => {
+      if (shown++ % 9 === 0 && this.glints.length < 120) this.glints.push({ x: (i % GW) * 2 + 1, y: Math.floor(i / GW) * 2 + 1, t: 0.7, color: CFG.materials[b.m].palette[4] });
+    });
+    if (n) this.bus.emit('bedLaid', { mat: CFG.materials[b.m].id, n });
+  }
+
+  /** Ask for a marker bed of material m over particle columns x0..x1. */
+  queueBed(m: number, x0 = 0, x1 = GW - 1): void {
+    this.run.beds.push({ m, x0, x1, wait: 0 });
+  }
+
+  /** The «Bed» button: a thin bed of ochre over the whole surface. */
+  layBed(): boolean {
+    if (this.state.phase !== 'play' || this.run.bedT > 0) return false;
+    this.run.bedT = SAND.bedCooldown;
+    this.queueBed(M.ochre);
+    return true;
+  }
+
+  /** A tap in the world: Energy as before, and a pile falls into that column. */
+  tap(X: number, shard = -1): number {
+    const e = this.click(shard);
+    if (this.state.phase === 'play') tapPile(this, X, SAND.pile.base);
+    return e;
+  }
+
   /** Life, deposition, effect expiry and excavation for dy game years. */
   simulate(dy: number): void {
     if (dy <= 0) return;
     const r = this.run;
     lifeStep(this, dy);
-    depositionStep(this, dy);
+    drizzle(this, dy);
     // expire effects
     for (let i = r.active.length - 1; i >= 0; i--) {
       const a = r.active[i];
@@ -379,7 +482,7 @@ export class Game {
         r.active.splice(i, 1);
       }
     }
-    for (let i = r.targets.length - 1; i >= 0; i--) if (r.clock >= r.targets[i].until) { r.targets.splice(i, 1); this.world.version++; }
+    for (let i = r.targets.length - 1; i >= 0; i--) if (r.clock >= r.targets[i].until) { r.targets.splice(i, 1); this.grid.version++; }
     for (const z of ZONES) r.pools[z].fast = Math.max(0, r.pools[z].fast - dy);
     // excavation (era 7)
     if (r.era === 7) {
@@ -487,6 +590,8 @@ export class Game {
     triggerEcho(this, 'era:' + era);
     // the last high satellite goes out as era 0 ends (first run of a world only)
     if (era >= 1 && this.meta.prestiges === 0) triggerEcho(this, 'lastSatellite');
+    // a golden bed marks the boundary of the epochs in the strata
+    this.queueBed(M.boundary);
     if (this.mods.living && era >= 1) this.offerMutations();
   }
 
@@ -853,39 +958,42 @@ export class Game {
     s.legacy.echoSeen = [];
     s.ritualChoice = null;
     s.templeProgress = 0;
-    this.world.reset();
-    this.strata.reset();
     this.refreshMods();
     this.recomputeZones();
+    this.resetStrata();
     this.statsDirty = true;
     this.refreshStats();
   }
 
-  /** Transitional (until the physics runs on layers): rebuild the layers from the cells. */
-  syncStrata(): void {
-    this.strata = strataFromWorld(this.world, this.run.year);
+  // ---------- strata queries ----------
+  /** The birth years of the particles at depth `v` (old rows, 2 per particle) ± ry around world column X: the target
+   *  zone of an underground element. */
+  targetFromSection(X: number, v: number, rx: number, ry: number): TargetZone | null {
+    const g = this.grid;
+    const cx = Math.max(0, Math.min(GW - 1, Math.floor(X / 2)));
+    const yc = g.surf[cx] + Math.round(v / 2), half = Math.max(1, Math.round(ry / 2));
+    let b0 = Infinity, b1 = -Infinity;
+    for (let y = Math.max(g.surf[cx], yc - half); y <= Math.min(g.sinkRow, yc + half); y++) {
+      const m = g.mat[y * GW + cx];
+      if (!m) continue;
+      const b = g.birth[y * GW + cx];
+      if (b < b0) b0 = b;
+      if (b > b1) b1 = b;
+    }
+    if (b0 > b1) { b0 = -1e9; b1 = this.run.year; }
+    return { kind: 'water', x0: Math.max(0, X - rx), x1: Math.min(W - 1, X + rx), b0, b1, until: 0, heat: 0 };
   }
 
-  // ---------- section queries ----------
-  /** Which world-space target zone matches a click at (x, visual depth v). */
-  targetFromSection(x: number, v: number, rx: number, ry: number): TargetZone | null {
-    const w = this.world;
-    const a = w.locate(x, Math.max(0, v - ry));
-    const b = w.locate(x, v + ry);
-    const birthOf = (l: ReturnType<World['locate']>, fallback: number) => {
-      if (!l) return fallback;
-      if (l.kind === 'cell') return w.birth[x * CAP + l.i];
-      const p = w.packs[l.p];
-      return p.ageMax - (p.ageMax - p.ageMin) * l.frac;
-    };
-    const top = birthOf(a, this.run.year);
-    const bottom = birthOf(b, -1e9);
-    return { kind: 'water', x0: Math.max(0, x - rx), x1: Math.min(W - 1, x + rx), b0: Math.min(top, bottom), b1: Math.max(top, bottom), until: 0, heat: 0 };
-  }
-
-  /** Visual rows above the artifact(s) (excavation depth). */
-  artifactDepth(x = W / 2): number {
-    return this.world.visualDepth(x) + this.meta.foundation;
+  /** Rows above the thing at world column X (old rows: 2 per particle), with the archive and the foundation:
+   *  what the tribe has to dig through. */
+  artifactDepth(X = W / 2): number {
+    const g = this.grid;
+    const x = Math.max(0, Math.min(GW - 1, Math.floor(X / 2)));
+    let n = 0;
+    for (let y = g.surf[x]; y < g.floor; y++) { const m = g.mat[y * GW + x]; if (m && m !== M.artifact) n++; }
+    let arc = 0;
+    for (const L of this.archive.layers) arc += this.archive.meanRows(L) / Math.max(1, L.k);
+    return n * 2 + arc * SAND.archiveDigShare + this.meta.foundation;
   }
 
   shardXs(): number[] {
@@ -894,8 +1002,7 @@ export class Game {
 
 
   // re-exported helpers for other modules
-  depositCell = (x: number, m: number, zi: number, burialMul = 1) => depositCell(this, x, m, zi, burialMul);
   kill = (shares: number[], cause: string) => killShare(this, shares, cause);
 }
 
-export { M, W, CAP };
+export { M, W };

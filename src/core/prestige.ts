@@ -2,7 +2,6 @@
 import { CFG } from '../config';
 import type { Game } from './game';
 import { newRun } from './state';
-import { W, CAP } from '../world/World';
 
 export function prestigeGain(g: Game): number {
   return Math.floor(prestigeRaw(g));
@@ -31,29 +30,23 @@ export function startEraFor(g: Game): number {
 }
 
 /**
- * What a shift would add to the foundation: strongly compacted rows (k >= threshold) survive as a thin dark band.
- * share = their part of the column's visible thickness. Used by the shift itself and by the Epoch tab.
+ * What a shift would add to the foundation: the strongly compacted part of the archive (k >= threshold) survives as a
+ * thin dark band. share = its part of the archive's thickness. Used by the shift itself and by the Epoch tab.
  */
 export function foundationPreview(g: Game): { add: number; share: number } {
-  const w = g.world;
+  const arc = g.archive;
   const kf = CFG.B.physics.foundationK;
   let hard = 0, all = 0;
-  for (let x = 0; x < W; x++) {
-    const base = x * CAP;
-    for (let i = 0; i < w.len[x]; i++) {
-      const k = w.k[base + i];
-      all += 1 / k;
-      if (k >= kf) hard += 1 / k;
-    }
+  for (const L of arc.layers) {
+    const v = arc.meanRows(L) / Math.max(1, L.k);
+    all += v;
+    if (L.k >= kf) hard += v;
   }
-  hard /= W; all /= W;
-  for (const pk of w.packs) { all += pk.rows / pk.k; if (pk.k >= kf) hard += pk.rows / pk.k; }
   return { add: hard * CFG.B.physics.foundationCompress, share: all > 0 ? hard / all : 0 };
 }
 
 export function doPrestige(g: Game): void {
   const s = g.state;
-  const w = g.world;
   const gain = prestigeGain(g);
   s.meta.foundation += foundationPreview(g).add;
   s.meta.foundationLines.push(s.meta.foundation);
@@ -81,9 +74,8 @@ export function doPrestige(g: Game): void {
       s.run.peak[sp.id] = n;
     }
   }
-  w.reset();
-  g.strata.reset();
   g.recomputeZones();
+  g.resetStrata();
   g.statsDirty = true;
   g.refreshStats();
   g.bus.emit('prestige', { gain });

@@ -28,6 +28,8 @@ g.bus.on('temple', (e) => log('temple', e.ritual));
 g.bus.on('noteFound', (e) => log('note', e.id));
 
 let clickAcc = 0;
+/** density gained from prestiges only (orders give density too; the heuristic below is about prestiges) */
+let prestDens = 0;
 let stuck = 0;
 let lastYear = 0;
 const densityPriority = ['deepMemory', 'evolution', 'agesPress', 'fertileSoil', 'strongFound', 'tenacious', 'warmDepths', 'legacy', 'autoElements', 'longSleep'];
@@ -92,7 +94,8 @@ function botElements() {
 const end = hours * 3600;
 while (g.state.legacy.totalRealTime < end) {
   clickAcc += cps * DT;
-  while (clickAcc >= 1) { g.click(); clickAcc -= 1; }
+  // a tap drops a pile somewhere over the land or the sea, as a player would
+  while (clickAcc >= 1) { g.tap(4 + g.rng.next() * (CFG.B.world.width - 8)); clickAcc -= 1; }
   g.update(DT);
   if (Math.floor(g.state.legacy.totalRealTime) % 2 === 0) {
     const need: Record<number, string[]> = { 2: ['molluscs', 'fish'], 3: ['trees'], 4: ['herds', 'predators'], 5: ['fossor', 'vigil', 'litoralis'], 6: ['tribe'], 7: ['tribe'] };
@@ -105,14 +108,14 @@ while (g.state.legacy.totalRealTime < end) {
   if (Math.abs(g.run.year - lastYear) < 1e-6) stuck += DT; else stuck = 0;
   lastYear = g.run.year;
   const gain = g.prestigeGain();
-  if (gain >= 1 && g.run.era < 7 && ((stuck > 300 && gain >= Math.max(1, (g.meta.density + g.meta.densitySpent) * 0.5)) || gain >= (g.meta.density + g.meta.densitySpent) * 2 + 2)) {
-    g.prestige();
+  if (gain >= 1 && g.run.era < 7 && ((stuck > 300 && gain >= Math.max(1, prestDens * 0.5)) || gain >= prestDens * 2 + 2)) {
+    if (g.prestige()) prestDens += gain;
     for (const id of densityPriority) while (g.buyDensity(id)) {}
     stuck = 0;
   }
   if (Math.floor(g.state.legacy.totalRealTime) % 600 === 0 && g.state.legacy.totalRealTime % 1 === 0) {
     const rocks = Object.entries(g.run.rocks).filter(([, v]) => v > 0).map(([k, v]) => `${k}:${v.toFixed(0)}`).join(' ');
-    console.log(`  .. ${(g.state.legacy.totalRealTime / 60).toFixed(0)}m era=${g.run.era} year=${Math.round(g.run.year)} E=${g.run.energy.toExponential(2)} inc=${g.incomePerSec(false).toExponential(2)} yps=${g.yps(false).toFixed(1)} O2=${g.run.oxygen.toFixed(1)} cells=${g.world.totalCells} packs=${g.world.packs.length} gain=${gain} cond=${g.eraConditionProgress().toFixed(2)} fossils=${g.legacy.fossils} ${rocks}`);
+    console.log(`  .. ${(g.state.legacy.totalRealTime / 60).toFixed(0)}m era=${g.run.era} year=${Math.round(g.run.year)} E=${g.run.energy.toExponential(2)} inc=${g.incomePerSec(false).toExponential(2)} yps=${g.yps(false).toFixed(1)} O2=${g.run.oxygen.toFixed(1)} particles=${g.grid.particles()} archive=${g.archive.layers.length} sunk=${g.run.sink.rows} gain=${gain} cond=${g.eraConditionProgress().toFixed(2)} fossils=${g.legacy.fossils} ${rocks}`);
   }
 }
 log('end', `density=${g.meta.density} prestiges=${g.meta.prestiges}`);

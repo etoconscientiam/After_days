@@ -7,7 +7,6 @@ import { newGameState } from './core/state';
 import { runOffline, OfflineReport } from './core/offline';
 import { Renderer } from './render/renderer';
 import { WW, WH } from './render/common';
-import { CAP } from './world/World';
 import { Hud } from './ui/hud';
 import { Drawer } from './ui/drawer';
 import { Input } from './ui/input';
@@ -31,7 +30,7 @@ for (const [k, v] of Object.entries(THEME)) if (!k.startsWith('_')) document.doc
 
 let game: Game;
 const loaded = loadLocal();
-game = loaded ? new Game(loaded.state, loaded.world, loaded.strata) : new Game(newGameState());
+game = loaded ? new Game(loaded.state, loaded.grid, loaded.archive) : new Game(newGameState());
 setLang(game.state.settings.lang);
 
 const canvas = $('#world') as HTMLCanvasElement;
@@ -185,9 +184,8 @@ function bind(g: Game): void {
     if (e.rare) turmoil.hit(SEVERITY.rareFossil);
     hud.notify('fossil', t(e.rare ? 'toast.rare' : 'toast.fossil', { s }), e.rare ? '#fff4c8' : '#e8dcc0', plural('fossil'));
     audio.fossil(false);
-    const w = g.world;
-    const i = Math.max(0, w.len[e.x] - 1 - e.depth);
-    const y = renderer.lay.sectionTop + renderer.section.yAt(e.x, w.birth[e.x * CAP + i]);
+    // the bone lies e.depth particles below the top of its column
+    const y = renderer.lay.sectionTop + renderer.section.yOfRow(g.grid.surf[e.x >> 1] + e.depth) + 1;
     renderer.burst(e.x, y, '#fff4c8', 10);
     const ex = exhibit('fossil', e.species, e.rare, 2);
     const tab = document.querySelectorAll('#tabbar .tab')[4];
@@ -277,8 +275,8 @@ drawer.onSettingsChange = () => { applySettings(); drawer.relabel(); };
 drawer.onExport = () => exportString(game);
 drawer.onImport = (s) => {
   try {
-    const { state, world, strata } = importString(s);
-    swapGame(new Game(state, world, strata));
+    const { state, grid, archive } = importString(s);
+    swapGame(new Game(state, grid, archive));
     save();
     return true;
   } catch { return false; }
@@ -296,7 +294,8 @@ input.onImpulse = (x, y) => {
     shard = xs.reduce((bi, sx, i) => (Math.abs(sx - x) < Math.abs(xs[bi] - x) ? i : bi), 0);
     ax = xs[shard];
   }
-  game.click(shard);
+  // the thing answers with an impulse, and a pile falls into the column that was tapped
+  game.tap(x, shard);
   renderer.onClick(ax);
   renderer.tapAt(x, y);
 };

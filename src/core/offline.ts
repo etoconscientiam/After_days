@@ -1,7 +1,7 @@
 // Offline progress: simplified, in batches of ~50 game years. Era cannot change offline.
 import { CFG } from '../config';
 import type { Game } from './game';
-import { geoTick } from './geology';
+import { geoTickGame } from './geology';
 
 export interface OfflineReport { seconds: number; years: number; layers: number; rocks: Record<string, number>; fossils: number; notes: string[]; energy: number }
 
@@ -32,7 +32,9 @@ export function runOffline(g: Game, seconds: number): OfflineReport | null {
     r.year = Math.min(end, r.year + dy);
     r.clock += dy;
     g.simulate(dy);
-    geoTick(g, dy);
+    geoTickGame(g, dy);
+    // the conveyor runs for the real seconds these years stand for
+    g.strataStep(dy / Math.max(1e-6, yps));
     left -= dy;
   }
   g.bus.muted = false;

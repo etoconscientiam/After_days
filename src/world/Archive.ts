@@ -29,11 +29,12 @@ export class Archive extends Strata {
     return a;
   }
 
-  /** Take row y of the grid (called by the conveyor right before the row leaves). */
-  addRow(g: Grid, y: number): void {
+  /** Take row y of the grid, columns x0..x1 (the conveyor takes whole rows right before they leave; a fault sinks
+   *  a part of a row). */
+  addRow(g: Grid, y: number, x0 = 0, x1 = GW - 1): void {
     const base = y * GW;
     let n = 0, mk = 0, b0 = Infinity, b1 = -Infinity, bsum = 0;
-    for (let x = 0; x < GW; x++) {
+    for (let x = x0; x <= x1; x++) {
       const m = g.mat[base + x], k = KIND[m];
       if (k === K_NONE || k === K_SOLID) continue;
       n++;
@@ -59,7 +60,7 @@ export class Archive extends Strata {
     const T0 = this.meanRows(L), t = (n * CPP) / W, T1 = T0 + t;
     for (const bn of L.bones) bn.f = (bn.f * T0 + t) / T1;
     L.k = (L.k * T0 + t) / T1;
-    for (let x = 0; x < GW; x++) {
+    for (let x = x0; x <= x1; x++) {
       const i = base + x, m = g.mat[i], k = KIND[m];
       if (k === K_NONE || k === K_SOLID) continue;
       const s = Math.min(NS - 1, Math.floor((x * 2 + 1) / SEGW));
@@ -75,7 +76,7 @@ export class Archive extends Strata {
     }
     L.y0 = Math.min(L.y0, b0);
     L.y1 = Math.max(L.y1, b1);
-    this.rowsInTop++;
+    this.rowsInTop += (x1 - x0 + 1) / GW;
     if (markerRow || this.rowsInTop >= S.archiveMaxRows) { L.open = false; }
     this.settleRock(L);
     this.cap();

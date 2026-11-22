@@ -131,7 +131,7 @@ export class DevPanel {
       `${t('dev.year')} ${fmtInt(r.year)}${wall ? ' ⏸' : ''} · ${t('dev.clock')} ${fmtInt(r.clock)}`,
       `${t('dev.era')} ${ROMAN[r.era]} · ${fmt(g.yps(), 1)} ${t('dev.yps')} · O₂ ${r.oxygen.toFixed(1)}%`,
       `${t('dev.zones')} ${[0, 1, 2].map((z) => `${fmt(g.used(z), 0)}/${g.capacity(z)}`).join(' · ')}`,
-      `${t('dev.cells')} ${fmtInt(g.world.totalCells)} · ${t('dev.packs')} ${g.world.packs.length} · ${t('dev.layers')} ${this.ren.section.layers.length}`,
+      `${t('dev.cells')} ${fmtInt(g.grid.particles())} · ${t('dev.packs')} ${g.archive.layers.length} · ${t('dev.layers')} ${fmtInt(r.sink.rows)}`,
       `${t('dev.mass')} ${fmt(r.compactMass)} · ${t('dev.foundation')} ${g.meta.foundation.toFixed(1)}`,
     ].join('\n'));
   }

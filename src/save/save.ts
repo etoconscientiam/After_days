@@ -1,12 +1,17 @@
-// Save: localStorage, JSON state + the pixel world packed into base64 typed arrays. Versioned with migrations.
+// Save: localStorage, JSON state + the particle grid (typed arrays in base64) + the archive of the depth.
+// Versioned with migrations: v1/v2 saves carry the old cell world (columns of cells + packs); on load its top becomes
+// particles of the grid and the rest goes into the archive.
 import { CFG, NMAT } from '../config';
 import { Game } from '../core/game';
 import { GameState, newGameState } from '../core/state';
-import { World, W, CAP, Pack } from '../world/World';
-import { Strata, StrataSave, packStrata, unpackStrata, strataFromWorld } from '../world/Strata';
+import { LegacyWorld, W as OW, CAP, Pack } from '../world/LegacyWorld';
+import { Grid, GW } from '../world/Grid';
+import { Archive } from '../world/Archive';
+import { StrataSave, packStrata, unpackStrata, strataFromWorld, NS, SEGW, NONE } from '../world/Strata';
 
 const KEY = CFG.B.save.key;
 const VERSION = CFG.B.save.version;
+const SAND = CFG.B.sand;
 
 function b64(u8: Uint8Array): string {
   let s = '';
@@ -20,7 +25,47 @@ function unb64(s: string): Uint8Array {
   for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
   return u8;
 }
+const u8of = (a: ArrayBufferView) => new Uint8Array(a.buffer, a.byteOffset, a.byteLength);
+function f32(s: string): Float32Array { const u = unb64(s); return new Float32Array(u.buffer, u.byteOffset, u.byteLength / 4); }
+function u16(s: string): Uint16Array { const u = unb64(s); return new Uint16Array(u.buffer, u.byteOffset, u.byteLength / 2); }
+function u32(s: string): Uint32Array { const u = unb64(s); return new Uint32Array(u.buffer, u.byteOffset, u.byteLength / 4); }
 
+// ---------- the grid (v3) ----------
+interface GridSave { mat: string; look: string; flags: string; spec: string; decay: string; birth: string; prog: string }
+
+function packGrid(g: Grid): GridSave {
+  const prog = new Uint16Array(g.N);
+  for (let i = 0; i < g.N; i++) prog[i] = Math.min(65535, Math.round(g.prog[i] / 2));
+  return {
+    mat: b64(g.mat), look: b64(g.look), flags: b64(g.flags), spec: b64(g.spec), decay: b64(g.decay),
+    birth: b64(u8of(g.birth)), prog: b64(u8of(prog)),
+  };
+}
+
+/** Where the thing(s) lie and how thick the foundation is, from the state (as Game.resetStrata does). */
+function emptyGrid(state: GameState): Grid {
+  const g = new Grid();
+  const shards = state.legacy.rituals.includes('shatter');
+  const centers = shards ? CFG.B.shards.x640.map((v) => Math.round(v * CFG.B.world.ref640) / 2) : [GW / 2];
+  g.reset(centers, state.meta.foundation / 2);
+  return g;
+}
+
+function unpackGrid(gs: GridSave, state: GameState): Grid {
+  const g = emptyGrid(state);
+  const mat = unb64(gs.mat);
+  if (mat.length !== g.N) throw new Error('grid size changed');
+  g.mat.set(mat); g.look.set(unb64(gs.look)); g.flags.set(unb64(gs.flags)); g.spec.set(unb64(gs.spec)); g.decay.set(unb64(gs.decay));
+  g.birth.set(f32(gs.birth));
+  const prog = u16(gs.prog);
+  for (let i = 0; i < g.N; i++) g.prog[i] = prog[i] * 2;
+  g.computeTops();
+  g.wakeAll();
+  g.version++;
+  return g;
+}
+
+// ---------- the old cell world (v1/v2), read only for the migration ----------
 interface WorldSave {
   len: string; h: string; serial: string; fold: string;
   mat: string; flags: string; spec: string; decay: string; k: string; birth: string; prog: string;
@@ -28,43 +73,14 @@ interface WorldSave {
   packSerial: number; totalCells: number;
 }
 
-/** Only used cells are stored, column by column. k and progress are quantized. */
-function packWorld(w: World): WorldSave {
-  let n = 0;
-  for (let x = 0; x < W; x++) n += w.len[x];
-  const mat = new Uint8Array(n), flags = new Uint8Array(n), spec = new Uint8Array(n), decay = new Uint8Array(n);
-  const k = new Uint16Array(n), birth = new Float32Array(n), prog = new Uint16Array(n);
-  let o = 0;
-  for (let x = 0; x < W; x++) {
-    for (let i = 0; i < w.len[x]; i++, o++) {
-      const j = x * CAP + i;
-      mat[o] = w.mat[j]; flags[o] = w.flags[j]; spec[o] = w.spec[j]; decay[o] = w.decay[j];
-      k[o] = Math.min(65535, Math.round(w.k[j] * 5000));
-      birth[o] = w.birth[j];
-      prog[o] = Math.min(65535, Math.round(w.prog[j] / 2));
-    }
-  }
-  const u8 = (a: ArrayBufferView) => new Uint8Array(a.buffer, a.byteOffset, a.byteLength);
-  return {
-    len: b64(u8(w.len)), h: b64(u8(w.h)), serial: b64(u8(w.serial)), fold: b64(u8(w.fold)),
-    mat: b64(mat), flags: b64(flags), spec: b64(spec), decay: b64(decay), k: b64(u8(k)), birth: b64(u8(birth)), prog: b64(u8(prog)),
-    packs: w.packs.map((p) => ({ rows: p.rows, amt: b64(u8(p.amt)), prog: b64(u8(p.prog)), k: p.k, a0: p.ageMin, a1: p.ageMax, s: p.serial, finds: p.finds })),
-    packSerial: w.packSerial, totalCells: w.totalCells,
-  };
-}
-
-function f32(s: string): Float32Array { const u = unb64(s); return new Float32Array(u.buffer, u.byteOffset, u.byteLength / 4); }
-function u16(s: string): Uint16Array { const u = unb64(s); return new Uint16Array(u.buffer, u.byteOffset, u.byteLength / 2); }
-function u32(s: string): Uint32Array { const u = unb64(s); return new Uint32Array(u.buffer, u.byteOffset, u.byteLength / 4); }
-
-function unpackWorld(ws: WorldSave): World {
-  const w = new World();
+function unpackWorld(ws: WorldSave): LegacyWorld {
+  const w = new LegacyWorld();
   w.reset();
   w.len.set(u16(ws.len)); w.h.set(f32(ws.h)); w.serial.set(u32(ws.serial)); w.fold.set(f32(ws.fold));
   const mat = unb64(ws.mat), flags = unb64(ws.flags), spec = unb64(ws.spec), decay = unb64(ws.decay), k = u16(ws.k);
   const birth = f32(ws.birth), prog = u16(ws.prog);
   let o = 0;
-  for (let x = 0; x < W; x++) {
+  for (let x = 0; x < OW; x++) {
     for (let i = 0; i < w.len[x]; i++, o++) {
       const j = x * CAP + i;
       w.mat[j] = mat[o]; w.flags[j] = flags[o]; w.spec[j] = spec[o]; w.decay[j] = decay[o];
@@ -83,8 +99,65 @@ function unpackWorld(ws: WorldSave): World {
   return w;
 }
 
-/** v2: the strata as layers (`strata`); older saves get their layers built from the cells and packs. */
-export interface SaveBlob { v: number; state: GameState; world: WorldSave; strata?: StrataSave }
+/**
+ * Old cells → particles and archive. The top of each pair of old columns (2x, 2x+1) becomes particle column x, as
+ * many rows as fit up to the line where the strata settle (one particle stands for 2×2 old cells: the cell of
+ * column 2x at every second row gives it its material, year, bone and progress). What is left below — the older cells
+ * and the deep packs — goes into the archive, as layers by years.
+ */
+export function migrateWorld(w: LegacyWorld, state: GameState): { grid: Grid; archive: Archive } {
+  const grid = emptyGrid(state);
+  const line = grid.sinkRow + 1 - Math.round(SAND.sinkLine * SAND.refRows) + SAND.startBelowLine;
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) >>> 24);
+  // 1) how many of the newest old rows each particle column takes; they leave both old columns
+  const take = new Int16Array(GW), oldLen = new Uint16Array(GW), oldLen2 = new Uint16Array(GW);
+  for (let x = 0; x < GW; x++) {
+    const X = 2 * x;
+    const bottom = grid.isArtifactCol(x) ? grid.sinkRow : grid.floor - 1;
+    oldLen[x] = w.len[X];
+    oldLen2[x] = w.len[X + 1];
+    take[x] = Math.max(0, Math.min(bottom - line + 1, Math.floor(w.len[X] / 2)));
+    for (const XX of [X, X + 1]) w.len[XX] = Math.max(0, w.len[XX] - 2 * take[x]);
+  }
+  // 2) the rest (older cells and the deep packs) is the archive
+  const archive = Archive.from(strataFromWorld(w, state.run.year, false));
+  for (const L of archive.layers) L.open = false;
+  archive.rowsInTop = 0;
+  // 3) each column: up to the line, the archive's newest layer at the bottom, the newest old cells on top
+  const top0 = archive.layers[0];
+  for (let x = 0; x < GW; x++) {
+    const X = 2 * x, len = oldLen[x], n = take[x];
+    const bottom = grid.isArtifactCol(x) ? grid.sinkRow : grid.floor - 1;
+    const rows = bottom - line + 1;
+    const fill = Math.max(0, rows - n);
+    const s = Math.min(NS - 1, Math.floor((X + 1) / SEGW));
+    const fm = top0 && top0.rock[s] !== NONE ? top0.rock[s] : CFG.matIndex.dust;
+    for (let k = 0; k < fill; k++) grid.put(x, bottom - k, fm, rnd(), top0 ? top0.y1 : state.run.year - 1);
+    const len2 = oldLen2[x];
+    for (let k = 0; k < n; k++) {
+      // the particle stands for 2×2 old cells; a bone among them wins (finds matter more than a grain of mass)
+      let j = X * CAP + (len - 1 - 2 * k);
+      for (const [XX, L2] of [[X, len], [X + 1, len2]] as [number, number][]) {
+        for (const dk of [0, 1]) {
+          const idx = L2 - 1 - 2 * k - dk;
+          if (idx < 0) continue;
+          const jj = XX * CAP + idx;
+          if (w.mat[jj] === CFG.matIndex.bone && w.spec[jj] > 0 && !(w.mat[j] === CFG.matIndex.bone && w.spec[j] > 0)) j = jj;
+        }
+      }
+      const y = bottom - fill - n + 1 + k;
+      if (grid.put(x, y, w.mat[j], rnd(), w.birth[j], w.flags[j], w.spec[j], w.decay[j]) >= 0) grid.prog[y * GW + x] = w.prog[j];
+    }
+  }
+  grid.computeTops();
+  grid.wakeAll();
+  return { grid, archive };
+}
+
+// ---------- blob ----------
+/** v3: `grid` + `archive`. v1/v2: `world` (old cells; v2 also `strata`, a copy rebuilt from them, ignored). */
+export interface SaveBlob { v: number; state: GameState; grid?: GridSave; archive?: StrataSave; world?: WorldSave; strata?: unknown }
 
 /** Fill in fields added after a save was written; bump versions here. */
 function migrate(blob: SaveBlob): SaveBlob {
@@ -99,8 +172,8 @@ function migrate(blob: SaveBlob): SaveBlob {
   };
   deepFill(blob.state, fresh);
   for (const sp of CFG.species) if (!blob.state.run.pop[sp.id]) blob.state.run.pop[sp.id] = [0, 0, 0];
-  // v1 → v2: no layers in the save; deserialize builds them from the cells and packs (strataFromWorld)
-  if ((blob.v ?? 1) < 2) delete blob.strata;
+  // v3: the press is a circle in grid cells now; an old one is dropped (it is not a long-term state anyway)
+  if ((blob.v ?? 1) < 3) { blob.state.run.press = null; delete blob.strata; }
   blob.v = VERSION;
   blob.state.version = VERSION;
   return blob;
@@ -109,18 +182,24 @@ function migrate(blob: SaveBlob): SaveBlob {
 export function serialize(g: Game): string {
   g.state.savedAt = Date.now();
   g.state.seed = g.rng.seed;
-  g.syncStrata();
-  const blob: SaveBlob = { v: VERSION, state: g.state, world: packWorld(g.world), strata: packStrata(g.strata) };
+  const blob: SaveBlob = { v: VERSION, state: g.state, grid: packGrid(g.grid), archive: packStrata(g.archive) };
   return JSON.stringify(blob);
 }
 
-export interface Loaded { state: GameState; world: World; strata: Strata }
+export interface Loaded { state: GameState; grid: Grid; archive: Archive }
 
 export function deserialize(json: string): Loaded {
   const blob = migrate(JSON.parse(json) as SaveBlob);
-  const world = unpackWorld(blob.world);
-  const strata = blob.strata ? unpackStrata(blob.strata) : strataFromWorld(world, blob.state.run.year);
-  return { state: blob.state, world, strata };
+  if (blob.grid) {
+    const grid = unpackGrid(blob.grid, blob.state);
+    const archive = blob.archive ? Archive.from(unpackStrata(blob.archive)) : new Archive();
+    return { state: blob.state, grid, archive };
+  }
+  if (blob.world) {
+    const { grid, archive } = migrateWorld(unpackWorld(blob.world), blob.state);
+    return { state: blob.state, grid, archive };
+  }
+  return { state: blob.state, grid: emptyGrid(blob.state), archive: new Archive() };
 }
 
 export function saveLocal(g: Game): boolean {

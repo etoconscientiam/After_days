@@ -1,8 +1,13 @@
-// Elements: surface catastrophes and underground interventions.
+// Elements: surface catastrophes and underground interventions — on the particles of the strata.
 import { CFG, ElementDef, M, mat, SX } from '../config';
 import type { Game } from './game';
-import { W, CAP } from '../world/World';
+import { GW, KIND, K_SOLID } from '../world/Grid';
 import { giveNote } from './prestige';
+import { dropPile, rainOne } from './sand';
+import { wx } from './sources';
+
+const W = CFG.B.world.width;
+const S = CFG.B.sand;
 
 export function elementUnlocked(g: Game, el: ElementDef): boolean {
   if (el.world === 'hot' && !g.mods.hot) return false;
@@ -11,11 +16,40 @@ export function elementUnlocked(g: Game, el: ElementDef): boolean {
 }
 
 const zoneShares = (water: number, shore: number, land: number) => [water, shore, land];
+/** Particle columns of a world-pixel range. */
+const cols = (X0: number, X1: number): [number, number] => [Math.max(0, Math.floor(X0 / 2)), Math.min(GW - 1, Math.floor(X1 / 2))];
+
+/** Sink the bottom n rows of particle column x into the archive: the column above moves down by n (a fault). */
+function sinkColumn(g: Game, x: number, n: number): void {
+  const grid = g.grid;
+  for (let k = 0; k < n; k++) {
+    g.archive.addRow(grid, grid.sinkRow, x, x);
+    for (let y = grid.sinkRow; y > 0; y--) {
+      const a = y * GW + x, b = (y - 1) * GW + x;
+      grid.mat[a] = grid.mat[b]; grid.look[a] = grid.look[b]; grid.birth[a] = grid.birth[b]; grid.prog[a] = grid.prog[b];
+      grid.flags[a] = grid.flags[b]; grid.spec[a] = grid.spec[b]; grid.decay[a] = grid.decay[b];
+    }
+    grid.mat[x] = 0; grid.prog[x] = 0; grid.flags[x] = 0; grid.spec[x] = 0; grid.decay[x] = 0;
+  }
+}
+
+/** Remove the top n particles of column x (erosion of an uplifted block, a crater). Returns how many. */
+function eroded(g: Game, x: number, n: number): number {
+  const grid = g.grid;
+  let k = 0;
+  for (let y = grid.surf[x]; y < grid.sinkRow && k < n; y++) {
+    const i = y * GW + x;
+    if (!grid.mat[i] || KIND[grid.mat[i]] === K_SOLID) continue;
+    grid.clear(i); k++;
+  }
+  return k;
+}
 
 export function castElement(g: Game, el: ElementDef, target?: { x: number; v: number; b0?: number; b1?: number }): void {
   const r = g.run;
   const p = el.params;
-  const w = g.world;
+  const grid = g.grid;
+  const fast = g.headless;
   switch (el.id) {
     case 'rain': {
       r.active.push({ id: 'rain', until: r.clock + el.duration });
@@ -39,6 +73,9 @@ export function castElement(g: Game, el: ElementDef, target?: { x: number; v: nu
       r.pools.shore.fast = el.duration;
       r.pools.water.fast = el.duration;
       g.kill(zoneShares(0, p.kill.shore, 0), 'flood');
+      // a thin bed of silt over the sea and the shore
+      const [x0, x1] = cols(0, r.shoreEnd);
+      g.queueBed(M.floodSilt, x0, x1);
       break;
     }
     case 'drought': {
@@ -58,20 +95,21 @@ export function castElement(g: Game, el: ElementDef, target?: { x: number; v: nu
       t.until = r.clock + el.duration;
       r.targets.push(t);
       if (el.id === 'magma') {
-        // inject a pocket of magma into the chosen layers
-        for (let x = t.x0; x <= t.x1; x++) {
-          const dx = (x - target.x) / p.radiusX;
-          for (let i = 0; i < w.len[x]; i++) {
-            const j = x * CAP + i;
-            const b = w.birth[j];
-            if (b < t.b0 || b > t.b1) continue;
-            const mid = (t.b0 + t.b1) / 2, half = Math.max(1, (t.b1 - t.b0) / 2);
-            const dyv = (b - mid) / half;
-            if (dx * dx + dyv * dyv <= 1) { w.mat[j] = M.magma; w.prog[j] = 0; }
+        // a pocket of magma in the chosen layers: an ellipse in columns and years
+        const [x0, x1] = cols(t.x0, t.x1);
+        const cx = target.x / 2, rx = Math.max(1, p.radiusX / 2);
+        const mid = (t.b0 + t.b1) / 2, half = Math.max(1, (t.b1 - t.b0) / 2);
+        for (let x = x0; x <= x1; x++) {
+          const dx = (x - cx) / rx;
+          for (let y = grid.surf[x]; y <= grid.sinkRow; y++) {
+            const i = y * GW + x;
+            if (!grid.mat[i] || KIND[grid.mat[i]] === K_SOLID) continue;
+            const dyv = (grid.birth[i] - mid) / half;
+            if (dx * dx + dyv * dyv <= 1) { grid.mat[i] = M.magma; grid.prog[i] = 0; }
           }
         }
       }
-      w.version++;
+      grid.version++;
       break;
     }
     case 'volcano': {
@@ -80,26 +118,21 @@ export function castElement(g: Game, el: ElementDef, target?: { x: number; v: nu
       else vent = Math.floor(r.waterEnd + g.rng.next() * Math.max(20, W - r.waterEnd - 10));
       vent = Math.max(2, Math.min(W - 3, vent));
       r.active.push({ id: 'volcanoFx', until: r.clock + 30, x: vent });
-      // burial ×5: ash takes the whole carcass pool
-      for (let x = 0; x < W; x++) {
-        const d = (x - vent) / p.radius;
-        const rows = Math.round(p.ashRows * Math.exp(-d * d)) + (g.rng.next() < 0.3 ? 1 : 0);
-        const zi = g.zoneMap[x];
-        for (let k = 0; k < rows; k++) g.depositCell(x, M.ash, zi, k === 0 ? p.burial : 1);
-        if (Math.abs(x - vent) < p.radius) {
-          for (let i = 0; i < w.len[x]; i++) w.k[x * CAP + i] = Math.max(1, w.k[x * CAP + i] + p.kDelta);
-        }
-      }
+      // an ash cone at the vent (the volume of the old ash fall) and a pale ash lens around it; burial ×5
+      const cv = Math.floor(vent / 2);
+      const n = Math.round((p.ashRows * p.radius * Math.sqrt(Math.PI)) / S.cellsPerParticle);
+      dropPile(grid, g.rng, g.water, { cx: cv, n, mix: [{ m: M.ash, w: 1 }], birth: r.year, y0: 2 }, fast);
+      r.layers += n;
+      for (const pool of Object.values(r.pools)) pool.fast = Math.max(pool.fast, 30 * p.burial);
+      const rl = Math.round(p.radius / 2);
+      g.queueBed(M.tephra, cv - rl, cv + rl);
       const vz = g.zoneMap[vent];
       const shares = [0.1, 0.1, 0.1];
       shares[vz] = p.kill;
       g.kill(shares, 'volcano');
       r.targets.push({ kind: 'heat', x0: Math.max(0, vent - Math.round(24 * SX)), x1: Math.min(W - 1, vent + Math.round(24 * SX)), b0: -1e9, b1: 1e9, until: r.clock + p.heatYears, heat: p.heat });
-      if (g.mods.hot) {
-        // lava at the surface near the vent
-        for (let x = vent - Math.round(10 * SX); x <= vent + Math.round(10 * SX); x++) if (x >= 0 && x < W) w.deposit(x, M.magma, r.year);
-      }
-      w.version++;
+      if (g.mods.hot) dropPile(grid, g.rng, g.water, { cx: cv, n: 24, mix: [{ m: M.magma, w: 1 }], birth: r.year, y0: 2 }, fast);
+      grid.version++;
       break;
     }
     case 'seaAdvance':
@@ -107,44 +140,34 @@ export function castElement(g: Game, el: ElementDef, target?: { x: number; v: nu
       const shift = Math.round(p.shift * CFG.B.world.ref640);
       const minW = Math.round(CFG.B.zones.minWidth640 * CFG.B.world.ref640);
       const shoreW = r.shoreEnd - r.waterEnd;
-      if (el.id === 'seaAdvance') {
-        const ne = Math.min(W - minW - shoreW, r.waterEnd + shift);
-        // rows under the new water get compacted
-        for (let x = r.waterEnd; x < ne; x++) for (let i = 0; i < w.len[x]; i++) w.k[x * CAP + i] += p.kDelta;
-        r.waterEnd = ne;
-      } else {
-        r.waterEnd = Math.max(minW, r.waterEnd - shift);
-      }
+      if (el.id === 'seaAdvance') r.waterEnd = Math.min(W - minW - shoreW, r.waterEnd + shift);
+      else r.waterEnd = Math.max(minW, r.waterEnd - shift);
       r.shoreEnd = r.waterEnd + shoreW;
       g.recomputeZones();
       g.statsDirty = true;
-      w.version++;
+      grid.version++;
       break;
     }
     case 'earthquake': {
-      const x0 = Math.floor((40 + g.rng.next() * 280) * SX);
+      const X0 = Math.floor((40 + g.rng.next() * 280) * SX);
       const rightUp = g.rng.next() < 0.5;
       const lift = g.rng.int(p.liftMin, p.liftMax);
       const A = g.rng.range(p.foldMin, p.foldMax);
       const lam = g.rng.range(120, 300) * CFG.B.world.ref640;
-      for (let x = 0; x < W; x++) {
-        const side = rightUp ? x > x0 : x < x0;
-        const ramp = Math.min(1, Math.abs(x - x0) / 6);
-        const fold = A * Math.sin((2 * Math.PI * (x - x0)) / lam) * Math.exp(-Math.abs(x - x0) / (200 * CFG.B.world.ref640));
-        w.fold[x] += fold + (side ? lift * 0.25 * ramp : 0);
-        if (side) {
-          // uplift + erosion: the raised block loses its top, deeper rocks come closer to the surface
-          const n = Math.round(lift * ramp * 0.5);
-          w.removeTop(x, n);
-        }
-        if (Math.abs(x - x0) < p.faultWidth * CFG.B.world.ref640) {
-          for (let i = 0; i < w.len[x]; i++) w.k[x * CAP + i] = Math.max(1, w.k[x * CAP + i] + p.kDelta);
-        }
+      // a real fault: the block on the down side sinks by the lift (its bottom goes into the archive), the raised
+      // block loses its top to erosion; the layers stay offset across the fault for good
+      const cx0 = Math.floor(X0 / 2), n = Math.max(1, Math.round(lift / 2));
+      for (let x = 0; x < GW; x++) {
+        const up = rightUp ? x > cx0 : x < cx0;
+        const ramp = Math.min(1, Math.abs(x - cx0) / 3);
+        if (up) eroded(g, x, Math.round(n * ramp * 0.5));
+        else if (!grid.isArtifactCol(x)) sinkColumn(g, x, Math.round(n * ramp));
       }
-      // the section remembers the fault: older layers shift and bend there (brief 6)
-      g.run.faults.push({ x: x0 / W, up: rightUp ? 1 : -1, lift, amp: A, lam: lam / W, b: g.run.year });
+      grid.computeTops();
+      grid.wakeAll();
+      g.run.faults.push({ x: X0 / W, up: rightUp ? 1 : -1, lift, amp: A, lam: lam / W, b: g.run.year });
       if (g.run.faults.length > 4) g.run.faults.shift();
-      for (let i = 0; i < Math.min(12, w.packs.length); i++) if (g.rng.next() < p.noteChance) giveNote(g);
+      for (let i = 0; i < Math.min(12, g.archive.layers.length); i++) if (g.rng.next() < p.noteChance) giveNote(g);
       // small things from the technogenic horizon come up with the fault
       if (g.rng.next() < CFG.story.relicChance) {
         const rel = g.rng.pick(CFG.relics).id;
@@ -152,40 +175,46 @@ export function castElement(g: Game, el: ElementDef, target?: { x: number; v: nu
         g.statsDirty = true;
         g.bus.emit('relicFound', { id: rel });
       }
-      r.active.push({ id: 'quakeFx', until: r.clock + 5, x: x0 });
+      r.active.push({ id: 'quakeFx', until: r.clock + 5, x: X0 });
       g.kill([0.03, 0.08, 0.08], 'earthquake');
-      w.version++;
+      grid.version++;
       break;
     }
     case 'glacier': {
       r.active.push({ id: 'glacier', until: r.clock + el.duration });
       r.glacierLoad = p.load;
-      for (let x = 0; x < W; x++) {
-        const zi = g.zoneMap[x];
+      // moraine over the land (and half as much on the shore)
+      for (let x = 0; x < GW; x++) {
+        const zi = g.zoneMap[wx(x)];
         if (zi === 0) continue;
-        const rows = Math.round(p.moraineRows * (zi === 2 ? 1 : 0.5));
-        for (let k = 0; k < rows; k++) g.depositCell(x, M.moraine, zi, 1);
+        const n = Math.round(((p.moraineRows * (zi === 2 ? 1 : 0.5)) * 2) / S.cellsPerParticle);
+        for (let k = 0; k < n; k++) rainOne(grid, g.rng, g.water, x, M.moraine, r.year, fast);
+        r.layers += n;
       }
       g.kill(zoneShares(0, p.kill.shore, p.kill.land), 'glacier');
-      w.version++;
+      grid.version++;
       break;
     }
     case 'meteor': {
-      const cx = Math.floor((30 + g.rng.next() * 300) * SX);
-      const R = p.craterRadius;
-      for (let x = 0; x < W; x++) {
-        const d = Math.abs(x - cx);
-        if (d < R) w.removeTop(x, Math.round(12 * (1 - (d / R) ** 2)));
-        const zi = g.zoneMap[x];
-        const rows = d < R ? 3 : 1;
-        for (let k = 0; k < rows; k++) g.depositCell(x, M.meteor, zi, k === 0 ? 5 : 1);
-        for (let i = 0; i < w.len[x]; i++) w.k[x * CAP + i] = Math.min(CFG.B.physics.kMax + g.stats.kMax, w.k[x * CAP + i] + p.kDelta);
+      const cx = Math.floor((30 + g.rng.next() * 300) * SX / 2);
+      const R = Math.max(2, Math.round(p.craterRadius / 2));
+      // the crater: a bowl taken out of the strata, its ejecta thrown back around the rim
+      let thrown = 0;
+      for (let x = Math.max(0, cx - R); x <= Math.min(GW - 1, cx + R); x++) {
+        const d = Math.abs(x - cx) / R;
+        thrown += eroded(g, x, Math.round(6 * (1 - d * d)));
       }
-      for (const pk of w.packs) pk.k = Math.min(CFG.B.physics.kMax + g.stats.kMax, pk.k + p.kDelta);
-      g.addRock('rare', p.rare, cx);
+      grid.computeTops();
+      const mixEj = [{ m: mat('dust'), w: 1 }];
+      for (const side of [-1, 1]) dropPile(grid, g.rng, g.water, { cx: Math.max(2, Math.min(GW - 3, cx + side * (R + 2))), n: Math.round(thrown / 2), mix: mixEj, birth: r.year, y0: 2 }, fast);
+      dropPile(grid, g.rng, g.water, { cx, n: 12, mix: [{ m: M.meteor, w: 1 }], birth: r.year, y0: 2 }, fast);
+      // an iridium bed over the whole world
+      g.queueBed(M.meteor);
+      for (const L of g.archive.layers) L.k = Math.min(CFG.B.physics.kMax + g.stats.kMax, L.k + p.kDelta);
+      g.addRock('rare', p.rare, wx(cx));
       g.kill([p.kill, p.kill, p.kill], 'meteor');
-      r.active.push({ id: 'meteorFx', until: r.clock + 60, x: cx });
-      w.version++;
+      r.active.push({ id: 'meteorFx', until: r.clock + 60, x: wx(cx) });
+      grid.version++;
       break;
     }
   }

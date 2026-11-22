@@ -2,7 +2,9 @@
 // The same conditions as the geology tick (geology.ts): effective pressure P·k, temperature, water, air, depth.
 import { CFG, RULES_BY_MAT, NMAT, TransformRule } from '../config';
 import type { Game } from './game';
-import { CAP, W } from '../world/World';
+import { GW, KIND, K_NONE, K_SOLID, DENS } from '../world/Grid';
+import type { Layer } from '../world/Strata';
+import { geoEnv } from './geology';
 
 export type Reason = 'deeper' | 'heat' | 'water' | 'tooHot' | 'tooDeep' | 'noAir';
 export interface Forecast {
@@ -37,50 +39,66 @@ export function speedNow(g: Game): number {
   return (1 + g.stats.transformSpeed) * (1 + g.diversityBonus());
 }
 
-/** Is cell (x, i) in a groundwater zone? */
-function inWater(g: Game, x: number, birth: number): boolean {
-  for (const t of g.run.targets) if (t.kind === 'water' && x >= t.x0 && x <= t.x1 && birth >= t.b0 && birth <= t.b1) return true;
-  return false;
+/** Pressure, temperature, water, air and depth of the particle at grid cell (x, y) — as the geology tick sees it. */
+export function conditionsAt(g: Game, x: number, y: number): { Peff: number; T: number; water: boolean; depth: number; oxygen: boolean } {
+  const grid = g.grid;
+  const env = geoEnv(g, 0);
+  const S = CFG.B.sand;
+  let P = env.P0, depth = -1, Pc = P;
+  for (let yy = grid.surf[x]; yy <= y && yy < grid.floor; yy++) {
+    const m = grid.mat[yy * GW + x], k = KIND[m];
+    if (k === K_NONE) continue;
+    if (k === K_SOLID) break;
+    depth++;
+    const w = DENS[m] * S.pressurePerParticle;
+    Pc = P + w * 0.5;
+    P += w;
+  }
+  let Peff = Pc * env.pressMul;
+  const f = env.finger;
+  if (f && (x - f.x) ** 2 + (y - f.y) ** 2 <= f.r * f.r) Peff *= 1 + 2 * f.power;
+  const b = grid.birth[y * GW + x];
+  const T = env.T0 + S.gradientPerRow * env.gradMul * Math.max(0, depth) + env.heatAt(x, b);
+  return { Peff, T, water: env.waterAt(x, b) || env.marine(x), depth: Math.max(0, depth), oxygen: depth < S.oxygenRows };
 }
 
-/** Forecast for one pixel cell. */
-export function forecastCell(g: Game, x: number, i: number): Forecast | null {
-  const w = g.world;
-  const j = x * CAP + i;
-  const m = w.mat[j];
+/** Forecast for one particle at grid cell (x, y). */
+export function forecastParticle(g: Game, x: number, y: number): Forecast | null {
+  const grid = g.grid;
+  const i = y * GW + x;
+  const m = grid.mat[i];
   const rules = RULES_BY_MAT[m].filter((r) => usable(g, r));
   if (!rules.length) return null;
-  const depth = w.len[x] - 1 - i;
-  const Peff = w.P[j] * w.k[j];
-  const T = w.T[j];
-  const water = inWater(g, x, w.birth[j]) || g.zoneMap[x] === 0;
-  const oxygen = depth < CFG.transforms.oxygenRows;
+  const c = conditionsAt(g, x, y);
   const sp = speedNow(g);
+  const prog = grid.prog[i];
   let first: { rule: TransformRule; reason: Reason } | null = null;
   for (const rule of rules) {
-    const why = failure(rule, Peff, T, water, depth, oxygen);
+    const why = failure(rule, c.Peff, c.T, c.water, c.depth, c.oxygen);
     if (!why) {
-      const left = Math.max(0, rule.years - w.prog[j]) / Math.max(1e-6, sp);
-      return { rock: rule.rock, toMat: rule.toIdx, years: left, ok: true, progress: Math.min(1, w.prog[j] / rule.years) };
+      const left = Math.max(0, rule.years - prog) / Math.max(1e-6, sp);
+      return { rock: rule.rock, toMat: rule.toIdx, years: left, ok: true, progress: Math.min(1, prog / rule.years) };
     }
     if (!first) first = { rule, reason: why };
   }
-  return first ? { rock: first.rule.rock, toMat: first.rule.toIdx, years: Infinity, ok: false, reason: first.reason, progress: Math.min(1, w.prog[j] / first.rule.years) } : null;
+  return first ? { rock: first.rule.rock, toMat: first.rule.toIdx, years: Infinity, ok: false, reason: first.reason, progress: Math.min(1, prog / first.rule.years) } : null;
 }
 
-/** Forecast for a deep pack (full width): its main material that still has a rule. */
-export function forecastPack(g: Game, p: number): Forecast | null {
-  const pk = g.world.packs[p];
+/** Forecast for a layer of the archive: its main material that still has a rule. */
+export function forecastLayer(g: Game, L: Layer): Forecast | null {
+  const arc = g.archive;
   let best = -1, amt = 0;
-  for (let m = 0; m < NMAT; m++) if (pk.amt[m] > amt && RULES_BY_MAT[m].some((r) => usable(g, r))) { amt = pk.amt[m]; best = m; }
+  for (let m = 0; m < NMAT; m++) { const a = arc.matCells(L, m); if (a > amt && RULES_BY_MAT[m].some((r) => usable(g, r))) { amt = a; best = m; } }
   if (best < 0) return null;
-  const Peff = pk.P * pk.k;
-  const water = g.zoneWidth[0] / W > 0.2;
+  const Peff = L.P * L.k;
+  const water = g.zoneWidth[0] / CFG.B.world.width > 0.2;
   const sp = speedNow(g);
+  let prog = 0;
+  for (let s = 0; s < L.amt.length / NMAT; s++) prog = Math.max(prog, L.prog[s * NMAT + best]);
   let first: { rule: TransformRule; reason: Reason } | null = null;
   for (const rule of RULES_BY_MAT[best].filter((r) => usable(g, r))) {
-    const why = failure(rule, Peff, pk.T, water, 999, false);
-    if (!why) return { rock: rule.rock, toMat: rule.toIdx, years: Math.max(0, rule.years - pk.prog[best]) / sp, ok: true, progress: Math.min(1, pk.prog[best] / rule.years) };
+    const why = failure(rule, Peff, L.T, water, 999, false);
+    if (!why) return { rock: rule.rock, toMat: rule.toIdx, years: Math.max(0, rule.years - prog) / sp, ok: true, progress: Math.min(1, prog / rule.years) };
     if (!first) first = { rule, reason: why };
   }
   return first ? { rock: first.rule.rock, toMat: first.rule.toIdx, years: Infinity, ok: false, reason: first.reason, progress: 0 } : null;

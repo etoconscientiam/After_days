@@ -1,264 +1,141 @@
-// Geology tick (every 0.5 s real time): pressure, temperature, water, oxygen rot, compaction k,
-// rock transformations, fossilisation, plus cached aggregates (compact mass, fertility, excavation need).
-import { CFG, RULES_BY_MAT, NMAT, M, TransformRule } from '../config';
+// The game's geology tick (every 0.5 s real time): the particles (core/pressure.ts) and the archive of the depth
+// (core/archiveGeo.ts) under the game's world modifiers, upgrades, elements and the finger. Here also the fossil roll
+// of a bone, the cached aggregates (compacted mass for the prestige, fertility, excavation need) and the «glowing
+// layer» reward that finishes transformations around a spot.
+import { CFG, RULES_BY_MAT, TransformRule } from '../config';
 import type { Game } from './game';
-import { W, CAP, F_FOSSIL, F_ROLLED, F_RARE, F_FRAGMENT, F_INSECT, F_FAST, Pack } from '../world/World';
-import type { TargetZone } from './state';
+import { GW, P_FOSSIL, P_RARE, P_FRAGMENT, P_FAST } from '../world/Grid';
+import { geoTick, GeoEnv, GeoReport, newReport } from './pressure';
+import { archiveTick } from './archiveGeo';
+import { wx } from './sources';
 
-const DENS = CFG.materials.map((m) => m.density);
-const ORGANIC = CFG.materials.map((m) => !!m.organic);
-const FERTILE = CFG.materials.map((m) => !!(m as any).fertile);
-const SQRT = (k: number) => Math.sqrt(k);
+const S = CFG.B.sand;
+const CPP = S.cellsPerParticle;
 
-interface Cond { Peff: number; T: number; water: boolean; depth: number; oxygen: boolean }
-
-function ruleOk(g: Game, rule: TransformRule, c: Cond): boolean {
-  if (rule.world) {
-    if (rule.world === 'hot' && !g.mods.hot) return false;
-  }
+/** May this rule run in this world at all (world modifiers, ranks of the living world)? */
+export function ruleAllowed(g: Game, rule: TransformRule): boolean {
+  if (rule.world === 'hot' && !g.mods.hot) return false;
   if (rule.rankReq && g.mods.living) {
     const src = CFG.materials[rule.fromIdx].rock ?? '';
     if ((g.run.rockRanks[src] ?? 0) < rule.rankReq) return false;
   }
-  if (rule.pMin !== undefined && c.Peff < rule.pMin) return false;
-  if (rule.tMin !== undefined && c.T < rule.tMin) return false;
-  if (rule.tMax !== undefined && c.T > rule.tMax) return false;
-  if (rule.water && !c.water) return false;
-  if (rule.noOxygen && c.oxygen) return false;
-  if (rule.maxDepth !== undefined && c.depth > rule.maxDepth) return false;
   return true;
 }
 
-export function geoTick(g: Game, dy: number): void {
-  const r = g.run;
-  const w = g.world;
+/** Heat of the heat/magma zones at world column X for birth year b. */
+export function heatAt(g: Game, X: number, b: number): number {
+  let h = 0;
+  for (const t of g.run.targets) if (t.kind !== 'water' && X >= t.x0 && X <= t.x1 && b >= t.b0 && b <= t.b1) h += t.heat;
+  return h;
+}
+
+export function groundwaterAt(g: Game, X: number, b: number): boolean {
+  for (const t of g.run.targets) if (t.kind === 'water' && X >= t.x0 && X <= t.x1 && b >= t.b0 && b <= t.b1) return true;
+  return false;
+}
+
+/** Pressure on top of the strata: the foundation of past epochs and a glacier. */
+export function surfacePressure(g: Game): number {
+  return g.meta.foundation * CFG.B.physics.foundationP * (1 + g.stats.foundation) + g.run.glacierLoad;
+}
+
+/** Everything the particle geology needs from the game, for dy game years. */
+export function geoEnv(g: Game, dy: number): GeoEnv {
   const st = g.stats;
-  const ph = CFG.B.physics;
-  const tf = CFG.transforms;
-  const tap = CFG.B.taphonomy;
-  const press = (1 + st.press) * ph.kRate;
-  const kMax = ph.kMax + st.kMax;
-  const grad = ph.gradient * g.mods.geoGradientMul * (1 + st.geoGradient);
-  const baseT = ph.surfaceT + st.geoHeat;
-  const wMul = 1 + st.layerWeight;
-  const fBase = g.meta.foundation * ph.foundationP * (1 + st.foundation);
-  const P0 = fBase + r.glacierLoad;
-  const speed = (1 + st.transformSpeed) * (1 + g.diversityBonus());
-  const rotP = 1 - Math.pow(1 - tf.oxygenRotPer100y, dy / 100);
-  const oxyRows = tf.oxygenRows;
-  const glacierK = r.glacierLoad > 0 ? (0.3 / 100) * dy : 0;
-  const fossilMul = 1 + st.fossilChance;
-  let compact = 0;
-  let maxK = 1;
-  let fertileCount = 0;
-  let glints = 0;
-  let sumBottomP = 0, sumLen = 0;
-  const targets = r.targets;
-  const colTargets: TargetZone[] = [];
-  const marineCol = g.zoneMap;
-  // press: the finger speeds up compaction (x6) and transformations (x4) in its circle, scaled by its power
+  const r = g.run;
   const pr = r.press && r.press.power > 0 ? r.press : null;
-  const kMulP = pr ? 1 + 5 * pr.power : 1, sMulP = pr ? 1 + 3 * pr.power : 1;
-  let pressK = 0;
+  let glints = 0;
+  return {
+    rng: g.rng, dy,
+    speed: (1 + st.transformSpeed) * (1 + g.diversityBonus()),
+    P0: surfacePressure(g),
+    pressMul: (1 + st.press) * (1 + st.layerWeight),
+    T0: CFG.B.physics.surfaceT + st.geoHeat,
+    gradMul: g.mods.geoGradientMul * (1 + st.geoGradient),
+    ruleAllowed: (rule) => ruleAllowed(g, rule),
+    heatAt: (x, b) => heatAt(g, wx(x), b),
+    waterAt: (x, b) => groundwaterAt(g, wx(x), b),
+    marine: (x) => g.zoneMap[wx(x)] === 0,
+    finger: pr ? { x: pr.x, y: pr.y, r: pr.r, power: pr.power } : null,
+    onTransform: (i, x, y, _from, to, rule, insect) => {
+      if (insect) r.insectAmber++;
+      const yv = insect ? rule.insectYield! : rule.yield;
+      if (yv > 0) {
+        g.addRock(rule.rock, yv * CFG.B.rockYield * CPP * S.rockYieldMul, wx(x));
+        if (glints++ < 60) g.glints.push({ x: wx(x), y: y * 2 + 1, t: 0.6, color: CFG.materials[to].palette[4] });
+      }
+      if (pr) {
+        const dx = x - pr.x, dyy = y - pr.y;
+        if (dx * dx + dyy * dyy <= pr.r * pr.r && g.pressFlashes.length < 80) g.pressFlashes.push({ x: wx(x), y: y * 2 + 1, t: 0.9, color: CFG.materials[to].palette[4] });
+      }
+      void i;
+    },
+    onFossilRoll: (i, x, y, mineral) => rollFossil(g, i, x, y, mineral),
+  };
+}
 
-  for (let x = 0; x < W; x++) {
-    colTargets.length = 0;
-    for (const t of targets) if (x >= t.x0 && x <= t.x1) colTargets.push(t);
-    const base = x * CAP;
-    const L = w.len[x];
+/** One geology tick of the whole strata: particles, then the archive below them. */
+export function geoTickGame(g: Game, dy: number): void {
+  const r = g.run;
+  const env = geoEnv(g, dy);
+  const rep: GeoReport = geoTick(g.grid, env, g.geoReport ?? newReport());
+  g.geoReport = rep;
+  if (dy > 0) { g.hotNow.set(rep.hot); g.hotY.set(rep.hotY); }
+  // «moved by the press» (orders): the particles under the finger this tick
+  r.pressMoved += rep.pressed * 0.003;
+  // the archive feels the whole column above it
+  const arc = archiveTick(g, dy, env);
+  // compacted mass (the prestige): the load each particle bears, and the archive's layers with their compaction
+  let mass = 0;
+  const P0 = env.P0;
+  const grid = g.grid;
+  for (let x = 0; x < GW; x++) {
     let P = P0;
-    const marine = marineCol[x] === 0;
-    const pressCol = pr !== null && x >= pr.x0 && x <= pr.x1;
-    let hot = 0, hotB = 0;
-    for (let i = L - 1, depth = 0; i >= 0; i--, depth++) {
-      const j = base + i;
-      const m = w.mat[j];
-      let k = w.k[j];
-      const inPress = pressCol && w.birth[j] >= pr!.b0 && w.birth[j] <= pr!.b1;
-      const dens = DENS[m] * SQRT(k) * wMul * 0.0098;
-      const Pc = P + dens * 0.5;
-      let T = baseT + grad * depth;
-      let gw = false;
-      if (colTargets.length) {
-        const b = w.birth[j];
-        for (const t of colTargets) {
-          if (b < t.b0 || b > t.b1) continue;
-          if (t.kind === 'water') gw = true;
-          else T += t.heat;
-        }
-      }
-      w.P[j] = Pc;
-      w.T[j] = T;
-      // compaction
-      if (dy > 0) {
-        const k0 = k;
-        k += press * (Pc / 10) * dy * (inPress ? kMulP : 1) + glacierK;
-        if (k > kMax) k = kMax;
-        w.k[j] = k;
-        if (inPress) pressK += 1 / k0 - 1 / k;   // thickness squeezed out by the finger
-      }
-      const Peff = Pc * k;
-      if (k > maxK) maxK = k;
-      compact += (Pc - P0) * k;
-      const oxygen = depth < oxyRows;
-      if (oxygen) {
-        if (ORGANIC[m] && g.rng.next() < rotP) { w.mat[j] = M.soil; w.prog[j] = 0; P += dens; continue; }
-        if (FERTILE[m] && marineCol[x] !== 0) fertileCount++;
-      }
-      // fossilisation: once per bone pixel when pressure is enough
-      if (m === M.bone && !(w.flags[j] & F_ROLLED) && Pc >= tap.fossilP) {
-        rollFossil(g, x, j, gw ? tap.groundwaterMineral : 1, fossilMul, depth);
-      }
-      const rules = RULES_BY_MAT[m];
-      if (rules.length && dy > 0) {
-        const c: Cond = { Peff, T, water: gw || marine, depth, oxygen };
-        for (const rule of rules) {
-          if (!ruleOk(g, rule, c)) continue;
-          w.prog[j] += dy * speed * (inPress ? sMulP : 1);
-          // transformations that need heat make the section glow there while they run
-          const hv = rule.tMin !== undefined ? 1 : 0;
-          if (hv > hot) { hot = hv; hotB = w.birth[j]; }
-          if (w.prog[j] >= rule.years) {
-            w.prog[j] = 0;
-            if (rule.chance !== undefined && g.rng.next() >= rule.chance) break;
-            const insect = rule.insectToIdx >= 0 && (w.flags[j] & F_INSECT) !== 0;
-            if (insect) r.insectAmber++;
-            w.mat[j] = insect ? rule.insectToIdx : rule.toIdx;
-            const y = insect ? rule.insectYield! : rule.yield;
-            if (y > 0) {
-              g.addRock(rule.rock, y * CFG.B.rockYield, x);
-              if (glints < 60) {
-                glints++;
-                g.glints.push({ x, depth, t: 0.6, color: CFG.materials[rule.toIdx].palette[4], birth: w.birth[j] });
-              }
-            }
-            if (inPress && g.pressFlashes.length < 80) g.pressFlashes.push({ x, birth: w.birth[j], t: 0.9, color: CFG.materials[w.mat[j]].palette[4] });
-            w.version++;
-          }
-          break;
-        }
-      }
-      P += dens;
+    for (let y = grid.surf[x]; y < grid.floor; y++) {
+      const m = grid.mat[y * GW + x];
+      if (!m) continue;
+      P += CFG.materials[m].density * S.pressurePerParticle;
+      mass += (P - P0) * CPP;
     }
-    if (dy > 0) { g.hotNow[x] = hot; if (hot > 0) g.hotB[x] = hotB; }
-    sumBottomP += P;
-    sumLen += L;
   }
-
-  // ---- packs (deep, full-width) ----
-  let P = sumBottomP / W;
-  let depth = sumLen / W;
-  const seaFrac = g.zoneWidth[0] / W;
-  if (dy > 0) g.hotPacks.length = 0;
-  for (const pk of w.packs) {
-    let amtTot = 0, weight = 0;
-    for (let m = 0; m < NMAT; m++) if (pk.amt[m] > 0) { amtTot += pk.amt[m]; weight += pk.amt[m] * DENS[m]; }
-    weight = (weight / W) * SQRT(pk.k) * wMul * 0.0098;
-    const Pc = P + weight * 0.5;
-    const T = baseT + grad * (depth + pk.rows * 0.5);
-    pk.P = Pc; pk.T = T;
-    // a press reaches a pack in the share of the width it covers
-    const pAge = pr && pk.ageMax >= pr.b0 && pk.ageMin <= pr.b1 ? (pr.x1 - pr.x0 + 1) / W : 0;
-    if (dy > 0) pk.k = Math.min(kMax, pk.k + press * (Pc / 10) * dy * (1 + (kMulP - 1) * pAge) + glacierK);
-    const Peff = Pc * pk.k;
-    compact += (Pc - P0) * pk.k * amtTot;
-    // zone overlaps (by layer age)
-    let heat = 0, heatFrac = 0, gwFrac = 0;
-    for (const t of targets) {
-      if (pk.ageMax < t.b0 || pk.ageMin > t.b1) continue;
-      const f = (t.x1 - t.x0 + 1) / W;
-      if (t.kind === 'water') gwFrac = Math.min(1, gwFrac + f);
-      else { heat = Math.max(heat, t.heat); heatFrac = Math.min(1, heatFrac + f); }
-    }
-    if (dy > 0) {
-      const hv = packTransforms(g, pk, Peff, T, heat, heatFrac, Math.max(seaFrac, gwFrac), depth, dy * speed * (1 + (sMulP - 1) * pAge));
-      if (hv > 0) {
-        // where it glows: under a heat zone, or around the thing (the deep heat gathers there)
-        const ht = heat > 0 ? targets.find((t) => t.kind !== 'water' && pk.ageMax >= t.b0 && pk.ageMin <= t.b1) : undefined;
-        g.hotPacks.push({ b0: pk.ageMin, b1: pk.ageMax, v: hv, x0: ht ? ht.x0 : W * 0.3, x1: ht ? ht.x1 : W * 0.7 });
-      }
-    }
-    P += weight;
-    depth += pk.rows;
-  }
-
-  r.compactMass = compact;
-  r.pressMoved += (pressK / W) * 40;
-  if (maxK >= CFG.story.echoCompactionK) g.triggerEcho('compactionVisible');
-  r.fertility = Math.min(CFG.B.fertility.max, fertileCount * CFG.B.fertility.perPixel);
+  r.compactMass = mass + arc.mass;
+  if (rep.maxP >= CFG.story.echoCompactionK * 5) g.triggerEcho('compactionVisible');
+  r.fertility = Math.min(CFG.B.fertility.max, rep.fertile * CPP * CFG.B.fertility.perPixel);
   if (r.era >= 7) {
-    if (g.mods.shards) {
-      const need = Math.max(...g.shardXs().map((x) => g.artifactDepth(x)));
-      r.excavationNeed = need;
-    } else r.excavationNeed = g.artifactDepth();
+    r.excavationNeed = g.mods.shards ? Math.max(...g.shardXs().map((x) => g.artifactDepth(x))) : g.artifactDepth();
   }
   g.statsDirty = true;
 }
 
-function packTransforms(g: Game, pk: Pack, Peff: number, T: number, heat: number, heatFrac: number, waterFrac: number, depth: number, dyS: number): number {
-  let hot = 0;
-  for (let m = 0; m < NMAT; m++) {
-    const a = pk.amt[m];
-    if (a < 0.01) continue;
-    const rules = RULES_BY_MAT[m];
-    for (const rule of rules) {
-      const base: Cond = { Peff, T, water: waterFrac > 0, depth, oxygen: false };
-      let frac = 0;
-      if (ruleOk(g, rule, base)) frac = rule.water ? waterFrac : 1;
-      else if (heatFrac > 0 && ruleOk(g, rule, { ...base, T: T + heat })) frac = heatFrac * (rule.water ? waterFrac : 1);
-      if (frac <= 0) continue;
-      hot = Math.max(hot, rule.tMin !== undefined ? 1 : 0);
-      pk.prog[m] += dyS;
-      if (pk.prog[m] >= rule.years) {
-        pk.prog[m] = 0;
-        let conv = a * frac;
-        if (rule.chance !== undefined) conv *= rule.chance;
-        if (conv <= 0) break;
-        pk.amt[m] -= conv;
-        const to = rule.toIdx;
-        pk.prog[to] = (pk.prog[to] * pk.amt[to]) / Math.max(1e-6, pk.amt[to] + conv);
-        pk.amt[to] += conv;
-        if (rule.yield > 0) {
-          g.addRock(rule.rock, conv * rule.yield * CFG.B.rockYield);
-          g.glints.push({ x: Math.floor(g.rng.next() * W), depth: depth + pk.rows * g.rng.next(), t: 0.8, color: CFG.materials[to].palette[4], birth: pk.ageMin + (pk.ageMax - pk.ageMin) * g.rng.next() });
-        }
-        g.world.version++;
-      }
-      break;
-    }
-  }
-  return hot;
-}
-
-export function rollFossil(g: Game, x: number, j: number, mineral: number, fossilMul: number, depth: number): void {
-  const w = g.world;
+/** The fossil roll of a bone particle (once, when the pressure first reaches fossilP). */
+export function rollFossil(g: Game, i: number, x: number, y: number, mineral: number): void {
+  const grid = g.grid;
   const tap = CFG.B.taphonomy;
-  w.flags[j] |= F_ROLLED;
-  const d = w.decay[j] / 255;
-  const fast = (w.flags[j] & F_FAST) !== 0;
-  const spIdx = w.spec[j] - 1;
-  const sp = CFG.species[spIdx];
+  const d = grid.decay[i] / 255;
+  const fast = (grid.flags[i] & P_FAST) !== 0;
+  const sp = CFG.species[grid.spec[i] - 1];
   if (!sp) return;
-  let chance = tap.fossilBase * (fast ? 5 : 1) * mineral * (1 - d) * fossilMul;
+  let chance = tap.fossilBase * (fast ? 5 : 1) * mineral * (1 - d) * (1 + g.stats.fossilChance);
   // a burial caught in the window after a mass death fossilises three times as easily
-  const bu = g.run.burials, b = w.birth[j];
+  const bu = g.run.burials, b = grid.birth[i];
   for (let q = 0; q < bu.length; q += 3) if (b >= bu[q] && b <= bu[q + 1]) { chance *= bu[q + 2]; break; }
   if (g.mods.living && g.run.mutations[sp.id] === 'shell') chance *= 2;
   chance = Math.min(0.95, chance);
   const u = g.rng.next();
   const mus = (g.legacy.museum[sp.id] ??= { common: 0, rare: 0, fragments: 0 });
+  const depth = y - grid.surf[x];
   if (u < chance) {
     const rare = fast && d < tap.rareDecay;
-    w.flags[j] |= F_FOSSIL | (rare ? F_RARE : 0);
+    grid.flags[i] |= P_FOSSIL | (rare ? P_RARE : 0);
     if (rare) mus.rare++; else mus.common++;
     g.legacy.fossils++;
     g.run.fossilsRun++;
     g.statsDirty = true;
-    g.bus.emit('fossilFound', { species: sp.id, rare, fragment: false, complete: true, x, depth });
+    g.bus.emit('fossilFound', { species: sp.id, rare, fragment: false, complete: true, x: wx(x), depth });
     g.triggerEcho('firstFossil');
   } else if (u < chance * 2) {
     // near miss: a fragment; three make a whole fossil (bad-luck protection)
-    w.flags[j] |= F_FRAGMENT;
+    grid.flags[i] |= P_FRAGMENT;
     mus.fragments++;
     let complete = false;
     if (mus.fragments >= tap.fragmentsPerFossil) {
@@ -270,29 +147,29 @@ export function rollFossil(g: Game, x: number, j: number, mineral: number, fossi
       g.statsDirty = true;
       g.triggerEcho('firstFossil');
     }
-    g.bus.emit('fossilFound', { species: sp.id, rare: false, fragment: true, complete, x, depth });
+    g.bus.emit('fossilFound', { species: sp.id, rare: false, fragment: true, complete, x: wx(x), depth });
   }
-  w.version++;
+  grid.version++;
 }
 
-/** Finish at once the transformations under way in one layer: cells within dx columns and db years of (x, birth). */
-export function finishLayer(g: Game, x: number, birth: number, dx = 12, db = 80): number {
-  const w = g.world;
+/** Finish at once the transformations under way around (world column X, birth year b): the «glowing layer». */
+export function finishLayer(g: Game, X: number, birth: number, dx = 12, db = 80): number {
+  const grid = g.grid;
+  const cx = Math.floor(X / 2), rx = Math.ceil(dx / 2);
   let n = 0;
-  for (let xx = Math.max(0, x - dx); xx <= Math.min(W - 1, x + dx); xx++) {
-    const base = xx * CAP;
-    for (let i = 0; i < w.len[xx]; i++) {
-      const j = base + i;
-      if (Math.abs(w.birth[j] - birth) > db) continue;
-      const rule = RULES_BY_MAT[w.mat[j]].find((ru) => !ru.world || (ru.world === 'hot' && g.mods.hot));
-      if (!rule || w.prog[j] <= 0) continue;
-      w.prog[j] = 0;
-      w.mat[j] = rule.toIdx;
-      if (rule.yield > 0) g.addRock(rule.rock, rule.yield * CFG.B.rockYield, xx);
-      if (g.pressFlashes.length < 80) g.pressFlashes.push({ x: xx, birth: w.birth[j], t: 1.2, color: CFG.materials[rule.toIdx].palette[4] });
+  for (let x = Math.max(0, cx - rx); x <= Math.min(GW - 1, cx + rx); x++) {
+    for (let y = grid.surf[x]; y < grid.floor; y++) {
+      const i = y * GW + x;
+      if (Math.abs(grid.birth[i] - birth) > db || grid.prog[i] <= 0) continue;
+      const rule = RULES_BY_MAT[grid.mat[i]].find((ru) => ruleAllowed(g, ru));
+      if (!rule) continue;
+      grid.prog[i] = 0;
+      grid.mat[i] = rule.toIdx;
+      if (rule.yield > 0) g.addRock(rule.rock, rule.yield * CFG.B.rockYield * CPP * S.rockYieldMul, wx(x));
+      if (g.pressFlashes.length < 80) g.pressFlashes.push({ x: wx(x), y: y * 2 + 1, t: 1.2, color: CFG.materials[rule.toIdx].palette[4] });
       n++;
     }
   }
-  if (n) w.version++;
+  if (n) grid.version++;
   return n;
 }

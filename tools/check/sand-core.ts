@@ -75,7 +75,7 @@ const smooth = (g: Grid, R = 6) => Array.from({ length: GW }, (_, x) => { let s 
 {
   const g = new Grid(); g.reset();
   const r = rng(3);
-  for (let y = g.sinkRow; y > g.sinkRow - 110; y--) for (let x = 0; x < 28; x++) g.put(x, y, M.sand, 0, 5000);
+  for (let y = g.floor - 1; y > g.floor - 1 - 110; y--) for (let x = 0; x < 28; x++) g.put(x, y, M.sand, 0, 5000);
   g.computeTops();
   const c = { n: 0 };
   for (let t = 0; t < 10; t++) geoTick(g, env(r, 300, c));
@@ -90,7 +90,7 @@ const smooth = (g: Grid, R = 6) => Array.from({ length: GW }, (_, x) => { let s 
   check('rules: shallow sand stays', shallow === 0, `${shallow} sandstone cells in the top 20 rows`);
   // land columns (no water): the same sand never turns
   const g2 = new Grid(); g2.reset();
-  for (let y = g2.sinkRow; y > g2.sinkRow - 110; y--) for (let x = 40; x < 60; x++) g2.put(x, y, M.sand, 0, 5000);
+  for (let y = g2.floor - 1; y > g2.floor - 1 - 110; y--) for (let x = 40; x < 60; x++) g2.put(x, y, M.sand, 0, 5000);
   g2.computeTops();
   for (let t = 0; t < 10; t++) geoTick(g2, env(r, 300, c));
   let land = 0; for (let i = 0; i < g2.N; i++) if (g2.mat[i] === ss) land++;

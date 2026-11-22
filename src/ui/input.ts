@@ -3,7 +3,7 @@
 import { CFG, ElementDef, eraOfYear } from '../config';
 import type { Game } from '../core/game';
 import type { Renderer } from '../render/renderer';
-import { CAP, F_FOSSIL, F_FRAGMENT } from '../world/World';
+import { P_FOSSIL, P_FRAGMENT } from '../world/Grid';
 import { $, h, setText } from './dom';
 import { WW, WH } from '../render/common';
 import { t, fmt } from './i18n';
@@ -129,28 +129,21 @@ export class Input {
   /** A small museum label on hover: rock name and era (numbers only in detailed mode). */
   private showTooltip(g: Game, x: number, sy: number, m: { x: number; y: number }): void {
     const loc = this.ren.section.locateAt(g, x, sy);
-    const w = g.world;
+    const grid = g.grid;
     const detailed = !!g.state.settings.detailed;
     let head = '', icon = '', sub = '';
     const rows: string[] = [];
     if (loc.kind === 'horizon') { head = t('chron.horizon'); sub = fmtCountdown(CFG.zeroYear - CFG.startYear) + '⟡'; }
-    else if (loc.kind === 'bedrock' || loc.kind === 'foundation') { this.tooltip.hidden = true; return; }
-    else if (loc.kind === 'cell') {
-      const j = x * CAP + loc.i;
-      const mat = CFG.materials[w.mat[j]];
+    else if (loc.kind !== 'particle') { this.tooltip.hidden = true; return; }
+    else {
+      const j = loc.i;
+      const mat = CFG.materials[grid.mat[j]];
       head = t('materials.' + mat.id); icon = mat.id;
-      sub = t('era.' + eraOfYear(w.birth[j]));
-      if (detailed) rows.push(t('tip.laid', { y: fmtCountdown(CFG.zeroYear - w.birth[j]) + '⟡' }) + ' · ' + t('tip.depth', { d: fmt(loc.depth, 0) }));
-      const fl = w.flags[j];
-      if (fl & F_FOSSIL) rows.push(t('tip.fossil', { s: t('species.' + CFG.species[w.spec[j] - 1]?.id + '.name') }));
-      else if (fl & F_FRAGMENT) rows.push(t('tip.fragment', { s: t('species.' + CFG.species[w.spec[j] - 1]?.id + '.name') }));
-    } else {
-      const pk = w.packs[loc.p];
-      let best = 0, bm = 0;
-      pk.amt.forEach((a, mm) => { if (a > best) { best = a; bm = mm; } });
-      head = t('materials.' + CFG.materials[bm].id); icon = CFG.materials[bm].id;
-      sub = t('era.' + eraOfYear((pk.ageMin + pk.ageMax) / 2));
-      if (detailed) rows.push(t('tip.pack', { n: fmt(pk.rows, 0), y0: fmtCountdown(CFG.zeroYear - pk.ageMax), y1: fmtCountdown(CFG.zeroYear - pk.ageMin) + '⟡' }));
+      sub = t('era.' + eraOfYear(grid.birth[j]));
+      if (detailed) rows.push(t('tip.laid', { y: fmtCountdown(CFG.zeroYear - grid.birth[j]) + '⟡' }) + ' · ' + t('tip.depth', { d: fmt(loc.depth * 2, 0) }));
+      const fl = grid.flags[j];
+      if (fl & P_FOSSIL) rows.push(t('tip.fossil', { s: t('species.' + CFG.species[grid.spec[j] - 1]?.id + '.name') }));
+      else if (fl & P_FRAGMENT) rows.push(t('tip.fragment', { s: t('species.' + CFG.species[grid.spec[j] - 1]?.id + '.name') }));
     }
     const tip = this.tooltip;
     tip.replaceChildren(h('div', { class: 'l-head' }, icon ? rockIcon(icon, 18) : h('span', { class: 'l-sym' }, '⟡'), h('span', {}, head)),
@@ -252,10 +245,9 @@ export class Input {
     const x = this.col(h0.m.x);
     const sy = Math.max(sec.topD[x], Math.min(sec.horizonTop[x] - 1, h0.m.y - this.ren.lay.sectionTop));
     const R = CFG.B.press.radius + g.stats.pressRadius;
-    // this layer and the layers below it, within the radius
-    const [b0, b1] = sec.birthRange(Math.max(sec.topD[x], sy - 3), Math.min(sec.horizonTop[x] - 1, sy + R), x);
+    // a circle of the strata under the finger (grid cells: one particle = 2 world px)
     const prev = g.run.press;
-    g.run.press = { x, x0: Math.max(0, x - R), x1: Math.min(WW - 1, x + R), b0, b1, power: prev ? prev.power : 1 + g.stats.pressPower };
+    g.run.press = { x: Math.floor(x / 2), y: Math.floor((sy + CFG.B.layout.sectionTop) / 2), r: R / 2, power: prev ? prev.power : 1 + g.stats.pressPower };
     this.ren.press = { x, y: this.ren.lay.sectionTop + sy, r: R, t0: h0.t0, power: g.run.press.power };
   }
 

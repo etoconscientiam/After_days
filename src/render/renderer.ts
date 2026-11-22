@@ -6,8 +6,8 @@ import type { Game } from '../core/game';
 import { totalPop } from '../core/life';
 import { skin, preloadSkins } from './assets';
 import { tintedCanvas, drawTinted, tintInto } from './sprites';
-import { forecastCell, forecastPack, Forecast } from '../core/forecast';
-import { CAP } from '../world/World';
+import { forecastParticle, conditionsAt, Forecast } from '../core/forecast';
+import { GW } from '../world/Grid';
 import { hash2 } from '../core/rng';
 import { Layout, WW, WH, NOISE, GRAIN, lerp, lerp3, hex3, rgb, ACCENT } from './common';
 import { SectionRenderer } from './section';
@@ -114,11 +114,9 @@ export class Renderer {
   /** transformation glow per column (eases toward the game's hotNow, fades when the transformation ends) */
   private hot = new Float32Array(WW);
   private hotY = new Float32Array(WW);
-  /** grains settling in the top layers (section-local) */
-  private settle: { x: number; y: number; vy: number; j: number; life: number; c: string; stop: number }[] = [];
   /** per layer: where to put its plate and what it is becoming (refreshed twice a second) */
   geoLayers: { j: number; x: number; y: number; h: number; f: Forecast | null }[] = [];
-  private geoHeat: Float32Array[] = [];
+  private geoCells: { x: number; y: number; w: number; h: number; T: number; f: Forecast | null; prog: number }[] = [];
   private geoAge = 99;
   /** the finger pressing the layers (world coords), set by the input */
   press: { x: number; y: number; r: number; t0: number; power: number } | null = null;
@@ -586,57 +584,27 @@ export class Renderer {
   /** How the land swells where more is being laid down now (eased): fresh thickness per column against the mean. */
   private swell = new Float32Array(WW);
   private swellAge = 9;
-  private updateSwell(g: Game): void {
-    this.swellAge += this.dt;
-    if (this.swellAge < 0.5) return;
-    const k = Math.min(1, this.swellAge * 0.25);
-    this.swellAge = 0;
-    const w = g.world;
-    const since = g.run.year - Math.max(20, g.yps(false) * 40);
-    const fresh = new Float32Array(WW);
-    let mean = 0;
-    for (let x = 0; x < WW; x++) {
-      let i = w.len[x] - 1, v = 0;
-      const base = x * CAP;
-      while (i >= 0 && w.birth[base + i] >= since) { v += 1 / w.k[base + i]; i--; }
-      fresh[x] = v; mean += v;
-    }
-    mean /= WW;
-    if (mean <= 1e-6) return;
-    for (let x = 0; x < WW; x++) {
-      let s2 = 0, n = 0;
-      for (let d = -6; d <= 6; d++) { const xx = x + d; if (xx >= 0 && xx < WW) { s2 += fresh[xx]; n++; } }
-      const t = Math.max(-3, Math.min(5, ((s2 / n - mean) / mean) * 3));
-      this.swell[x] += (t - this.swell[x]) * k;
-    }
-  }
-
+  /** The ground line: the top of the particles, smoothed across ±3 columns and eased in time, so creatures and
+   *  plants stand on it without jumping when a pile lands. */
   private computeGround(g: Game): void {
     const lay = this.lay;
-    this.updateSwell(g);
-    const seabed = lay.sectionTop - 2;
-    // distance from each column to the nearest water column
-    const dist = new Float32Array(WW).fill(999);
-    for (let x = 0; x < WW; x++) if (g.zoneMap[x] === 0) dist[x] = 0;
-    for (let x = 1; x < WW; x++) dist[x] = Math.min(dist[x], dist[x - 1] + 1);
-    for (let x = WW - 2; x >= 0; x--) dist[x] = Math.min(dist[x], dist[x + 1] + 1);
-    const bare = Math.min(1, (totalPop(g, 'mosses') + totalPop(g, 'trees')) / 30) < 0.05;
+    const sec = this.section;
+    const dy = lay.sectionTop;
+    const raw = new Float32Array(WW);
+    for (let x = 0; x < WW; x++) raw[x] = dy + sec.topD[x];
+    const k = this.gyInit ? Math.min(1, this.dt * 3) : 1;
+    this.gyInit = true;
     for (let x = 0; x < WW; x++) {
-      // bare land: calm dunes (long smooth swells); with life the hills get a little more texture
-      const hill = bare
-        ? NOISE[(40 << 8) | ((x * 1) & 255)] * 6 + Math.sin(x * 0.05 + 1) * 3 + 4
-        : NOISE[(40 << 8) | ((x * 2) & 255)] * 7 + NOISE[(44 << 8) | ((x * 5) & 255)] * 2 + Math.sin(x * 0.045 + 1) * 3.5 + 3;
-      // where more is being laid down now (a dune field in a drought, a delta, an ash cone) the land swells
-      const land = lay.groundBase - hill - this.swell[x];
-      const t = Math.max(0, Math.min(1, (dist[x] + 3) / (bare ? 34 : 26)));
-      const s = t * t * (3 - 2 * t);
-      this.gy[x] = Math.round(seabed - this.swell[x] * 0.5 * (1 - s) + (land - seabed) * s);
-      if (g.mods.shards) for (const rx of [g.shardXs()[0] + 22, g.shardXs()[1] + 22]) {
-        const d = Math.abs(x - rx);
-        if (d < 7) this.gy[x] = Math.min(this.gy[x], Math.round(lay.groundBase - 12 * Math.pow(1 - d / 7, 1.3)));
-      }
+      let s2 = 0, n = 0;
+      for (let d = -3; d <= 3; d++) { const xx = x + d; if (xx >= 0 && xx < WW) { s2 += raw[xx]; n++; } }
+      const t = Math.min(raw[x], s2 / n);
+      this.gyF[x] += (t - this.gyF[x]) * k;
+      this.gy[x] = Math.round(this.gyF[x]);
     }
+    lay.seaY = g.water.level * 2 + (dy - CFG.B.layout.sectionTop);
   }
+  private gyF = new Float32Array(WW);
+  private gyInit = false;
 
   groundY(x: number, g?: Game): number { void g; return this.gy[Math.max(0, Math.min(WW - 1, Math.round(x)))]; }
 
@@ -663,7 +631,8 @@ export class Renderer {
       const wet = Math.max(0, Math.min(1, (gy - sea + 8) / 10));
       let top = lerp3(r.era < 3 || green < 0.05 ? dust : lerp3(dust, grass, green), sand, wet);
       if (glacier || winter) top = lerp3(top, [232, 238, 246], gy < sea ? 0.9 : 0.4);
-      const cut = bottom + this.section.topD[x];
+      const cut = gy; // the particles are the ground now: no painted ground plane under them
+      void bottom;
       const bare = green < 0.05 || glacier || winter;
       for (let y = gy; y < cut; y++) {
         const rel = y - gy;
@@ -686,7 +655,7 @@ export class Renderer {
         c.fillStyle = rgb(col[0] * nf(0.55) * under, col[1] * nf(0.55) * (under + (1 - under) * 0.1), col[2] * nf(0.5) * (under + (1 - under) * 0.3));
         c.fillRect(x, y, 1, 1);
       }
-      if (gy > sea) {
+      if (g.zoneMap[x] === 0 && gy > sea) {
         for (let y = sea; y < gy; y++) {
           const k = (y - sea) / Math.max(1, bottom - sea);
           const shaft = Math.max(0, Math.sin(x * 0.12 + y * 0.25 - t * 0.6)) ** 6 * 0.25 * sky.light;
@@ -713,7 +682,7 @@ export class Renderer {
     // 3) water life on top: ripples, the sun's glitter, surf foam, ice
     for (let x = 0; x < WW; x++) {
       const gy = this.gy[x];
-      if (gy <= sea) continue;
+      if (g.zoneMap[x] !== 0 || gy <= sea) continue;
       const wave = Math.sin(x * 0.5 + t * 2) + Math.sin(x * 0.2 - t * 1.3);
       c.fillStyle = rgb(200, 230, 245, 0.45 + wave * 0.15);
       c.fillRect(x, sea + (wave > 1 ? -1 : 0), 1, 1);
@@ -771,7 +740,7 @@ export class Renderer {
     const floorAt = (x: number) => this.lay.sectionTop + this.section.topD[x];
     for (let x = 0; x < WW; x++) {
       const gy = this.gy[x];
-      if (gy > sea + 1) {
+      if (g.zoneMap[x] === 0 && gy > sea + 1) {
         // under water: the surface strip of the water itself (ripples and glints go on top)
         col(T.water, x, sea - 1, Math.min(1, (gy - sea) / 4) * 0.8, gy);
         continue;
@@ -940,8 +909,9 @@ export class Renderer {
     const lay = this.lay;
     const top = lay.sectionTop;
     const sec = this.section;
-    const hh = lay.sectionH;
-    c.drawImage(sec.canvas, 0, 0, WW, hh, 0, top, WW, hh);
+    // the grid has a fixed place in the world; an open drawer lifts the whole world (and the grid with it)
+    const gdy = top - CFG.B.layout.sectionTop;
+    c.drawImage(sec.canvas, 0, gdy);
     const SW = sec.SW;
     // era boundaries: faint golden curves along the layers where an era began
     for (let e = 1; e <= g.run.era; e++) {
@@ -953,7 +923,6 @@ export class Renderer {
         c.fillRect(x, Math.round(top + y), 1, 1);
       }
     }
-    this.drawSettle(g);
     this.drawSparks();
     this.drawHot(g);
     let drawn = 0;
@@ -967,7 +936,7 @@ export class Renderer {
     let pfShown = 0;
     for (const pf of g.pressFlashes) {
       if (pfShown++ >= 24) break;
-      const y = Math.round(top + sec.yAt(pf.x, pf.birth));
+      const y = Math.round(pf.y + gdy);
       const a = Math.min(1, pf.t * 1.6) * 0.7;
       c.fillStyle = pf.color; c.globalAlpha = a; c.fillRect(pf.x, y, 1, 1);
       c.fillStyle = 'rgba(255,240,200,1)'; c.globalAlpha = a * 0.4;
@@ -985,7 +954,7 @@ export class Renderer {
     for (const gl of g.glints) {
       if (shown++ >= 10) break;
       if (gl.x >= SW) continue;
-      const gy = Math.round(top + (gl.birth !== undefined ? sec.yAt(gl.x, gl.birth) : Math.min(sec.strataH, gl.depth * 2)));
+      const gy = Math.round(gl.y + gdy);
       if (gy - top >= sec.cut) continue;
       const a = Math.min(1, gl.t * 1.6) * 0.55;
       c.globalAlpha = a;
@@ -1015,51 +984,6 @@ export class Renderer {
     }
   }
 
-  /** Active physics only near the surface: a few grains settle through the top two layers; the deep stays still. */
-  private drawSettle(g: Game): void {
-    const sec = this.section, L = sec.layers, c = this.ctx, top = this.lay.sectionTop;
-    if (g.state.phase !== 'play' || L.length === 0) { this.settle.length = 0; return; }
-    const nTop = Math.min(2, L.length);
-    const rate = this.quality === 'high' ? 9 : 4;
-    // what is being laid down now: grains drift down from the surface and come to rest on top of the newest layer
-    if (this.settle.length < 50 && g.yps() > 0 && Math.random() < this.dt * rate * 1.4) {
-      const x = Math.floor(Math.random() * (sec.SW - 4)) + 2;
-      const t0 = sec.topD[x];
-      const col = g.zoneMap[x] === 0 ? 'rgba(200,215,205,0.5)' : 'rgba(235,215,175,0.55)';
-      this.settle.push({ x, y: t0 - 4 - Math.random() * 4, vy: 2 + Math.random() * 2, j: -1, life: 3 + Math.random() * 2, c: col, stop: t0 + 1 + Math.random() * 2 });
-    }
-    if (this.settle.length < 40 && Math.random() < this.dt * rate) {
-      const j = Math.floor(Math.random() * nTop);
-      const x = Math.floor(Math.random() * (sec.SW - 4)) + 2;
-      const y0 = L[j].top[x] + 1, y1 = (L[j + 1] ? L[j + 1].top[x] : sec.strataH) - 1;
-      if (y1 - y0 > 3 && y0 < sec.cut) {
-        const light = Math.random() < 0.5;
-        this.settle.push({ x, y: y0 + Math.random() * (y1 - y0) * 0.4, vy: 0.6 + Math.random() * 1.2, j, life: 2 + Math.random() * 3, c: light ? 'rgba(255,240,210,0.35)' : 'rgba(20,14,10,0.4)', stop: 1e9 });
-      }
-    }
-    for (let i = this.settle.length - 1; i >= 0; i--) {
-      const p = this.settle[i];
-      p.life -= this.dt;
-      p.y += p.vy * this.dt;
-      const xi = Math.max(0, Math.min(WW - 1, Math.round(p.x)));
-      if (p.j < 0) {
-        // a falling grain stops on the top and fades there (it has become part of the layer)
-        if (p.y >= p.stop) { p.y = p.stop; p.vy = 0; }
-        if (p.life <= 0 || p.y >= sec.cut) { this.settle.splice(i, 1); continue; }
-        c.globalAlpha = Math.min(1, p.life);
-        c.fillStyle = p.c;
-        c.fillRect(xi, Math.round(top + p.y), 1, 1);
-        c.globalAlpha = 1;
-        continue;
-      }
-      const bot = (L[p.j + 1] ? L[p.j + 1].top[xi] : sec.strataH) - 1;
-      if (p.life <= 0 || p.y >= bot || p.y >= sec.cut) { this.settle.splice(i, 1); continue; }
-      c.fillStyle = p.c;
-      // a grain is a 2×2 block, like the rock it falls through
-      c.fillRect(xi & ~1, Math.round(top + p.y), 2, 1);
-    }
-  }
-
   /** Coal glints and amber sparks: a slow twinkle. */
   private drawSparks(): void {
     const pts = this.section.sparks, c = this.ctx, top = this.lay.sectionTop;
@@ -1078,24 +1002,12 @@ export class Renderer {
   private drawHot(g: Game): void {
     const sec = this.section, c = this.ctx, top = this.lay.sectionTop;
     const SW = sec.SW;
-    // packs (deep, full width) glow around their middle depth within their column range
-    const packT = new Float32Array(WW), packB = new Float64Array(WW);
-    for (const hp of g.hotPacks) {
-      const x0 = Math.max(0, Math.floor(hp.x0)), x1 = Math.min(WW - 1, Math.ceil(hp.x1));
-      const mid = (x0 + x1) / 2, half = Math.max(1, (x1 - x0) / 2);
-      for (let x = x0; x <= x1; x++) {
-        const v = hp.v * Math.max(0, 1 - Math.abs(x - mid) / half) ** 0.6;
-        if (v > packT[x]) { packT[x] = v; packB[x] = hp.b0 + (hp.b1 - hp.b0) * (0.35 + 0.3 * hash2(x >> 3, 9)); }
-      }
-    }
     const k = Math.min(1, this.dt * 1.6);
     let any = false;
     for (let x = 0; x < SW; x++) {
-      const cellT = g.hotNow[x];
-      const tgt = Math.max(cellT, packT[x]);
+      const tgt = g.hotNow[x >> 1];
       if (tgt > 0.01) {
-        const b = cellT >= packT[x] ? g.hotB[x] : packB[x];
-        const y = sec.yAt(x, b);
+        const y = g.hotY[x >> 1] * 2 - CFG.B.layout.sectionTop;
         this.hotY[x] = this.hot[x] < 0.02 ? y : this.hotY[x] + (y - this.hotY[x]) * k;
       }
       // in fast, out slowly
@@ -1153,79 +1065,49 @@ export class Renderer {
   }
 
   // ---------- Geologist ----------
-  /** Recompute forecasts and temperatures per layer (cheap enough twice a second). */
+  /** Recompute forecasts and temperatures on a coarse grid of the strata (cheap enough twice a second). */
   private refreshGeo(g: Game): void {
     const sec = this.section;
-    const L = sec.layers;
-    const XS = 4, NX = Math.ceil(WW / XS);
-    this.geoHeat = [];
+    const grid = g.grid;
+    const CW = 4, CH = 8;                       // cell of the coarse grid: 2×4 particles
+    this.geoCells = [];
     this.geoLayers = [];
-    const at = (x: number, y: number): { T: number; f: Forecast | null } => {
-      const loc = sec.locateAt(g, x, y);
-      if (loc.kind === 'cell') {
-        const j = x * CAP + loc.i;
-        return { T: g.world.T[j], f: forecastCell(g, x, loc.i) };
+    for (let cx = 0; cx < GW; cx += CW / 2) {
+      for (let r = grid.surf[cx]; r < grid.floor; r += CH / 2) {
+        const i = r * GW + cx;
+        if (!grid.mat[i]) continue;
+        const c = conditionsAt(g, cx, r);
+        const f = forecastParticle(g, cx, r);
+        this.geoCells.push({ x: cx * 2, y: sec.yOfRow(r), w: CW, h: CH, T: c.T, f, prog: grid.prog[i] });
       }
-      if (loc.kind === 'pack') { const pk = g.world.packs[loc.p]; return { T: pk.T, f: forecastPack(g, loc.p) }; }
-      return { T: 0, f: null };
-    };
-    for (let j = 0; j < L.length; j++) {
-      const next = L[j + 1];
-      const row = new Float32Array(NX);
-      let best: Forecast | null = null;
-      const reasons: Record<string, number> = {};
-      for (let xi = 0; xi < NX; xi++) {
-        const x = Math.min(WW - 1, xi * XS + 2);
-        const t0 = L[j].top[x], t1 = next ? next.top[x] : sec.horizonTop[x] - sec.foundationPx;
-        if (t1 - t0 < 1) { row[xi] = -1; continue; }
-        const s0 = at(x, (t0 + t1) / 2);
-        row[xi] = s0.T;
-        if (xi % 4 === 1 && s0.f) {
-          if (s0.f.ok) { if (!best || !best.ok || s0.f.years < best.years) best = s0.f; }
-          else { reasons[s0.f.reason!] = (reasons[s0.f.reason!] ?? 0) + 1; if (!best) best = s0.f; }
-        }
-      }
-      this.geoHeat.push(row);
-      if (best && !best.ok) {
-        // the most common reason across the layer
-        let top = best.reason!, n = 0;
-        for (const k in reasons) if (reasons[k] > n) { n = reasons[k]; top = k as any; }
-        best = { ...best, reason: top };
-      }
-      const px = 150, t0 = L[j].top[px], t1 = next ? next.top[px] : sec.horizonTop[px] - sec.foundationPx;
-      this.geoLayers.push({ j, x: px, y: (t0 + t1) / 2, h: t1 - t0, f: best });
+    }
+    // plates: down a column near the right edge, a few forecasts at different depths
+    const px = Math.max(0, Math.min(GW - 1, Math.floor((sec.SW - 30) / 2)));
+    let lastMat = -1;
+    for (let r = grid.surf[px] + 2; r < grid.floor; r += 3) {
+      const i = r * GW + px;
+      if (!grid.mat[i] || grid.mat[i] === lastMat) continue;
+      lastMat = grid.mat[i];
+      this.geoLayers.push({ j: this.geoLayers.length, x: px * 2, y: sec.yOfRow(r) + 1, h: 6, f: forecastParticle(g, px, r) });
     }
   }
 
   private drawGeologist(g: Game): void {
     this.geoAge += this.dt;
-    if (this.geoAge > 0.5 || this.geoHeat.length !== this.section.layers.length) { this.geoAge = 0; this.refreshGeo(g); }
+    if (this.geoAge > 0.5) { this.geoAge = 0; this.refreshGeo(g); }
     const c = this.ctx;
     const sec = this.section;
     const top = this.lay.sectionTop;
-    const L = sec.layers;
     // the section dims to 40%
     c.fillStyle = 'rgba(10,8,12,0.6)';
     for (let x = 0; x < sec.SW; x++) c.fillRect(x, top + sec.topD[x], 1, sec.horizonTop[x] - sec.topD[x]);
     // heat: a warm orange that grows with temperature
-    const XS = 4;
-    for (let j = 0; j < L.length; j++) {
-      const row = this.geoHeat[j];
-      if (!row) continue;
-      const next = L[j + 1];
-      for (let xi = 0; xi < row.length; xi++) {
-        const T = row[xi];
-        if (T < 0) continue;
-        const a = Math.max(0, Math.min(1, (T - 25) / 240));
-        if (a < 0.03) continue;
-        for (let dx = 0; dx < XS; dx++) {
-          const x = xi * XS + dx;
-          if (x >= sec.SW) break;
-          const t0 = L[j].top[x], t1 = next ? next.top[x] : sec.horizonTop[x] - sec.foundationPx;
-          c.fillStyle = rgb(255, 120 + 60 * (1 - a), 40, 0.12 + 0.5 * a);
-          c.fillRect(x, top + t0, 1, t1 - t0);
-        }
-      }
+    for (const cell of this.geoCells) {
+      if (cell.x >= sec.SW) continue;
+      const a = Math.max(0, Math.min(1, (cell.T - 25) / 240));
+      if (a < 0.03) continue;
+      c.fillStyle = rgb(255, 120 + 60 * (1 - a), 40, 0.12 + 0.5 * a);
+      c.fillRect(cell.x, top + cell.y, cell.w, cell.h);
     }
     // groundwater: blue veins through the wet layers
     for (const tz of g.run.targets) {
@@ -1239,18 +1121,13 @@ export class Renderer {
         }
       }
     }
-    // transformation windows: the layers turning into rock now, edged with a slow amber pulse
+    // transformation windows: where rock is being made now, a slow amber pulse in the colour of the future rock
     const pulse = 0.45 + 0.35 * Math.sin(this.t * 3);
-    for (const gl of this.geoLayers) {
-      if (!gl.f || !gl.f.ok) continue;
-      const Lj = L[gl.j], next = L[gl.j + 1];
-      const col = CFG.materials[gl.f.toMat].palette[3] ?? '#f2b54a';
-      c.fillStyle = col; c.globalAlpha = pulse;
-      for (let x = 0; x < sec.SW; x += 2) {
-        c.fillRect(x, top + Lj.top[x], 1, 1);
-        const b = next ? next.top[x] : sec.horizonTop[x] - sec.foundationPx;
-        c.fillRect(x + 1, top + b - 1, 1, 1);
-      }
+    for (const cell of this.geoCells) {
+      if (!cell.f || !cell.f.ok || cell.prog <= 0 || cell.x >= sec.SW) continue;
+      c.fillStyle = CFG.materials[cell.f.toMat].palette[3] ?? '#f2b54a';
+      c.globalAlpha = pulse * 0.5;
+      c.fillRect(cell.x + 1, top + cell.y + 3, 2, 2);
       c.globalAlpha = 1;
     }
   }
@@ -1284,14 +1161,15 @@ export class Renderer {
     // the squeeze: rows inside the circle are redrawn shifted by a wave travelling downward
     for (let yy = -r; yy <= r; yy += 2) {
       const sy = Math.round(p.y - top + yy);
-      if (sy < 0 || sy >= this.lay.sectionH - 1) continue;
+      const cy = sy + CFG.B.layout.sectionTop;
+      if (cy < 0 || cy >= WH - 1) continue;
       const half = Math.floor(Math.sqrt(Math.max(0, r * r - yy * yy)));
       if (half < 2) continue;
       const fall = 1 - Math.abs(yy) / r;
       const dy = Math.round(Math.sin(yy * 0.45 - this.t * 9) * amp * fall);
       if (!dy) continue;
       const x0 = Math.max(0, p.x - half), w = Math.min(WW, p.x + half) - x0;
-      c.drawImage(sec.canvas, x0, sy, w, 2, x0, top + sy + dy, w, 2);
+      c.drawImage(sec.canvas, x0, cy, w, 2, x0, top + sy + dy, w, 2);
     }
     // a gentle darkening of what is squeezed, and the ring of pressure
     const grd = c.createRadialGradient(p.x, p.y, 2, p.x, p.y, r);
@@ -1655,7 +1533,8 @@ export class Renderer {
     shadow.addColorStop(0.45, 'rgb(190,180,190)');
     shadow.addColorStop(1, 'rgb(110,100,120)');
     c.fillStyle = shadow;
-    c.fillRect(0, lay.sectionTop, WW, lay.sectionH);
+    // from the ground line down (the strata rise above the old top of the section now)
+    for (let x = 0; x < WW; x++) c.fillRect(x, this.gy[x], 1, Math.max(0, lay.sectionTop + lay.sectionH - this.gy[x]));
     c.globalCompositeOperation = 'lighter';
     const boost = Math.min(1, g.run.boost / 3);
     for (const x of xs) {
@@ -2011,8 +1890,9 @@ export class Renderer {
 
   // ---------- picking ----------
   sectionY(wy: number): number | null {
+    // the strata rise above the old top of the section now: everything from the top of the world down counts
     const y = wy - this.lay.sectionTop;
-    if (y < 0 || y >= this.lay.sectionH) return null;
+    if (wy < 0 || y >= this.lay.sectionH) return null;
     return y;
   }
 

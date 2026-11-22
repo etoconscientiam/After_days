@@ -19,6 +19,7 @@ export interface GameEvents {
   speciesUnlocked: { id: string };
   toast: { key: string; vars?: Record<string, string | number>; color?: string };
   excavationDone: {};
+  bedLaid: { mat: string; n: number };
   rareSpawn: { id: string; x: number };
   rareClaimed: { id: string; x: number };
   burialWindow: { x: number };

@@ -2,8 +2,10 @@
 // One at a time, every 2-5 real minutes, for 12 seconds; tap to collect.
 import { CFG, RareDef, RULES_BY_MAT } from '../config';
 import type { Game } from './game';
-import { W, CAP } from '../world/World';
+import { GW } from '../world/Grid';
 import { finishLayer } from './geology';
+
+const W = CFG.B.world.width;
 
 export interface RareEvent { def: RareDef; x: number; t: number; birth?: number }
 
@@ -27,25 +29,25 @@ export function spawnRare(g: Game): RareEvent | null {
     else if (def.place === 'land') { const land0 = g.run.shoreEnd * (W / 360); x = Math.round(Math.max(land0 + 8, Math.min(W - 16, rnd(g, land0 + 10, W - 14)))); }
     else if (def.place === 'horizon') x = Math.round(rnd(g, 20, W - 20));
     else if (def.place === 'strata') {
-      // anywhere in the layers (not the freshest skin, not the deep packs)
-      const w = g.world;
-      x = Math.floor(rnd(g, 10, W - 26));
-      const L = w.len[x];
-      if (L < 6) continue;
-      const i = Math.floor(rnd(g, 0, L - 3));
-      birth = w.birth[x * CAP + i];
+      // anywhere in the strata (not the freshest skin, not the bottom by the thing)
+      const grid = g.grid;
+      const cx = Math.floor(rnd(g, 5, GW - 13));
+      const y0 = grid.surf[cx] + 3, y1 = grid.sinkRow - 2;
+      if (y1 - y0 < 4) continue;
+      const i = Math.floor(rnd(g, y0, y1)) * GW + cx;
+      if (!grid.mat[i]) continue;
+      x = cx * 2 + 1;
+      birth = grid.birth[i];
     }
     else if (def.place === 'section') {
-      // a layer with a transformation under way
-      const w = g.world;
+      // a spot where a transformation is under way
+      const grid = g.grid;
       let found = -1;
-      for (let k = 0; k < 40 && found < 0; k++) {
-        const xx = Math.floor(rnd(g, 8, W - 8));
-        const L = w.len[xx];
-        if (L < 3) continue;
-        const i = Math.floor(rnd(g, 0, L - 1));
-        const j = xx * CAP + i;
-        if (w.prog[j] > 0 && RULES_BY_MAT[w.mat[j]].length) { found = j; x = xx; birth = w.birth[j]; }
+      for (let k = 0; k < 60 && found < 0; k++) {
+        const cx = Math.floor(rnd(g, 4, GW - 4));
+        if (grid.sinkRow - grid.surf[cx] < 3) continue;
+        const i = Math.floor(rnd(g, grid.surf[cx], grid.sinkRow)) * GW + cx;
+        if (grid.prog[i] > 0 && RULES_BY_MAT[grid.mat[i]].length) { found = i; x = cx * 2 + 1; birth = grid.birth[i]; }
       }
       if (found < 0) continue;
     }
