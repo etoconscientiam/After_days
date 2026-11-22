@@ -9,7 +9,7 @@ Two grids share this code and compose.txt:
 Sources (plain text, edit by hand):
   glyphs*/*.txt  bitmaps, one block per glyph
   compose.txt    accented letters and aliases (offsets written in 16-grid pixels, scaled for the 32 grid)
-  wear.json      weathering levels for Strata Stone: chips, bumps, fault shift, number of alternates
+  wear.json      weathering levels for Strata Stone (levels) and Strata Pixel (levels16): chips, bumps, fault, alternates
 
 Outputs per font: .ttf / .woff2 / .woff, BMFont .fnt + _0.png, .json (bitmaps, metrics, kerning)
 Needs: pip install fonttools brotli pillow
@@ -776,9 +776,11 @@ def build(grid=16):
     configure(grid)
     glyphs = load_glyphs()
     make_font(glyphs, FAMILY, PS_NAME, OUT)
-    if G > 1:
-        cfg = json.loads((HERE / "wear.json").read_text(encoding="utf-8"))
-        for i, level in enumerate(cfg["levels"], 1):
+    cfg = json.loads((HERE / "wear.json").read_text(encoding="utf-8"))
+    # the 32 grid weathers with "levels"; the 16 grid (1 px strokes: chips are rare) with stronger "levels16"
+    levels = cfg["levels"] if G > 1 else cfg.get("levels16", [])
+    if levels:
+        for i, level in enumerate(levels, 1):
             make_font(glyphs, f"{FAMILY} Worn {i}", f"{PS_NAME.split('-')[0]}Worn{i}-Regular", OUT,
                       level, cfg.get("alternates", 3))
     print("written to", OUT.relative_to(ROOT))

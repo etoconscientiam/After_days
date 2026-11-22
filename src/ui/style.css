@@ -343,3 +343,13 @@ canvas.pix { image-rendering: pixelated; image-rendering: crisp-edges; display: 
 button, input, select, textarea { font-family: var(--text); font-size: 16px; }
 
 img.pix, .card .pic img.pix { image-rendering: pixelated; image-rendering: crisp-edges; }
+
+/* turmoil: every face of the interface weathers together (src/ui/turmoil.ts sets data-wear on <html>) */
+html[data-wear="1"] { --text: 'Strata Pixel Worn 1', 'Strata Pixel', monospace; --num: 'Strata Pixel Worn 1', 'Strata Pixel', monospace; --display: 'Strata Stone Worn 1', 'Strata Stone', 'Strata Pixel', monospace; }
+html[data-wear="2"] { --text: 'Strata Pixel Worn 2', 'Strata Pixel', monospace; --num: 'Strata Pixel Worn 2', 'Strata Pixel', monospace; --display: 'Strata Stone Worn 2', 'Strata Stone', 'Strata Pixel', monospace; }
+html[data-wear="3"] { --text: 'Strata Pixel Worn 3', 'Strata Pixel', monospace; --num: 'Strata Pixel Worn 3', 'Strata Pixel', monospace; --display: 'Strata Stone Worn 3', 'Strata Stone', 'Strata Pixel', monospace; }
+html[data-wear="4"] { --text: 'Strata Pixel Worn 4', 'Strata Pixel', monospace; --num: 'Strata Pixel Worn 4', 'Strata Pixel', monospace; --display: 'Strata Stone Worn 4', 'Strata Stone', 'Strata Pixel', monospace; }
+/* the worst events: the lettering trembles by a pixel (translate composes with the UI's scale transform) */
+html[data-tremor] #ui { animation: letterTremor 0.14s steps(1) infinite; }
+@keyframes letterTremor { 0% { translate: 1px 0; } 33% { translate: -1px 1px; } 66% { translate: 0 -1px; } }
+@media (prefers-reduced-motion: reduce) { html[data-tremor] #ui { animation: none; } }

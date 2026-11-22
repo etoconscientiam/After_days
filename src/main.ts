@@ -17,6 +17,7 @@ import { t, setLang, onLangChange } from './ui/i18n';
 import { rockIcon, energyIcon, exhibit } from './ui/icons';
 import { audio } from './audio/audio';
 import { setWear, wearFrom } from './ui/wear';
+import { Turmoil, SEVERITY } from './ui/turmoil';
 import { saveLocal, loadLocal, clearLocal, exportString, importString } from './save/save';
 
 const DEV = import.meta.env.DEV || new URLSearchParams(location.search).has('dev');
@@ -38,6 +39,7 @@ const drawer = new Drawer(() => game);
 const input = new Input(() => game, renderer);
 const modals = new Modals(() => game);
 const dev = new DevPanel(() => game, () => resetAll());
+const turmoil = new Turmoil();
 if (!DEV) dev.el.remove();
 
 // ---------- layout / scaling ----------
@@ -166,6 +168,7 @@ function bind(g: Game): void {
       audio.fossil(true);
       return;
     }
+    if (e.rare) turmoil.hit(SEVERITY.rareFossil);
     hud.notify('fossil', t(e.rare ? 'toast.rare' : 'toast.fossil', { s }), e.rare ? '#fff4c8' : '#e8dcc0', plural('fossil'));
     audio.fossil(false);
     const w = g.world;
@@ -177,16 +180,18 @@ function bind(g: Game): void {
     if (tab) flyDom(ex, worldToUi(e.x, y), tab);
   });
   bus.on('extinction', (e) => {
+    turmoil.hit(SEVERITY.extinction(e.killed));
     if (e.killed >= 3) hud.notify('extinction', t('toast.extinction', { n: e.killed }), '#B5523B', plural('extinction'));
     renderer.onExtinction(); audio.rumble(1.2);
   });
   bus.on('eraChanged', (e) => {
+    turmoil.hit(SEVERITY.era);
     hud.notify('era', t('toast.era', { era: t('era.' + e.era) }), '#F2B54A', plural('era'));
     audio.setEra(e.era); renderer.onEra(e.era);
     if (game.state.phase === 'play') { slowmo = 1; eraTitle(e.era); }
   });
-  bus.on('noteFound', () => hud.notify('note', t('toast.note'), '#EDE3D0', plural('note')));
-  bus.on('prestigeStart', () => { drawer.close(); renderer.beginShift(); });
+  bus.on('noteFound', () => { turmoil.hit(SEVERITY.note); hud.notify('note', t('toast.note'), '#EDE3D0', plural('note')); });
+  bus.on('prestigeStart', () => { turmoil.hit(SEVERITY.epochShift); drawer.close(); renderer.beginShift(); });
   bus.on('prestige', (e) => { hud.notify('prestige', t('toast.prestige', { n: e.gain }), '#B9A6E8'); audio.whoosh(); audio.rumble(2.5); save(); });
   bus.on('echo', (e) => {
     const def = CFG.echoes.echoes.find((x) => x.id === e.id);
@@ -197,11 +202,13 @@ function bind(g: Game): void {
   bus.on('relicFound', () => { hud.notify('relic', '⟡', '#F2B54A'); audio.fossil(false); });
   bus.on('itemChosen', () => { audio.whoosh(); });
   bus.on('element', (e) => {
+    turmoil.hit(SEVERITY.element[e.id] ?? 0);
     if (e.id === 'earthquake') { renderer.onQuake(); audio.rumble(1.8); }
     else if (e.id === 'volcano' || e.id === 'meteor') audio.rumble(2.2);
     else audio.whoosh();
   });
   bus.on('temple', () => save());
+  bus.on('excavationDone', () => turmoil.hit(SEVERITY.finding));
 }
 
 function save(): void { if (saveLocal(game)) game.state.savedAt = Date.now(); }
@@ -330,6 +337,7 @@ function frame(now: number): void {
   modals.update(dtReal);
   updateFinding();
   updateAmbi(dtReal);
+  turmoil.update(dtReal);
   if (pendingAway) { pendingAway.t -= dtReal; if (pendingAway.t <= 0) { modals.away(pendingAway.rep); pendingAway = null; } }
   const ph = game.state.phase;
   ui.classList.toggle('choosing', ph === 'choose');
@@ -345,5 +353,5 @@ function frame(now: number): void {
 fit();
 requestAnimationFrame(frame);
 void energyIcon;
-(window as any).__strata = { get game() { return game; }, renderer, save, dev, drawer, input, modals, away: (sec: number) => offline(Date.now() - sec * 1000),
+(window as any).__strata = { get game() { return game; }, renderer, save, dev, drawer, input, modals, turmoil, away: (sec: number) => offline(Date.now() - sec * 1000),
   lang: (l: 'en' | 'ru') => { game.state.settings.lang = l; setLang(l); drawer.relabel(); } };

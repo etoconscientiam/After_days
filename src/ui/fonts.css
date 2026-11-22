@@ -30,3 +30,10 @@
 .stone[data-wear="2"] { font-family: 'Strata Stone Worn 2', var(--stone); }
 .stone[data-wear="3"] { font-family: 'Strata Stone Worn 3', var(--stone); }
 .stone[data-wear="4"] { font-family: 'Strata Stone Worn 4', var(--stone); }
+
+/* Strata Pixel worn levels (tools/font/wear.json levels16): the whole interface switches to them during
+   special events (src/ui/turmoil.ts). Same advances and kerning as the clean face, so lines never reflow. */
+@font-face { font-family: 'Strata Pixel Worn 1'; font-style: normal; font-weight: 400; font-display: swap; src: url('../../assets/fonts/strata-pixel/StrataPixelWorn1-Regular.woff2') format('woff2'), url('../../assets/fonts/strata-pixel/StrataPixelWorn1-Regular.woff') format('woff'); }
+@font-face { font-family: 'Strata Pixel Worn 2'; font-style: normal; font-weight: 400; font-display: swap; src: url('../../assets/fonts/strata-pixel/StrataPixelWorn2-Regular.woff2') format('woff2'), url('../../assets/fonts/strata-pixel/StrataPixelWorn2-Regular.woff') format('woff'); }
+@font-face { font-family: 'Strata Pixel Worn 3'; font-style: normal; font-weight: 400; font-display: swap; src: url('../../assets/fonts/strata-pixel/StrataPixelWorn3-Regular.woff2') format('woff2'), url('../../assets/fonts/strata-pixel/StrataPixelWorn3-Regular.woff') format('woff'); }
+@font-face { font-family: 'Strata Pixel Worn 4'; font-style: normal; font-weight: 400; font-display: swap; src: url('../../assets/fonts/strata-pixel/StrataPixelWorn4-Regular.woff2') format('woff2'), url('../../assets/fonts/strata-pixel/StrataPixelWorn4-Regular.woff') format('woff'); }
