@@ -26,6 +26,7 @@ g.bus.on('prestige', (e) => log('prestige', `gain=${e.gain} total=${g.meta.densi
 g.bus.on('fossilFound', (e) => { if (e.complete && g.legacy.fossils <= 5) log('fossil', e.species + (e.rare ? ' rare' : '')); });
 g.bus.on('temple', (e) => log('temple', e.ritual));
 g.bus.on('noteFound', (e) => log('note', e.id));
+g.bus.on('orderDone', (e) => log('order', e.id));
 
 let clickAcc = 0;
 /** density gained from prestiges only (orders give density too; the heuristic below is about prestiges) */

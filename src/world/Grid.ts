@@ -20,6 +20,7 @@ export const P_RARE = 8;
 export const P_FRAGMENT = 16;
 export const P_GLOW = 32;      // living world: glowing organic matter
 export const P_FAST = 64;      // buried fast (flood, ash): better odds to fossilise
+export const P_OLD = 128;      // the old ground a world starts on: it turns to rock, but pays nothing (it is not this run's work)
 
 // behaviour per material
 export const K_NONE = 0, K_LOOSE = 1, K_ROCK = 2, K_MARKER = 3, K_SOLID = 4;

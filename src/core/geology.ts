@@ -4,7 +4,7 @@
 // layer» reward that finishes transformations around a spot.
 import { CFG, RULES_BY_MAT, TransformRule } from '../config';
 import type { Game } from './game';
-import { GW, P_FOSSIL, P_RARE, P_FRAGMENT, P_FAST } from '../world/Grid';
+import { GW, P_FOSSIL, P_RARE, P_FRAGMENT, P_FAST, P_OLD } from '../world/Grid';
 import { geoTick, GeoEnv, GeoReport, newReport } from './pressure';
 import { archiveTick } from './archiveGeo';
 import { wx } from './sources';
@@ -59,8 +59,9 @@ export function geoEnv(g: Game, dy: number): GeoEnv {
     finger: pr ? { x: pr.x, y: pr.y, r: pr.r, power: pr.power } : null,
     onTransform: (i, x, y, _from, to, rule, insect) => {
       if (insect) r.insectAmber++;
+      g.transforms++;
       const yv = insect ? rule.insectYield! : rule.yield;
-      if (yv > 0) g.addRock(rule.rock, yv * CFG.B.rockYield * CPP * S.rockYieldMul, wx(x));
+      if (yv > 0 && !(g.grid.flags[i] & P_OLD)) g.addRock(rule.rock, yv * CFG.B.rockYield * CPP * S.rockYieldMul, wx(x));
       // every grain that turns to rock flashes: a small bright spark in the colour of the new rock
       // (about one in three, scattered inside the grain and in time: a sprinkle of sparks, never a grid of dots)
       if (g.rng.next() < 0.35 && glints++ < 60 && g.glints.length < 120) {
@@ -167,7 +168,7 @@ export function finishLayer(g: Game, X: number, birth: number, dx = 12, db = 80)
       if (!rule) continue;
       grid.prog[i] = 0;
       grid.mat[i] = rule.toIdx;
-      if (rule.yield > 0) g.addRock(rule.rock, rule.yield * CFG.B.rockYield * CPP * S.rockYieldMul, wx(x));
+      if (rule.yield > 0 && !(grid.flags[i] & P_OLD)) g.addRock(rule.rock, rule.yield * CFG.B.rockYield * CPP * S.rockYieldMul, wx(x));
       if (g.pressFlashes.length < 80) g.pressFlashes.push({ x: wx(x), y: y * 2 + 1, t: 1.2, color: CFG.materials[rule.toIdx].palette[4] });
       n++;
     }

@@ -17,11 +17,11 @@
     { "from": "shellOoze",  "to": "chalk",        "pMin": 0.5, "years": 1000, "yield": 1 },
     { "from": "chalk",      "to": "limestone",    "pMin": 5,   "years": 3000, "yield": 3 },
     { "from": "limestone",  "to": "ruby",         "pMin": 60,  "tMin": 300, "years": 15000, "yield": 300, "chance": 0.05, "world": "hot" },
-    { "from": "limestone",  "to": "marble",       "tMin": 200, "years": 8000, "yield": 20, "rankReq": 3 },
+    { "from": "limestone",  "to": "marble",       "tMin": 200, "years": 8000, "yield": 4, "rankReq": 3 },
     { "from": "sand",       "to": "sandstone",    "pMin": 5,   "water": true, "years": 2000, "yield": 2 },
     { "from": "sandstone",  "to": "quartzite",    "pMin": 25,  "tMin": 200, "years": 8000, "yield": 15 },
-    { "from": "clay",       "to": "mudstone",     "pMin": 5,   "years": 2000, "yield": 1 },
-    { "from": "silt",       "to": "mudstone",     "pMin": 5,   "years": 2000, "yield": 1 },
+    { "from": "clay",       "to": "mudstone",     "pMin": 5,   "years": 2000, "yield": 0.1 },
+    { "from": "silt",       "to": "mudstone",     "pMin": 5,   "years": 2000, "yield": 0.1 },
     { "from": "mudstone",   "to": "sapphire",     "pMin": 60,  "tMin": 300, "years": 15000, "yield": 300, "chance": 0.05, "world": "hot" },
     { "from": "mudstone",   "to": "shale",        "pMin": 25,  "years": 5000, "yield": 4 },
     { "from": "shale",      "to": "gneiss",       "pMin": 25,  "tMin": 300, "years": 8000, "yield": 10, "world": "hot" },
@@ -38,7 +38,7 @@
     { "from": "ochre",      "to": "jasper",       "pMin": 0.5, "years": 400,  "yield": 3 },
     { "from": "tephra",     "to": "bentonite",    "pMin": 0.5, "years": 600,  "yield": 4 },
     { "from": "boundary",   "to": "boundaryRock", "pMin": 0.5, "years": 600,  "yield": 2 },
-    { "from": "floodSilt",  "to": "mudstone",     "pMin": 2,   "years": 1500, "yield": 1 },
+    { "from": "floodSilt",  "to": "mudstone",     "pMin": 2,   "years": 1500, "yield": 0.3 },
     { "from": "dust",       "to": "siltstone",    "pMin": 2,   "years": 600,  "yield": 0.5 },
     { "from": "soil",       "to": "paleosol",     "pMin": 2,   "noOxygen": true, "years": 800, "yield": 0.5 }
   ]

@@ -995,7 +995,7 @@ export class Renderer {
     // pixels that turned to rock under a press (or a glowing-layer event) flash
     let pfShown = 0;
     for (const pf of g.pressFlashes) {
-      if (pfShown++ >= 24) break;
+      if (pfShown++ >= (this.quality === 'low' ? 8 : 24)) break;
       const y = Math.round(pf.y + gdy);
       const a = Math.min(1, pf.t * 1.6) * 0.7;
       c.fillStyle = pf.color; c.globalAlpha = a; c.fillRect(pf.x, y, 1, 1);
@@ -1010,7 +1010,8 @@ export class Renderer {
       c.fillRect(z.pts[i], top + z.pts[i + 1], 1, 1);
     }
     // a rock is born: a spark where it happened — a white-hot core and arms in the colour of the new rock
-    for (const gl of g.glints) {
+    // (low quality: none)
+    for (const gl of this.quality === 'low' ? [] : g.glints) {
       if (gl.x >= SW) continue;
       const gy = Math.round(gl.y + gdy);
       if (gy - top >= sec.cut) continue;

@@ -215,6 +215,36 @@ export class Audio {
     this.hum.filter.frequency.setTargetAtTime(160 + level * 220, t, 0.3);
   }
 
+  /** Grains on the move: a soft dry hiss whose level follows how many particles fall and slide (0..1). A little
+   *  random flutter of the level makes it sound like grains, not like wind. Quiet: it sits under everything. */
+  sand(level: number): void {
+    if (!this.ctx || !this.noiseBuf) return;
+    const c = this.ctx;
+    if (!this.sandHiss && level > 0.01) {
+      const n = c.createBufferSource();
+      n.buffer = this.noiseBuf; n.loop = true;
+      const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1400;
+      const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 3200; bp.Q.value = 0.7;
+      const gain = c.createGain(); gain.gain.value = 0;
+      n.connect(hp).connect(bp).connect(gain).connect(this.sfx);
+      n.start();
+      this.sandHiss = { gain, filter: bp };
+    }
+    if (!this.sandHiss) return;
+    const t = c.currentTime;
+    const flutter = 0.7 + Math.random() * 0.6;
+    this.sandHiss.gain.gain.setTargetAtTime(Math.min(1, level) * 0.05 * flutter, t, 0.06);
+    this.sandHiss.filter.frequency.setTargetAtTime(2600 + Math.random() * 1400, t, 0.05);
+  }
+  private sandHiss: { gain: GainNode; filter: BiquadFilterNode } | null = null;
+
+  /** A grain turned to rock: a tiny glassy tick, high and very quiet (the caller keeps it to a few a second). */
+  tick(): void {
+    if (!this.ctx) return;
+    const notes = [1568, 1760, 2093, 2349.3, 2637];
+    this.tone(0, notes[Math.floor(Math.random() * notes.length)], 0.18, 0.018, 'sine');
+  }
+
   /** A reward picked up (rare event): a bright rising arpeggio. */
   reward(): void {
     if (!this.ctx) return;

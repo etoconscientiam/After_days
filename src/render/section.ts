@@ -116,6 +116,9 @@ export class SectionRenderer {
     this.buf = new Uint32Array(this.img.data.buffer);
   }
 
+  /** Weak phones: fewer repaints. */
+  lowQuality = false;
+
   /** Pick an epoch on the ruler; -1 lets go. */
   focus(era: number): void { this.focusEra = era; this.lastVersion = -1; }
 
@@ -123,6 +126,8 @@ export class SectionRenderer {
     void dt;
     const v = g.grid.version;
     if (v === this.lastVersion && lay.version === this.lastLayout && now - this.lastRender < 250 && revealY === Infinity) return false;
+    // low quality: the strata repaint at most 30 times a second (grains still fall at their own pace)
+    if (this.lowQuality && now - this.lastRender < 33 && revealY === Infinity) return false;
     this.render(g, lay, revealY);
     this.lastVersion = v;
     this.lastLayout = lay.version;

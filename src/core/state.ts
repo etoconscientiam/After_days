@@ -129,6 +129,8 @@ export interface Settings {
   sfx: number;
   muted: boolean;
   quality: 'high' | 'low';
+  /** the game lowered the quality once by itself (a slow phone): it does not do it again */
+  autoLow?: boolean;
   integerScale: boolean;
   detailed: boolean;
 }

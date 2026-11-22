@@ -93,7 +93,7 @@ function transformLayer(g: Game, L: ReturnType<Game['archive']['newLayer']>, Pef
             L.prog[o + to] = (L.prog[o + to] * L.amt[o + to]) / Math.max(1e-6, L.amt[o + to] + amount);
             L.amt[o + to] += amount;
             const y = to === rule.insectToIdx ? rule.insectYield! : rule.yield;
-            if (y > 0) g.addRock(rule.rock, amount * y * CFG.B.rockYield, X);
+            if (y > 0) g.addRock(rule.rock, amount * y * CFG.B.rockYield * CFG.B.sand.archiveYieldMul, X);
           }
           if (ins > 0) { g.run.insectAmber++; L.insect[s] -= ins; }
           changed = true;

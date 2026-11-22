@@ -1,6 +1,6 @@
 // The Game: owns state + world, advances time, exposes player actions. No DOM access (runs in Node for the sim).
 import { CFG, M, ZONES, ZoneId, SpeciesDef, ElementDef, SX } from '../config';
-import { Grid, GW } from '../world/Grid';
+import { Grid, GW, P_OLD } from '../world/Grid';
 import { Archive } from '../world/Archive';
 import { stepFull, Water } from './sand';
 import { sinkStep } from './pressure';
@@ -135,7 +135,7 @@ export class Game {
           const jx = Math.round(x + 3 * Math.sin(y * 0.35 + ph) + 2 * Math.sin(y * 0.9));
           m = base[this.zoneMap[Math.max(0, Math.min(GW - 1, jx)) * 2 + 1]];
         }
-        g.put(x, y, m, rnd(), this.run.year - 1);
+        g.put(x, y, m, rnd(), this.run.year - 1, P_OLD);
       }
     }
     g.computeTops();
@@ -467,13 +467,17 @@ export class Game {
 
   /** Particles fall (full mode, a fixed number of steps a second), the conveyor sinks the oldest rows, waiting marker beds
    *  are laid. dt = real seconds. In the balance run and offline (headless) particles settle at once, no steps. */
+  /** Weak phones (quality «low»): fewer physics steps a second. */
+  lowPhysics = false;
+  /** Particles that turned to rock so far (the screen ticks a quiet sound on new ones). */
+  transforms = 0;
   /** Milliseconds of physics a frame (eased), for the debug panel. */
   physMs = 0;
 
   strataStep(dt: number): void {
     const r = this.run;
     if (!this.headless) {
-      const step = 1 / SAND.stepsPerSecond;
+      const step = 1 / (this.lowPhysics ? SAND.stepsPerSecondLow : SAND.stepsPerSecond);
       this.physAcc = Math.min(this.physAcc + dt, step * 6);
       const t0 = performance.now();
       while (this.physAcc >= step) {

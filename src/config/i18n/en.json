@@ -674,7 +674,8 @@
     "copied": "Copied to clipboard",
     "dev": "Developer mode",
     "detailed": "Detailed mode (numbers)",
-    "resetHold": "Hold 2 s to erase everything"
+    "resetHold": "Hold 2 s to erase everything",
+    "autoLow": "Effects quality lowered for smoothness (change it in settings)"
   },
   "btn": {
     "ok": "OK",
@@ -807,14 +808,14 @@
   "orders": {
     "done": "Order done: {what}",
     "title": "Order",
-    "press30": "Press down 30 m of rock",
-    "stromatolite12": "Make 12 stromatolite",
-    "mudstone40": "Make 40 mudstone",
-    "shale60": "Make 60 shale",
-    "limestone30": "Make 30 limestone",
-    "press100": "Press down 100 m of rock",
-    "peat20": "Make 20 peat",
-    "coal20": "Make 20 coal",
+    "press30": "Press down {n} m of rock",
+    "stromatolite12": "Make {n} stromatolite",
+    "mudstone40": "Make {n} mudstone",
+    "shale60": "Make {n} shale",
+    "limestone30": "Make {n} limestone",
+    "press100": "Press down {n} m of rock",
+    "peat20": "Make {n} peat",
+    "coal20": "Make {n} coal",
     "oil1": "Make oil",
     "amberInsect": "Make amber with an insect",
     "predatorFossil": "Keep a predator fossil",

@@ -173,7 +173,7 @@ export class Hud {
     for (const o of g.run.orders) {
       if (o.done) continue;
       const pr = orderProgress(g, o);
-      out.push({ text: `${t('orders.' + o.id)} — ${fmt(pr.have, 0)}/${fmt(pr.need, 0)}`, k: pr.have / Math.max(1, pr.need) });
+      out.push({ text: `${t('orders.' + o.id, { n: CFG.orders.pool.find((d) => d.id === o.id)?.n ?? 0 })} — ${fmt(pr.have, 0)}/${fmt(pr.need, 0)}`, k: pr.have / Math.max(1, pr.need) });
     }
     if (g.state.phase === 'play' && g.run.era < 8) out.push({ text: this.condString(g), k: g.eraConditionProgress(), sub: true });
     return out;

@@ -156,6 +156,8 @@ function applySettings(): void {
   audio.volumes = { music: s.music, sfx: s.sfx, muted: s.muted };
   audio.applyVolumes();
   renderer.quality = s.quality;
+  renderer.section.lowQuality = s.quality === 'low';
+  game.lowPhysics = s.quality === 'low';
   fit();
 }
 
@@ -228,7 +230,7 @@ function bind(g: Game): void {
     const p = renderer.burialPos(game);
     renderer.burst(p.x, p.y + 10, '#ffe2a0', 18); renderer.flash = 0.8;
   });
-  bus.on('orderDone', (e) => { hud.notify('order', t('orders.done', { what: t('orders.' + e.id) }), '#B9A6E8'); audio.reward(); });
+  bus.on('orderDone', (e) => { hud.notify('order', t('orders.done', { what: t('orders.' + e.id, { n: CFG.orders.pool.find((d) => d.id === e.id)?.n ?? 0 }) }), '#B9A6E8'); audio.reward(); });
   bus.on('excavationDone', () => turmoil.hit(SEVERITY.finding));
 }
 
@@ -301,6 +303,7 @@ input.onImpulse = (x, y) => {
   renderer.tapAt(x, y);
 };
 let pressStart = 0;
+let lastTransforms = 0, lastTick = 0;
 input.onPress = (on) => { pressStart = on ? performance.now() : 0; if (!on) audio.pressHum(0); };
 input.onRare = () => {
   const p = renderer.rarePos(game);
@@ -391,6 +394,22 @@ setInterval(save, CFG.B.save.autosave * 1000);
 
 // ---------- loop ----------
 let last = performance.now();
+/** A slow phone: if the frame rate stays under 40 for 8 s of play, quality drops to «low» once, with a note. */
+let fpsAvg = 60, slowFor = 0, playFor = 0;
+function watchFps(dt: number): void {
+  const s = game.state.settings;
+  if (dt <= 0 || game.state.phase !== 'play' || document.hidden) return;
+  fpsAvg += (1 / dt - fpsAvg) * 0.05;
+  playFor += dt;
+  if (s.quality !== 'high' || s.autoLow || playFor < 10) return;
+  slowFor = fpsAvg < 40 ? slowFor + dt : 0;
+  if (slowFor < 8) return;
+  s.quality = 'low';
+  s.autoLow = true;
+  applySettings();
+  hud.notify('quality', t('settings.autoLow'), '#B9A6E8');
+}
+
 function frame(now: number): void {
   const dtReal = Math.min(0.1, (now - last) / 1000);
   last = now;
@@ -401,6 +420,8 @@ function frame(now: number): void {
   for (let i = 0; i < steps; i++) game.update(dtGame);
   renderer.timeMul = steps * (dtGame / Math.max(1e-6, dtReal));
   renderer.lay.update(drawerWorldPx());
+  game.lowPhysics = renderer.quality === 'low';
+  watchFps(dtReal);
   renderer.draw(game, dtReal, now);
   hud.update(game, dtReal);
   drawer.update(dtReal);
@@ -411,6 +432,12 @@ function frame(now: number): void {
   turmoil.update(dtReal);
   geo.update(dtReal);
   renderer.skyTop = (hud.bottomUI / 640) * WH;
+  // grains on the move hiss softly; a grain turning to rock ticks (a few a second at most)
+  audio.sand(game.state.phase === 'play' ? Math.min(1, game.moving / 350) : 0);
+  if (game.transforms > lastTransforms) {
+    if (now - lastTick > 260 + Math.random() * 200) { audio.tick(); lastTick = now; }
+    lastTransforms = game.transforms;
+  }
   if (pressStart) audio.pressHum(Math.min(1, (now - pressStart) / 3000) * Math.min(1.2, game.run.press?.power ?? 1));
   drawer.burialPulse = game.run.burialWindow > 0;
   if (pendingAway) { pendingAway.t -= dtReal; if (pendingAway.t <= 0) { modals.away(pendingAway.rep); pendingAway = null; } }
