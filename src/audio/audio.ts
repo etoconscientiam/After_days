@@ -8,6 +8,7 @@ export class Audio {
   private noiseBuf: AudioBuffer | null = null;
   private era = -1;
   private choir: { osc: OscillatorNode[]; gain: GainNode } | null = null;
+  private hum: { osc: OscillatorNode[]; gain: GainNode; filter: BiquadFilterNode } | null = null;
   volumes = { music: 0.5, sfx: 0.7, muted: false };
 
   /** Must be called from a user gesture. */
@@ -190,6 +191,41 @@ export class Audio {
       this.choir = { osc, gain };
     }
     if (this.choir) this.choir.gain.gain.setTargetAtTime(level * 0.8, c.currentTime, 0.8);
+  }
+
+  /** Press: a low hum that grows while the finger holds the layers (level 0..1, rises in pitch). */
+  pressHum(level: number): void {
+    if (!this.ctx) return;
+    const c = this.ctx;
+    if (!this.hum && level > 0) {
+      const gain = c.createGain();
+      gain.gain.value = 0;
+      const o1 = c.createOscillator(); o1.type = 'sawtooth'; o1.frequency.value = 46;
+      const o2 = c.createOscillator(); o2.type = 'sine'; o2.frequency.value = 69;
+      const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 160;
+      o1.connect(f); o2.connect(f); f.connect(gain); gain.connect(this.sfx);
+      o1.start(); o2.start();
+      this.hum = { osc: [o1, o2], gain, filter: f };
+    }
+    if (!this.hum) return;
+    const t = c.currentTime;
+    this.hum.gain.gain.setTargetAtTime(level * 0.22, t, 0.15);
+    this.hum.osc[0].frequency.setTargetAtTime(46 + level * 18, t, 0.4);
+    this.hum.osc[1].frequency.setTargetAtTime(69 + level * 27, t, 0.4);
+    this.hum.filter.frequency.setTargetAtTime(160 + level * 220, t, 0.3);
+  }
+
+  /** A reward picked up (rare event): a bright rising arpeggio. */
+  reward(): void {
+    if (!this.ctx) return;
+    [659.3, 830.6, 987.8, 1318.5].forEach((fq, i) => this.tone(i * 0.07, fq, 0.5, 0.09, 'triangle'));
+  }
+
+  /** The burial window caught: a deep bell with a bright overtone. */
+  burial(): void {
+    if (!this.ctx) return;
+    this.tone(0, 130.8, 2.2, 0.18, 'sine', 98);
+    this.tone(0.02, 523.3, 1.2, 0.06, 'triangle');
   }
 
   // ---------- echo sounds: quiet, short, synthesized placeholders ----------

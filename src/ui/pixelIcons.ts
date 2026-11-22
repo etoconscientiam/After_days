@@ -95,6 +95,29 @@ const RELEASE: Art = {
   pal: { o: OUT, w: '#fff0c4', b: '#f2b54a', B: '#c9782a', h: '#f7c766', e: '#1a1412', k: '#e07a22', t: '#8a6040', n: '#a8784a', N: '#7a5232' },
 };
 
+/** The Geologist's lens: a magnifier over three layers. 16×16. */
+const LENS: Art = {
+  rows: [
+    '................',
+    '.....oooo.......',
+    '....oggggo......',
+    '...ogwggggo.....',
+    '..ogwgaaaggo....',
+    '..oggaaaaaggo...',
+    '..oggsssssggo...',
+    '..ogsssssssgo...',
+    '..ogrrrrrrrgo...',
+    '...ogrrrrrgo....',
+    '....oggggggoo...',
+    '.....oooooohhoo.',
+    '..........ohHHo.',
+    '...........ohHHo',
+    '............ohho',
+    '.............oo.',
+  ],
+  pal: { o: OUT, g: '#b8d8e0', w: '#ffffff', a: '#e8c070', s: '#9a8a68', r: '#7a5a48', h: '#8a6040', H: '#c8964a' },
+};
+
 const cache = new Map<string, HTMLCanvasElement>();
 function paint(art: Art, key: string): HTMLCanvasElement {
   let c = cache.get(key);
@@ -144,4 +167,8 @@ export function habitatPixel(zone: string, size = 24): HTMLCanvasElement {
 
 export function releasePixel(size = 32): HTMLCanvasElement {
   return show(paint(RELEASE, 'release'), size);
+}
+
+export function lensPixel(size = 24): HTMLCanvasElement {
+  return show(paint(LENS, 'lens'), size);
 }

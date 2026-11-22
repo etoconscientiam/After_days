@@ -11,8 +11,6 @@ import { fmtCountdown } from './hud';
 import { makeEntry, chronicleCard } from './chronicle';
 import { rockIcon } from './icons';
 
-/** UI units (360×640) per canvas pixel. */
-const UI = 360 / WW;
 
 export class Input {
   private tooltip = $('#tooltip');
@@ -28,15 +26,24 @@ export class Input {
   onArtifact: (shard: number) => void = () => {};
   onCast: (x: number, y: number) => void = () => {};
   onChoose: (index: number) => void = () => {};
-  /** Returns true when a tap on the world only closed the drawer. */
-  onWorldTap: () => boolean = () => false;
+  /** A tap anywhere in the world: an impulse from the thing. */
+  onImpulse: (x: number, y: number) => void = () => {};
+  /** The press began (true) or ended (false). */
+  onPress: (on: boolean) => void = () => {};
+  /** The rare event was tapped. */
+  onRare: () => void = () => {};
+  /** The burial window marker was tapped. */
+  onBurial: () => void = () => {};
   onTargetEnd: () => void = () => {};
 
   constructor(private g: () => Game, private ren: Renderer) {
     const c = this.canvas;
     c.addEventListener('pointermove', (e) => {
+      if (this.hold && this.hold.id === e.pointerId) { this.hold.m = this.world(e); return; }
       if (e.pointerType === 'mouse' || e.pointerType === 'pen' || this.targeting) this.move(e);
     });
+    c.addEventListener('pointerup', (e) => this.up(e));
+    c.addEventListener('pointercancel', (e) => this.up(e));
     c.addEventListener('pointerleave', () => { this.mouse = null; this.ren.hover = null; this.tooltip.hidden = true; });
     c.addEventListener('pointerdown', (e) => {
       if (e.pointerType === 'mouse' && e.button !== 0) return;
@@ -75,7 +82,8 @@ export class Input {
 
   update(dt: number): void {
     if (this.noteTimer > 0) { this.noteTimer -= dt; if (this.noteTimer <= 0) this.fieldnote.hidden = true; }
-    if (this.mouse && !this.finger) this.refreshHover();
+    this.updateHold();
+    if (this.mouse && !this.finger && !this.hold) this.refreshHover();
   }
 
   private move(e: MouseEvent): void {
@@ -148,12 +156,33 @@ export class Input {
     tip.replaceChildren(h('div', { class: 'l-head' }, icon ? rockIcon(icon, 18) : h('span', { class: 'l-sym' }, '⟡'), h('span', {}, head)),
       h('div', { class: 'l-sub' }, sub), ...rows.map((r) => h('div', { class: 'l-sub' }, r)));
     tip.hidden = false;
-    const tx = m.x * UI > 190 ? m.x * UI - 176 : m.x * UI + 12;
+    const cr = this.canvas.getBoundingClientRect(), ur = $('#ui').getBoundingClientRect();
+    const ux = (cr.left + (m.x / WW) * cr.width - ur.left) / this.scale, uy = (cr.top + (m.y / WH) * cr.height - ur.top) / this.scale;
+    const tx = ux > 190 ? ux - 176 : ux + 12;
     tip.style.left = Math.max(6, tx) + 'px';
-    tip.style.top = Math.min(540, Math.max(110, m.y * UI - 24)) + 'px';
+    tip.style.top = Math.min(540, Math.max(110, uy - 24)) + 'px';
   }
 
-  private down(e: MouseEvent): void {
+  /** Where a pointer is, in UI units (360×640), wherever the world is drawn (it shrinks above the drawer). */
+  private uiPt(e: MouseEvent): { x: number; y: number } {
+    const u = $('#ui').getBoundingClientRect();
+    return { x: (e.clientX - u.left) / this.scale, y: (e.clientY - u.top) / this.scale };
+  }
+
+  /** Geologist mode: tapping a layer opens its card with the details already open. */
+  geologist = false;
+  /** A finger (or the mouse) down on the strata: a short tap is an impulse, a hold is a press. */
+  private hold: { id: number; t0: number; m: { x: number; y: number }; pressing: boolean } | null = null;
+
+  /** Is (world x, y) on the strata (not the horizon/bedrock)? */
+  private onStrata(m: { x: number; y: number }): boolean {
+    const sy = this.ren.sectionY(m.y);
+    if (sy === null) return false;
+    const x = this.col(m.x);
+    return sy >= this.ren.section.topD[x] && sy < this.ren.section.horizonTop[x];
+  }
+
+  private down(e: PointerEvent): void {
     const g = this.g();
     const m = this.world(e);
     if (g.state.phase === 'choose') {
@@ -173,17 +202,64 @@ export class Input {
       this.cancelTarget();
       return;
     }
-    const art = this.ren.isArtifact(m.x, m.y, g, this.finger ? 1.7 : 1);
-    if (art >= 0) { this.onArtifact(art); return; }
-    if (this.onWorldTap()) return;
+    // a rare event takes the tap
+    if (g.rare && this.ren.rareHit(g, m.x, m.y, this.finger ? 1.6 : 1)) { this.onRare(); return; }
+    // the burial window marker opens the Elements (flood, volcano)
+    if (this.ren.burialHit(g, m.x, m.y)) { this.onBurial(); return; }
+    // Geologist: a tap on a layer opens its card with the details
+    if (this.geologist && this.onStrata(m)) { this.showCard(g, m, this.uiPt(e), true); return; }
+    // on the strata: wait — a hold becomes a press, a short tap an impulse
+    if (g.state.phase === 'play' && this.onStrata(m)) {
+      this.hold = { id: e.pointerId, t0: performance.now(), m, pressing: false };
+      try { this.canvas.setPointerCapture(e.pointerId); } catch { /* not all pointers can be captured */ }
+      return;
+    }
+    // anywhere else in the world: an impulse
+    this.onImpulse(m.x, m.y);
+  }
+
+  private up(e: PointerEvent): void {
+    const h0 = this.hold;
+    if (!h0 || h0.id !== e.pointerId) return;
+    this.hold = null;
+    if (h0.pressing) this.endPress();
+    else this.onImpulse(h0.m.x, h0.m.y);
+  }
+
+  private endPress(): void {
+    this.g().run.press = null;
+    this.ren.press = null;
+    this.onPress(false);
+  }
+
+  /** While the finger holds: start the press after the hold time, then follow the finger. */
+  private updateHold(): void {
+    const h0 = this.hold;
+    if (!h0) return;
+    const g = this.g();
+    if (g.state.phase !== 'play') { this.hold = null; if (h0.pressing) this.endPress(); return; }
+    if (!h0.pressing && performance.now() - h0.t0 >= CFG.B.press.holdMs) { h0.pressing = true; this.onPress(true); this.tooltip.hidden = true; }
+    if (!h0.pressing) return;
+    const sec = this.ren.section;
+    const x = this.col(h0.m.x);
+    const sy = Math.max(sec.topD[x], Math.min(sec.horizonTop[x] - 1, h0.m.y - this.ren.lay.sectionTop));
+    const R = CFG.B.press.radius + g.stats.pressRadius;
+    // this layer and the layers below it, within the radius
+    const [b0, b1] = sec.birthRange(Math.max(sec.topD[x], sy - 3), Math.min(sec.horizonTop[x] - 1, sy + R), x);
+    const prev = g.run.press;
+    g.run.press = { x, x0: Math.max(0, x - R), x1: Math.min(WW - 1, x + R), b0, b1, power: prev ? prev.power : 1 + g.stats.pressPower };
+    this.ren.press = { x, y: this.ren.lay.sectionTop + sy, r: R, t0: h0.t0, power: g.run.press.power };
+  }
+
+  private showCard(g: Game, m: { x: number; y: number }, u: { x: number; y: number }, detailed: boolean): void {
     const sy = this.ren.sectionY(m.y);
-    if (sy === null) { this.fieldnote.hidden = true; return; }
+    if (sy === null) return;
     const x = this.col(m.x);
     const entry = makeEntry(g, x, this.ren.section.locateAt(g, x, sy));
     if (!entry) { this.fieldnote.hidden = true; return; }
-    this.fieldnote.replaceChildren(chronicleCard(entry, !!g.state.settings.detailed));
+    this.fieldnote.replaceChildren(chronicleCard(entry, detailed || !!g.state.settings.detailed));
     this.fieldnote.hidden = false;
-    this.fieldnote.style.top = Math.max(150, Math.min(420, m.y * UI - 70)) + 'px';
+    this.fieldnote.style.top = Math.max(150, Math.min(420, u.y - 70)) + 'px';
     this.noteTimer = 8;
   }
 }

@@ -92,6 +92,7 @@ export function lifeStep(g: Game, dy: number): void {
       while (over > 0.5 && r.pop[sp.id][z] > 0) {
         r.pop[sp.id][z]--;
         addCarcass(g, z, sp, 1);
+        g.noteKills(1);
         over -= g.unitSize(sp);
         g.statsDirty = true;
       }
@@ -117,6 +118,7 @@ export function killShare(g: Game, shares: number[], cause: string): number {
     }
   }
   if (killed > 0) {
+    g.noteKills(killed);
     g.statsDirty = true;
     g.bus.emit('extinction', { cause, killed });
     g.triggerEcho('firstExtinction');

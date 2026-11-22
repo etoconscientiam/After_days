@@ -74,7 +74,11 @@
     "qtyMax": "max",
     "zones": "Water {w} · Shore {s} · Land {l}",
     "o2tip": "Oxygen {v}% of 21%",
-    "zoneTip": "{zone}: {u} of {c} taken"
+    "zoneTip": "{zone}: {u} of {c} taken",
+    "livesShort": "lives {v} yr",
+    "openIn": "Opens: era {era}",
+    "more": "More",
+    "sec": "s"
   },
   "species": {
     "mats": {
@@ -282,7 +286,11 @@
       "name": "Star dust",
       "desc": "×1.1 all Energy"
     },
-    "milestone": "doubles at 10 / 25 / 50 / 100"
+    "milestone": "doubles at 10 / 25 / 50 / 100",
+    "widePress": {
+      "name": "Wide press",
+      "desc": "+6 to the press radius"
+    }
   },
   "rockHow": {
     "stromatolite": "bacterial mats leave lime crusts; bury them under ~20 rows",
@@ -457,8 +465,8 @@
       "desc": "+20% fossil chance"
     },
     "autoElements": {
-      "name": "Self-moving elements",
-      "desc": "One more element on auto-repeat"
+      "name": "Cycle",
+      "desc": "+1 element repeats by itself"
     },
     "legacy": {
       "name": "Legacy",
@@ -473,7 +481,19 @@
     "holdHint": "Hold to shift the epoch",
     "notYet": "Not enough compacted rock yet",
     "foundationAdd": "The foundation grows by {v} m ({p}% of the column has turned to stone)",
-    "foundationNone": "The foundation will not grow: nothing has hardened yet (k < {k}). Density comes from the compacted mass itself."
+    "foundationNone": "The foundation will not grow: nothing has hardened yet (k < {k}). Density comes from the compacted mass itself.",
+    "heavyHand": {
+      "name": "Heavy hand",
+      "desc": "+50% press strength"
+    },
+    "shepherd": {
+      "name": "Shepherd",
+      "desc": "+1 species buys itself"
+    },
+    "buyBest": {
+      "name": "Buy the best",
+      "desc": "A button above the Life list"
+    }
   },
   "book": {
     "chronicle": "Chronicle",
@@ -694,5 +714,72 @@
     "fragment": "+{n} fragments",
     "note": "+{n} notes",
     "extinction": "Mass deaths ×{n}"
+  },
+  "rare": {
+    "star": "A falling star: a minute of Energy",
+    "washed": "Washed ashore: a rock",
+    "migration": "A herd migrates: Energy ×3 for 30 s",
+    "bloom": "Bloom: time ×2 for 30 s",
+    "glowLayer": "A glowing layer: transformed",
+    "ancient": "An ancient object"
+  },
+  "burial": {
+    "open": "Mass death — a Flood or a Volcano now will keep the bones",
+    "done": "Burial: fossils ×3"
+  },
+  "orders": {
+    "done": "Order done: {what}",
+    "title": "Order",
+    "press30": "Press down 30 m of rock",
+    "stromatolite12": "Make 12 stromatolite",
+    "mudstone40": "Make 40 mudstone",
+    "shale60": "Make 60 shale",
+    "limestone30": "Make 30 limestone",
+    "press100": "Press down 100 m of rock",
+    "peat20": "Make 20 peat",
+    "coal20": "Make 20 coal",
+    "oil1": "Make oil",
+    "amberInsect": "Make amber with an insect",
+    "predatorFossil": "Keep a predator fossil",
+    "fishFossil": "Keep a fish fossil",
+    "reward": "Reward: {what}",
+    "rewardDensity": "Density +{n}",
+    "rewardRock": "{rock} +{n}",
+    "rewardLeast": "scarcest rock +{n}"
+  },
+  "geo": {
+    "button": "Geologist: heat, water and transformations",
+    "hint": "The lens shows where it is hot, where it is deep and what turns into what",
+    "deeper": "needs depth",
+    "heat": "needs heat",
+    "water": "needs water",
+    "tooHot": "too hot",
+    "tooDeep": "too deep",
+    "noAir": "needs no air",
+    "years": "≈ {v} yr",
+    "legendHeat": "heat",
+    "legendWater": "water",
+    "legendWindow": "transforming"
+  },
+  "goal": {
+    "era": "Needed",
+    "all": "Goals",
+    "eraCond": "Era condition",
+    "none": "No goals yet"
+  },
+  "epochHint": {
+    "later": "In ≈ {t} it will be +{v}",
+    "flat": "It hardly grows any more — a good time",
+    "min": "{v} min",
+    "sec": "{v} s",
+    "hour": "{v} h"
+  },
+  "auto": {
+    "shepherd": "auto",
+    "shepherdTip": "Shepherd: buy this species by itself",
+    "slots": "Shepherd {used}/{max}",
+    "buyBest": "Buy the best",
+    "buyBestTip": "Buys the best income per price while there is enough",
+    "requires": "Opens after shift no. {n}"
   }
 }

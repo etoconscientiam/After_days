@@ -18,6 +18,8 @@ import { rockIcon, energyIcon, exhibit } from './ui/icons';
 import { audio } from './audio/audio';
 import { setWear, wearFrom } from './ui/wear';
 import { Turmoil, SEVERITY } from './ui/turmoil';
+import { Geologist } from './ui/geologist';
+import { rockNeedsHeatOrDepth } from './core/forecast';
 import { saveLocal, loadLocal, clearLocal, exportString, importString } from './save/save';
 
 const DEV = import.meta.env.DEV || new URLSearchParams(location.search).has('dev');
@@ -40,6 +42,7 @@ const input = new Input(() => game, renderer);
 const modals = new Modals(() => game);
 const dev = new DevPanel(() => game, () => resetAll());
 const turmoil = new Turmoil();
+const geo = new Geologist(() => game, renderer, input, () => uiScale);
 if (!DEV) dev.el.remove();
 
 // ---------- layout / scaling ----------
@@ -80,6 +83,19 @@ function updateAmbi(dt: number): void {
   ambiCtx.globalAlpha = 0.35; // slow blend towards the current frame
   ambiCtx.drawImage(canvas, 0, 0, 18, 32);
   ambiCtx.globalAlpha = 1;
+}
+
+// ---------- the world shrinks above an open drawer (it is never covered) ----------
+const drawerEl = $('#drawer');
+let worldScale = 1;
+function fitWorldToDrawer(): void {
+  const dr = drawerEl.getBoundingClientRect(), ur = ui.getBoundingClientRect();
+  const topUI = (dr.top - ur.top) / uiScale;
+  const s = Math.max(0.3, Math.min(1, topUI / 640));
+  if (Math.abs(s - worldScale) < 0.001) return;
+  worldScale = s;
+  canvas.style.transformOrigin = '50% 0';
+  canvas.style.transform = s < 0.999 ? `scale(${s})` : '';
 }
 
 // ---------- fly-to effects (DOM, in UI units) ----------
@@ -154,11 +170,13 @@ function bind(g: Game): void {
   const bus = g.bus;
   bus.on('click', (e) => { audio.click(e.boost); });
   bus.on('rockDiscovered', (e) => {
+    // the first rock that needs heat or depth: the Geologist's lens lights up
+    if (rockNeedsHeatOrDepth(e.rock) && !g.legacy.firsts.geoHint) { g.legacy.firsts.geoHint = true; geo.hint(); hud.notify('geo', t('geo.hint'), '#F2B54A'); }
     hud.notify('rock', t('toast.rock', { rock: t('rocks.' + e.rock) }), '#F2B54A', plural('rock'));
     audio.chime(e.rock);
     const y = renderer.lay.sectionTop + Math.max(10, renderer.section.strataH * 0.6);
     renderer.burst(WW / 2, y, '#fff2c0', 8);
-    flyDom(rockIcon(e.rock, 26), worldToUi(WW / 2, y), $('#rocks'));
+    flyDom(rockIcon(e.rock, 26), worldToUi(WW / 2, y), $('#rocks'), () => hud.captionRock(e.rock));
   });
   bus.on('fossilFound', (e) => {
     const s = t('species.' + e.species + '.name');
@@ -208,6 +226,14 @@ function bind(g: Game): void {
     else audio.whoosh();
   });
   bus.on('temple', () => save());
+  bus.on('burialWindow', () => { hud.notify('burial', t('burial.open'), '#F2B54A'); audio.chime('amber'); drawer.burialPulse = true; });
+  bus.on('burial', () => {
+    hud.notify('burialDone', t('burial.done'), '#F2B54A');
+    audio.burial(); turmoil.hit(2);
+    const p = renderer.burialPos(game);
+    renderer.burst(p.x, p.y + 10, '#ffe2a0', 18); renderer.flash = 0.8;
+  });
+  bus.on('orderDone', (e) => { hud.notify('order', t('orders.done', { what: t('orders.' + e.id) }), '#B9A6E8'); audio.reward(); });
   bus.on('excavationDone', () => turmoil.hit(SEVERITY.finding));
 }
 
@@ -234,6 +260,7 @@ function resetAll(): void {
 }
 
 hud.onRocks = () => drawer.toggleView('rocks');
+hud.onRockJump = (rk) => drawer.openUpgradesAt(rk);
 $('#gear').addEventListener('click', () => { audio.unlock(); drawer.toggleView('settings'); });
 let reopen: string | null = null;
 drawer.onTarget = (el) => { reopen = drawer.open; drawer.close(); input.startTarget(el); };
@@ -263,7 +290,30 @@ drawer.onReset = () => resetAll();
 drawer.onToast = (s) => hud.notify('sys', s, '#EDE3D0');
 input.onArtifact = (shard) => { audio.unlock(); game.click(shard); renderer.onClick(game.mods.shards ? game.shardXs()[shard] : WW / 2); };
 input.onCast = (x, y) => renderer.burst(x, y, '#9fd0ff', 8);
-input.onWorldTap = () => { if (!drawer.open) return false; drawer.close(); return true; };
+// a tap anywhere in the world: the thing answers with an impulse (the nearest shard in a shard world)
+input.onImpulse = (x, y) => {
+  audio.unlock();
+  let shard = -1, ax = WW / 2;
+  if (game.mods.shards) {
+    const xs = game.shardXs();
+    shard = xs.reduce((bi, sx, i) => (Math.abs(sx - x) < Math.abs(xs[bi] - x) ? i : bi), 0);
+    ax = xs[shard];
+  }
+  game.click(shard);
+  renderer.onClick(ax);
+  renderer.tapAt(x, y);
+};
+let pressStart = 0;
+input.onPress = (on) => { pressStart = on ? performance.now() : 0; if (!on) audio.pressHum(0); };
+input.onRare = () => {
+  const p = renderer.rarePos(game);
+  const id = game.claimRare();
+  if (!id) return;
+  audio.reward();
+  if (p) renderer.burst(p.x, p.y, '#fff2c0', 14);
+  hud.notify('rare', t('rare.' + id), '#F2B54A');
+};
+input.onBurial = () => { if (drawer.open !== 'elements') drawer.toggleView('elements'); };
 input.onChoose = (i) => {
   audio.unlock();
   const items = game.availableItems();
@@ -329,7 +379,8 @@ function frame(now: number): void {
   if (slowmo > 0) { slowmo -= dtReal; dtGame = dtReal * 0.08; }
   const steps = dev.timeScale;
   for (let i = 0; i < Math.min(steps, 100); i++) game.update(dtGame);
-  renderer.lay.update(drawer.heightPx());
+  renderer.lay.update(0);
+  fitWorldToDrawer();
   renderer.draw(game, dtReal, now);
   hud.update(game, dtReal);
   drawer.update(dtReal);
@@ -338,11 +389,16 @@ function frame(now: number): void {
   updateFinding();
   updateAmbi(dtReal);
   turmoil.update(dtReal);
+  geo.update(dtReal);
+  renderer.skyTop = (hud.bottomUI / 640) * WH;
+  if (pressStart) audio.pressHum(Math.min(1, (now - pressStart) / 3000) * Math.min(1.2, game.run.press?.power ?? 1));
+  drawer.burialPulse = game.run.burialWindow > 0;
   if (pendingAway) { pendingAway.t -= dtReal; if (pendingAway.t <= 0) { modals.away(pendingAway.rep); pendingAway = null; } }
   const ph = game.state.phase;
   ui.classList.toggle('choosing', ph === 'choose');
   ui.classList.toggle('finale', ph === 'finale' || ph === 'temple' || ph === 'newWorld' || ph === 'end');
   ui.classList.toggle('detailed', !!game.state.settings.detailed);
+  ui.classList.toggle('drawer-open', !!drawer.open);
   if (ph !== 'play' && drawer.open) drawer.close();
   dev.update(dtReal);
   if (ph === 'temple') audio.choirLevel(Math.min(1, game.state.templeProgress * 1.5));

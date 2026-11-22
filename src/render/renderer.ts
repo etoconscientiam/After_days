@@ -6,6 +6,8 @@ import type { Game } from '../core/game';
 import { totalPop } from '../core/life';
 import { skin, preloadSkins } from './assets';
 import { tintedCanvas, drawTinted, tintInto } from './sprites';
+import { forecastCell, forecastPack, Forecast } from '../core/forecast';
+import { CAP } from '../world/World';
 import { hash2 } from '../core/rng';
 import { Layout, WW, WH, NOISE, GRAIN, lerp, lerp3, hex3, rgb, ACCENT } from './common';
 import { SectionRenderer } from './section';
@@ -77,6 +79,18 @@ export class Renderer {
   private maskCanvas = document.createElement('canvas');
   private zoom = 1;
   private cloudsSkinned = false;
+  /** Geologist view (brief 5, A3): heat, groundwater and transformation windows over a dimmed section */
+  geologist = false;
+  /** per layer: where to put its plate and what it is becoming (refreshed twice a second) */
+  geoLayers: { j: number; x: number; y: number; h: number; f: Forecast | null }[] = [];
+  private geoHeat: Float32Array[] = [];
+  private geoAge = 99;
+  /** the finger pressing the layers (world coords), set by the input */
+  press: { x: number; y: number; r: number; t0: number; power: number } | null = null;
+  /** world y where the header text ends (events in the sky appear below it) */
+  skyTop = 66;
+  /** a tap landed in the world here (a small flash where the finger touched) */
+  private taps: { x: number; y: number; t: number }[] = [];
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -258,6 +272,10 @@ export class Renderer {
     this.drawFinaleWorld(g);
     this.drawShift(dt);
     this.drawHorizon(g);
+    this.drawPress(dt);
+    this.drawRare(g);
+    this.drawBurialMarker(g);
+    this.drawTaps(dt);
     this.drawAmbient(g, sky);
     this.drawParticles(dt);
     this.drawWorldLight(g, sky);
@@ -863,6 +881,15 @@ export class Renderer {
       const sp = CFG.species[f.species];
       drawFossil(c, f.x, top + f.y, sp ? fossilKind(sp.id) : 'bone', f.rare, this.t);
     }
+    // pixels that turned to rock under a press (or a glowing-layer event) flash
+    for (const pf of g.pressFlashes) {
+      const y = Math.round(top + sec.yAt(pf.x, pf.birth));
+      const a = Math.min(1, pf.t * 1.6);
+      c.fillStyle = pf.color; c.globalAlpha = a; c.fillRect(pf.x, y, 1, 1);
+      c.fillStyle = 'rgba(255,240,200,1)'; c.globalAlpha = a * 0.55;
+      c.fillRect(pf.x - 1, y, 1, 1); c.fillRect(pf.x + 1, y, 1, 1); c.fillRect(pf.x, y - 1, 1, 1); c.fillRect(pf.x, y + 1, 1, 1);
+      c.globalAlpha = 1;
+    }
     for (const z of sec.zones) for (let i = 0; i < z.pts.length; i += 2) {
       const ph = Math.sin(this.t * 3 + i * 1.7);
       if (ph < 0.3) continue;
@@ -887,6 +914,7 @@ export class Renderer {
       if (this.hover.y < sec.strataH) for (let x = 0; x < WW; x++) c.fillRect(x, Math.round(top + sec.yAt(x, b)), 1, 1);
       c.fillStyle = 'rgba(242,181,74,0.9)'; c.fillRect(this.hover.x, top + this.hover.y - 1, 1, 3);
     }
+    if (this.geologist) this.drawGeologist(g);
     if (this.targeting) {
       // a ghostly glow over the layers under the finger
       const tg = this.targeting;
@@ -897,6 +925,334 @@ export class Renderer {
       grd.addColorStop(1, rgb(col[0], col[1], col[2], 0));
       c.fillStyle = grd; c.fillRect(cx - tg.rx * 1.3, cy - tg.rx * 1.3, tg.rx * 2.6, tg.rx * 2.6);
     }
+  }
+
+  // ---------- Geologist ----------
+  /** Recompute forecasts and temperatures per layer (cheap enough twice a second). */
+  private refreshGeo(g: Game): void {
+    const sec = this.section;
+    const L = sec.layers;
+    const XS = 4, NX = Math.ceil(WW / XS);
+    this.geoHeat = [];
+    this.geoLayers = [];
+    const at = (x: number, y: number): { T: number; f: Forecast | null } => {
+      const loc = sec.locateAt(g, x, y);
+      if (loc.kind === 'cell') {
+        const j = x * CAP + loc.i;
+        return { T: g.world.T[j], f: forecastCell(g, x, loc.i) };
+      }
+      if (loc.kind === 'pack') { const pk = g.world.packs[loc.p]; return { T: pk.T, f: forecastPack(g, loc.p) }; }
+      return { T: 0, f: null };
+    };
+    for (let j = 0; j < L.length; j++) {
+      const next = L[j + 1];
+      const row = new Float32Array(NX);
+      let best: Forecast | null = null;
+      const reasons: Record<string, number> = {};
+      for (let xi = 0; xi < NX; xi++) {
+        const x = Math.min(WW - 1, xi * XS + 2);
+        const t0 = L[j].top[x], t1 = next ? next.top[x] : sec.horizonTop[x] - sec.foundationPx;
+        if (t1 - t0 < 1) { row[xi] = -1; continue; }
+        const s0 = at(x, (t0 + t1) / 2);
+        row[xi] = s0.T;
+        if (xi % 4 === 1 && s0.f) {
+          if (s0.f.ok) { if (!best || !best.ok || s0.f.years < best.years) best = s0.f; }
+          else { reasons[s0.f.reason!] = (reasons[s0.f.reason!] ?? 0) + 1; if (!best) best = s0.f; }
+        }
+      }
+      this.geoHeat.push(row);
+      if (best && !best.ok) {
+        // the most common reason across the layer
+        let top = best.reason!, n = 0;
+        for (const k in reasons) if (reasons[k] > n) { n = reasons[k]; top = k as any; }
+        best = { ...best, reason: top };
+      }
+      const px = 150, t0 = L[j].top[px], t1 = next ? next.top[px] : sec.horizonTop[px] - sec.foundationPx;
+      this.geoLayers.push({ j, x: px, y: (t0 + t1) / 2, h: t1 - t0, f: best });
+    }
+  }
+
+  private drawGeologist(g: Game): void {
+    this.geoAge += this.dt;
+    if (this.geoAge > 0.5 || this.geoHeat.length !== this.section.layers.length) { this.geoAge = 0; this.refreshGeo(g); }
+    const c = this.ctx;
+    const sec = this.section;
+    const top = this.lay.sectionTop;
+    const L = sec.layers;
+    // the section dims to 40%
+    c.fillStyle = 'rgba(10,8,12,0.6)';
+    for (let x = 0; x < WW; x++) c.fillRect(x, top + sec.topD[x], 1, sec.horizonTop[x] - sec.topD[x]);
+    // heat: a warm orange that grows with temperature
+    const XS = 4;
+    for (let j = 0; j < L.length; j++) {
+      const row = this.geoHeat[j];
+      if (!row) continue;
+      const next = L[j + 1];
+      for (let xi = 0; xi < row.length; xi++) {
+        const T = row[xi];
+        if (T < 0) continue;
+        const a = Math.max(0, Math.min(1, (T - 25) / 240));
+        if (a < 0.03) continue;
+        for (let dx = 0; dx < XS; dx++) {
+          const x = xi * XS + dx;
+          if (x >= WW) break;
+          const t0 = L[j].top[x], t1 = next ? next.top[x] : sec.horizonTop[x] - sec.foundationPx;
+          c.fillStyle = rgb(255, 120 + 60 * (1 - a), 40, 0.12 + 0.5 * a);
+          c.fillRect(x, top + t0, 1, t1 - t0);
+        }
+      }
+    }
+    // groundwater: blue veins through the wet layers
+    for (const tz of g.run.targets) {
+      if (tz.kind !== 'water') continue;
+      for (let x = Math.max(0, tz.x0); x <= Math.min(WW - 1, tz.x1); x++) {
+        const ya = sec.yAt(x, tz.b1), yb = sec.yAt(x, tz.b0);
+        for (let k = 1; k <= 3; k++) {
+          const y = ya + ((yb - ya) * k) / 4 + Math.sin(x * 0.35 + k * 2 + this.t * 0.8) * 1.5;
+          c.fillStyle = rgb(130, 200, 255, 0.85);
+          c.fillRect(x, Math.round(top + y), 1, 1);
+        }
+      }
+    }
+    // transformation windows: the layers turning into rock now, edged with a slow amber pulse
+    const pulse = 0.45 + 0.35 * Math.sin(this.t * 3);
+    for (const gl of this.geoLayers) {
+      if (!gl.f || !gl.f.ok) continue;
+      const Lj = L[gl.j], next = L[gl.j + 1];
+      const col = CFG.materials[gl.f.toMat].palette[3] ?? '#f2b54a';
+      c.fillStyle = col; c.globalAlpha = pulse;
+      for (let x = 0; x < WW; x += 2) {
+        c.fillRect(x, top + Lj.top[x], 1, 1);
+        const b = next ? next.top[x] : sec.horizonTop[x] - sec.foundationPx;
+        c.fillRect(x + 1, top + b - 1, 1, 1);
+      }
+      c.globalAlpha = 1;
+    }
+  }
+
+  // ---------- press, taps, rare events, burial window ----------
+  /** A tap's touch point flashes softly (the impulse itself rises from the thing). */
+  tapAt(x: number, y: number): void { this.taps.push({ x, y, t: 0 }); }
+
+  private drawTaps(dt: number): void {
+    const c = this.ctx;
+    for (let i = this.taps.length - 1; i >= 0; i--) {
+      const tp = this.taps[i];
+      tp.t += dt;
+      const k = tp.t / 0.35;
+      if (k >= 1) { this.taps.splice(i, 1); continue; }
+      c.strokeStyle = rgb(255, 226, 160, (1 - k) * 0.6);
+      c.beginPath(); c.arc(tp.x, tp.y, 2 + k * 6, 0, Math.PI * 2); c.stroke();
+    }
+  }
+
+  /** The press: the layers under the finger squeeze in a wave running down, a ring of pressure, warm sparks. */
+  private drawPress(dt: number): void {
+    const p = this.press;
+    if (!p) return;
+    const c = this.ctx;
+    const sec = this.section;
+    const top = this.lay.sectionTop;
+    const held = (performance.now() - p.t0) / 1000;
+    const amp = Math.min(1.6, 0.6 + held * 0.35) * Math.min(1.5, p.power);
+    const r = p.r;
+    // the squeeze: rows inside the circle are redrawn shifted by a wave travelling downward
+    for (let yy = -r; yy <= r; yy += 2) {
+      const sy = Math.round(p.y - top + yy);
+      if (sy < 0 || sy >= this.lay.sectionH - 1) continue;
+      const half = Math.floor(Math.sqrt(Math.max(0, r * r - yy * yy)));
+      if (half < 2) continue;
+      const fall = 1 - Math.abs(yy) / r;
+      const dy = Math.round(Math.sin(yy * 0.45 - this.t * 9) * amp * fall);
+      if (!dy) continue;
+      const x0 = Math.max(0, p.x - half), w = Math.min(WW, p.x + half) - x0;
+      c.drawImage(sec.canvas, x0, sy, w, 2, x0, top + sy + dy, w, 2);
+    }
+    // a gentle darkening of what is squeezed, and the ring of pressure
+    const grd = c.createRadialGradient(p.x, p.y, 2, p.x, p.y, r);
+    grd.addColorStop(0, 'rgba(40,20,10,0.28)'); grd.addColorStop(0.8, 'rgba(40,20,10,0.12)'); grd.addColorStop(1, 'rgba(40,20,10,0)');
+    c.fillStyle = grd; c.fillRect(p.x - r, p.y - r, r * 2, r * 2);
+    // warm heat building inside, stronger the longer it holds
+    c.globalCompositeOperation = 'lighter';
+    const heat = c.createRadialGradient(p.x, p.y, 1, p.x, p.y, r * 0.8);
+    heat.addColorStop(0, rgb(255, 150, 60, Math.min(0.3, 0.08 + held * 0.05) * Math.min(1.4, p.power))); heat.addColorStop(1, 'rgba(255,150,60,0)');
+    c.fillStyle = heat; c.fillRect(p.x - r, p.y - r, r * 2, r * 2);
+    c.globalCompositeOperation = 'source-over';
+    const pulse = 0.5 + 0.5 * Math.sin(this.t * 6);
+    // the ring of pressure: a solid warm edge and a faint outer echo that closes in
+    const shrink = (this.t * 1.6) % 1;
+    for (let k = 0; k < 96; k++) {
+      const a = (k / 96) * Math.PI * 2;
+      const x = Math.round(p.x + Math.cos(a) * r), y = Math.round(p.y + Math.sin(a) * r);
+      c.fillStyle = rgb(255, 196, 110, 0.55 + 0.35 * pulse);
+      c.fillRect(x, y, 1, 1);
+      if (k % 2 === 0) {
+        const r2 = r + 6 * (1 - shrink);
+        c.fillStyle = rgb(255, 220, 160, 0.4 * shrink);
+        c.fillRect(Math.round(p.x + Math.cos(a) * r2), Math.round(p.y + Math.sin(a) * r2), 1, 1);
+      }
+    }
+    // warm sparks along the edge
+    for (let q = 0; q < 2; q++) if (Math.random() < dt * 30) {
+      const a = Math.random() * Math.PI * 2;
+      this.particles.push({ x: p.x + Math.cos(a) * r, y: p.y + Math.sin(a) * r, vx: Math.cos(a) * 6, vy: Math.sin(a) * 6 - 4, life: 0, max: 0.5 + Math.random() * 0.5, color: Math.random() < 0.5 ? '#ffb060' : '#ffe0a0', size: 1 });
+    }
+  }
+
+  /** Where the rare event is on screen. */
+  rarePos(g: Game): { x: number; y: number } | null {
+    const ev = g.rare;
+    if (!ev) return null;
+    const life = CFG.rare.lifetime - ev.t;
+    switch (ev.def.place) {
+      case 'sky': {
+        const y0 = Math.max(40, this.skyTop + 8), room = Math.max(6, this.lay.groundBase - 26 - y0);
+        return { x: ev.x - life * 1.2, y: y0 + ((ev.x * 7) % room) + life * 0.6 };
+      }
+      case 'shore': return { x: ev.x, y: this.groundY(ev.x) - 1 };
+      case 'land': return { x: ev.x, y: this.groundY(ev.x) - 4 };
+      case 'section': return { x: ev.x, y: this.lay.sectionTop + this.section.yAt(ev.x, ev.birth ?? 0) };
+      case 'horizon': return { x: ev.x, y: this.ayAt(ev.x) };
+    }
+    return null;
+  }
+
+  rareHit(g: Game, x: number, y: number, reach = 1): boolean {
+    const p = this.rarePos(g);
+    if (!p) return false;
+    const R = (g.rare!.def.place === 'land' ? 12 : 9) * reach;
+    return Math.abs(x - p.x) < R && Math.abs(y - p.y) < R;
+  }
+
+  private drawRare(g: Game): void {
+    const ev = g.rare;
+    const p = this.rarePos(g);
+    if (!ev || !p) return;
+    const c = this.ctx;
+    const fade = Math.min(1, ev.t / 2) * Math.min(1, (CFG.rare.lifetime - ev.t) / 0.6);
+    const tw = 0.6 + 0.4 * Math.sin(this.t * 5.3) * Math.sin(this.t * 2.1 + 1);
+    // a soft halo so it is found without being loud
+    const halo = c.createRadialGradient(p.x, p.y, 1, p.x, p.y, 20);
+    halo.addColorStop(0, rgb(255, 230, 170, 0.6 * fade * tw)); halo.addColorStop(0.5, rgb(255, 210, 140, 0.18 * fade)); halo.addColorStop(1, 'rgba(255,230,170,0)');
+    c.globalCompositeOperation = 'lighter';
+    c.fillStyle = halo; c.fillRect(p.x - 20, p.y - 20, 40, 40);
+    c.globalCompositeOperation = 'source-over';
+    // a ring that keeps opening, and four glints turning round it
+    const rk = (this.t * 0.7) % 1;
+    c.strokeStyle = rgb(255, 236, 190, (1 - rk) * 0.7 * fade);
+    c.beginPath(); c.arc(p.x, p.y, 4 + rk * 14, 0, Math.PI * 2); c.stroke();
+    for (let q = 0; q < 4; q++) {
+      const a = this.t * 1.8 + (q * Math.PI) / 2, rr = 9 + Math.sin(this.t * 3 + q) * 1.5;
+      c.fillStyle = rgb(255, 248, 220, 0.8 * fade);
+      c.fillRect(Math.round(p.x + Math.cos(a) * rr), Math.round(p.y + Math.sin(a) * rr), 1, 1);
+    }
+    c.globalAlpha = fade;
+    const x = Math.round(p.x), y = Math.round(p.y);
+    const px = (dx: number, dy: number, col: string) => { c.fillStyle = col; c.fillRect(x + dx, y + dy, 1, 1); };
+    switch (ev.def.id) {
+      case 'star': {
+        for (let k = 1; k < 8; k++) { c.fillStyle = rgb(255, 240, 200, (1 - k / 8) * 0.7); c.fillRect(x + k, y - Math.round(k * 0.6), 1, 1); }
+        px(0, 0, '#ffffff'); px(-1, 0, '#fff2b0'); px(1, 0, '#fff2b0'); px(0, -1, '#fff2b0'); px(0, 1, '#fff2b0');
+        if (tw > 0.8) { px(-2, 0, '#fff8d8'); px(2, 0, '#fff8d8'); px(0, -2, '#fff8d8'); px(0, 2, '#fff8d8'); }
+        break;
+      }
+      case 'washed': {
+        // a shell and a polished pebble at the waterline, a star-glint on top
+        c.fillStyle = '#e8dcc8'; c.fillRect(x - 3, y - 1, 3, 2); c.fillStyle = '#c8a890'; c.fillRect(x - 3, y, 3, 1);
+        c.fillStyle = '#f4ecd8'; c.fillRect(x - 2, y - 2, 1, 1);
+        c.fillStyle = '#9a8a7a'; c.fillRect(x + 1, y - 1, 3, 2); c.fillStyle = '#cfc4b4'; c.fillRect(x + 1, y - 1, 1, 1);
+        const gl = tw > 0.5 ? 2 : 1;
+        c.fillStyle = '#ffffff'; c.fillRect(x, y - 4 - gl, 1, gl * 2 + 1); c.fillRect(x - gl, y - 4, gl * 2 + 1, 1);
+        break;
+      }
+      case 'migration': {
+        // a small herd running across, raising dust
+        const run = (this.t * 6) % 40;
+        for (let k = 0; k < 5; k++) {
+          const hx = Math.round(x - 14 + k * 7 + run * 0.15 + Math.sin(this.t * 3 + k)), hy = y + (k % 2);
+          c.fillStyle = k % 2 ? '#7a5434' : '#6a4a30';
+          c.fillRect(hx, hy - 3, 5, 3); c.fillRect(hx + 4, hy - 5, 2, 2); c.fillRect(hx + 5, hy - 6, 1, 1);
+          const leg = Math.floor(this.t * 12 + k) % 2;
+          c.fillRect(hx + leg, hy, 1, 2); c.fillRect(hx + 4 - leg, hy, 1, 2);
+          c.fillStyle = '#e0c8a0'; c.fillRect(hx + 1, hy - 3, 2, 1);
+          c.fillStyle = 'rgba(220,200,160,0.55)'; c.fillRect(hx - 2, hy + 1, 2, 1); c.fillRect(hx - 4, hy, 1, 1);
+        }
+        break;
+      }
+      case 'bloom': {
+        // a patch of flowers opening, with pollen in the air
+        const cols = ['#f4a0c0', '#ffe070', '#ffffff', '#c8a0f0', '#ff9060'];
+        for (let k = 0; k < 16; k++) {
+          const fx = x - 10 + ((k * 7) % 21), fy = y + 2 - ((k * 3) % 5);
+          c.fillStyle = '#4a8a3a'; c.fillRect(fx, fy, 1, 3);
+          const col = cols[k % 5];
+          c.fillStyle = col; c.fillRect(fx - 1, fy - 1, 3, 1); c.fillRect(fx, fy - 2, 1, 3);
+          c.fillStyle = '#ffe890'; c.fillRect(fx, fy - 1, 1, 1);
+        }
+        for (let k = 0; k < 6; k++) { c.fillStyle = 'rgba(255,240,170,0.8)'; c.fillRect(Math.round(x - 8 + ((k * 5 + this.t * 3) % 16)), Math.round(y - 6 - ((this.t * 4 + k * 3) % 8)), 1, 1); }
+        break;
+      }
+      case 'glowLayer': {
+        const r2 = 2 + Math.round(tw * 2);
+        c.strokeStyle = rgb(255, 210, 120, 0.8); c.beginPath(); c.arc(x, y, r2, 0, Math.PI * 2); c.stroke();
+        px(0, 0, '#ffffff'); px(1, 0, '#ffe080'); px(-1, 0, '#ffe080');
+        break;
+      }
+      case 'ancient': {
+        // a worn object half out of the technogenic horizon, its metal catching the light
+        c.fillStyle = '#5a6068'; c.fillRect(x - 3, y - 2, 6, 3);
+        c.fillStyle = '#a8b0b8'; c.fillRect(x - 3, y - 2, 6, 1);
+        c.fillStyle = '#d8e0e8'; c.fillRect(x - 2, y - 2, 2, 1);
+        c.fillStyle = '#3a4048'; c.fillRect(x + 1, y - 1, 1, 1);
+        const gl = tw > 0.5 ? 2 : 1;
+        c.fillStyle = '#ffffff'; c.fillRect(x + 2, y - 4 - gl, 1, gl * 2 + 1); c.fillRect(x + 2 - gl, y - 4, gl * 2 + 1, 1);
+        break;
+      }
+    }
+    c.globalAlpha = 1;
+  }
+
+  /** The burial window: over the lowland a pulsing marker with the two elements that can catch it. */
+  burialPos(g: Game): { x: number; y: number } {
+    const x = g.lowlandX();
+    return { x, y: this.groundY(x) - 12 };
+  }
+
+  burialHit(g: Game, x: number, y: number): boolean {
+    if (g.run.burialWindow <= 0) return false;
+    const p = this.burialPos(g);
+    return Math.abs(x - p.x) < 14 && Math.abs(y - p.y) < 12;
+  }
+
+  private drawBurialMarker(g: Game): void {
+    const w = g.run.burialWindow;
+    if (w <= 0) return;
+    const c = this.ctx;
+    const p = this.burialPos(g);
+    const pulse = 0.5 + 0.5 * Math.sin(this.t * 7);
+    const fade = Math.min(1, w / 0.6);
+    c.globalAlpha = fade;
+    // a ring on the ground, a beam of time running out
+    const r = 13 + pulse * 3;
+    c.strokeStyle = rgb(255, 200, 110, 0.6 + 0.4 * pulse);
+    c.beginPath(); c.ellipse(p.x, p.y + 12, r, r * 0.32, 0, 0, Math.PI * 2); c.stroke();
+    c.strokeStyle = rgb(255, 220, 150, 0.3);
+    c.beginPath(); c.ellipse(p.x, p.y + 12, r + 4, (r + 4) * 0.32, 0, 0, Math.PI * 2); c.stroke();
+    const glow = c.createRadialGradient(p.x, p.y + 4, 1, p.x, p.y + 4, 18);
+    glow.addColorStop(0, rgb(255, 200, 120, 0.35 * pulse)); glow.addColorStop(1, 'rgba(255,200,120,0)');
+    c.globalCompositeOperation = 'lighter'; c.fillStyle = glow; c.fillRect(p.x - 18, p.y - 14, 36, 36); c.globalCompositeOperation = 'source-over';
+    const k = w / CFG.B.burial.seconds;
+    c.fillStyle = rgb(255, 214, 140, 0.18 + 0.15 * pulse);
+    c.fillRect(Math.round(p.x) - 1, Math.round(p.y - 10 + (1 - k) * 18), 3, Math.round(k * 18));
+    // the two elements: a wave (flood) and a cone with fire (volcano)
+    const ix = Math.round(p.x), iy = Math.round(p.y) - 4;
+    const s = pulse > 0.5 ? 1 : 0;
+    c.fillStyle = '#7ac0e0';
+    for (let dx = 0; dx < 6; dx++) c.fillRect(ix - 10 + dx, iy + Math.round(Math.sin(dx * 1.2 + this.t * 4)) - s, 1, 1);
+    c.fillStyle = '#9fd8f0'; c.fillRect(ix - 9, iy + 2 - s, 4, 1);
+    c.fillStyle = '#6a5a50'; c.fillRect(ix + 4, iy + 2 - s, 7, 1); c.fillRect(ix + 5, iy + 1 - s, 5, 1); c.fillRect(ix + 6, iy - s, 3, 1);
+    c.fillStyle = pulse > 0.5 ? '#ffb040' : '#ff7a2a'; c.fillRect(ix + 7, iy - 1 - s, 1, 1); c.fillRect(ix + 6, iy - 2 - s, 1, 1);
+    c.globalAlpha = 1;
   }
 
   // ---------- horizon & the thing ----------

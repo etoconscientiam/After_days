@@ -15,6 +15,12 @@ export interface Pool {
 export interface ActiveEffect { id: string; until: number; x?: number; data?: any }
 export interface TargetZone { kind: 'water' | 'heat' | 'magma'; x0: number; x1: number; b0: number; b1: number; until: number; heat: number }
 
+/** Press: a finger holding the section. x0..x1 columns and b0..b1 birth years under it; power after paying. */
+export interface PressState { x: number; x0: number; x1: number; b0: number; b1: number; power: number }
+/** An epoch order: a small task with a reward (config/orders.json). */
+export interface OrderState { id: string; start: number; done: boolean }
+export interface BuffState { energyMul: number; energyT: number; timeMul: number; timeT: number }
+
 export interface ChronicleEntry { id: string; y0: number; y1: number; data: Record<string, any>; at: number }
 export interface MuseumEntry { common: number; rare: number; fragments: number }
 
@@ -59,6 +65,17 @@ export interface RunState {
   deaths: number;
   fossilsRun: number;
   layers: number;
+  press: PressState | null;       // the finger pressing the layers (not a long-term state)
+  buffs: BuffState;               // short boosts from rare surface events (real seconds left)
+  recentKills: number[];          // [year, count, year, count, ...] of violent deaths, for the burial window
+  burialWindow: number;           // real seconds left of the burial window
+  burialCooldown: number;
+  burials: number[];              // [b0, b1, mul, ...] birth ranges whose bones fossilise more easily
+  orders: OrderState[];
+  ordersEra: number;              // era the current orders were drawn for
+  shepherd: Record<string, boolean>;  // species bought automatically (Shepherd node)
+  pressMoved: number;             // compacted thickness done by pressing (orders)
+  insectAmber: number;            // pieces of amber with an insect made in this run (orders)
 }
 
 export interface MetaState {
@@ -87,6 +104,8 @@ export interface LegacyState {
   fossils: number;
   finished: boolean;
   firsts: Record<string, boolean>;
+  /** what the player has already seen, for the "new" dots on the tabs */
+  seen: { life: string[]; elements: string[]; upgrades: string[]; notes: number; density: string[] };
 }
 
 export interface Settings {
@@ -167,6 +186,17 @@ export function newRun(era = 0): RunState {
     deaths: 0,
     fossilsRun: 0,
     layers: 0,
+    press: null,
+    buffs: { energyMul: 1, energyT: 0, timeMul: 1, timeT: 0 },
+    recentKills: [],
+    burialWindow: 0,
+    burialCooldown: 0,
+    burials: [],
+    orders: [],
+    ordersEra: -1,
+    shepherd: {},
+    pressMoved: 0,
+    insectAmber: 0,
   };
 }
 
@@ -177,7 +207,7 @@ export function newMeta(): MetaState {
 export function newLegacy(): LegacyState {
   return {
     museum: {}, notes: [], chronicle: [], echoSeen: [], items: [], relics: {}, discovered: [], rituals: [], playthrough: 1,
-    totalRealTime: 0, totalPrestiges: 0, fossils: 0, finished: false, firsts: {},
+    totalRealTime: 0, totalPrestiges: 0, fossils: 0, finished: false, firsts: {}, seen: { life: [], elements: [], upgrades: [], notes: 0, density: [] },
   };
 }
 

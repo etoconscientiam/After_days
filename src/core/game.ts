@@ -10,6 +10,8 @@ import { depositionStep, depositCell } from './deposition';
 import { geoTick, rollFossil } from './geology';
 import { castElement, elementUnlocked } from './elements';
 import { prestigeGain, doPrestige } from './prestige';
+import { nextRareIn, spawnRare, claimRare, RareEvent } from './rare';
+import { drawOrders, checkOrders } from './orders';
 import { triggerEcho, randomEcho, echoInterval, currentItem } from './echoes';
 
 export interface WorldMods {
@@ -32,6 +34,12 @@ export class Game {
   zoneMix = new Float32Array(W * 3);   // per column: share of water/shore/land in a ±18 px window (smooth borders)
   colNoise = new Float32Array(W);
   glints: Glint[] = [];
+  /** pixels that turned into rock under a press or a glowing-layer event: they flash */
+  pressFlashes: { x: number; birth: number; t: number; color: string }[] = [];
+  /** the rare surface event on screen, if any (brief 5, В1) */
+  rare: RareEvent | null = null;
+  rareTimer = 90;
+  private shepherdAcc = 0;
   geoAcc = 0;
   geoYears = 0;
   statsDirty = true;
@@ -175,6 +183,7 @@ export class Game {
     const st = this.stats;
     let v = this.eraDef().yps * (1 + st.timeSpeed) * (1 + st.timeSpeedDensity) * (1 + st.traitTime) * this.lifeMultiplier();
     if (withBoost && this.run.boost > 0) v *= CFG.B.energy.boostMul;
+    if (withBoost && this.run.buffs.timeT > 0) v *= this.run.buffs.timeMul;
     return v;
   }
 
@@ -199,6 +208,7 @@ export class Game {
     const st = this.stats;
     let e = (CFG.B.energy.passive + st.passiveAdd + this.lifeIncome()) * st.energyMul;
     if (withBoost && this.run.boost > 0) e *= CFG.B.energy.boostMul;
+    if (withBoost && this.run.buffs.energyT > 0) e *= this.run.buffs.energyMul;
     return e;
   }
 
@@ -232,6 +242,44 @@ export class Game {
     r.boost = Math.max(0, r.boost - dt);
     for (let b = 0; b < 3; b++) r.shardBoost[b] = Math.max(0, r.shardBoost[b] - dt);
     for (const k in r.cooldowns) r.cooldowns[k] = Math.max(0, r.cooldowns[k] - dt);
+    r.buffs.energyT = Math.max(0, r.buffs.energyT - dt);
+    r.buffs.timeT = Math.max(0, r.buffs.timeT - dt);
+    r.burialWindow = Math.max(0, r.burialWindow - dt);
+    r.burialCooldown = Math.max(0, r.burialCooldown - dt);
+    // press: costs 2% of the income per second; short of Energy it weakens instead of stopping
+    if (r.press) {
+      const cost = CFG.B.press.costShare * this.incomePerSec(false) * dt;
+      let strength = 1;
+      if (cost > 0) {
+        if (r.energy >= cost) r.energy -= cost;
+        else { strength = Math.max(0.15, r.energy / cost); r.energy = 0; }
+      }
+      r.press.power = strength * (1 + this.stats.pressPower);
+    }
+    for (let i = this.pressFlashes.length - 1; i >= 0; i--) { this.pressFlashes[i].t -= dt; if (this.pressFlashes[i].t <= 0) this.pressFlashes.splice(i, 1); }
+    // rare surface events: only for a watching player
+    if (!this.headless) {
+      if (this.rare) { this.rare.t -= dt; if (this.rare.t <= 0) this.rare = null; }
+      else if ((this.rareTimer -= dt) <= 0) {
+        this.rare = spawnRare(this);
+        this.rareTimer = nextRareIn(this);
+        if (this.rare) this.bus.emit('rareSpawn', { id: this.rare.def.id, x: this.rare.x });
+      }
+    }
+    // Shepherd: chosen species buy themselves, one each half second
+    this.shepherdAcc += dt;
+    if (this.shepherdAcc >= 0.5) {
+      this.shepherdAcc = 0;
+      let slots = this.stats.shepherdSlots;
+      for (const id in r.shepherd) {
+        if (!r.shepherd[id]) continue;
+        if (slots-- <= 0) { r.shepherd[id] = false; continue; }
+        const sp = CFG.speciesById[id];
+        if (sp && this.speciesUnlocked(sp) && r.energy >= this.speciesCost(sp) && this.freeZoneFor(sp) >= 0) this.buySpecies(id);
+      }
+    }
+    drawOrders(this);
+    checkOrders(this);
 
     const inc = this.incomePerSec() * dt;
     r.energy += inc;
@@ -511,6 +559,7 @@ export class Game {
     if (!n) return false;
     const lvl = this.meta.tree[id] ?? 0;
     if (lvl >= n.max) return false;
+    if ((n.requires ?? 0) > this.meta.prestiges) return false;
     const cost = this.densityCost(id);
     if (this.meta.density < cost) return false;
     this.meta.density -= cost;
@@ -540,7 +589,61 @@ export class Game {
     this.run.cooldowns[el.id] = el.cooldown;
     castElement(this, el, target);
     this.bus.emit('element', { id, x: target?.x, depth: target?.v });
+    // the burial window: a flood or a volcano right after a mass death buries the dead fast and well
+    const r = this.run;
+    if (r.burialWindow > 0 && (id === 'flood' || id === 'volcano')) {
+      const B = CFG.B.burial;
+      r.burials.push(r.year - B.before, r.year + B.after, B.fossilMul);
+      if (r.burials.length > 30) r.burials.splice(0, 3);
+      r.burialWindow = 0;
+      this.bus.emit('burial', { id, x: this.lowlandX() });
+    }
     return true;
+  }
+
+  /** The lowest ground (where the dead wash together): just landward of the water line. */
+  lowlandX(): number { return Math.round(Math.max(8, Math.min(W - 8, this.run.waterEnd * (W / 360) - 6))); }
+
+  /** Violent deaths (catastrophes, lost habitat) feed the burial window: >= 20 within 10 game years opens it. */
+  noteKills(n: number): void {
+    const r = this.run;
+    const B = CFG.B.burial;
+    r.recentKills.push(r.year, n);
+    while (r.recentKills.length && r.recentKills[0] < r.year - B.windowYears) r.recentKills.splice(0, 2);
+    let sum = 0;
+    for (let i = 1; i < r.recentKills.length; i += 2) sum += r.recentKills[i];
+    if (sum >= B.killed && r.burialWindow <= 0 && r.burialCooldown <= 0) {
+      r.burialWindow = B.seconds;
+      r.burialCooldown = B.cooldown;
+      r.recentKills.length = 0;
+      this.bus.emit('burialWindow', { x: this.lowlandX() });
+    }
+  }
+
+  /** Collect the rare event on screen. */
+  claimRare(): string | null {
+    if (!this.rare) return null;
+    const ev = this.rare;
+    this.rare = null;
+    return claimRare(this, ev);
+  }
+
+  /** "Buy the best": the species with the most income per Energy, again and again while there is room and money. */
+  buyBest(): number {
+    let n = 0;
+    for (let guard = 0; guard < 500; guard++) {
+      let best: SpeciesDef | null = null, score = 0;
+      for (const sp of CFG.species) {
+        if (!this.speciesUnlocked(sp) || this.freeZoneFor(sp) < 0) continue;
+        const cost = this.speciesCost(sp);
+        if (cost > this.run.energy) continue;
+        const v = sp.eps / cost;
+        if (v > score) { score = v; best = sp; }
+      }
+      if (!best || !this.buySpecies(best.id)) break;
+      n++;
+    }
+    return n;
   }
 
   autoElements(dt: number): void {

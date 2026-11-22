@@ -22,16 +22,19 @@
             <div id="era-line"><button id="era-name"></button><span id="speed"></span></div>
             <div id="cond-pop" hidden></div>
             <div id="res-row">
-              <button id="energy"><span id="e-ico"></span><b id="energy-val">0</b><small id="energy-rate"></small></button>
+              <button id="energy"><span id="e-ico"></span><span class="e-col"><b id="energy-val">0</b><small id="energy-rate"></small></span></button>
               <span id="density" hidden></span>
               <button id="rocks"></button>
             </div>
+            <button id="goal"><span class="g-row"><span class="g-main"></span><span class="g-bar"></span></span><small class="g-sub"></small></button>
           </header>
           <div id="notes"></div>
           <div id="era-title" hidden><span></span><i></i></div>
           <div id="finding-title" hidden></div>
           <div id="tooltip" class="label" hidden></div>
           <div id="fieldnote" hidden></div>
+          <div id="geo-plates"></div>
+          <button id="geo-btn" class="geo-btn" hidden></button>
           <div id="target-bar" hidden><span id="target-text"></span><button id="target-cancel" aria-label="Cancel">✕</button></div>
           <div id="drawer" aria-hidden="true">
             <div id="drawer-grip"><i></i></div>
@@ -42,6 +45,7 @@
           <div id="overlay"></div>
           <div id="dev" hidden></div>
           <div id="hint-pop" hidden></div>
+          <div id="rock-pop" class="label" hidden></div>
         </div>
       </div>
       <div id="rotate" hidden><span>⟲</span></div>

@@ -9,6 +9,7 @@ export interface Stats {
   excavation: number; tribeAttract: number; kMax: number; energyMul: number; foundation: number;
   autoSlots: number; legacy: number; offlineHours: number; startEra: number; transformSpeed: number;
   seaEnergy: number; temple: number; memory: number; traitTime: number;
+  pressPower: number; pressRadius: number; shepherdSlots: number; buyBest: number;
 }
 
 export function upgradeEffect(level: number, value: number, kind: 'add' | 'mul', milestones = true): number {
@@ -32,6 +33,7 @@ export function computeStats(s: GameState): Stats {
     lifeEnergy: 0, seaCapacity: 0, landCapacity: 0, press: 0, fossilChance: 0, layerWeight: 0, geoHeat: 0,
     geoGradient: 0, excavation: 0, tribeAttract: 0, kMax: 0, energyMul: 1, foundation: 0, autoSlots: 0,
     legacy: 0, offlineHours: 0, startEra: 0, transformSpeed: 0, seaEnergy: 0, temple: 0, memory: 0, traitTime: 0,
+    pressPower: 0, pressRadius: 0, shepherdSlots: 0, buyBest: 0,
   };
   const r = s.run;
   for (const u of CFG.upgrades) {

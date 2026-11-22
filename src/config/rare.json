@@ -1,0 +1,13 @@
+{
+  "_comment": "Rare surface events (brief 5, В1): one at a time, every `every` real seconds (random in range), visible for `lifetime` s, softly flickering. Tap = reward; missed = gone, nothing lost. place: sky | shore | land | section | horizon. Rewards: energySeconds (that many seconds of income), rockLeast (the rarest discovered rock, share of the average stock), energyMul/timeMul for seconds, transform (finish the transformations of that layer), relicChance (a find for the Museum).",
+  "every": [120, 300],
+  "lifetime": 12,
+  "events": [
+    { "id": "star", "eras": [0, 7], "place": "sky", "reward": { "energySeconds": 60 } },
+    { "id": "washed", "eras": [0, 7], "place": "shore", "reward": { "rockLeast": 0.25, "min": 5 } },
+    { "id": "migration", "eras": [4, 7], "place": "land", "reward": { "energyMul": 3, "seconds": 30 } },
+    { "id": "bloom", "eras": [3, 7], "place": "land", "reward": { "timeMul": 2, "seconds": 30 } },
+    { "id": "glowLayer", "eras": [0, 7], "place": "section", "reward": { "transform": true } },
+    { "id": "ancient", "eras": [2, 7], "place": "horizon", "reward": { "relicChance": 0.6 } }
+  ]
+}

@@ -56,6 +56,10 @@ export function geoTick(g: Game, dy: number): void {
   const targets = r.targets;
   const colTargets: TargetZone[] = [];
   const marineCol = g.zoneMap;
+  // press: the finger speeds up compaction (x6) and transformations (x4) in its circle, scaled by its power
+  const pr = r.press && r.press.power > 0 ? r.press : null;
+  const kMulP = pr ? 1 + 5 * pr.power : 1, sMulP = pr ? 1 + 3 * pr.power : 1;
+  let pressK = 0;
 
   for (let x = 0; x < W; x++) {
     colTargets.length = 0;
@@ -64,10 +68,12 @@ export function geoTick(g: Game, dy: number): void {
     const L = w.len[x];
     let P = P0;
     const marine = marineCol[x] === 0;
+    const pressCol = pr !== null && x >= pr.x0 && x <= pr.x1;
     for (let i = L - 1, depth = 0; i >= 0; i--, depth++) {
       const j = base + i;
       const m = w.mat[j];
       let k = w.k[j];
+      const inPress = pressCol && w.birth[j] >= pr!.b0 && w.birth[j] <= pr!.b1;
       const dens = DENS[m] * SQRT(k) * wMul * 0.0098;
       const Pc = P + dens * 0.5;
       let T = baseT + grad * depth;
@@ -84,9 +90,11 @@ export function geoTick(g: Game, dy: number): void {
       w.T[j] = T;
       // compaction
       if (dy > 0) {
-        k += press * (Pc / 10) * dy + glacierK;
+        const k0 = k;
+        k += press * (Pc / 10) * dy * (inPress ? kMulP : 1) + glacierK;
         if (k > kMax) k = kMax;
         w.k[j] = k;
+        if (inPress) pressK += 1 / k0 - 1 / k;   // thickness squeezed out by the finger
       }
       const Peff = Pc * k;
       if (k > maxK) maxK = k;
@@ -105,11 +113,12 @@ export function geoTick(g: Game, dy: number): void {
         const c: Cond = { Peff, T, water: gw || marine, depth, oxygen };
         for (const rule of rules) {
           if (!ruleOk(g, rule, c)) continue;
-          w.prog[j] += dy * speed;
+          w.prog[j] += dy * speed * (inPress ? sMulP : 1);
           if (w.prog[j] >= rule.years) {
             w.prog[j] = 0;
             if (rule.chance !== undefined && g.rng.next() >= rule.chance) break;
             const insect = rule.insectToIdx >= 0 && (w.flags[j] & F_INSECT) !== 0;
+            if (insect) r.insectAmber++;
             w.mat[j] = insect ? rule.insectToIdx : rule.toIdx;
             const y = insect ? rule.insectYield! : rule.yield;
             if (y > 0) {
@@ -119,6 +128,7 @@ export function geoTick(g: Game, dy: number): void {
                 g.glints.push({ x, depth, t: 0.6, color: CFG.materials[rule.toIdx].palette[4], birth: w.birth[j] });
               }
             }
+            if (inPress && g.pressFlashes.length < 80) g.pressFlashes.push({ x, birth: w.birth[j], t: 0.9, color: CFG.materials[w.mat[j]].palette[4] });
             w.version++;
           }
           break;
@@ -141,7 +151,9 @@ export function geoTick(g: Game, dy: number): void {
     const Pc = P + weight * 0.5;
     const T = baseT + grad * (depth + pk.rows * 0.5);
     pk.P = Pc; pk.T = T;
-    if (dy > 0) pk.k = Math.min(kMax, pk.k + press * (Pc / 10) * dy + glacierK);
+    // a press reaches a pack in the share of the width it covers
+    const pAge = pr && pk.ageMax >= pr.b0 && pk.ageMin <= pr.b1 ? (pr.x1 - pr.x0 + 1) / W : 0;
+    if (dy > 0) pk.k = Math.min(kMax, pk.k + press * (Pc / 10) * dy * (1 + (kMulP - 1) * pAge) + glacierK);
     const Peff = Pc * pk.k;
     compact += (Pc - P0) * pk.k * amtTot;
     // zone overlaps (by layer age)
@@ -152,12 +164,13 @@ export function geoTick(g: Game, dy: number): void {
       if (t.kind === 'water') gwFrac = Math.min(1, gwFrac + f);
       else { heat = Math.max(heat, t.heat); heatFrac = Math.min(1, heatFrac + f); }
     }
-    if (dy > 0) packTransforms(g, pk, Peff, T, heat, heatFrac, Math.max(seaFrac, gwFrac), depth, dy * speed);
+    if (dy > 0) packTransforms(g, pk, Peff, T, heat, heatFrac, Math.max(seaFrac, gwFrac), depth, dy * speed * (1 + (sMulP - 1) * pAge));
     P += weight;
     depth += pk.rows;
   }
 
   r.compactMass = compact;
+  r.pressMoved += (pressK / W) * 40;
   if (maxK >= CFG.story.echoCompactionK) g.triggerEcho('compactionVisible');
   r.fertility = Math.min(CFG.B.fertility.max, fertileCount * CFG.B.fertility.perPixel);
   if (r.era >= 7) {
@@ -211,6 +224,9 @@ export function rollFossil(g: Game, x: number, j: number, mineral: number, fossi
   const sp = CFG.species[spIdx];
   if (!sp) return;
   let chance = tap.fossilBase * (fast ? 5 : 1) * mineral * (1 - d) * fossilMul;
+  // a burial caught in the window after a mass death fossilises three times as easily
+  const bu = g.run.burials, b = w.birth[j];
+  for (let q = 0; q < bu.length; q += 3) if (b >= bu[q] && b <= bu[q + 1]) { chance *= bu[q + 2]; break; }
   if (g.mods.living && g.run.mutations[sp.id] === 'shell') chance *= 2;
   chance = Math.min(0.95, chance);
   const u = g.rng.next();
@@ -241,4 +257,26 @@ export function rollFossil(g: Game, x: number, j: number, mineral: number, fossi
     g.bus.emit('fossilFound', { species: sp.id, rare: false, fragment: true, complete, x, depth });
   }
   w.version++;
+}
+
+/** Finish at once the transformations under way in one layer: cells within dx columns and db years of (x, birth). */
+export function finishLayer(g: Game, x: number, birth: number, dx = 12, db = 80): number {
+  const w = g.world;
+  let n = 0;
+  for (let xx = Math.max(0, x - dx); xx <= Math.min(W - 1, x + dx); xx++) {
+    const base = xx * CAP;
+    for (let i = 0; i < w.len[xx]; i++) {
+      const j = base + i;
+      if (Math.abs(w.birth[j] - birth) > db) continue;
+      const rule = RULES_BY_MAT[w.mat[j]].find((ru) => !ru.world || (ru.world === 'hot' && g.mods.hot));
+      if (!rule || w.prog[j] <= 0) continue;
+      w.prog[j] = 0;
+      w.mat[j] = rule.toIdx;
+      if (rule.yield > 0) g.addRock(rule.rock, rule.yield * CFG.B.rockYield, xx);
+      if (g.pressFlashes.length < 80) g.pressFlashes.push({ x: xx, birth: w.birth[j], t: 1.2, color: CFG.materials[rule.toIdx].palette[4] });
+      n++;
+    }
+  }
+  if (n) w.version++;
+  return n;
 }

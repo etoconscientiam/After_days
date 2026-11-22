@@ -1,123 +1,139 @@
 {
-  "world": {
-    "width": 180,
-    "height": 320,
-    "ref640": 0.28125,
-    "pixelRows": 320,
-    "minKeepRows": 40,
-    "packRows": 10,
-    "deepPackRows": 100,
-    "deepPackFrom": 3000
+ "world": {
+  "width": 180,
+  "height": 320,
+  "ref640": 0.28125,
+  "pixelRows": 320,
+  "minKeepRows": 40,
+  "packRows": 10,
+  "deepPackRows": 100,
+  "deepPackFrom": 3000
+ },
+ "layout": {
+  "surfaceTop": 104,
+  "sectionTop": 166,
+  "tabBarH": 38,
+  "drawerMax": 0.5,
+  "drawerShift": 60,
+  "groundDepth": 30,
+  "waterDepth": 22
+ },
+ "zones": {
+  "startWater": 0.4,
+  "startShore": 0.1,
+  "minWidth640": 32,
+  "capacityPerPx640": 0.25,
+  "background": {
+   "water": 0.01,
+   "shore": 0.008,
+   "land": 0.004
   },
-  "layout": {
-    "surfaceTop": 104,
-    "sectionTop": 166,
-    "tabBarH": 38,
-    "drawerMax": 0.5,
-    "drawerShift": 60,
-    "groundDepth": 30,
-    "waterDepth": 22
+  "backgroundMat": {
+   "water": "silt",
+   "shore": "sand",
+   "land": "soil"
   },
-  "zones": {
-    "startWater": 0.4,
-    "startShore": 0.1,
-    "minWidth640": 32,
-    "capacityPerPx640": 0.25,
-    "background": {
-      "water": 0.01,
-      "shore": 0.008,
-      "land": 0.004
-    },
-    "backgroundMat": {
-      "water": "silt",
-      "shore": "sand",
-      "land": "soil"
-    },
-    "landAltMat": "dust",
-    "landAltBeforeEra": 3
-  },
-  "energy": {
-    "click": 1,
-    "passive": 0.5,
-    "boostMul": 2,
-    "boostPerClick": 1,
-    "boostMax": 5
-  },
-  "time": {
-    "geoTick": 0.5,
-    "offlineSpeed": 0.5,
-    "offlineMaxHours": 8,
-    "offlineStepYears": 50,
-    "lifeSpeedPerSpecies": 0.01
-  },
-  "physics": {
-    "pressurePerRow": 0.0098,
-    "surfaceT": 15,
-    "gradient": 0.03,
-    "kStart": 1,
-    "kMax": 8,
-    "kRate": 0.001,
-    "foundationP": 0.5,
-    "foundationK": 4,
-    "foundationCompress": 0.1
-  },
-  "taphonomy": {
-    "rotEvery": 10,
-    "rotShare": 0.3,
-    "decayTau": 30,
-    "rainTransport": 0.5,
-    "burialShare": 0.5,
-    "massPerPixel": 10,
-    "fossilBase": 0.03,
-    "fossilP": 2,
-    "groundwaterMineral": 3,
-    "fragmentsPerFossil": 3,
-    "rareDecay": 0.15,
-    "museumBonus": 0.02,
-    "museumSetBonus": 0.1
-  },
-  "oxygen": {
-    "max": 21,
-    "landNeeds": 15
-  },
-  "prestige": {
-    "divisor": 100000000.0,
-    "power": 0.3333333,
-    "glowAt": 0.5,
-    "noteChance": 0.35
-  },
-  "excavation": {
-    "rowsPerYear": 0.5,
-    "perPop": 10
-  },
-  "tribe": {
-    "settleRadius640": 64,
-    "settleWeight": 0.5
-  },
-  "regrowth": {
-    "factor": 10
-  },
-  "fertility": {
-    "rows": 20,
-    "perPixel": 0.0004,
-    "max": 0.5
-  },
-  "hotWorld": {
-    "gradientMul": 3,
-    "volcanoEvery": 240
-  },
-  "shards": {
-    "x640": [
-      160,
-      320,
-      480
-    ],
-    "diversityBonus": 0.1
-  },
-  "save": {
-    "key": "strata.save.v1",
-    "autosave": 30,
-    "version": 1
-  },
-  "rockYield": 0.04
+  "landAltMat": "dust",
+  "landAltBeforeEra": 3
+ },
+ "energy": {
+  "click": 1,
+  "passive": 0.5,
+  "boostMul": 2,
+  "boostPerClick": 1,
+  "boostMax": 5
+ },
+ "time": {
+  "geoTick": 0.5,
+  "offlineSpeed": 0.5,
+  "offlineMaxHours": 8,
+  "offlineStepYears": 50,
+  "lifeSpeedPerSpecies": 0.01
+ },
+ "physics": {
+  "pressurePerRow": 0.0098,
+  "surfaceT": 15,
+  "gradient": 0.03,
+  "kStart": 1,
+  "kMax": 8,
+  "kRate": 0.001,
+  "foundationP": 0.5,
+  "foundationK": 4,
+  "foundationCompress": 0.1
+ },
+ "taphonomy": {
+  "rotEvery": 10,
+  "rotShare": 0.3,
+  "decayTau": 30,
+  "rainTransport": 0.5,
+  "burialShare": 0.5,
+  "massPerPixel": 10,
+  "fossilBase": 0.03,
+  "fossilP": 2,
+  "groundwaterMineral": 3,
+  "fragmentsPerFossil": 3,
+  "rareDecay": 0.15,
+  "museumBonus": 0.02,
+  "museumSetBonus": 0.1
+ },
+ "oxygen": {
+  "max": 21,
+  "landNeeds": 15
+ },
+ "prestige": {
+  "divisor": 100000000.0,
+  "power": 0.3333333,
+  "glowAt": 0.5,
+  "noteChance": 0.35
+ },
+ "excavation": {
+  "rowsPerYear": 0.5,
+  "perPop": 10
+ },
+ "tribe": {
+  "settleRadius640": 64,
+  "settleWeight": 0.5
+ },
+ "regrowth": {
+  "factor": 10
+ },
+ "fertility": {
+  "rows": 20,
+  "perPixel": 0.0004,
+  "max": 0.5
+ },
+ "hotWorld": {
+  "gradientMul": 3,
+  "volcanoEvery": 240
+ },
+ "shards": {
+  "x640": [
+   160,
+   320,
+   480
+  ],
+  "diversityBonus": 0.1
+ },
+ "save": {
+  "key": "strata.save.v1",
+  "autosave": 30,
+  "version": 1
+ },
+ "rockYield": 0.04,
+ "press": {
+  "_comment": "Press (brief 5, A2): hold a layer >holdMs to squeeze it: compaction x6, transformations x4 in a circle of `radius` world px (+ Wide Press). Costs costShare of the income per second.",
+  "holdMs": 250,
+  "radius": 24,
+  "costShare": 0.02
+ },
+ "burial": {
+  "_comment": "Burial window (brief 5, В2): >= killed violent deaths within windowYears game years opens it for `seconds` real seconds; a flood or a volcano cast in it makes bones from before..after years around now fossilise fossilMul times as easily.",
+  "killed": 20,
+  "windowYears": 10,
+  "seconds": 8,
+  "cooldown": 20,
+  "before": 25,
+  "after": 25,
+  "fossilMul": 3
+ }
 }

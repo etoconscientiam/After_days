@@ -18,6 +18,11 @@ export interface GameEvents {
   speciesUnlocked: { id: string };
   toast: { key: string; vars?: Record<string, string | number>; color?: string };
   excavationDone: {};
+  rareSpawn: { id: string; x: number };
+  rareClaimed: { id: string; x: number };
+  burialWindow: { x: number };
+  burial: { id: string; x: number };
+  orderDone: { id: string };
   offline: { years: number; layers: number; rocks: Record<string, number>; fossils: number; notes: string[]; seconds: number };
 }
 

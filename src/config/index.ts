@@ -9,6 +9,8 @@ import balanceJson from './balance.json';
 import storyJson from './story.json';
 import echoesJson from './echoes.json';
 import notesJson from './notes.json';
+import rareJson from './rare.json';
+import ordersJson from './orders.json';
 
 export type ZoneId = 'water' | 'shore' | 'land';
 export const ZONES: ZoneId[] = ['water', 'shore', 'land'];
@@ -44,7 +46,9 @@ export interface UpgradeDef {
   id: string; branch: string; currency: string; base: number; stat: string; kind: 'add' | 'mul'; value: number;
   extra?: { stat: string; value: number }; milestones?: boolean; growth?: number;
 }
-export interface DensityNode { id: string; base: number; mult: number; max: number; stat: string; value: number }
+export interface DensityNode { id: string; base: number; mult: number; max: number; stat: string; value: number; requires?: number }
+export interface RareDef { id: string; eras: [number, number]; place: 'sky' | 'shore' | 'land' | 'section' | 'horizon'; reward: Record<string, number | boolean> }
+export interface OrderDef { id: string; eras: [number, number]; type: 'rockEarned' | 'museum' | 'insectAmber' | 'pressMoved'; rock?: string; species?: string; n: number; reward: { density?: number; rock?: string; n?: number } }
 export interface RitualDef { id: string; scene: string; world: string; mods: Record<string, any> }
 export interface EchoDef { id: string; picture: string; sound: string; group: 'common' | 'ring' | 'key' | 'wand'; trigger: string; eras?: [number, number] }
 export interface NoteDef { id: string; order: number; medium: 'metal_sheet' | 'memory_crystal' | 'ceramic_plate' | 'school_tablet'; type: string; reviewEn?: boolean; todo?: string; todoKey?: string }
@@ -96,6 +100,8 @@ export const CFG = {
   upgradeGrowth: upgradesJson.growth,
   milestones: upgradesJson.milestones,
   density: upgradesJson.density.nodes as DensityNode[],
+  rare: rareJson as unknown as { every: [number, number]; lifetime: number; events: RareDef[] },
+  orders: ordersJson as unknown as { perEra: [number, number]; pool: OrderDef[] },
   B: balanceJson,
   story: storyJson,
   rituals: storyJson.rituals as RitualDef[],

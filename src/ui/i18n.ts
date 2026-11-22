@@ -42,18 +42,29 @@ function plain(n: number, digits: number): string {
   return n.toLocaleString(lang === 'ru' ? 'ru-RU' : 'en-US', { maximumFractionDigits: digits, minimumFractionDigits: 0 });
 }
 
-/** Short number: 1.2K / 1,2 тыс., later 1.2e21. */
+/** Short number: 999, 1,2 тыс., 3,4 млн, 5,6 млрд, 7,8 трлн / 1.2K…; later 1.2e21. Never "1 000 млрд":
+ *  the value is rounded first, then the tier is chosen. */
 export function fmt(n: number, digits = 1): string {
   if (!isFinite(n)) return '∞';
-  const a = Math.abs(n);
-  if (a < 1000) return plain(n, a < 10 ? digits : a < 100 ? Math.min(1, digits) : 0);
-  const tier = Math.floor(Math.log10(a) / 3);
+  const sign = n < 0 ? -1 : 1;
+  let a = Math.abs(n);
+  const roundTo = (v: number, d: number) => { const p = 10 ** d; return Math.round(v * p) / p; };
+  if (a < 1000) {
+    const d = a < 10 ? digits : a < 100 ? Math.min(1, digits) : 0;
+    const r = roundTo(a, d);
+    if (r < 1000) return plain(sign * r, d);
+    a = 1000;
+  }
+  let tier = Math.floor(Math.log10(a) / 3);
+  let v = a / 10 ** (tier * 3);
+  let d = v < 100 ? digits : 0;
+  v = roundTo(v, d);
+  if (v >= 1000) { tier++; v = roundTo(v / 1000, digits); d = digits; }
   if (tier >= SUFFIX.en.length) {
-    const s = n.toExponential(2);
+    const s = (sign * a).toExponential(2);
     return lang === 'ru' ? s.replace('.', ',') : s;
   }
-  const v = n / 10 ** (tier * 3);
-  return plain(v, v < 100 ? digits : 0) + SUFFIX[lang][tier];
+  return plain(sign * v, d) + SUFFIX[lang][tier];
 }
 
 /** Integer with grouping: 98 000 / 98,000. */

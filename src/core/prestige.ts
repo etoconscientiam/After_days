@@ -5,8 +5,13 @@ import { newRun } from './state';
 import { W, CAP } from '../world/World';
 
 export function prestigeGain(g: Game): number {
+  return Math.floor(prestigeRaw(g));
+}
+
+/** The gain before rounding down (it grows smoothly; the Epoch tab forecasts from it). */
+export function prestigeRaw(g: Game): number {
   const P = CFG.B.prestige;
-  return Math.floor(Math.pow(g.run.compactMass / P.divisor, P.power));
+  return Math.pow(Math.max(0, g.run.compactMass) / P.divisor, P.power);
 }
 
 /** Give the next 3011 note in fixed order. Returns its id or null. */

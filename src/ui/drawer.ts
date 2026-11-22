@@ -5,7 +5,7 @@ import { CFG, SpeciesDef, ElementDef, UpgradeDef, DensityNode, eraOfYear } from 
 import type { Game } from '../core/game';
 import { totalPop, lifespan } from '../core/life';
 import { upgradeEffect } from '../core/stats';
-import { foundationPreview } from '../core/prestige';
+import { foundationPreview, prestigeRaw } from '../core/prestige';
 import { $, h, setText, toggle } from './dom';
 import { t, fmt, setLang, Lang } from './i18n';
 import { chronicleCard } from './chronicle';
@@ -27,12 +27,13 @@ export class Drawer {
   open: ViewId | null = null;
   bookTab: 'chronicle' | 'museum' | 'notes' = 'chronicle';
   qty: 1 | 10 | 0 = 1;
+  /** the species whose big card is open in the Life list */
+  expanded: string | null = null;
   openNote: string | null = null;
   private sig = '';
   private refreshers: (() => void)[] = [];
   private tabButtons = new Map<TabId, HTMLButtonElement>();
   private acc = 0;
-  private bookSeen = { notes: 0, fossils: 0 };
   onTarget: (el: ElementDef) => void = () => {};
   onBought: (btn: HTMLElement, zi: number) => void = () => {};
   onExhibit: (kind: 'fossil' | 'relic', id: string) => void = () => {};
@@ -41,6 +42,8 @@ export class Drawer {
   onImport: (s: string) => boolean = () => false;
   onReset: () => void = () => {};
   onToast: (s: string) => void = () => {};
+  /** the burial window is open: flood and volcano pulse */
+  burialPulse = false;
 
   constructor(private g: () => Game) {
     for (const id of TABS) {
@@ -71,6 +74,9 @@ export class Drawer {
     if (this.open === id) { this.close(); return; }
     this.open = id;
     this.openNote = null;
+    this.markSeen(id);
+    $('#cond-pop').hidden = true;
+    $('#rock-pop').hidden = true;
     $('#fieldnote').hidden = true;
     this.el.classList.add('open');
     this.el.setAttribute('aria-hidden', 'false');
@@ -78,6 +84,13 @@ export class Drawer {
     this.sig = '';
     this.refresh(true);
     this.body.scrollTop = 0;
+  }
+
+  /** Open the Upgrades on the group of this rock (from the header). */
+  openUpgradesAt(rock: string): void {
+    if (this.open !== 'upgrades') this.toggleView('upgrades');
+    const el = this.body.querySelector(`.group-title[data-rock="${rock}"]`) as HTMLElement | null;
+    if (el) { this.body.scrollTo({ top: el.offsetTop - 8, behavior: 'smooth' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1200); }
   }
 
   close(): void {
@@ -97,6 +110,7 @@ export class Drawer {
   }
 
   update(dt: number): void {
+    this.sampleGain(dt);
     this.acc += dt;
     if (this.acc < 0.2) return;
     this.acc = 0;
@@ -104,16 +118,43 @@ export class Drawer {
     if (this.open) this.refresh(false);
   }
 
+  /** What each tab currently offers (ids), to tell what is new since the player last looked. */
+  private offers(g: Game): Record<'life' | 'elements' | 'upgrades' | 'density', string[]> {
+    return {
+      life: CFG.species.filter((sp) => g.speciesUnlocked(sp)).map((sp) => sp.id),
+      elements: CFG.elements.filter((el) => g.elementAvailable(el) && (el.world !== 'hot' || g.mods.hot)).map((el) => el.id),
+      upgrades: CFG.upgrades.filter((u) => u.currency === 'energy' || g.legacy.discovered.includes(u.currency)).map((u) => u.id),
+      density: CFG.density.filter((n) => (n.requires ?? 0) <= g.meta.prestiges).map((n) => n.id),
+    };
+  }
+
+  /** Opening a tab: everything in it counts as seen. */
+  private markSeen(id: ViewId): void {
+    const g = this.g();
+    const seen = g.legacy.seen;
+    const o = this.offers(g);
+    const add = (list: string[], ids: string[]) => { for (const x of ids) if (!list.includes(x)) list.push(x); };
+    if (id === 'life') add(seen.life, o.life);
+    if (id === 'elements') add(seen.elements, o.elements);
+    if (id === 'upgrades') add(seen.upgrades, o.upgrades);
+    if (id === 'epoch') add(seen.density, o.density);
+    if (id === 'book') seen.notes = g.legacy.notes.length;
+  }
+
+  /** A dot on a tab = something new appeared there (not "you can afford something" — the amber buttons say that). */
   private updateDots(): void {
     const g = this.g();
-    const r = g.run;
-    const lifeNew = CFG.species.some((sp) => g.speciesUnlocked(sp) && r.energy >= g.speciesCost(sp) && g.freeZoneFor(sp) >= 0) || !!r.mutationOffer;
-    const elNew = CFG.elements.some((el) => g.canCast(el) && (r.cooldowns[el.id] ?? 0) <= 0 && g.elementAvailable(el)) && r.era >= 1;
-    const upNew = CFG.upgrades.some((u) => g.legacy.discovered.includes(u.currency) && g.currency(u.currency) >= g.upgradeCost(u.id)) || CFG.upgrades.some((u) => u.currency === 'energy' && r.energy >= g.upgradeCost(u.id));
-    const gain = g.prestigeGain();
-    const epochNew = gain >= 1 && gain >= g.meta.density * 0.5;
-    const bookNew = g.legacy.notes.length > this.bookSeen.notes || g.legacy.fossils > this.bookSeen.fossils;
-    const map: Record<TabId, boolean> = { life: lifeNew, elements: elNew, upgrades: upNew, epoch: epochNew, book: bookNew };
+    const seen = g.legacy.seen;
+    const o = this.offers(g);
+    const fresh = (list: string[], ids: string[]) => ids.some((x) => !list.includes(x));
+    const map: Record<TabId, boolean> = {
+      life: fresh(seen.life, o.life) || !!g.run.mutationOffer,
+      elements: fresh(seen.elements, o.elements),
+      upgrades: fresh(seen.upgrades, o.upgrades),
+      epoch: fresh(seen.density, o.density),
+      book: g.legacy.notes.length > seen.notes,
+    };
+    if (this.open && this.open in map) this.markSeen(this.open);
     for (const id of TABS) toggle(this.tabButtons.get(id)!, 'has-new', map[id] && this.open !== id);
   }
 
@@ -137,7 +178,7 @@ export class Drawer {
   private signature(g: Game, id: ViewId): string {
     const r = g.run;
     switch (id) {
-      case 'life': return CFG.species.map((s) => (g.speciesUnlocked(s) ? 1 : 0)).join('') + r.era + (r.mutationOffer ? 'm' + r.mutationEraOffered : '');
+      case 'life': return CFG.species.map((s) => (g.speciesUnlocked(s) ? 1 : 0)).join('') + r.era + (r.mutationOffer ? 'm' + r.mutationEraOffered : '') + (this.expanded ?? '') + g.stats.buyBest + g.stats.shepherdSlots;
       case 'elements': return CFG.elements.map((e) => (g.elementAvailable(e) ? 1 : 0)).join('') + g.stats.autoSlots;
       case 'upgrades': return g.legacy.discovered.join(',') + g.mods.living;
       case 'epoch': return String(g.meta.prestiges);
@@ -189,20 +230,21 @@ export class Drawer {
       });
       this.body.append(mg, h('button', { class: 'stone-btn', style: 'margin:8px 0', onclick: () => { g.rerollMutations(); this.sig = ''; } }, t('mutation.reroll')));
     }
-    const grid = h('div', { class: 'cards' });
-    this.body.append(grid);
-    let lockedShown = 0;
-    for (const sp of CFG.species) {
-      if (!g.speciesUnlocked(sp)) {
-        if (lockedShown >= 2 || sp.era > r.era + 1) continue;
-        lockedShown++;
-        let hint = t('life.locked', { era: t('era.' + sp.era) });
-        if (r.era >= sp.era && sp.needsOxygen && r.oxygen < sp.needsOxygen) hint = t('life.needO2', { v: sp.needsOxygen });
-        else if (r.era >= sp.era && sp.unlockAfter) hint = t('life.after', { species: t('species.' + sp.unlockAfter + '.name'), n: CFG.unlockAfterPop });
-        grid.append(h('div', { class: 'card dim' }, h('div', { class: 'pic' }, portrait(sp.id, 96, true)), h('div', { class: 'lock' }, hint)));
-        continue;
-      }
-      grid.append(this.speciesCard(g, sp));
+    // Buy the best (Density tree) and the Shepherd slots
+    if (g.stats.buyBest > 0) {
+      const bb = h('button', { class: 'stone-btn buy-best', title: t('auto.buyBestTip'), onclick: () => { const n = g.buyBest(); if (n) this.onBought(bb as HTMLElement, 1); } }, energyIcon(14), t('auto.buyBest'));
+      this.body.append(bb);
+    }
+    const list = h('div', { class: 'life-list' });
+    this.body.append(list);
+    // the next species to open: one silhouette row, not a row each
+    const next = CFG.species.find((sp) => !g.speciesUnlocked(sp));
+    for (const sp of CFG.species) if (g.speciesUnlocked(sp)) list.append(this.speciesRow(g, sp));
+    if (next) {
+      let hint = t('life.openIn', { era: t('era.' + next.era) });
+      if (r.era >= next.era && next.needsOxygen && r.oxygen < next.needsOxygen) hint = t('life.needO2', { v: next.needsOxygen });
+      else if (r.era >= next.era && next.unlockAfter) hint = t('life.after', { species: t('species.' + next.unlockAfter + '.name'), n: CFG.unlockAfterPop });
+      list.append(h('div', { class: 'life-row locked' }, h('div', { class: 'lr-pic' }, portrait(next.id, 40, true)), h('div', { class: 'lr-mid' }, h('div', { class: 'lr-name' }, hint))));
     }
   }
 
@@ -221,17 +263,20 @@ export class Drawer {
     return { n, cost };
   }
 
-  private speciesCard(g: Game, sp: SpeciesDef): HTMLElement {
-    const count = h('span', { class: 'count' });
-    const name = h('div', { class: 'name' });
-    const eps = h('span', {});
+  /** One species as a compact row: portrait, name · count, income, buy button. Tap the row for the big card. */
+  private speciesRow(g: Game, sp: SpeciesDef): HTMLElement {
+    const name = h('span', {});
+    const count = h('span', { class: 'lr-count' });
+    const eps = h('span', { class: 'lr-eps' });
     const lives = h('span', {});
     const price = h('span', {});
     const btn = h('button', { class: 'buy' }, h('span', { class: 'e' }, energyIcon(14)), price) as HTMLButtonElement;
-    const minus = h('button', { class: 'minus', title: t('life.release'), 'aria-label': t('life.release'), 'data-tip': t('life.release'), onclick: () => g.releaseSpecies(sp.id) }, releasePixel(24)) as HTMLButtonElement;
-    const card = h('div', { class: 'card' }, minus, h('div', { class: 'pic' }, portrait(sp.id, 96), count), name,
-      h('div', { class: 'facts' }, eps, h('span', { class: 'icon-inline habitat', title: t('zones.' + sp.zone), 'data-tip': t('zones.' + sp.zone) }, habitatPixel(sp.zone, 22))),
-      h('div', { class: 'facts' }, lives), btn);
+    const row = h('div', { class: 'life-row' },
+      h('div', { class: 'lr-pic' }, portrait(sp.id, 40)),
+      h('div', { class: 'lr-mid' }, h('div', { class: 'lr-name' }, name, count),
+        h('div', { class: 'lr-sub' }, h('span', { class: 'icon-inline habitat', title: t('zones.' + sp.zone), 'data-tip': t('zones.' + sp.zone) }, habitatPixel(sp.zone, 16)), lives)),
+      eps, btn);
+    const wrap = h('div', { class: 'life-item' }, row);
     const buyOnce = () => {
       const { n } = this.qtyFor(g, sp);
       let bought = 0;
@@ -240,21 +285,60 @@ export class Drawer {
       return bought > 0;
     };
     holdToRepeat(btn, buyOnce);
+    // tap on the row (not the button): open or close the big card
+    row.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).closest('.buy, .habitat')) return;
+      this.expanded = this.expanded === sp.id ? null : sp.id;
+      this.sig = '';
+    });
+    if (this.expanded === sp.id) wrap.append(this.speciesCard(g, sp));
     this.refreshers.push(() => {
       const n = totalPop(g, sp.id);
-      setText(count, n > 0 ? String(n) : '');
       setText(name, short(t('species.' + sp.id + '.name')));
+      setText(count, n > 0 ? ' · ×' + n : '');
       let e = sp.eps * (1 + g.stats.lifeEnergy) * g.stats.energyMul;
       if (g.run.mutations[sp.id] === 'vigor') e *= 1.5;
-      setText(eps, t('life.perSec', { v: fmt(e) }));
-      setText(lives, t('life.lives', { v: fmt(lifespan(g, sp), 0) }));
+      setText(eps, '+' + fmt(e) + '/' + t('life.sec'));
+      setText(lives, t('life.livesShort', { v: fmt(lifespan(g, sp), 0) }));
       const q = this.qtyFor(g, sp);
       setText(price, (this.qty !== 1 && q.n > 1 ? `×${q.n} · ` : '') + fmt(q.cost));
       const can = g.run.energy >= q.cost && g.freeZoneFor(sp) >= 0;
       btn.disabled = !can;
       toggle(btn, 'ok', can);
-      toggle(card, 'afford', can);
+      toggle(row, 'afford', can);
+    });
+    return wrap;
+  }
+
+  /** The big card under a row: large portrait, description, numbers, release and the Shepherd's auto switch. */
+  private speciesCard(g: Game, sp: SpeciesDef): HTMLElement {
+    const stats = h('div', { class: 'sc-stats' });
+    const minus = h('button', { class: 'stone-btn sc-release', title: t('life.release'), 'data-tip': t('life.release'), onclick: () => g.releaseSpecies(sp.id) }, releasePixel(20), h('span', {}, t('life.release').split(':')[0])) as HTMLButtonElement;
+    const card = h('div', { class: 'species-card' },
+      h('div', { class: 'sc-pic' }, portrait(sp.id, 96)),
+      h('div', { class: 'sc-body' }, h('div', { class: 'sc-name' }, t('species.' + sp.id + '.name')), h('div', { class: 'sc-desc' }, t('species.' + sp.id + '.desc')), stats));
+    const actions = h('div', { class: 'sc-actions' }, minus);
+    if (g.stats.shepherdSlots > 0) {
+      const used = () => Object.values(g.run.shepherd).filter(Boolean).length;
+      const auto = h('button', { class: 'auto-toggle' + (g.run.shepherd[sp.id] ? ' on' : ''), title: t('auto.shepherdTip') }, t('auto.shepherd')) as HTMLButtonElement;
+      auto.addEventListener('click', () => {
+        const on = !g.run.shepherd[sp.id];
+        if (on && used() >= g.stats.shepherdSlots) return;
+        g.run.shepherd[sp.id] = on;
+        toggle(auto, 'on', on);
+      });
+      const slots = h('small', {});
+      actions.append(auto, slots);
+      this.refreshers.push(() => setText(slots, t('auto.slots', { used: used(), max: g.stats.shepherdSlots })));
+    }
+    card.append(actions);
+    this.refreshers.push(() => {
+      const n = totalPop(g, sp.id);
       minus.disabled = n <= 0;
+      const p = g.run.pop[sp.id];
+      stats.replaceChildren(
+        h('div', {}, t('life.lives', { v: fmt(lifespan(g, sp), 0) })),
+        h('div', {}, '×' + n + (n ? ` (${['water', 'shore', 'land'].map((z, i) => (p[i] ? t('zones.' + z) + ' ' + p[i] : '')).filter(Boolean).join(', ')})` : '')));
     });
     return card;
   }
@@ -289,6 +373,7 @@ export class Drawer {
         ring.style.setProperty('--p', cd > 0 ? (1 - cd / el.cooldown).toFixed(3) : '1');
         setText(cost, cd > 0 ? t('elements.cooldown', { v: Math.ceil(cd) }) : fmt(g.elementCost(el)));
         toggle(medal, 'cooling', cd > 0);
+        toggle(medal, 'burial', this.burialPulse && (el.id === 'flood' || el.id === 'volcano'));
         toggle(medal, 'ok', g.canCast(el));
       });
     }
@@ -333,7 +418,7 @@ export class Drawer {
     for (const [rock, list] of byRock) {
       if (!g.legacy.discovered.includes(rock)) { locked.push([rock, list]); continue; }
       const stock = h('small', {});
-      this.body.append(h('div', { class: 'group-title' }, rockIcon(rock, 20), t('rocks.' + rock), stock));
+      this.body.append(h('div', { class: 'group-title', 'data-rock': rock }, rockIcon(rock, 20), t('rocks.' + rock), stock));
       this.refreshers.push(() => setText(stock, fmt(g.run.rocks[rock] ?? 0, 0)));
       for (const u of list) this.body.append(this.upgradeRow(g, u));
     }
@@ -369,7 +454,8 @@ export class Drawer {
     diagram.width = 82; diagram.height = 120;
     const gain = h('div', { class: 'gain' });
     const note = h('small', {});
-    gain.append(note);
+    const later = h('small', { class: 'gain-later' });
+    gain.append(note, later);
     this.body.append(h('div', { class: 'epoch-top' }, diagram, h('div', {}, gain)));
     const fill = h('i', { class: 'fill' });
     const label = h('span', {}, t('epoch.button'));
@@ -385,6 +471,7 @@ export class Drawer {
       // the same numbers the shift will use (core/prestige.ts foundationPreview)
       const fp = foundationPreview(g);
       const frac = fp.share;
+      setText(later, this.shiftHint(g, v));
       setText(note, v < 1 ? t('epoch.notYet') : fp.add >= 0.05
         ? t('epoch.foundationAdd', { v: fmt(fp.add, 1), p: fmt(Math.max(1, frac * 100), 0) })
         : t('epoch.foundationNone', { k: CFG.B.physics.foundationK }));
@@ -399,6 +486,36 @@ export class Drawer {
     for (const n of CFG.density) this.body.append(this.densityRow(g, n));
   }
 
+  /** Samples of the raw gain over real time, to forecast the shift (taken every 2 s even with the drawer closed). */
+  private gainHist: { t: number; v: number }[] = [];
+  private histAcc = 0;
+  private sampleGain(dt: number): void {
+    this.histAcc += dt;
+    if (this.histAcc < 2) return;
+    this.histAcc = 0;
+    const g = this.g();
+    const now = performance.now() / 1000;
+    this.gainHist.push({ t: now, v: prestigeRaw(g) });
+    while (this.gainHist.length > 2 && now - this.gainHist[0].t > 120) this.gainHist.shift();
+    // a shift (or a new world) resets the run: start over
+    const n = this.gainHist.length;
+    if (n > 1 && this.gainHist[n - 1].v < this.gainHist[n - 2].v * 0.5) this.gainHist = [this.gainHist[n - 1]];
+  }
+
+  /** "In ≈ 4 min it will be +5" — from the current pace of compaction; or "hardly grows any more". */
+  private shiftHint(g: Game, now: number): string {
+    const H = this.gainHist;
+    if (H.length < 4) return '';
+    const a = H[0], b = H[H.length - 1];
+    const rate = (b.v - a.v) / Math.max(1, b.t - a.t);            // gain per real second
+    const target = Math.max(now + 2, Math.floor(b.v) + 2);
+    if (rate <= 0 || rate * 600 < 1) return now >= 1 ? t('epochHint.flat') : '';
+    const sec = (target - b.v) / rate;
+    if (sec > 3 * 3600) return now >= 1 ? t('epochHint.flat') : '';
+    const tt = sec < 90 ? t('epochHint.sec', { v: Math.max(10, Math.round(sec / 10) * 10) }) : sec < 5400 ? t('epochHint.min', { v: Math.round(sec / 60) }) : t('epochHint.hour', { v: fmt(sec / 3600, 1) });
+    return t('epochHint.later', { t: tt, v: target });
+  }
+
   private densityRow(g: Game, n: DensityNode): HTMLElement {
     const name = h('div', { class: 'r-name' });
     const price = h('span', {});
@@ -406,7 +523,10 @@ export class Drawer {
     const row = h('div', { class: 'row' }, h('div', { class: 'r-ico', style: 'color:var(--density);font-size:32px;line-height:1' }, '◆'), name, h('div', { class: 'r-act' }, btn), h('div', { class: 'r-eff' }, t('epoch.' + n.id + '.desc')));
     this.refreshers.push(() => {
       const lvl = g.meta.tree[n.id] ?? 0;
-      name.replaceChildren(t('epoch.' + n.id + '.name'), h('small', { style: 'color:var(--density)' }, `${lvl}/${n.max}`));
+      const locked = (n.requires ?? 0) > g.meta.prestiges;
+      name.replaceChildren(t('epoch.' + n.id + '.name'), h('small', { style: 'color:var(--density)' }, locked ? t('auto.requires', { n: n.requires ?? 0 }) : `${lvl}/${n.max}`));
+      toggle(row, 'dim', locked);
+      if (locked) { setText(price, '◇'); btn.disabled = true; toggle(btn, 'ok', false); toggle(row, 'afford', false); btn.title = t('auto.requires', { n: n.requires ?? 0 }); return; }
       const maxed = lvl >= n.max, cost = g.densityCost(n.id);
       setText(price, maxed ? '✓' : '◆ ' + fmt(cost, 0));
       const can = !maxed && g.meta.density >= cost;
@@ -420,7 +540,6 @@ export class Drawer {
     const seg = h('div', { class: 'seg' });
     for (const id of ['chronicle', 'museum', 'notes'] as const) seg.append(h('button', { class: this.bookTab === id ? 'on' : '', onclick: () => { this.bookTab = id; this.openNote = null; this.sig = ''; } }, t('book.' + id)));
     this.sub.append(seg);
-    this.bookSeen = { notes: g.legacy.notes.length, fossils: g.legacy.fossils };
     if (this.bookTab === 'chronicle') {
       const list = g.legacy.chronicle.slice().reverse();
       if (!list.length) this.body.append(h('div', { class: 'meta-line' }, t('book.chronicleEmpty')));
