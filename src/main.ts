@@ -87,6 +87,7 @@ function updateAmbi(dt: number): void {
 
 // ---------- the world shrinks above an open drawer (it is never covered) ----------
 const drawerEl = $('#drawer');
+const stageUi = $('#stage-ui');
 let worldScale = 1;
 function fitWorldToDrawer(): void {
   const dr = drawerEl.getBoundingClientRect(), ur = ui.getBoundingClientRect();
@@ -94,8 +95,10 @@ function fitWorldToDrawer(): void {
   const s = Math.max(0.3, Math.min(1, topUI / 640));
   if (Math.abs(s - worldScale) < 0.001) return;
   worldScale = s;
+  // the whole game screen shrinks as one picture: the world and its header, notes and titles
   canvas.style.transformOrigin = '50% 0';
   canvas.style.transform = s < 0.999 ? `scale(${s})` : '';
+  stageUi.style.transform = s < 0.999 ? `scale(${s})` : '';
 }
 
 // ---------- fly-to effects (DOM, in UI units) ----------
