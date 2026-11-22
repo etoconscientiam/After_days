@@ -62,7 +62,10 @@ export function geoEnv(g: Game, dy: number): GeoEnv {
       const yv = insect ? rule.insectYield! : rule.yield;
       if (yv > 0) g.addRock(rule.rock, yv * CFG.B.rockYield * CPP * S.rockYieldMul, wx(x));
       // every grain that turns to rock flashes: a small bright spark in the colour of the new rock
-      if (glints++ < 90 && g.glints.length < 160) g.glints.push({ x: wx(x), y: y * 2 + 1, t: 0.6, color: CFG.materials[to].palette[3] ?? CFG.materials[to].palette[0] });
+      // (about one in three, scattered inside the grain and in time: a sprinkle of sparks, never a grid of dots)
+      if (g.rng.next() < 0.35 && glints++ < 60 && g.glints.length < 120) {
+        g.glints.push({ x: x * 2 + (g.rng.next() < 0.5 ? 0 : 1), y: y * 2 + (g.rng.next() < 0.5 ? 0 : 1), t: 0.35 + g.rng.next() * 0.45, color: CFG.materials[to].palette[3] ?? CFG.materials[to].palette[0] });
+      }
       if (pr) {
         const dx = x - pr.x, dyy = y - pr.y;
         if (dx * dx + dyy * dyy <= pr.r * pr.r && g.pressFlashes.length < 80) g.pressFlashes.push({ x: wx(x), y: y * 2 + 1, t: 0.9, color: CFG.materials[to].palette[4] });

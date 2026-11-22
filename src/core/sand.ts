@@ -47,12 +47,27 @@ export function stepFull(g: Grid, rng: Rng, water: Water | null, tick: number): 
       // friction: a rolling grain goes on with the chance `slip` each step, else it stops and lies still; a grain
       // that lies still only moves again when the slope under it is twice too steep (a small avalanche)
       if (g.still[i]) {
+        // a still grain slides again: always where the slope is twice too steep; with a small chance (creep)
+        // down a plain 45° slope, so peaks settle to the natural angle; a lone grain on a peak with nothing at
+        // its sides crumbles quickly (no needles)
+        const lone = (x === 0 || !mat[row + x - 1]) && (x === GW - 1 || !mat[row + x + 1]);
         const d = rng.next() < 0.5 ? -1 : 1;
+        const u = rng.next();
         for (let t = 0; t < 2; t++) {
           const xx = x + (t ? -d : d);
-          if (xx < 0 || xx >= GW) continue;
-          if (!mat[row + xx] && !mat[below + xx] && y + 2 < g.floor && !mat[below + GW + xx]) { g.move(i, below + xx); moved++; break; }
+          if (xx < 0 || xx >= GW || mat[row + xx] || mat[below + xx]) continue;
+          const steep = y + 2 < g.floor && !mat[below + GW + xx];
+          if (steep || u < S.creep || (lone && u < S.peakCrumble)) { g.move(i, below + xx); moved++; break; }
         }
+        // the gentle step: two cells aside and one down (≈27°), slowly — a fresh cone slumps into a mound
+        if (g.still[i] && u < S.slump) {
+          for (let t = 0; t < 2; t++) {
+            const dd = t ? -d : d, x1 = x + dd, x2 = x + 2 * dd;
+            if (x2 < 0 || x2 >= GW || mat[row + x1] || mat[row + x2] || mat[below + x2] || !mat[below + x1]) continue;
+            g.move(i, below + x2); moved++; break;
+          }
+        }
+        if (g.still[i] && (lone || canCreep(g, x, y) || canSlump(g, x, y))) g.wake(x, y);
         continue;
       }
       const slip = SLIP[m] * (wet ? S.waterSlipMul : 1);
@@ -65,11 +80,38 @@ export function stepFull(g: Grid, rng: Rng, water: Water | null, tick: number): 
           if (!mat[row + xx] && !mat[below + xx]) { g.move(i, below + xx); moved++; went = true; break; }
         }
       }
+      // a rolling grain that finds no 45° step may still run on down the gentle one (two aside, one down):
+      // fresh heaps stand at about 30–35°, like real sand, not as 45° pyramids
+      if (!went && rng.next() < slip * 0.5) {
+        const d = rng.next() < 0.5 ? -1 : 1;
+        for (let t = 0; t < 2 && !went; t++) {
+          const dd = t ? -d : d, x1 = x + dd, x2 = x + 2 * dd;
+          if (x2 < 0 || x2 >= GW || mat[row + x1] || mat[row + x2] || mat[below + x2] || !mat[below + x1]) continue;
+          g.move(i, below + x2); moved++; went = true;
+        }
+      }
       if (!went) g.still[i] = 1;
     }
   }
   if (moved) { g.computeTops(); g.version++; }
   return moved;
+}
+
+/** Could a still grain at (x, y) still creep (an empty cell beside and below it)? Keeps its block awake. */
+function canCreep(g: Grid, x: number, y: number): boolean {
+  const row = y * GW, below = row + GW;
+  for (const xx of [x - 1, x + 1]) if (xx >= 0 && xx < GW && !g.mat[row + xx] && !g.mat[below + xx]) return true;
+  return false;
+}
+
+/** Could a still grain at (x, y) slump two cells aside and one down? */
+function canSlump(g: Grid, x: number, y: number): boolean {
+  const row = y * GW, below = row + GW;
+  for (const d of [-1, 1]) {
+    const x1 = x + d, x2 = x + 2 * d;
+    if (x2 >= 0 && x2 < GW && !g.mat[row + x1] && !g.mat[row + x2] && !g.mat[below + x2] && g.mat[below + x1]) return true;
+  }
+  return false;
 }
 
 /** Fast mode: put one particle on top of column x and let it slide down the slope with the full-mode rules.
@@ -91,8 +133,17 @@ export function settleFast(g: Grid, rng: Rng, water: Water | null, x: number, m:
     for (let t = 0; t < 2 && !moved; t++) {
       const xx = x + (t ? -d : d);
       if (xx < 0 || xx >= GW || g.mat[row + xx] || g.mat[below + xx]) continue;
-      const steep = y + 2 < g.floor && !g.mat[below + GW + xx];
-      if ((rolling && rng.next() < slip) || steep) { x = xx; y = g.tops[xx] - 1; moved = true; }
+      // in the end a grain creeps down any free 45° slope (full mode: creep), so here it slides on
+      x = xx; y = g.tops[xx] - 1; moved = true;
+      void slip; void rolling;
+    }
+    // and in time it slumps down the gentle step too (two aside, one down): half of them have by now
+    if (!moved && rng.next() < 0.5) {
+      for (let t = 0; t < 2 && !moved; t++) {
+        const dd = t ? -d : d, x1 = x + dd, x2 = x + 2 * dd;
+        if (x2 < 0 || x2 >= GW || g.mat[row + x1] || g.mat[row + x2] || g.mat[below + x2] || !g.mat[below + x1]) continue;
+        x = x2; y = g.tops[x2] - 1; moved = true;
+      }
     }
     if (!moved) { if (rolling) { rolling = false; continue; } break; }
   }
