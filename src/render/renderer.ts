@@ -330,6 +330,10 @@ export class Renderer {
       c.drawImage(cl, 0, 0, WW, this.clouds[l].height, WW - Math.round(off), Math.round(y), WW, this.clouds[l].height);
     }
     c.globalAlpha = 1;
+    // sun rays: volumetric light in the air of the sky only — drawn before the hills, land, water and life,
+    // so everything standing in front of the sky covers them. A quarter-resolution field of soft angular noise
+    // around the sun (broad shafts and gaps), fading with distance, smoothed up: no edge anywhere.
+    if (this.sunPos && this.sunPos.up && alt > 0.1 && this.quality === 'high') this.drawRays(lay, alt);
     if (g.run.active.some((a) => a.id === 'rain' || a.id === 'flood')) {
       c.fillStyle = 'rgba(30,40,60,0.25)'; c.fillRect(0, 0, WW, bottom);
       c.fillStyle = 'rgba(170,190,220,0.55)';
@@ -1034,9 +1038,6 @@ export class Renderer {
     if (golden > 0) { c.fillStyle = rgb(255, 140, 60, 0.45 * golden); c.fillRect(0, 0, WW, lay.sectionTop); }
     c.globalCompositeOperation = 'lighter';
     if (night > 0.5) { c.fillStyle = rgb(60, 70, 110, 0.12 * night); c.fillRect(0, lay.waterLevel - 20, WW, lay.sectionTop - lay.waterLevel + 20); }
-    // sun rays: volumetric light, not geometry. A quarter-resolution field around the sun: soft angular noise makes
-    // broad shafts and gaps of uneven width, fading with distance; smoothed up to the world, so no edge anywhere.
-    if (this.sunPos && this.sunPos.up && alt > 0.1 && this.quality === 'high') this.drawRays(lay, alt);
     // the section: lit by the thing, the far layers in shadow
     const xs = g.mods.shards ? g.shardXs() : [WW / 2];
     c.globalCompositeOperation = 'multiply';
@@ -1082,7 +1083,7 @@ export class Renderer {
   private drawRays(lay: Layout, alt: number): void {
     const sp = this.sunPos!;
     const Q = 4;
-    const w = Math.ceil(WW / Q), h = Math.ceil((lay.groundBase + 10) / Q);
+    const w = Math.ceil(WW / Q), h = Math.ceil((lay.waterLevel + 4) / Q);
     const rc = this.rayCanvas;
     if (rc.width !== w || rc.height !== h) { rc.width = w; rc.height = h; this.rayImg = null; }
     const rx = rc.getContext('2d')!;
