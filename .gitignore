@@ -5,3 +5,4 @@ sim/out
 .DS_Store
 tools/font/build
 __pycache__
+dist-single
