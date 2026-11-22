@@ -1,6 +1,7 @@
 // The Game: owns state + world, advances time, exposes player actions. No DOM access (runs in Node for the sim).
 import { CFG, M, ZONES, ZoneId, SpeciesDef, ElementDef, SX } from '../config';
 import { World, W, CAP, F_ROLLED } from '../world/World';
+import { Strata, strataFromWorld } from '../world/Strata';
 import { EventBus } from './events';
 import { RNG, hash2 } from './rng';
 import { GameState, newGameState, newRun, newMeta, TargetZone } from './state';
@@ -24,6 +25,8 @@ export interface Glint { x: number; depth: number; t: number; color: string; bir
 export class Game {
   state: GameState;
   world: World;
+  /** the strata as layers (the new model; for now rebuilt from the cells, see syncStrata) */
+  strata: Strata;
   bus = new EventBus();
   rng: RNG;
   stats!: Stats;
@@ -56,10 +59,11 @@ export class Game {
   zoneGlow = [0, 0, 0];                 // mean glow of the technogenic horizon under each zone
   glow = new Float32Array(W);           // horizon glow profile (energy source)
 
-  constructor(state?: GameState, world?: World) {
+  constructor(state?: GameState, world?: World, strata?: Strata) {
     this.state = state ?? newGameState();
     this.world = world ?? new World();
     if (!world) this.world.reset();
+    this.strata = strata ?? strataFromWorld(this.world, this.state.run.year);
     this.rng = new RNG(this.state.seed);
     for (let x = 0; x < W; x++) this.colNoise[x] = 0.85 + 0.3 * (0.5 + 0.5 * Math.sin((x / SX) * 0.071) * Math.cos((x / SX) * 0.023 + 1.3));
     this.refreshMods();
@@ -850,10 +854,16 @@ export class Game {
     s.ritualChoice = null;
     s.templeProgress = 0;
     this.world.reset();
+    this.strata.reset();
     this.refreshMods();
     this.recomputeZones();
     this.statsDirty = true;
     this.refreshStats();
+  }
+
+  /** Transitional (until the physics runs on layers): rebuild the layers from the cells. */
+  syncStrata(): void {
+    this.strata = strataFromWorld(this.world, this.run.year);
   }
 
   // ---------- section queries ----------

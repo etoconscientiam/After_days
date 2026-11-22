@@ -121,7 +121,7 @@
  "save": {
   "key": "strata.save.v1",
   "autosave": 30,
-  "version": 1
+  "version": 2
  },
  "rockYield": 0.04,
  "press": {

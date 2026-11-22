@@ -82,6 +82,7 @@ export function doPrestige(g: Game): void {
     }
   }
   w.reset();
+  g.strata.reset();
   g.recomputeZones();
   g.statsDirty = true;
   g.refreshStats();

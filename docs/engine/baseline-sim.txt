@@ -1,0 +1,43 @@
+[0.1 min] era 1
+[0.3 min] rock stromatolite
+[0.6 min] rock mudstone
+[0.7 min] rock sandstone
+[1.0 min] era 2
+[1.1 min] rock chalk
+[1.2 min] rock shale
+[1.4 min] rock limestone
+[1.8 min] rock slate
+[2.0 min] era 3
+[2.2 min] rock peat
+[2.5 min] rock lignite
+[2.9 min] rock coal
+[3.2 min] rock amber
+[3.6 min] rock anthracite
+[3.6 min] rock oil
+[3.8 min] note n01
+[3.8 min] prestige gain=2 total=2 foundation=15.3
+[3.9 min] era 1
+[4.8 min] era 2
+[5.8 min] era 3
+[7.6 min] era 4
+[8.1 min] fossil molluscs
+[8.3 min] rock phosphorite
+[8.3 min] fossil fish
+[8.4 min] fossil molluscs
+[8.7 min] fossil herds
+[9.0 min] fossil molluscs
+  .. 10m era=4 year=79963 E=1.50e+6 inc=2.48e+5 yps=67.8 O2=21.0 cells=723011 packs=494 gain=4 cond=1.00 fossils=19 mudstone:34 sandstone:232 stromatolite:345 shale:12219 slate:20807 chalk:735 limestone:2692 peat:240 lignite:8300 coal:809 amber:35 anthracite:1105 oil:236 phosphorite:32
+[10.7 min] era 5
+[12.0 min] rock gas
+[14.1 min] prestige gain=6 total=6 foundation=34.4
+[15.4 min] era 3
+[17.4 min] era 4
+  .. 20m era=4 year=80745 E=1.47e+6 inc=2.36e+5 yps=67.8 O2=21.0 cells=607461 packs=495 gain=3 cond=1.00 fossils=360 stromatolite:218 mudstone:210 sandstone:75 shale:9721 chalk:475 limestone:1693 slate:16177 peat:345 lignite:7422 coal:1014 anthracite:765 oil:271 amber:17 phosphorite:19
+[20.6 min] era 5
+[26.1 min] era 6
+  .. 30m era=6 year=100800 E=1.14e+6 inc=4.41e+6 yps=4.7 O2=21.0 cells=1058226 packs=432 gain=6 cond=0.77 fossils=1194 stromatolite:569 mudstone:238 sandstone:78 shale:13109 chalk:1519 limestone:1594 slate:23211 peat:692 lignite:17649 coal:2516 anthracite:2163 oil:488 amber:29 phosphorite:46 gas:650
+[32.9 min] era 7
+[35.8 min] temple bury
+[35.8 min] done playthrough 1
+[35.8 min] end density=2 prestiges=2
+wrote sim/out/sim_1.csv

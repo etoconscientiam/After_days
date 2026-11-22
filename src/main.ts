@@ -31,7 +31,7 @@ for (const [k, v] of Object.entries(THEME)) if (!k.startsWith('_')) document.doc
 
 let game: Game;
 const loaded = loadLocal();
-game = loaded ? new Game(loaded.state, loaded.world) : new Game(newGameState());
+game = loaded ? new Game(loaded.state, loaded.world, loaded.strata) : new Game(newGameState());
 setLang(game.state.settings.lang);
 
 const canvas = $('#world') as HTMLCanvasElement;
@@ -277,8 +277,8 @@ drawer.onSettingsChange = () => { applySettings(); drawer.relabel(); };
 drawer.onExport = () => exportString(game);
 drawer.onImport = (s) => {
   try {
-    const { state, world } = importString(s);
-    swapGame(new Game(state, world));
+    const { state, world, strata } = importString(s);
+    swapGame(new Game(state, world, strata));
     save();
     return true;
   } catch { return false; }

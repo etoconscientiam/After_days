@@ -3,6 +3,7 @@ import { CFG, NMAT } from '../config';
 import { Game } from '../core/game';
 import { GameState, newGameState } from '../core/state';
 import { World, W, CAP, Pack } from '../world/World';
+import { Strata, StrataSave, packStrata, unpackStrata, strataFromWorld } from '../world/Strata';
 
 const KEY = CFG.B.save.key;
 const VERSION = CFG.B.save.version;
@@ -82,7 +83,8 @@ function unpackWorld(ws: WorldSave): World {
   return w;
 }
 
-export interface SaveBlob { v: number; state: GameState; world: WorldSave }
+/** v2: the strata as layers (`strata`); older saves get their layers built from the cells and packs. */
+export interface SaveBlob { v: number; state: GameState; world: WorldSave; strata?: StrataSave }
 
 /** Fill in fields added after a save was written; bump versions here. */
 function migrate(blob: SaveBlob): SaveBlob {
@@ -97,7 +99,8 @@ function migrate(blob: SaveBlob): SaveBlob {
   };
   deepFill(blob.state, fresh);
   for (const sp of CFG.species) if (!blob.state.run.pop[sp.id]) blob.state.run.pop[sp.id] = [0, 0, 0];
-  // if (blob.v < 2) { ...future migrations... }
+  // v1 → v2: no layers in the save; deserialize builds them from the cells and packs (strataFromWorld)
+  if ((blob.v ?? 1) < 2) delete blob.strata;
   blob.v = VERSION;
   blob.state.version = VERSION;
   return blob;
@@ -106,13 +109,18 @@ function migrate(blob: SaveBlob): SaveBlob {
 export function serialize(g: Game): string {
   g.state.savedAt = Date.now();
   g.state.seed = g.rng.seed;
-  const blob: SaveBlob = { v: VERSION, state: g.state, world: packWorld(g.world) };
+  g.syncStrata();
+  const blob: SaveBlob = { v: VERSION, state: g.state, world: packWorld(g.world), strata: packStrata(g.strata) };
   return JSON.stringify(blob);
 }
 
-export function deserialize(json: string): { state: GameState; world: World } {
+export interface Loaded { state: GameState; world: World; strata: Strata }
+
+export function deserialize(json: string): Loaded {
   const blob = migrate(JSON.parse(json) as SaveBlob);
-  return { state: blob.state, world: unpackWorld(blob.world) };
+  const world = unpackWorld(blob.world);
+  const strata = blob.strata ? unpackStrata(blob.strata) : strataFromWorld(world, blob.state.run.year);
+  return { state: blob.state, world, strata };
 }
 
 export function saveLocal(g: Game): boolean {
@@ -125,7 +133,7 @@ export function saveLocal(g: Game): boolean {
   }
 }
 
-export function loadLocal(): { state: GameState; world: World } | null {
+export function loadLocal(): Loaded | null {
   try {
     const s = localStorage.getItem(KEY);
     if (!s) return null;
@@ -146,7 +154,7 @@ export function exportString(g: Game): string {
   return b64(bytes);
 }
 
-export function importString(s: string): { state: GameState; world: World } {
+export function importString(s: string): Loaded {
   const json = new TextDecoder().decode(unb64(s.trim()));
   return deserialize(json);
 }
