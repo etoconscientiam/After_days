@@ -85,20 +85,14 @@ function updateAmbi(dt: number): void {
   ambiCtx.globalAlpha = 1;
 }
 
-// ---------- the world shrinks above an open drawer (it is never covered) ----------
+// ---------- an open drawer: the world re-lays itself into the space above it (full width, never a miniature) ----------
 const drawerEl = $('#drawer');
-const stageUi = $('#stage-ui');
-let worldScale = 1;
-function fitWorldToDrawer(): void {
-  const dr = drawerEl.getBoundingClientRect(), ur = ui.getBoundingClientRect();
-  const topUI = (dr.top - ur.top) / uiScale;
-  const s = Math.max(0.3, Math.min(1, topUI / 640));
-  if (Math.abs(s - worldScale) < 0.001) return;
-  worldScale = s;
-  // the whole game screen shrinks as one picture: the world and its header, notes and titles
-  canvas.style.transformOrigin = '50% 0';
-  canvas.style.transform = s < 0.999 ? `scale(${s})` : '';
-  stageUi.style.transform = s < 0.999 ? `scale(${s})` : '';
+const tabbarEl = $('#tabbar');
+/** World pixels the drawer covers above the tab bar (follows the drawer as it slides). */
+function drawerWorldPx(): number {
+  const dr = drawerEl.getBoundingClientRect(), tb = tabbarEl.getBoundingClientRect();
+  const k = canvas.getBoundingClientRect().height / WH;     // screen px per world px
+  return k > 0 ? Math.max(0, (tb.top - dr.top) / k) : 0;
 }
 
 // ---------- fly-to effects (DOM, in UI units) ----------
@@ -382,8 +376,7 @@ function frame(now: number): void {
   if (slowmo > 0) { slowmo -= dtReal; dtGame = dtReal * 0.08; }
   const steps = dev.timeScale;
   for (let i = 0; i < Math.min(steps, 100); i++) game.update(dtGame);
-  renderer.lay.update(0);
-  fitWorldToDrawer();
+  renderer.lay.update(drawerWorldPx());
   renderer.draw(game, dtReal, now);
   hud.update(game, dtReal);
   drawer.update(dtReal);

@@ -96,10 +96,15 @@ export class Layout {
     if (Math.abs(D - this.last) < 0.01 && this.version > 0) return;
     this.last = D;
     this.drawer = D;
-    this.shift = Math.round(L.drawerShift * Math.min(1, D / (WH * L.drawerMax)));
+    // An open drawer does not cover the world and does not shrink it into a miniature: the sky gets lower,
+    // the surface rises under the header, and the section keeps at least sectionMin rows above the drawer
+    // (its layers compress; the thing with its beam stays at the bottom, just above the drawer).
+    const bottom = WH - L.tabBarH - D;
+    const want = L.sectionTop - (bottom - L.sectionMin);
+    this.shift = Math.round(Math.max(0, Math.min(L.surfaceTop - L.skyMin, want)));
     this.surfaceTop = L.surfaceTop - this.shift;
     this.sectionTop = L.sectionTop - this.shift;
-    this.sectionH = Math.max(20, Math.round(WH - L.tabBarH - D - this.sectionTop));
+    this.sectionH = Math.max(20, Math.round(bottom - this.sectionTop));
     this.version++;
   }
 }

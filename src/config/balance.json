@@ -16,7 +16,10 @@
   "drawerMax": 0.5,
   "drawerShift": 60,
   "groundDepth": 30,
-  "waterDepth": 22
+  "waterDepth": 22,
+  "sectionMin": 56,
+  "skyMin": 58,
+  "_comment_drawer": "An open drawer re-lays the world: the surface rises (not above skyMin) so that at least sectionMin rows of section stay above the drawer."
  },
  "zones": {
   "startWater": 0.4,
