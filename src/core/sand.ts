@@ -44,26 +44,32 @@ export function stepFull(g: Grid, rng: Rng, water: Water | null, tick: number): 
         continue;
       }
       if (kind !== K_LOOSE) continue;
-      const slip = SLIP[m] * (wet ? S.waterSlipMul : 1);
-      if (rng.next() >= slip) { if (canSlide(g, x, y)) g.wake(x, y); continue; }
-      const d = rng.next() < 0.5 ? -1 : 1;
-      for (let t = 0; t < 2; t++) {
-        const xx = x + (t ? -d : d);
-        if (xx < 0 || xx >= GW) continue;
-        if (!mat[row + xx] && !mat[below + xx]) { g.move(i, below + xx); moved++; break; }
+      // friction: a rolling grain goes on with the chance `slip` each step, else it stops and lies still; a grain
+      // that lies still only moves again when the slope under it is twice too steep (a small avalanche)
+      if (g.still[i]) {
+        const d = rng.next() < 0.5 ? -1 : 1;
+        for (let t = 0; t < 2; t++) {
+          const xx = x + (t ? -d : d);
+          if (xx < 0 || xx >= GW) continue;
+          if (!mat[row + xx] && !mat[below + xx] && y + 2 < g.floor && !mat[below + GW + xx]) { g.move(i, below + xx); moved++; break; }
+        }
+        continue;
       }
+      const slip = SLIP[m] * (wet ? S.waterSlipMul : 1);
+      let went = false;
+      if (rng.next() < slip) {
+        const d = rng.next() < 0.5 ? -1 : 1;
+        for (let t = 0; t < 2; t++) {
+          const xx = x + (t ? -d : d);
+          if (xx < 0 || xx >= GW) continue;
+          if (!mat[row + xx] && !mat[below + xx]) { g.move(i, below + xx); moved++; went = true; break; }
+        }
+      }
+      if (!went) g.still[i] = 1;
     }
   }
   if (moved) { g.computeTops(); g.version++; }
   return moved;
-}
-
-/** Could the particle at (x, y) still slide (an empty cell beside and below it)? A particle that failed its slip
- *  roll keeps its block awake while it can still move. */
-function canSlide(g: Grid, x: number, y: number): boolean {
-  const row = y * GW, below = row + GW;
-  for (const xx of [x - 1, x + 1]) if (xx >= 0 && xx < GW && !g.mat[row + xx] && !g.mat[below + xx]) return true;
-  return false;
 }
 
 /** Fast mode: put one particle on top of column x and let it slide down the slope with the full-mode rules.
@@ -73,22 +79,22 @@ export function settleFast(g: Grid, rng: Rng, water: Water | null, x: number, m:
   let y = g.tops[x] - 1;
   if (y < 0) return -1;
   const loose = KIND[m] === K_LOOSE;
+  // the same friction as in full mode: the grain rolls on with the chance `slip` each step; once it stops it only
+  // moves again where the slope is twice too steep
+  let rolling = true;
   for (let guard = 0; guard < 400 && loose; guard++) {
     const row = y * GW, below = row + GW;
     if (y + 1 >= g.floor) break;
     const slip = SLIP[m] * (inWater(water, x, y) ? S.waterSlipMul : 1);
-    // a particle on a slope gets several tries, like the frames it spends there in full mode
     let moved = false;
-    for (let attempt = 0; attempt < 3 && !moved; attempt++) {
-      if (rng.next() >= slip) continue;
-      const d = rng.next() < 0.5 ? -1 : 1;
-      for (let t = 0; t < 2; t++) {
-        const xx = x + (t ? -d : d);
-        if (xx < 0 || xx >= GW) continue;
-        if (!g.mat[row + xx] && !g.mat[below + xx]) { x = xx; y = g.tops[xx] - 1; moved = true; break; }
-      }
+    const d = rng.next() < 0.5 ? -1 : 1;
+    for (let t = 0; t < 2 && !moved; t++) {
+      const xx = x + (t ? -d : d);
+      if (xx < 0 || xx >= GW || g.mat[row + xx] || g.mat[below + xx]) continue;
+      const steep = y + 2 < g.floor && !g.mat[below + GW + xx];
+      if ((rolling && rng.next() < slip) || steep) { x = xx; y = g.tops[xx] - 1; moved = true; }
     }
-    if (!moved) break;
+    if (!moved) { if (rolling) { rolling = false; continue; } break; }
   }
   return g.put(x, y, m, look, birth, flags, spec, decay);
 }

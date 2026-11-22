@@ -43,6 +43,9 @@ export class Grid {
   mat = new Uint8Array(this.N);
   /** the particle's own pattern (shade, accent pixel), set at birth */
   look = new Uint8Array(this.N);
+  /** 1 = the grain lies still (friction holds it on a slope), 0 = it is moving (falling or rolling).
+   *  Not saved: everything loaded lies still. */
+  still = new Uint8Array(this.N).fill(1);
   flags = new Uint8Array(this.N);
   /** species index + 1 for bones */
   spec = new Uint8Array(this.N);
@@ -75,7 +78,7 @@ export class Grid {
   /** Empty world: bedrock, `foundationRows` of foundation on it, the thing(s) on top, centred at `centers`. */
   reset(centers: number[] = [GW >> 1], foundationRows = 0): void {
     this.mat.fill(0); this.look.fill(0); this.flags.fill(0); this.spec.fill(0); this.decay.fill(0);
-    this.birth.fill(0); this.prog.fill(0);
+    this.birth.fill(0); this.prog.fill(0); this.still.fill(1);
     const bed = GH - S.bedRows;
     const fr = Math.max(0, Math.min(Math.floor(S.bedRows / 2), Math.round(foundationRows)));
     this.floor = bed - fr;
@@ -112,7 +115,7 @@ export class Grid {
     const i = y * GW + x;
     if (this.mat[i]) return -1;
     this.mat[i] = m; this.look[i] = look; this.birth[i] = birth;
-    this.flags[i] = flags; this.spec[i] = spec; this.decay[i] = decay; this.prog[i] = 0;
+    this.flags[i] = flags; this.spec[i] = spec; this.decay[i] = decay; this.prog[i] = 0; this.still[i] = 0;
     if (y < this.tops[x]) this.tops[x] = y;
     if (y === this.surf[x] - 1) { let t = y; while (t > 0 && this.mat[(t - 1) * GW + x]) t--; this.surf[x] = t; }
     this.wake(x, y);
@@ -135,6 +138,7 @@ export class Grid {
   move(a: number, b: number): void {
     this.mat[b] = this.mat[a]; this.look[b] = this.look[a]; this.birth[b] = this.birth[a];
     this.flags[b] = this.flags[a]; this.spec[b] = this.spec[a]; this.decay[b] = this.decay[a]; this.prog[b] = this.prog[a];
+    this.still[b] = 0; this.still[a] = 1;
     this.mat[a] = 0; this.prog[a] = 0; this.flags[a] = 0; this.spec[a] = 0; this.decay[a] = 0;
     this.wake(a % GW, (a / GW) | 0);
     this.wake(b % GW, (b / GW) | 0);
