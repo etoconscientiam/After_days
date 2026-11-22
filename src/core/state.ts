@@ -29,6 +29,9 @@ export interface MuseumEntry { common: number; rare: number; fragments: number }
 
 export interface RunState {
   year: number;
+  /** world time in years that never stops (life, deposits, geology, effect timers); `year` is the calendar,
+   *  which waits at an era's end until its condition is met */
+  clock: number;
   era: number;
   energy: number;
   energyEarned: number;
@@ -151,6 +154,7 @@ export function newRun(era = 0): RunState {
   for (const s of CFG.species) pop[s.id] = [0, 0, 0];
   return {
     year: e.start,
+    clock: e.start,
     era,
     energy: 0,
     energyEarned: 0,

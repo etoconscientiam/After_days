@@ -13,7 +13,8 @@ export function runOffline(g: Game, seconds: number): OfflineReport | null {
   if (sec < 30 || g.state.phase !== 'play') return null;
   const end = g.eraDef().end;
   const yps = g.yps(false) * T.offlineSpeed;
-  const years = Math.min(yps * sec, Math.max(0, end - r.year));
+  // the world runs the whole time; the calendar stops at the era's end (era cannot change offline)
+  const years = yps * sec;
   const rocksBefore = { ...r.rocksEarned };
   const layersBefore = r.layers;
   const fossilsBefore = r.fossilsRun;
@@ -28,7 +29,8 @@ export function runOffline(g: Game, seconds: number): OfflineReport | null {
   const step = Math.max(T.offlineStepYears, years / 400);
   while (left > 1e-6) {
     const dy = Math.min(step, left);
-    r.year += dy;
+    r.year = Math.min(end, r.year + dy);
+    r.clock += dy;
     g.simulate(dy);
     geoTick(g, dy);
     left -= dy;

@@ -18,7 +18,7 @@ export function castElement(g: Game, el: ElementDef, target?: { x: number; v: nu
   const w = g.world;
   switch (el.id) {
     case 'rain': {
-      r.active.push({ id: 'rain', until: r.year + el.duration });
+      r.active.push({ id: 'rain', until: r.clock + el.duration });
       // carry carcasses downhill: land -> shore, shore -> water
       const move = (from: 'land' | 'shore', to: 'shore' | 'water') => {
         const a = r.pools[from], b = r.pools[to];
@@ -35,14 +35,14 @@ export function castElement(g: Game, el: ElementDef, target?: { x: number; v: nu
       break;
     }
     case 'flood': {
-      r.active.push({ id: 'flood', until: r.year + el.duration });
+      r.active.push({ id: 'flood', until: r.clock + el.duration });
       r.pools.shore.fast = el.duration;
       r.pools.water.fast = el.duration;
       g.kill(zoneShares(0, p.kill.shore, 0), 'flood');
       break;
     }
     case 'drought': {
-      r.active.push({ id: 'drought', until: r.year + el.duration });
+      r.active.push({ id: 'drought', until: r.clock + el.duration });
       g.kill(zoneShares(0, 0, p.kill.land), 'drought');
       break;
     }
@@ -55,7 +55,7 @@ export function castElement(g: Game, el: ElementDef, target?: { x: number; v: nu
         : g.targetFromSection(target.x, target.v, p.radiusX, p.radiusY)!;
       t.kind = el.id === 'groundwater' ? 'water' : el.id === 'heat' ? 'heat' : 'magma';
       t.heat = p.heat ?? 0;
-      t.until = r.year + el.duration;
+      t.until = r.clock + el.duration;
       r.targets.push(t);
       if (el.id === 'magma') {
         // inject a pocket of magma into the chosen layers
@@ -79,7 +79,7 @@ export function castElement(g: Game, el: ElementDef, target?: { x: number; v: nu
       if (g.mods.shards) vent = Math.round((g.lastShard * 120 + 30 + g.rng.next() * 60) * SX);
       else vent = Math.floor(r.waterEnd + g.rng.next() * Math.max(20, W - r.waterEnd - 10));
       vent = Math.max(2, Math.min(W - 3, vent));
-      r.active.push({ id: 'volcanoFx', until: r.year + 30, x: vent });
+      r.active.push({ id: 'volcanoFx', until: r.clock + 30, x: vent });
       // burial ×5: ash takes the whole carcass pool
       for (let x = 0; x < W; x++) {
         const d = (x - vent) / p.radius;
@@ -94,7 +94,7 @@ export function castElement(g: Game, el: ElementDef, target?: { x: number; v: nu
       const shares = [0.1, 0.1, 0.1];
       shares[vz] = p.kill;
       g.kill(shares, 'volcano');
-      r.targets.push({ kind: 'heat', x0: Math.max(0, vent - Math.round(24 * SX)), x1: Math.min(W - 1, vent + Math.round(24 * SX)), b0: -1e9, b1: 1e9, until: r.year + p.heatYears, heat: p.heat });
+      r.targets.push({ kind: 'heat', x0: Math.max(0, vent - Math.round(24 * SX)), x1: Math.min(W - 1, vent + Math.round(24 * SX)), b0: -1e9, b1: 1e9, until: r.clock + p.heatYears, heat: p.heat });
       if (g.mods.hot) {
         // lava at the surface near the vent
         for (let x = vent - Math.round(10 * SX); x <= vent + Math.round(10 * SX); x++) if (x >= 0 && x < W) w.deposit(x, M.magma, r.year);
@@ -152,13 +152,13 @@ export function castElement(g: Game, el: ElementDef, target?: { x: number; v: nu
         g.statsDirty = true;
         g.bus.emit('relicFound', { id: rel });
       }
-      r.active.push({ id: 'quakeFx', until: r.year + 5, x: x0 });
+      r.active.push({ id: 'quakeFx', until: r.clock + 5, x: x0 });
       g.kill([0.03, 0.08, 0.08], 'earthquake');
       w.version++;
       break;
     }
     case 'glacier': {
-      r.active.push({ id: 'glacier', until: r.year + el.duration });
+      r.active.push({ id: 'glacier', until: r.clock + el.duration });
       r.glacierLoad = p.load;
       for (let x = 0; x < W; x++) {
         const zi = g.zoneMap[x];
@@ -184,7 +184,7 @@ export function castElement(g: Game, el: ElementDef, target?: { x: number; v: nu
       for (const pk of w.packs) pk.k = Math.min(CFG.B.physics.kMax + g.stats.kMax, pk.k + p.kDelta);
       g.addRock('rare', p.rare, cx);
       g.kill([p.kill, p.kill, p.kill], 'meteor');
-      r.active.push({ id: 'meteorFx', until: r.year + 60, x: cx });
+      r.active.push({ id: 'meteorFx', until: r.clock + 60, x: cx });
       w.version++;
       break;
     }

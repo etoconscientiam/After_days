@@ -86,6 +86,8 @@ export interface SaveBlob { v: number; state: GameState; world: WorldSave }
 
 /** Fill in fields added after a save was written; bump versions here. */
 function migrate(blob: SaveBlob): SaveBlob {
+  // world clock (added later): timers were in calendar years, so it starts at the calendar
+  if (blob.state.run && (blob.state.run as any).clock === undefined) (blob.state.run as any).clock = blob.state.run.year;
   const fresh = newGameState(blob.state.seed);
   const deepFill = (dst: any, src: any) => {
     for (const k in src) {

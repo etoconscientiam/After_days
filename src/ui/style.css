@@ -303,9 +303,32 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 .flyer { position: absolute; z-index: 20; pointer-events: none; transition: transform 0.7s cubic-bezier(.4,.0,.6,1), opacity 0.7s; }
 
 /* developer panel */
-#dev { position: absolute; left: 4px; top: 110px; width: 132px; background: rgba(0,0,0,0.85); border: 1px solid #3a6; color: #8f8; font: 9px monospace; padding: 4px; z-index: 20; }
-#dev button, #dev select { font: 9px monospace; background: #122; color: #8f8; border: 1px solid #3a6; margin: 1px; padding: 1px 3px; }
-#dev .dv { white-space: pre; margin-bottom: 3px; }
+/* Debug & cheats: the beetle button (top left) and its panel */
+.dbg-btn { position: absolute; left: 8px; top: 8px; width: 30px; height: 30px; border-radius: 50%; z-index: 21; display: flex; align-items: center; justify-content: center; padding: 0;
+  background: rgba(27,24,22,0.55); box-shadow: inset 0 1px 0 rgba(255,240,210,0.08), 0 2px 6px rgba(0,0,0,0.4); pointer-events: auto; }
+.dbg-btn.on { background: rgba(70,52,30,0.9); box-shadow: 0 0 0 2px var(--amber), 0 0 10px rgba(242,181,74,0.5); }
+.dbg-btn.fast::after { content: ''; position: absolute; right: 1px; top: 1px; width: 7px; height: 7px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+#ui.choosing .dbg-btn { display: none; }
+#dev { position: absolute; left: 8px; top: 44px; width: 236px; max-height: calc(100% - 140px); overflow-y: auto; z-index: 21; pointer-events: auto;
+  background: rgba(20,17,15,0.94); color: var(--bone); border-radius: 10px; padding: 8px 9px 10px; font-family: var(--text); font-size: 14px; line-height: 1.1;
+  box-shadow: inset 0 1px 0 rgba(255,240,210,0.08), 0 0 0 1px rgba(242,181,74,0.25), 0 8px 24px rgba(0,0,0,0.6); }
+#dev[hidden] { display: none; }
+#dev .dv-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+#dev .dv-head b { font-weight: normal; color: var(--amber); font-size: 16px; flex: 1; }
+#dev .dv-x { width: 22px; height: 22px; border-radius: 6px; color: var(--bone-dim); background: rgba(255,240,210,0.06); }
+#dev .dv-info { white-space: pre; font-family: var(--num); font-size: 12px; color: var(--bone-dim); background: rgba(0,0,0,0.3); border-radius: 6px; padding: 4px 6px; margin-bottom: 4px; overflow: hidden; }
+#dev .dv-sec { margin-top: 6px; }
+#dev .dv-t { color: var(--bone-dim); font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 3px; }
+#dev .dv-row { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; }
+#dev .dv-b { text-align: center; flex: 1 1 auto; min-height: 26px; padding: 3px 7px; border-radius: 6px; font-family: var(--text); font-size: 14px; color: var(--bone);
+  background: linear-gradient(#3a322c, #2a2420); box-shadow: inset 0 1px 0 rgba(255,240,210,0.08), 0 1px 3px rgba(0,0,0,0.4); white-space: nowrap; }
+#dev .dv-b:active { transform: translateY(1px); }
+#dev .dv-b.seg { flex: 1 1 0; padding: 3px 0; text-align: center; justify-content: center; }
+#dev .dv-b.on { background: linear-gradient(#f2c14e, #c9922e); color: var(--stone-900); }
+#dev .dv-b.flag::before { content: '○ '; }
+#dev .dv-b.flag.on::before { content: '● '; }
+#dev .dv-b.danger { color: #ffb8a8; }
+#dev .dv-sel { flex: 1 1 0; min-width: 0; min-height: 26px; border-radius: 6px; background: #2a2420; color: var(--bone); font-family: var(--text); font-size: 13px; border: 1px solid rgba(255,240,210,0.12); }
 
 @media (hover: none) { .card .minus { width: 30px; height: 30px; line-height: 1.258px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }

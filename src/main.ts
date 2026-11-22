@@ -11,7 +11,8 @@ import { CAP } from './world/World';
 import { Hud } from './ui/hud';
 import { Drawer } from './ui/drawer';
 import { Input } from './ui/input';
-import { Modals, DevPanel } from './ui/modals';
+import { Modals } from './ui/modals';
+import { DevPanel } from './ui/debug';
 import { $ } from './ui/dom';
 import { t, setLang, onLangChange } from './ui/i18n';
 import { rockIcon, energyIcon, exhibit } from './ui/icons';
@@ -22,7 +23,6 @@ import { Geologist } from './ui/geologist';
 import { rockNeedsHeatOrDepth } from './core/forecast';
 import { saveLocal, loadLocal, clearLocal, exportString, importString } from './save/save';
 
-const DEV = import.meta.env.DEV || new URLSearchParams(location.search).has('dev');
 /** Touch screen without hover (phones, tablets). */
 const TOUCH = window.matchMedia('(hover: none)').matches;
 document.documentElement.classList.toggle('touch', TOUCH);
@@ -40,10 +40,9 @@ const hud = new Hud(() => game);
 const drawer = new Drawer(() => game);
 const input = new Input(() => game, renderer);
 const modals = new Modals(() => game);
-const dev = new DevPanel(() => game, () => resetAll());
+const dev = new DevPanel(() => game, renderer, () => resetAll());
 const turmoil = new Turmoil();
 const geo = new Geologist(() => game, renderer, input, () => uiScale);
-if (!DEV) dev.el.remove();
 
 // ---------- layout / scaling ----------
 const column = $('#column');
@@ -318,11 +317,11 @@ input.onChoose = (i) => {
   if (id && game.chooseItem(id)) { renderer.beginSink(id, i, items.length); save(); }
 };
 modals.onNewWorld = () => { game.startNewWorld(); renderer.reveal = 0; save(); };
-onLangChange(() => drawer.relabel());
+onLangChange(() => { drawer.relabel(); dev.build(); });
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && modals.isOpen) modals.close();
   else if (e.key === 'Escape' && drawer.open && !input.targeting) drawer.close();
-  if (DEV && (e.key === '`' || e.key === '~' || e.key === 'ё')) dev.toggle();
+  if (e.key === '`' || e.key === '~' || e.key === 'ё') dev.toggle();
 });
 window.addEventListener('pointerdown', () => audio.unlock(), { once: true });
 // Any pop-up closes when you tap anywhere outside it (the tap still does what it does there).
@@ -334,6 +333,7 @@ window.addEventListener('pointerdown', () => audio.unlock(), { once: true });
     ['#hint-pop', '[data-tip]'],
     ['#fieldnote', ''],
     ['#tooltip', ''],
+    ['#dev', '#dbg-btn'],
   ];
   document.addEventListener('pointerdown', (e) => {
     const tgt = e.target as HTMLElement;
@@ -396,8 +396,9 @@ function frame(now: number): void {
   // an era change: time almost stops for a second
   let dtGame = dtReal;
   if (slowmo > 0) { slowmo -= dtReal; dtGame = dtReal * 0.08; }
-  const steps = dev.timeScale;
-  for (let i = 0; i < Math.min(steps, 100); i++) game.update(dtGame);
+  const steps = Math.min(dev.timeScale, 100);
+  for (let i = 0; i < steps; i++) game.update(dtGame);
+  renderer.timeMul = steps * (dtGame / Math.max(1e-6, dtReal));
   renderer.lay.update(drawerWorldPx());
   renderer.draw(game, dtReal, now);
   hud.update(game, dtReal);

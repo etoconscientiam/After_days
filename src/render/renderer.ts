@@ -33,6 +33,7 @@ const RUST = { top: hex3('#3a2a2a'), hor: hex3('#b07850') };
 const GRADE = ['#8a84b0', '#5aa098', '#3aa8b8', '#9cc060', '#d8b048', '#c88a40', '#c87a38', '#4a4a90'].map(hex3);
 const L = CFG.B.layout;
 const HR = 6;
+const SUN_R = 7;   // the sun's radius in world px (the size of the painted sprite it replaces)
 
 export class Renderer {
   canvas: HTMLCanvasElement;
@@ -42,6 +43,35 @@ export class Renderer {
   dayPhase = 0.3;
   seasonPhase = 0.2;
   daySeconds = 6;
+  /** how much faster than real time the game runs now (debug speed, slow motion); the sky follows */
+  timeMul = 1;
+  private sunCv: HTMLCanvasElement | null = null;
+  private sunKey = '';
+  /** The sun's disc, radially symmetric (cached per colour). */
+  private sunDisc(core: number[], low: number): HTMLCanvasElement {
+    const key = core.map((v) => Math.round(v / 4)).join(',') + '|' + Math.round(low * 8);
+    if (this.sunCv && key === this.sunKey) return this.sunCv;
+    const S = SUN_R * 2 + 3;
+    const cv = this.sunCv ?? document.createElement('canvas');
+    cv.width = cv.height = S;
+    const x = cv.getContext('2d')!;
+    x.clearRect(0, 0, S, S);
+    const o = SUN_R + 1;
+    for (let dy = -o; dy <= o; dy++) for (let dx = -o; dx <= o; dx++) {
+      const d = Math.sqrt(dx * dx + dy * dy) / (SUN_R + 0.35);
+      if (d > 1.12) continue;
+      let r = core[0], g = core[1], b = core[2], a = 1;
+      if (d < 0.45) { r = 255; g = Math.min(255, g + 14); b = Math.min(255, b + 40); }          // white-hot middle
+      else if (d > 0.82 && d <= 1) { g *= 0.93 - 0.06 * low; b *= 0.82 - 0.1 * low; }          // warmer rim, all round
+      else if (d > 1) { g *= 0.85; b *= 0.7; a = 0.45; }                                         // soft edge
+      x.fillStyle = rgb(r, g, b, a);
+      x.fillRect(o + dx, o + dy, 1, 1);
+    }
+    this.sunCv = cv; this.sunKey = key;
+    return cv;
+  }
+  /** debug: the sun and moon stand still */
+  skyFrozen = false;
   skyDim = 0;
   flash = 0;
   shake = 0;
@@ -234,9 +264,19 @@ export class Renderer {
     const c = this.ctx;
     this.t += dt;
     this.dt = dt;
-    const yps = g.state.phase === 'play' ? g.yps() : 0.02;
-    this.daySeconds = g.state.phase !== 'play' ? 24 : Math.max(6, Math.min(24, 20 * Math.sqrt(0.1 / Math.max(1e-3, yps))));
-    const lapse = this.timelapse > 0 ? 14 : 1;
+    // the sun, moon and stars turn with the flow of time: a slower era has longer days, a boost or a faster
+    // clock (debug speed) spins them faster, the slow motion at an era change almost stops them
+    let dayTarget = 24;
+    if (g.state.phase === 'play') {
+      const base = g.yps(false);
+      const boost = g.yps() / Math.max(1e-9, base);
+      const perDay = 24 / Math.pow(Math.max(1e-3, base) / 0.1, 0.25);     // 24 s at 0.1 years/s … ~4 s at 150
+      dayTarget = Math.max(0.8, Math.min(120, perDay / Math.max(1e-3, boost * this.timeMul)));
+    }
+    // ease into the new speed (no jumps when a boost starts or ends)
+    const rate = 1 / this.daySeconds, want = 1 / dayTarget;
+    this.daySeconds = 1 / (rate + (want - rate) * Math.min(1, dt * 2.5));
+    const lapse = this.skyFrozen ? 0 : this.timelapse > 0 ? 14 : 1;
     this.timelapse = Math.max(0, this.timelapse - dt);
     this.dayPhase += (dt * lapse) / this.daySeconds;
     if (this.dayPhase >= 1) { this.dayPhase -= 1; this.dayCount++; }
@@ -371,7 +411,7 @@ export class Renderer {
     }
     const v = g.run.active.find((a) => a.id === 'volcanoFx');
     if (v && v.x !== undefined) {
-      const left = (v.until - g.run.year) / 30;
+      const left = (v.until - g.run.clock) / 30;
       const gy = this.gy[Math.max(0, Math.min(WW - 1, v.x))];
       for (let i = 0; i < 40; i++) {
         const k = i / 40;
@@ -412,7 +452,10 @@ export class Renderer {
         band.addColorStop(0, rgb(255, 140, 70, 0.35 * low)); band.addColorStop(1, 'rgba(255,120,60,0)');
         c.fillStyle = band; c.fillRect(x - 90, horizon - 60, 180, 70);
       }
-      if (!drawTinted(c, 'world/sky/sun.png', x, y, core)) disc(x, y, R, (dx, dy) => (dx * dx + dy * dy > (R - 1) * (R - 1) ? rgb(core[0], core[1] * 0.92, core[2] * 0.8) : rgb(core[0], core[1], core[2])));
+      // the sun shines by itself: a disc lit evenly from its middle (no shaded side like a ball), a warmer rim
+      // and a soft one-pixel edge; low over the horizon it grows a little and reddens
+      void R; void disc;
+      c.drawImage(this.sunDisc(core, low), Math.round(x) - SUN_R - 1, Math.round(y) - SUN_R - 1);
       this.sunPos = { x, y, up: su > 0 && su < 1, low };
     } else this.sunPos = null;
     const mu = ((this.dayPhase + 0.25) % 1) / 0.5;

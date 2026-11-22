@@ -216,3 +216,25 @@ export function eraPixel(era: number, size = 14): HTMLCanvasElement {
 }
 
 export const ROMAN = ['0', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+
+/** The debug / cheats button: a little amber beetle. 14×14. */
+const BUG: Art = {
+  rows: [
+    '..o........o..',
+    '...o......o...',
+    '....oooooo....',
+    '...ohhHHhho...',
+    'oo.ohHHHHho.oo',
+    '..ooAAaaAAoo..',
+    '..oAAAaaAAAo..',
+    'ooaAwAaaAAAaoo',
+    '..oAAAaaAAAo..',
+    '..oAAAaaAAAo..',
+    'ooaAAAaaAAAaoo',
+    '...oAAaaAAo...',
+    '....oooooo....',
+    '..............',
+  ],
+  pal: { o: OUT, h: '#5a4a3a', H: '#8a7058', A: '#f2b54a', a: '#a8661e', w: '#fff3c4' },
+};
+export function bugPixel(size = 18): HTMLCanvasElement { return show(paint(BUG, 'bug'), size); }

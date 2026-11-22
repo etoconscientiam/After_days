@@ -40,6 +40,8 @@ export class Game {
   hotNow = new Float32Array(W);
   hotB = new Float64Array(W);
   /** the same for deep packs: birth range, strength, column range */
+  /** debug panel switches (not saved) */
+  cheats = { capMul: 1, freeElements: false, infiniteEnergy: false };
   hotPacks: { b0: number; b1: number; v: number; x0: number; x1: number }[] = [];
   /** the rare surface event on screen, if any (brief 5, В1) */
   rare: RareEvent | null = null;
@@ -139,7 +141,7 @@ export class Game {
   /** Capacity of a zone in population units. */
   capacity(zi: number): number {
     const st = this.stats;
-    let c = (this.zoneWidth[zi] / CFG.B.world.ref640) * CFG.B.zones.capacityPerPx640;
+    let c = (this.zoneWidth[zi] / CFG.B.world.ref640) * CFG.B.zones.capacityPerPx640 * this.cheats.capMul;
     if (zi === 0) c *= 1 + st.seaCapacity;
     if (zi === 2) c *= 1 + st.landCapacity + this.run.fertility;
     return Math.floor(c);
@@ -290,7 +292,12 @@ export class Game {
     r.energy += inc;
     r.energyEarned += inc;
 
-    const dy = this.advanceYears(this.yps() * dt);
+    // the calendar waits at an era's end until its condition is met; the world does not: life, oxygen, deposits
+    // and compaction keep going (otherwise an unmet condition such as oxygen could never be reached)
+    const want = this.yps() * dt;
+    const cal = this.advanceYears(want);
+    const dy = Math.max(cal, want);
+    r.clock += dy;
     this.simulate(dy);
 
     this.geoAcc += dt;
@@ -326,12 +333,12 @@ export class Game {
     for (let i = r.active.length - 1; i >= 0; i--) {
       const a = r.active[i];
       if (a.id === 'glacier') r.glacierLoad = CFG.elements.find((e) => e.id === 'glacier')!.params.load;
-      if (r.year >= a.until) {
+      if (r.clock >= a.until) {
         if (a.id === 'glacier') r.glacierLoad = 0;
         r.active.splice(i, 1);
       }
     }
-    for (let i = r.targets.length - 1; i >= 0; i--) if (r.year >= r.targets[i].until) { r.targets.splice(i, 1); this.world.version++; }
+    for (let i = r.targets.length - 1; i >= 0; i--) if (r.clock >= r.targets[i].until) { r.targets.splice(i, 1); this.world.version++; }
     for (const z of ZONES) r.pools[z].fast = Math.max(0, r.pools[z].fast - dy);
     // excavation (era 7)
     if (r.era === 7) {
@@ -575,6 +582,7 @@ export class Game {
   }
 
   elementCost(el: ElementDef): number {
+    if (this.cheats.freeElements) return 0;
     return Math.max(CFG.elementMinCost, el.cost * this.incomePerSec(false));
   }
 
@@ -613,8 +621,8 @@ export class Game {
   noteKills(n: number): void {
     const r = this.run;
     const B = CFG.B.burial;
-    r.recentKills.push(r.year, n);
-    while (r.recentKills.length && r.recentKills[0] < r.year - B.windowYears) r.recentKills.splice(0, 2);
+    r.recentKills.push(r.clock, n);
+    while (r.recentKills.length && r.recentKills[0] < r.clock - B.windowYears) r.recentKills.splice(0, 2);
     let sum = 0;
     for (let i = 1; i < r.recentKills.length; i += 2) sum += r.recentKills[i];
     if (sum >= B.killed && r.burialWindow <= 0 && r.burialCooldown <= 0) {
