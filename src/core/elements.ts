@@ -141,6 +141,9 @@ export function castElement(g: Game, el: ElementDef, target?: { x: number; v: nu
           for (let i = 0; i < w.len[x]; i++) w.k[x * CAP + i] = Math.max(1, w.k[x * CAP + i] + p.kDelta);
         }
       }
+      // the section remembers the fault: older layers shift and bend there (brief 6)
+      g.run.faults.push({ x: x0 / W, up: rightUp ? 1 : -1, lift, amp: A, lam: lam / W, b: g.run.year });
+      if (g.run.faults.length > 4) g.run.faults.shift();
       for (let i = 0; i < Math.min(12, w.packs.length); i++) if (g.rng.next() < p.noteChance) giveNote(g);
       // small things from the technogenic horizon come up with the fault
       if (g.rng.next() < CFG.story.relicChance) {

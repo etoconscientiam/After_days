@@ -20,7 +20,7 @@
   },
   "cond": {
     "energyEarned": "Needed: gather {v} Energy ({cur})",
-    "oxygen": "Needed: oxygen {v}% (now {cur}%)",
+    "oxygen": "Oxygen needed: {v}% (now {cur}%)",
     "marine": "Needed: {v} marine species ({cur}/{v})",
     "hominid": "Needed: {v} hominid species ({cur}/{v})",
     "forest": "Needed: forest on {v}% of the land (now {cur}%)",
@@ -759,7 +759,11 @@
     "years": "≈ {v} yr",
     "legendHeat": "heat",
     "legendWater": "water",
-    "legendWindow": "transforming"
+    "legendWindow": "transforming",
+    "lensHint": "Tap a layer to see it up close",
+    "lensLabel": "{rock} · Epoch {n}",
+    "ruler": "Epochs: tap to zoom in",
+    "eraN": "Epoch {n}: {name}"
   },
   "goal": {
     "era": "Needed",

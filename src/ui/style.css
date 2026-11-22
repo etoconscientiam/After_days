@@ -374,7 +374,9 @@ html[data-tremor] #ui { animation: letterTremor 0.14s steps(1) infinite; }
 #ui.choosing .geo-btn, #ui.finale .geo-btn { display: none; }
 
 /* goal line under the resources (brief 5, Б2) */
-#goal { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; margin-top: 4px; pointer-events: auto; text-align: left; max-width: 100%; }
+#goal { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; margin-top: 4px; pointer-events: auto; text-align: left; max-width: 100%;
+  /* brief 6.8: a dark plate so the line does not get lost on the world */
+  background: rgba(20,17,15,0.66); padding: 3px 9px 4px; border-radius: 8px; box-shadow: inset 0 1px 0 rgba(255,240,210,0.07), 0 2px 6px rgba(0,0,0,0.35); }
 #goal .g-row { display: flex; gap: 8px; align-items: baseline; white-space: nowrap; max-width: 100%; }
 #goal .g-main { color: var(--bone); text-shadow: 0 1px 2px #000; overflow: hidden; text-overflow: ellipsis; }
 #goal .g-bar, .goal-row .g-bar { color: var(--amber); letter-spacing: -1px; text-shadow: 0 0 6px rgba(242,181,74,0.5); }
@@ -422,3 +424,33 @@ html[data-tremor] #ui { animation: letterTremor 0.14s steps(1) infinite; }
 /* with a drawer open the header keeps the countdown and the resources; the era line and goals step aside */
 #ui.drawer-open #era-arc, #ui.drawer-open #era-line, #ui.drawer-open #cd-sym { display: none; }
 #stage-ui #notes, #stage-ui #era-title, #stage-ui #finding-title { pointer-events: none; }
+
+/* Era ruler (brief 6.5): a narrow column right of the section, one segment per epoch */
+#ruler { position: absolute; z-index: 3; display: flex; flex-direction: column; gap: 2px; pointer-events: auto; }
+#ruler[hidden] { display: none; }
+.r-seg { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0 0 0 4px; min-height: 0;
+  border-radius: 4px; background: linear-gradient(90deg, rgba(36,30,28,0.95), rgba(28,24,22,0.95)); box-shadow: inset 0 1px 0 rgba(255,240,210,0.06); overflow: hidden; cursor: pointer;
+  transition: box-shadow 0.2s, background 0.2s; }
+.r-seg .r-bar { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--era); box-shadow: 0 0 6px var(--era); opacity: 0.85; }
+.r-seg .r-ico canvas { display: block; }
+.r-seg .r-num { font-family: var(--text); font-weight: normal; font-size: 11px; line-height: 1; color: var(--bone-dim); }
+.r-seg.now .r-num { color: var(--bone); }
+.r-seg.tight { flex-direction: row; gap: 2px; }
+.r-seg.tight .r-ico canvas { width: 10px !important; height: 10px !important; }
+.r-seg.tight .r-num { font-size: 10px; }
+.r-seg.focus { background: linear-gradient(90deg, rgba(70,52,30,0.95), rgba(44,34,24,0.95)); box-shadow: 0 0 0 1px var(--amber), 0 0 8px rgba(242,181,74,0.45); }
+.r-seg.focus .r-num { color: var(--amber); }
+#ui.choosing #ruler, #ui.finale #ruler, #ui.drawer-open #ruler { display: none; }
+
+/* Lens (brief 6.7): a round magnifier over a layer with its rock and epoch */
+#lens { position: absolute; z-index: 4; display: flex; flex-direction: column; align-items: center; gap: 4px; pointer-events: auto; cursor: pointer; }
+#lens[hidden] { display: none; }
+#lens.in { animation: lensIn 0.22s cubic-bezier(.2,.9,.3,1.2); }
+@keyframes lensIn { from { transform: scale(0.6); opacity: 0; } }
+#lens .lens-glass { position: relative; border-radius: 50%; padding: 0; line-height: 0;
+  box-shadow: 0 0 0 3px #8a6a3a, 0 0 0 5px #2a211a, 0 0 0 6px rgba(242,193,78,0.5), 0 6px 18px rgba(0,0,0,0.6); }
+#lens .lens-glass canvas { border-radius: 50%; display: block; image-rendering: pixelated; }
+#lens .lens-shine { position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle at 32% 26%, rgba(255,255,255,0.22), rgba(255,255,255,0) 38%), radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 62%, rgba(0,0,0,0.35) 100%); }
+#lens .lens-label { display: flex; align-items: center; gap: 5px; padding: 2px 8px 3px 4px; border-radius: 7px; white-space: nowrap; font-size: 16px; line-height: 1;
+  background: rgba(20,17,15,0.85); color: var(--bone); box-shadow: 0 2px 6px rgba(0,0,0,0.5); margin-top: 6px; }

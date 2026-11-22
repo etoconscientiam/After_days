@@ -36,6 +36,11 @@ export class Game {
   glints: Glint[] = [];
   /** pixels that turned into rock under a press or a glowing-layer event: they flash */
   pressFlashes: { x: number; birth: number; t: number; color: string }[] = [];
+  /** transformations under heat or deep pressure running now, per column: strength 0..1 and the birth year of the hottest cell */
+  hotNow = new Float32Array(W);
+  hotB = new Float64Array(W);
+  /** the same for deep packs: birth range, strength, column range */
+  hotPacks: { b0: number; b1: number; v: number; x0: number; x1: number }[] = [];
   /** the rare surface event on screen, if any (brief 5, В1) */
   rare: RareEvent | null = null;
   rareTimer = 90;

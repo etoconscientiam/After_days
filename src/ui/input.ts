@@ -169,8 +169,10 @@ export class Input {
     return { x: (e.clientX - u.left) / this.scale, y: (e.clientY - u.top) / this.scale };
   }
 
-  /** Geologist mode: tapping a layer opens its card with the details already open. */
+  /** Geologist mode (the lens button): tapping a layer opens the lens on it; tapping off the layers closes it. */
   geologist = false;
+  onLens: (x: number, y: number) => void = () => {};
+  onLensMiss: () => void = () => {};
   /** A finger (or the mouse) down on the strata: a short tap is an impulse, a hold is a press. */
   private hold: { id: number; t0: number; m: { x: number; y: number }; pressing: boolean } | null = null;
 
@@ -179,6 +181,7 @@ export class Input {
     const sy = this.ren.sectionY(m.y);
     if (sy === null) return false;
     const x = this.col(m.x);
+    if (x >= this.ren.section.SW) return false;          // the era ruler's strip
     return sy >= this.ren.section.topD[x] && sy < this.ren.section.horizonTop[x];
   }
 
@@ -206,8 +209,13 @@ export class Input {
     if (g.rare && this.ren.rareHit(g, m.x, m.y, this.finger ? 1.6 : 1)) { this.onRare(); return; }
     // the burial window marker opens the Elements (flood, volcano)
     if (this.ren.burialHit(g, m.x, m.y)) { this.onBurial(); return; }
-    // Geologist: a tap on a layer opens its card with the details
-    if (this.geologist && this.onStrata(m)) { this.showCard(g, m, this.uiPt(e), true); return; }
+    // Geologist: a tap on a layer opens the lens there; a tap off the layers closes it
+    if (this.geologist) {
+      const sy = this.ren.sectionY(m.y);
+      if (this.onStrata(m) && sy !== null && sy < this.ren.section.cut) this.onLens(this.col(m.x) + 0.5, sy);
+      else this.onLensMiss();
+      return;
+    }
     // on the strata: wait — a hold becomes a press, a short tap an impulse
     if (g.state.phase === 'play' && this.onStrata(m)) {
       this.hold = { id: e.pointerId, t0: performance.now(), m, pressing: false };

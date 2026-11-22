@@ -69,6 +69,7 @@ export function geoTick(g: Game, dy: number): void {
     let P = P0;
     const marine = marineCol[x] === 0;
     const pressCol = pr !== null && x >= pr.x0 && x <= pr.x1;
+    let hot = 0, hotB = 0;
     for (let i = L - 1, depth = 0; i >= 0; i--, depth++) {
       const j = base + i;
       const m = w.mat[j];
@@ -114,6 +115,9 @@ export function geoTick(g: Game, dy: number): void {
         for (const rule of rules) {
           if (!ruleOk(g, rule, c)) continue;
           w.prog[j] += dy * speed * (inPress ? sMulP : 1);
+          // transformations that need heat make the section glow there while they run
+          const hv = rule.tMin !== undefined ? 1 : 0;
+          if (hv > hot) { hot = hv; hotB = w.birth[j]; }
           if (w.prog[j] >= rule.years) {
             w.prog[j] = 0;
             if (rule.chance !== undefined && g.rng.next() >= rule.chance) break;
@@ -136,6 +140,7 @@ export function geoTick(g: Game, dy: number): void {
       }
       P += dens;
     }
+    if (dy > 0) { g.hotNow[x] = hot; if (hot > 0) g.hotB[x] = hotB; }
     sumBottomP += P;
     sumLen += L;
   }
@@ -144,6 +149,7 @@ export function geoTick(g: Game, dy: number): void {
   let P = sumBottomP / W;
   let depth = sumLen / W;
   const seaFrac = g.zoneWidth[0] / W;
+  if (dy > 0) g.hotPacks.length = 0;
   for (const pk of w.packs) {
     let amtTot = 0, weight = 0;
     for (let m = 0; m < NMAT; m++) if (pk.amt[m] > 0) { amtTot += pk.amt[m]; weight += pk.amt[m] * DENS[m]; }
@@ -164,7 +170,14 @@ export function geoTick(g: Game, dy: number): void {
       if (t.kind === 'water') gwFrac = Math.min(1, gwFrac + f);
       else { heat = Math.max(heat, t.heat); heatFrac = Math.min(1, heatFrac + f); }
     }
-    if (dy > 0) packTransforms(g, pk, Peff, T, heat, heatFrac, Math.max(seaFrac, gwFrac), depth, dy * speed * (1 + (sMulP - 1) * pAge));
+    if (dy > 0) {
+      const hv = packTransforms(g, pk, Peff, T, heat, heatFrac, Math.max(seaFrac, gwFrac), depth, dy * speed * (1 + (sMulP - 1) * pAge));
+      if (hv > 0) {
+        // where it glows: under a heat zone, or around the thing (the deep heat gathers there)
+        const ht = heat > 0 ? targets.find((t) => t.kind !== 'water' && pk.ageMax >= t.b0 && pk.ageMin <= t.b1) : undefined;
+        g.hotPacks.push({ b0: pk.ageMin, b1: pk.ageMax, v: hv, x0: ht ? ht.x0 : W * 0.3, x1: ht ? ht.x1 : W * 0.7 });
+      }
+    }
     P += weight;
     depth += pk.rows;
   }
@@ -182,7 +195,8 @@ export function geoTick(g: Game, dy: number): void {
   g.statsDirty = true;
 }
 
-function packTransforms(g: Game, pk: Pack, Peff: number, T: number, heat: number, heatFrac: number, waterFrac: number, depth: number, dyS: number): void {
+function packTransforms(g: Game, pk: Pack, Peff: number, T: number, heat: number, heatFrac: number, waterFrac: number, depth: number, dyS: number): number {
+  let hot = 0;
   for (let m = 0; m < NMAT; m++) {
     const a = pk.amt[m];
     if (a < 0.01) continue;
@@ -193,6 +207,7 @@ function packTransforms(g: Game, pk: Pack, Peff: number, T: number, heat: number
       if (ruleOk(g, rule, base)) frac = rule.water ? waterFrac : 1;
       else if (heatFrac > 0 && ruleOk(g, rule, { ...base, T: T + heat })) frac = heatFrac * (rule.water ? waterFrac : 1);
       if (frac <= 0) continue;
+      hot = Math.max(hot, rule.tMin !== undefined ? 1 : 0);
       pk.prog[m] += dyS;
       if (pk.prog[m] >= rule.years) {
         pk.prog[m] = 0;
@@ -212,6 +227,7 @@ function packTransforms(g: Game, pk: Pack, Peff: number, T: number, heat: number
       break;
     }
   }
+  return hot;
 }
 
 export function rollFossil(g: Game, x: number, j: number, mineral: number, fossilMul: number, depth: number): void {

@@ -17,9 +17,10 @@
   "drawerShift": 60,
   "groundDepth": 30,
   "waterDepth": 22,
-  "sectionMin": 56,
+  "sectionMin": 60,
+  "rulerW": 14,
   "skyMin": 58,
-  "_comment_drawer": "An open drawer re-lays the world: the surface rises (not above skyMin) so that at least sectionMin rows of section stay above the drawer."
+  "_comment_drawer": "An open drawer re-lays the world: the surface rises (not above skyMin) so that at least sectionMin rows of section stay above the drawer; the section is cropped there (top layers at full scale + a history ribbon), rulerW world px at the right are the era ruler."
  },
  "zones": {
   "startWater": 0.4,

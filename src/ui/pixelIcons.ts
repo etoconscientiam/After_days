@@ -118,6 +118,42 @@ const LENS: Art = {
   pal: { o: OUT, g: '#b8d8e0', w: '#ffffff', a: '#e8c070', s: '#9a8a68', r: '#7a5a48', h: '#8a6040', H: '#c8964a' },
 };
 
+/** Epoch signs for the era ruler, 12×12: silence, first life, sea, land, beasts, hominids, tribes, the finding. */
+const ERA_ART: Art[] = [
+  { rows: [
+    '............', '....oooo....', '...oMMMMo...', '..oMMoooo...', '..oMmo......', '..oMmo...s..',
+    '..oMmo......', '..oMMoooo...', '...oMMMMo...', '....oooo....', '.s..........', '............'],
+    pal: { o: OUT, M: '#cfc6e0', m: '#9a8fb4', s: '#f2e6c4' } },
+  { rows: [
+    '............', '...oooooo...', '..oGGGGGGo..', '.oGgGGGGGGo.', '.oGGGnnGGGo.', '.oGGnNNnGGo.',
+    '.oGGnNNnGGo.', '.oGGGnnGGGo.', '.oGGGGGGHGo.', '..oGGGGGGo..', '...oooooo...', '............'],
+    pal: { o: OUT, G: '#6cc0a0', g: '#c8f0dc', H: '#3f8a70', n: '#2f6a58', N: '#f2d58a' } },
+  { rows: [
+    '............', '...ooo......', '..oWWWo.....', '.oWwwWWo....', '.oWo.oWWo.o.', '.oo...oWWoWo',
+    '.......oWWWo', 'ooo.....ooo.', 'oBBooo..ooo.', 'oBBBBBooBBBo', '.oBbBBBBBbo.', '..oooooooo..'],
+    pal: { o: OUT, W: '#8cc8ec', w: '#eef8ff', B: '#3f7fb0', b: '#9cd0f0' } },
+  { rows: [
+    '.....oo.....', '....oLLo....', '..oo.oLo.oo.', '.oLLooLooLLo', '..oLLoLoLLo.', '...ooLLLoo..',
+    '.....oLo....', '.....oLo....', '...ooolooo..', '..oeeeeeeeo.', '..oEEEEEEEo.', '...ooooooo..'],
+    pal: { o: OUT, L: '#8cd060', l: '#5a9a3a', e: '#8a6446', E: '#6c4b33' } },
+  { rows: [
+    '............', '...oo..oo...', '..oPPooPPo..', '..oPpooPpo..', 'oo.oo..oo.oo', 'oPPo....oPPo',
+    'oPpo....oPpo', '.oo.oooo.oo.', '...oPPPPo...', '..oPPpPPPo..', '..oPPPPPpo..', '...oooooo...'],
+    pal: { o: OUT, P: '#e0b070', p: '#a87838' } },
+  { rows: [
+    '.....oo.....', '....oFFo....', '...oFfFFo...', '...oFFFfo...', '..oFfFFFFo..', '..oFFFfFFo..',
+    '.oFFfFFFFFo.', '.oFFFFFfFFo.', '.oFfFFFFFFo.', '..oFFFfFFo..', '...oFFFFo...', '....oooo....'],
+    pal: { o: OUT, F: '#d08a5a', f: '#8a4a2a' } },
+  { rows: [
+    '.....o......', '....oRo.....', '....oRRo....', '...oRYRo.o..', '..oRRYRRoRo.', '..oRYYYRRRo.',
+    '.oRYYWYYRRo.', '.oRYWWWYRo..', '..oRYWYRRo..', '.oBBoooooBo.', 'oBBBbBBbBBBo', '.oooooooooo.'],
+    pal: { o: OUT, R: '#e0602a', Y: '#f6b340', W: '#fff0b0', B: '#8a6040', b: '#5a3a24' } },
+  { rows: [
+    '.....oo.....', '....oAAo....', '...oAaaAo...', '..oAaWWaAo..', '.oAaWWWWaAo.', 'oAaWWWWWWaAo',
+    'oAaWWWWWWaAo', '.oAaWWWWaAo.', '..oAaWWaAo..', '...oAaaAo...', '....oAAo....', '.....oo.....'],
+    pal: { o: OUT, A: '#c8902a', a: '#f2c14e', W: '#fff4cc' } },
+];
+
 const cache = new Map<string, HTMLCanvasElement>();
 function paint(art: Art, key: string): HTMLCanvasElement {
   let c = cache.get(key);
@@ -172,3 +208,11 @@ export function releasePixel(size = 32): HTMLCanvasElement {
 export function lensPixel(size = 24): HTMLCanvasElement {
   return show(paint(LENS, 'lens'), size);
 }
+
+/** The sign of an epoch (the era ruler). */
+export function eraPixel(era: number, size = 14): HTMLCanvasElement {
+  const i = Math.max(0, Math.min(ERA_ART.length - 1, era));
+  return show(paint(ERA_ART[i], 'era' + i), size);
+}
+
+export const ROMAN = ['0', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];

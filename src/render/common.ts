@@ -81,6 +81,10 @@ export class Layout {
   surfaceTop = L.surfaceTop;
   sectionTop = L.sectionTop;
   sectionH = WH - L.tabBarH - L.sectionTop;
+  /** the section's height with the drawer closed: an open drawer crops the section, it does not squeeze it */
+  readonly sectionFullH = WH - L.tabBarH - L.sectionTop;
+  /** world px reserved at the section's right edge for the era ruler */
+  readonly rulerW = L.rulerW ?? 14;
   artifactY = 0;
   version = 0;
   private last = -1;
@@ -97,8 +101,9 @@ export class Layout {
     this.last = D;
     this.drawer = D;
     // An open drawer does not cover the world and does not shrink it into a miniature: the sky gets lower,
-    // the surface rises under the header, and the section keeps at least sectionMin rows above the drawer
-    // (its layers compress; the thing with its beam stays at the bottom, just above the drawer).
+    // the surface rises under the header, and the section keeps at least sectionMin rows above the drawer.
+    // The section is cropped, not squeezed: the top layers keep their full scale, the depth below folds into
+    // a thin history ribbon with the thing glowing at its bottom (section.ts).
     const bottom = WH - L.tabBarH - D;
     const want = L.sectionTop - (bottom - L.sectionMin);
     this.shift = Math.round(Math.max(0, Math.min(L.surfaceTop - L.skyMin, want)));

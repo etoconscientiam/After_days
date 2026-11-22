@@ -81,6 +81,11 @@ export class Renderer {
   private cloudsSkinned = false;
   /** Geologist view (brief 5, A3): heat, groundwater and transformation windows over a dimmed section */
   geologist = false;
+  /** transformation glow per column (eases toward the game's hotNow, fades when the transformation ends) */
+  private hot = new Float32Array(WW);
+  private hotY = new Float32Array(WW);
+  /** grains settling in the top layers (section-local) */
+  private settle: { x: number; y: number; vy: number; j: number; life: number; c: string }[] = [];
   /** per layer: where to put its plate and what it is becoming (refreshed twice a second) */
   geoLayers: { j: number; x: number; y: number; h: number; f: Forecast | null }[] = [];
   private geoHeat: Float32Array[] = [];
@@ -247,7 +252,7 @@ export class Renderer {
 
     this.computeGround(g);
     this.section.relief = this.gy;
-    this.section.maybeRender(g, this.lay, now, this.reveal);
+    this.section.maybeRender(g, this.lay, now, this.reveal, dt);
     this.lay.artifactY = this.ayAt(WW / 2);
     if (g.state.phase === 'choose') { this.drawChoose(g); this.drawSink(dt); return; }
 
@@ -864,16 +869,20 @@ export class Renderer {
     const sec = this.section;
     const hh = lay.sectionH;
     c.drawImage(sec.canvas, 0, 0, WW, hh, 0, top, WW, hh);
+    const SW = sec.SW;
     // era boundaries: faint golden curves along the layers where an era began
     for (let e = 1; e <= g.run.era; e++) {
       const b = CFG.eras[e].start;
       c.fillStyle = 'rgba(242,181,74,0.16)';
-      for (let x = 0; x < WW; x++) {
+      for (let x = 0; x < SW; x++) {
         const y = sec.yAt(x, b);
-        if (y <= sec.topD[x] + 1 || y >= sec.strataH - 1) continue;
+        if (y <= sec.topD[x] + 1 || y >= sec.strataH - 1 || y >= sec.cut) continue;
         c.fillRect(x, Math.round(top + y), 1, 1);
       }
     }
+    this.drawSettle(g);
+    this.drawSparks();
+    this.drawHot(g);
     let drawn = 0;
     for (const f of sec.fossils) {
       if (f.fragment) { c.fillStyle = 'rgba(240,230,200,0.9)'; c.fillRect(f.x, top + f.y, 1, 1); continue; }
@@ -899,7 +908,7 @@ export class Renderer {
     for (const gl of g.glints) {
       c.globalAlpha = Math.min(1, gl.t * 2);
       c.fillStyle = gl.color;
-      for (let x = 0; x < WW; x++) {
+      for (let x = 0; x < SW; x++) {
         // the whole layer line flashes briefly, following its curve
         const y = top + (gl.birth !== undefined ? sec.yAt(x, gl.birth) : Math.min(sec.strataH, gl.depth * 2));
         c.fillRect(x, Math.round(y), 1, 1);
@@ -911,7 +920,7 @@ export class Renderer {
     if (this.hover && !this.targeting) {
       const b = sec.bAt(this.hover.x, this.hover.y);
       c.fillStyle = 'rgba(242,181,74,0.3)';
-      if (this.hover.y < sec.strataH) for (let x = 0; x < WW; x++) c.fillRect(x, Math.round(top + sec.yAt(x, b)), 1, 1);
+      if (this.hover.y < sec.strataH) for (let x = 0; x < SW; x++) c.fillRect(x, Math.round(top + sec.yAt(x, b)), 1, 1);
       c.fillStyle = 'rgba(242,181,74,0.9)'; c.fillRect(this.hover.x, top + this.hover.y - 1, 1, 3);
     }
     if (this.geologist) this.drawGeologist(g);
@@ -924,6 +933,126 @@ export class Renderer {
       grd.addColorStop(0, rgb(col[0], col[1], col[2], 0.35 + 0.1 * Math.sin(this.t * 4)));
       grd.addColorStop(1, rgb(col[0], col[1], col[2], 0));
       c.fillStyle = grd; c.fillRect(cx - tg.rx * 1.3, cy - tg.rx * 1.3, tg.rx * 2.6, tg.rx * 2.6);
+    }
+  }
+
+  /** Active physics only near the surface: a few grains settle through the top two layers; the deep stays still. */
+  private drawSettle(g: Game): void {
+    const sec = this.section, L = sec.layers, c = this.ctx, top = this.lay.sectionTop;
+    if (g.state.phase !== 'play' || L.length === 0) { this.settle.length = 0; return; }
+    const nTop = Math.min(2, L.length);
+    const rate = this.quality === 'high' ? 9 : 4;
+    if (this.settle.length < 40 && Math.random() < this.dt * rate) {
+      const j = Math.floor(Math.random() * nTop);
+      const x = Math.floor(Math.random() * (sec.SW - 4)) + 2;
+      const y0 = L[j].top[x] + 1, y1 = (L[j + 1] ? L[j + 1].top[x] : sec.strataH) - 1;
+      if (y1 - y0 > 3 && y0 < sec.cut) {
+        const light = Math.random() < 0.5;
+        this.settle.push({ x, y: y0 + Math.random() * (y1 - y0) * 0.4, vy: 0.6 + Math.random() * 1.2, j, life: 2 + Math.random() * 3, c: light ? 'rgba(255,240,210,0.35)' : 'rgba(20,14,10,0.4)' });
+      }
+    }
+    for (let i = this.settle.length - 1; i >= 0; i--) {
+      const p = this.settle[i];
+      p.life -= this.dt;
+      p.y += p.vy * this.dt;
+      const xi = Math.max(0, Math.min(WW - 1, Math.round(p.x)));
+      const bot = (L[p.j + 1] ? L[p.j + 1].top[xi] : sec.strataH) - 1;
+      if (p.life <= 0 || p.y >= bot || p.y >= sec.cut) { this.settle.splice(i, 1); continue; }
+      c.fillStyle = p.c;
+      // a grain is a 2×2 block, like the rock it falls through
+      c.fillRect(xi & ~1, Math.round(top + p.y), 2, 1);
+    }
+  }
+
+  /** Coal glints and amber sparks: a slow twinkle. */
+  private drawSparks(): void {
+    const pts = this.section.sparks, c = this.ctx, top = this.lay.sectionTop;
+    for (let i = 0; i < pts.length; i += 2) {
+      const ph = Math.sin(this.t * (0.9 + ((i >> 1) % 5) * 0.37) + i * 2.3);
+      if (ph < 0.82) continue;
+      const a = (ph - 0.82) / 0.18;
+      c.fillStyle = rgb(255, 246, 220, 0.85 * a);
+      c.fillRect(pts[i], top + pts[i + 1], 1, 1);
+      if (a > 0.6) { c.fillStyle = rgb(255, 236, 190, 0.35 * a); c.fillRect(pts[i] - 1, top + pts[i + 1], 3, 1); c.fillRect(pts[i], top + pts[i + 1] - 1, 1, 3); }
+    }
+  }
+
+  /** Hot cracks and smouldering veins — only where a transformation under heat or deep pressure runs now
+   *  (usually near the thing). They fade out when it ends; the section is calm otherwise. */
+  private drawHot(g: Game): void {
+    const sec = this.section, c = this.ctx, top = this.lay.sectionTop;
+    const SW = sec.SW;
+    // packs (deep, full width) glow around their middle depth within their column range
+    const packT = new Float32Array(WW), packB = new Float64Array(WW);
+    for (const hp of g.hotPacks) {
+      const x0 = Math.max(0, Math.floor(hp.x0)), x1 = Math.min(WW - 1, Math.ceil(hp.x1));
+      const mid = (x0 + x1) / 2, half = Math.max(1, (x1 - x0) / 2);
+      for (let x = x0; x <= x1; x++) {
+        const v = hp.v * Math.max(0, 1 - Math.abs(x - mid) / half) ** 0.6;
+        if (v > packT[x]) { packT[x] = v; packB[x] = hp.b0 + (hp.b1 - hp.b0) * (0.35 + 0.3 * hash2(x >> 3, 9)); }
+      }
+    }
+    const k = Math.min(1, this.dt * 1.6);
+    let any = false;
+    for (let x = 0; x < SW; x++) {
+      const cellT = g.hotNow[x];
+      const tgt = Math.max(cellT, packT[x]);
+      if (tgt > 0.01) {
+        const b = cellT >= packT[x] ? g.hotB[x] : packB[x];
+        const y = sec.yAt(x, b);
+        this.hotY[x] = this.hot[x] < 0.02 ? y : this.hotY[x] + (y - this.hotY[x]) * k;
+      }
+      // in fast, out slowly
+      this.hot[x] += (tgt - this.hot[x]) * (tgt > this.hot[x] ? k * 1.5 : k * 0.35);
+      if (this.hot[x] > 0.03) any = true;
+    }
+    if (!any) return;
+    // soft glow: one ellipse per hot run of columns
+    c.globalCompositeOperation = 'lighter';
+    let x = 0;
+    while (x < SW) {
+      if (this.hot[x] <= 0.03) { x++; continue; }
+      let x1 = x, sy = 0, mx = 0, n = 0;
+      while (x1 < SW && this.hot[x1] > 0.03) { sy += this.hotY[x1]; mx = Math.max(mx, this.hot[x1]); n++; x1++; }
+      const cx = (x + x1) / 2, cy = top + sy / n, rx = Math.max(6, (x1 - x) / 2 + 5);
+      const fl = 0.85 + 0.15 * Math.sin(this.t * 5.3 + cx);
+      c.save();
+      c.translate(cx, cy); c.scale(1, 0.45);
+      const grd = c.createRadialGradient(0, 0, 1, 0, 0, rx);
+      grd.addColorStop(0, rgb(255, 120, 40, 0.42 * mx * fl));
+      grd.addColorStop(1, rgb(255, 60, 20, 0));
+      c.fillStyle = grd; c.fillRect(-rx, -rx, rx * 2, rx * 2);
+      c.restore();
+      x = x1;
+    }
+    c.globalCompositeOperation = 'source-over';
+    // hot cracks: short branching veins that wander down from the hot depth; yellow at the core, red at the ends,
+    // a dark lip beside them; they flicker and go out with the heat
+    for (let x0 = 0; x0 < SW; x0 += 5) {
+      const h0 = this.hot[x0];
+      if (h0 <= 0.06 || hash2(x0, 71) < 0.3) continue;
+      let x = x0 + Math.floor(hash2(x0, 72) * 4), y = Math.round(this.hotY[x0] - 5 + hash2(x0, 73) * 8);
+      const len = 6 + Math.floor(hash2(x0, 74) * 9 * Math.min(1, h0 * 1.5));
+      for (let st = 0; st < len; st++) {
+        const hx = this.hot[Math.max(0, Math.min(SW - 1, x))];
+        const k2 = 1 - st / (len + 2);
+        const fl = 0.7 + 0.3 * Math.sin(this.t * 7 + x0 * 0.9 + st * 0.6);
+        const a = Math.min(1, hx * 1.6) * fl;
+        if (a > 0.05) {
+          c.fillStyle = rgb(28, 10, 6, 0.55 * Math.min(1, hx * 2));
+          c.fillRect(x - 1, top + y, 1, 1);
+          c.fillStyle = k2 > 0.6 && hx > 0.4 ? rgb(255, 220, 120, a) : rgb(255, 90 + 90 * k2, 30, a);
+          c.fillRect(x, top + y, 1, 1);
+        }
+        const r = hash2(x0 * 13 + st, 75);
+        y += r < 0.75 ? 1 : 0;
+        x += r < 0.3 ? -1 : r > 0.6 ? 1 : 0;
+        if (st === 3 && hash2(x0, 76) > 0.45) {
+          // a side branch
+          let bx = x, by = y;
+          for (let q = 0; q < 4; q++) { bx += hash2(x0, 77) > 0.5 ? 1 : -1; by += q & 1; c.fillStyle = rgb(255, 110, 40, a * 0.75); c.fillRect(bx, top + by, 1, 1); }
+        }
+      }
     }
   }
 
@@ -981,7 +1110,7 @@ export class Renderer {
     const L = sec.layers;
     // the section dims to 40%
     c.fillStyle = 'rgba(10,8,12,0.6)';
-    for (let x = 0; x < WW; x++) c.fillRect(x, top + sec.topD[x], 1, sec.horizonTop[x] - sec.topD[x]);
+    for (let x = 0; x < sec.SW; x++) c.fillRect(x, top + sec.topD[x], 1, sec.horizonTop[x] - sec.topD[x]);
     // heat: a warm orange that grows with temperature
     const XS = 4;
     for (let j = 0; j < L.length; j++) {
@@ -995,7 +1124,7 @@ export class Renderer {
         if (a < 0.03) continue;
         for (let dx = 0; dx < XS; dx++) {
           const x = xi * XS + dx;
-          if (x >= WW) break;
+          if (x >= sec.SW) break;
           const t0 = L[j].top[x], t1 = next ? next.top[x] : sec.horizonTop[x] - sec.foundationPx;
           c.fillStyle = rgb(255, 120 + 60 * (1 - a), 40, 0.12 + 0.5 * a);
           c.fillRect(x, top + t0, 1, t1 - t0);
@@ -1005,7 +1134,7 @@ export class Renderer {
     // groundwater: blue veins through the wet layers
     for (const tz of g.run.targets) {
       if (tz.kind !== 'water') continue;
-      for (let x = Math.max(0, tz.x0); x <= Math.min(WW - 1, tz.x1); x++) {
+      for (let x = Math.max(0, tz.x0); x <= Math.min(sec.SW - 1, tz.x1); x++) {
         const ya = sec.yAt(x, tz.b1), yb = sec.yAt(x, tz.b0);
         for (let k = 1; k <= 3; k++) {
           const y = ya + ((yb - ya) * k) / 4 + Math.sin(x * 0.35 + k * 2 + this.t * 0.8) * 1.5;
@@ -1021,7 +1150,7 @@ export class Renderer {
       const Lj = L[gl.j], next = L[gl.j + 1];
       const col = CFG.materials[gl.f.toMat].palette[3] ?? '#f2b54a';
       c.fillStyle = col; c.globalAlpha = pulse;
-      for (let x = 0; x < WW; x += 2) {
+      for (let x = 0; x < sec.SW; x += 2) {
         c.fillRect(x, top + Lj.top[x], 1, 1);
         const b = next ? next.top[x] : sec.horizonTop[x] - sec.foundationPx;
         c.fillRect(x + 1, top + b - 1, 1, 1);
@@ -1259,7 +1388,7 @@ export class Renderer {
   /** Screen y of the middle of the technogenic horizon (the thing lies there, bottom centre). */
   ayAt(x: number): number {
     const xi = Math.max(0, Math.min(WW - 1, Math.round(x)));
-    return this.lay.sectionTop + this.section.horizonTop[xi] + HR / 2;
+    return this.lay.sectionTop + this.section.horizonTop[xi] + this.section.hr / 2;
   }
 
   private drawHorizon(g: Game): void {

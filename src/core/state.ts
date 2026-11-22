@@ -21,6 +21,9 @@ export interface PressState { x: number; x0: number; x1: number; b0: number; b1:
 export interface OrderState { id: string; start: number; done: boolean }
 export interface BuffState { energyMul: number; energyT: number; timeMul: number; timeT: number }
 
+/** A fault from an earthquake: layers older than year b are offset on one side of x and gently bent. */
+export interface FaultState { x: number; up: number; lift: number; amp: number; lam: number; b: number }
+
 export interface ChronicleEntry { id: string; y0: number; y1: number; data: Record<string, any>; at: number }
 export interface MuseumEntry { common: number; rare: number; fragments: number }
 
@@ -76,6 +79,7 @@ export interface RunState {
   shepherd: Record<string, boolean>;  // species bought automatically (Shepherd node)
   pressMoved: number;             // compacted thickness done by pressing (orders)
   insectAmber: number;            // pieces of amber with an insect made in this run (orders)
+  faults: FaultState[];           // earthquakes leave a fault: older layers are shifted and bent (section view)
 }
 
 export interface MetaState {
@@ -197,6 +201,7 @@ export function newRun(era = 0): RunState {
     shepherd: {},
     pressMoved: 0,
     insectAmber: 0,
+    faults: [],
   };
 }
 
