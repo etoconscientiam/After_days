@@ -1,10 +1,12 @@
 <title>Песочница слоёв</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600&family=Inter:wght@400;500;600&display=swap">
 <style>
-/* Layout: one 9:16 screen — the pixel world on a canvas, a thin HUD over the sky, a sheet of upgrades from below.
-   Single dark look, the palette of the main game («Камень и янтарь»). */
+/* Layout: one 9:16 screen — the pixel world on a canvas, a thin HUD over the sky, two buttons below, a sheet of
+   upgrades from below. Single dark look, the palette of the main game («Камень и янтарь»).
+   Type: the game's own fonts — Strata Pixel for text (crisp at 16 px), Strata Stone for titles and big numbers
+   (crisp at 32 px). Sizes stay at these steps whatever the screen width, so the pixels never blur.
+   For publishing, tools/build-proto.mjs inlines the font files. */
+@font-face { font-family: 'Strata Pixel'; font-display: block; src: url('../assets/fonts/strata-pixel/StrataPixel-Regular.woff2') format('woff2'); }
+@font-face { font-family: 'Strata Stone'; font-display: block; src: url('../assets/fonts/strata-stone/StrataStone-Regular.woff2') format('woff2'); }
 :root {
   --night: #0e0c10;
   --stone-900: #1b1816;
@@ -14,97 +16,105 @@
   --bone-dim: #a89b88;
   --amber: #f2b54a;
   --amber-deep: #c9782a;
-  --display: "Pixelify Sans", "Courier New", monospace;
-  --body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --ochre: #c8643a;
+  --text: 'Strata Pixel', monospace;
+  --display: 'Strata Stone', 'Strata Pixel', monospace;
   color-scheme: dark;
 }
 html, body { height: 100%; }
 body {
-  background: var(--night); color: var(--bone); font-family: var(--body);
+  background: var(--night); color: var(--bone); font-family: var(--text); font-size: 16px; line-height: 16px;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
   padding-block: 8px; box-sizing: border-box; overflow: hidden;
   display: flex; align-items: center; justify-content: center;
   -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: none; font-smooth: never;
 }
 #game { position: relative; width: 360px; height: 640px; flex: none; overflow: hidden; border-radius: 10px; background: #000; touch-action: manipulation; }
 #cv { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; cursor: pointer; }
-.hud { position: absolute; left: 0; right: 0; top: 0; padding: calc(10px * var(--s)) calc(12px * var(--s)) calc(18px * var(--s));
-  background: linear-gradient(rgba(14,12,16,.72), rgba(14,12,16,0)); pointer-events: none; display: grid; gap: calc(4px * var(--s)); }
-.row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.num { font-family: var(--display); font-weight: 600; font-variant-numeric: tabular-nums; }
-#energy { font-size: calc(26px * var(--s)); color: var(--amber); }
-#energy small { font-family: var(--body); font-size: calc(11px * var(--s)); color: var(--bone-dim); font-weight: 500; margin-left: 4px; }
-#stone { font-size: calc(18px * var(--s)); color: var(--bone); }
-.epoch { display: flex; align-items: center; gap: calc(8px * var(--s)); font-size: calc(12px * var(--s)); color: var(--bone-dim); }
-.epoch b { font-family: var(--display); font-weight: 600; color: var(--bone); font-size: calc(14px * var(--s)); letter-spacing: .02em; }
-.bar { flex: 1; height: calc(4px * var(--s)); background: rgba(237,227,208,.14); border-radius: 2px; overflow: hidden; }
+.shadow { text-shadow: 1px 1px 0 #000, -1px 0 0 #000, 0 -1px 0 #000, 1px 0 0 #000; }
+.hud { position: absolute; left: 0; right: 0; top: 0; padding: 10px 12px 20px; display: grid; gap: 6px;
+  background: linear-gradient(rgba(14,12,16,.75), rgba(14,12,16,0)); pointer-events: none; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+#energy { font-family: var(--display); font-size: 32px; line-height: 32px; color: var(--amber); white-space: nowrap; }
+#eps { font-family: var(--text); font-size: 16px; color: var(--bone-dim); margin-left: 6px; }
+#stone { font-family: var(--display); font-size: 32px; line-height: 32px; color: var(--bone); white-space: nowrap; }
+.epoch { display: flex; align-items: center; gap: 8px; color: var(--bone-dim); white-space: nowrap; }
+.epoch b { font-weight: 400; color: var(--bone); }
+.bar { flex: 1; min-width: 20px; height: 4px; background: rgba(237,227,208,.16); overflow: hidden; }
 .bar i { display: block; height: 100%; width: 0; background: var(--amber); transition: width .3s; }
-.bottom { position: absolute; left: 0; right: 0; bottom: 0; padding: calc(18px * var(--s)) calc(12px * var(--s)) calc(12px * var(--s));
-  background: linear-gradient(rgba(14,12,16,0), rgba(14,12,16,.8)); display: grid; gap: calc(8px * var(--s)); pointer-events: none; }
-.mix { display: flex; height: calc(8px * var(--s)); border-radius: 2px; overflow: hidden; outline: 1px solid rgba(237,227,208,.18); }
+#note { position: absolute; left: 12px; right: 12px; top: 92px; text-align: center; color: var(--bone); pointer-events: none;
+  opacity: 0; transition: opacity .4s; }
+#note.on { opacity: 1; }
+#title { position: absolute; left: 0; right: 0; top: 26%; text-align: center; pointer-events: none; opacity: 0; transition: opacity .8s; display: grid; gap: 10px; }
+#title.on { opacity: 1; }
+#title .t1 { font-family: var(--text); color: var(--bone-dim); }
+#title .t2 { font-family: var(--display); font-size: 32px; line-height: 32px; color: var(--amber); }
+#title .t3 { color: var(--bone); padding: 0 16px; line-height: 20px; }
+.bottom { position: absolute; left: 0; right: 0; bottom: 0; padding: 18px 12px 12px; display: grid; gap: 8px; pointer-events: none;
+  background: linear-gradient(rgba(14,12,16,0), rgba(14,12,16,.85)); }
+.mix { display: flex; height: 8px; overflow: hidden; outline: 1px solid rgba(237,227,208,.2); }
 .mix i { display: block; height: 100%; }
-.mixlbl { display: flex; justify-content: space-between; font-size: calc(11px * var(--s)); color: var(--bone-dim); }
+.mixlbl { display: flex; justify-content: space-between; color: var(--bone-dim); }
+.btns { display: flex; justify-content: center; gap: 10px; }
 button { font: inherit; color: inherit; cursor: pointer; }
 button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
-#openUp { pointer-events: auto; justify-self: center; font-family: var(--display); font-weight: 600; font-size: calc(16px * var(--s));
-  padding: calc(9px * var(--s)) calc(22px * var(--s)); border-radius: calc(8px * var(--s)); border: 1px solid var(--stone-500);
-  background: var(--stone-900); color: var(--bone); box-shadow: 0 2px 0 #000; position: relative; }
-#openUp .dot { position: absolute; top: -4px; right: -4px; width: 9px; height: 9px; border-radius: 50%; background: var(--amber); }
-#pline { position: absolute; left: calc(12px * var(--s)); font-size: calc(10px * var(--s)); color: var(--amber); opacity: .7; pointer-events: none; transform: translateY(-120%); letter-spacing: .04em; }
-#hint { position: absolute; left: 0; right: 0; top: 42%; text-align: center; font-family: var(--display); font-size: calc(16px * var(--s));
-  color: var(--bone); text-shadow: 0 1px 0 #000, 0 0 8px #000; pointer-events: none; transition: opacity .6s; }
-#toast { position: absolute; left: calc(14px * var(--s)); right: calc(14px * var(--s)); top: calc(88px * var(--s));
-  background: rgba(27,24,22,.92); border: 1px solid var(--stone-500); border-radius: calc(8px * var(--s));
-  padding: calc(10px * var(--s)) calc(12px * var(--s)); font-size: calc(12.5px * var(--s)); line-height: 1.4; pointer-events: none;
-  opacity: 0; transform: translateY(-6px); transition: opacity .4s, transform .4s; }
-#toast.on { opacity: 1; transform: none; }
-#toast b { display: block; font-family: var(--display); font-size: calc(16px * var(--s)); color: var(--amber); margin-bottom: 2px; }
-.sheet { position: absolute; left: 0; right: 0; bottom: 0; height: 58%; background: var(--stone-900); border-top: 1px solid var(--stone-500);
-  border-radius: calc(12px * var(--s)) calc(12px * var(--s)) 0 0; transform: translateY(100%); transition: transform .28s ease;
-  display: flex; flex-direction: column; box-shadow: 0 -8px 24px rgba(0,0,0,.5); }
+.bigbtn { pointer-events: auto; position: relative; padding: 10px 16px; border: 1px solid var(--stone-500); background: var(--stone-900);
+  color: var(--bone); box-shadow: 0 2px 0 #000; border-radius: 6px; overflow: hidden; }
+.bigbtn .dot { position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; background: var(--amber); }
+#veil { border-color: var(--ochre); }
+#veil .cd { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--ochre); width: 0; }
+#veil:disabled { color: var(--bone-dim); border-color: var(--stone-500); cursor: default; }
+#pline { position: absolute; left: 12px; color: var(--amber); opacity: .75; pointer-events: none; transform: translateY(-20px); }
+#hint { position: absolute; left: 0; right: 0; top: 44%; text-align: center; line-height: 22px; color: var(--bone); pointer-events: none; transition: opacity .6s; }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; height: 60%; background: var(--stone-900); border-top: 1px solid var(--stone-500);
+  transform: translateY(100%); transition: transform .28s ease; display: flex; flex-direction: column; box-shadow: 0 -8px 24px rgba(0,0,0,.5); }
 .sheet.on { transform: none; }
-.sheet header { display: flex; justify-content: space-between; align-items: center; padding: calc(10px * var(--s)) calc(14px * var(--s)) calc(6px * var(--s)); }
-.sheet header h2 { margin: 0; font-family: var(--display); font-weight: 600; font-size: calc(18px * var(--s)); }
-.sheet header button { background: none; border: 0; font-size: calc(13px * var(--s)); color: var(--bone-dim); padding: 6px; }
-.list { overflow-y: auto; padding: 0 calc(12px * var(--s)) calc(14px * var(--s)); display: grid; gap: calc(12px * var(--s)); }
-.sec h3 { margin: 0 0 calc(6px * var(--s)); font-size: calc(10.5px * var(--s)); text-transform: uppercase; letter-spacing: .1em; color: var(--bone-dim); font-weight: 600; }
-.up { display: grid; grid-template-columns: auto 1fr auto; gap: calc(10px * var(--s)); align-items: center;
-  padding: calc(8px * var(--s)) calc(10px * var(--s)); background: var(--stone-700); border-radius: calc(8px * var(--s)); margin-bottom: calc(6px * var(--s)); }
-.sw { width: calc(22px * var(--s)); height: calc(22px * var(--s)); border-radius: 3px; image-rendering: pixelated; }
-.up .t { min-width: 0; font-size: calc(12.5px * var(--s)); line-height: 1.3; }
-.up .t b { font-weight: 600; }
-.up .t span { display: block; color: var(--bone-dim); font-size: calc(11px * var(--s)); }
-.buy { min-width: calc(74px * var(--s)); padding: calc(7px * var(--s)) calc(8px * var(--s)); border-radius: calc(6px * var(--s));
-  border: 1px solid var(--amber-deep); background: rgba(242,181,74,.14); color: var(--amber); font-family: var(--display); font-weight: 600; font-size: calc(13px * var(--s)); }
+.sheet header { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px 8px; }
+.sheet header h2 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 32px; line-height: 32px; }
+.sheet header button { background: none; border: 0; color: var(--bone-dim); padding: 6px; }
+.list { overflow-y: auto; padding: 0 12px 14px; display: grid; gap: 14px; }
+.sec h3 { margin: 0 0 8px; font-size: 16px; font-weight: 400; color: var(--bone-dim); }
+.era { background: var(--stone-700); padding: 10px; line-height: 20px; }
+.era b { font-weight: 400; color: var(--amber); }
+.up { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 8px 10px; background: var(--stone-700); margin-bottom: 6px; }
+.sw { width: 24px; height: 24px; image-rendering: pixelated; }
+.up .t { min-width: 0; line-height: 18px; }
+.up .t span { display: block; color: var(--bone-dim); }
+.buy { min-width: 76px; padding: 7px 8px; border: 1px solid var(--amber-deep); background: rgba(242,181,74,.14); color: var(--amber); white-space: nowrap; }
 .buy:disabled { border-color: var(--stone-500); background: none; color: var(--bone-dim); cursor: default; }
 .buy.stone { border-color: #8c8478; background: rgba(237,227,208,.08); color: var(--bone); }
 .locked { opacity: .45; }
-.rocks { display: grid; grid-template-columns: repeat(auto-fill, minmax(calc(100px * var(--s)), 1fr)); gap: calc(6px * var(--s)); }
-.rock { display: flex; align-items: center; gap: 6px; font-size: calc(11.5px * var(--s)); background: var(--stone-700); border-radius: 6px; padding: 5px 7px; min-width: 0; }
+.rocks { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.rock { display: flex; align-items: center; gap: 6px; background: var(--stone-700); padding: 5px 7px; min-width: 0; }
 .rock span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rock .sw { width: calc(12px * var(--s)); height: calc(12px * var(--s)); flex: none; }
+.rock .sw { width: 12px; height: 12px; flex: none; }
 .test { display: flex; gap: 8px; flex-wrap: wrap; }
-.test button { padding: 7px 12px; border-radius: 6px; border: 1px solid var(--stone-500); background: none; color: var(--bone); font-size: calc(12px * var(--s)); }
+.test button { padding: 7px 12px; border: 1px solid var(--stone-500); background: none; color: var(--bone); }
 .test button.on { border-color: var(--amber); color: var(--amber); }
-@media (prefers-reduced-motion: reduce) { .sheet, #toast, .bar i { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .sheet, #note, #title, .bar i { transition: none; } }
 </style>
 
 <div id="game">
   <canvas id="cv" width="180" height="320" aria-label="Мир: небо, поверхность и толща слоёв над артефактом"></canvas>
   <div class="hud">
     <div class="row">
-      <div id="energy" class="num">0<small id="eps"></small></div>
-      <div id="stone" class="num" title="Камень: даёт уплотнение слоёв">◆ 0</div>
+      <div id="energy" class="shadow">⟡ 0<span id="eps"></span></div>
+      <div id="stone" class="shadow" title="Камень: из него добывается уплотнением">◆ 0</div>
     </div>
-    <div class="epoch"><b id="epName">Голая земля</b><span class="bar"><i id="epBar"></i></span><span id="epNext"></span></div>
+    <div class="epoch shadow"><b id="epName">Голая земля</b><span class="bar"><i id="epBar"></i></span><span id="epNext"></span></div>
   </div>
-  <div id="pline">уровень уплотнения</div>
-  <div id="hint">Нажмите на экран —<br>упадёт кучка пыли</div>
-  <div id="toast"></div>
+  <div id="note" class="shadow"></div>
+  <div id="title" class="shadow"><div class="t1" id="t1"></div><div class="t2" id="t2"></div><div class="t3" id="t3"></div></div>
+  <div id="pline" class="shadow">уровень уплотнения</div>
+  <div id="hint" class="shadow">Нажмите над землёй —<br>туда упадёт кучка пыли</div>
   <div class="bottom">
-    <div class="mixlbl"><span>Состав кучек в среднем</span><span id="pileN"></span></div>
+    <div class="mixlbl shadow"><span>Состав кучек</span><span id="pileN"></span></div>
     <div class="mix" id="mix"></div>
-    <button id="openUp" type="button">Улучшения</button>
+    <div class="btns">
+      <button id="veil" class="bigbtn" type="button" title="Тонкий прослой охры ляжет по всей поверхности и останется в толще линией">Прослой<span class="cd" id="veilCd"></span></button>
+      <button id="openUp" class="bigbtn" type="button">Улучшения</button>
+    </div>
   </div>
   <div class="sheet" id="sheet" aria-hidden="true">
     <header><h2>Улучшения</h2><button id="closeUp" type="button">Закрыть</button></header>
@@ -146,6 +156,10 @@ def('clay', 'Глина', ['#9a6e52', '#a87a5c', '#8c6248', '#b48666'], { slip: 
 def('litter', 'Опад', ['#4f5c28', '#5d6a30', '#424c22', '#6b7434'], { slip: 0.5, to: 'peat', th: 0.5, time: 2.5, loss: 0.4 });
 def('resin', 'Смола', ['#d89030', '#e6a040', '#c88028', '#f0b050'], { slip: 0.3, to: 'amber', th: 0.65, time: 5, loss: 0.1 });
 def('bone', 'Кости', ['#e4ddc8', '#ede7d6', '#d6ceb8', '#f5f1e4'], { slip: 0.6, to: 'fossil', th: 0.65, time: 6, loss: 0 });
+// thin marker beds: they drape the surface as a skin one particle thick and stay in the strata as lines
+def('ochre', 'Охра', ['#c8643a', '#d4744a', '#b85830', '#e08458'], { slip: 0, to: 'jasper', th: 0.55, time: 3, marker: true });
+def('tephra', 'Вулканическая пыль', ['#d6d1c6', '#e2ddd2', '#c8c3b8', '#ece8de'], { slip: 0, to: 'bentonite', th: 0.55, time: 3, marker: true });
+def('boundary', 'Граница эпох', ['#f2dc96', '#fff0bc', '#e4cc80', '#fff6d6'], { slip: 0, to: 'boundaryRock', th: 0.55, time: 3, marker: true });
 // rocks (made by pressure)
 const R = { kind: 'rock' };
 def('siltstone', 'Алевролит', ['#6a6459', '#5f5a52', '#746d62', '#56514a'], { ...R, value: 1 });
@@ -162,6 +176,9 @@ def('coal', 'Уголь', ['#2c2c32', '#242428', '#34343c', '#1c1c1e'], { ...R, 
 def('anthracite', 'Антрацит', ['#282836', '#1c1c26', '#4a4a6a', '#14141a'], { ...R, value: 12 });
 def('amber', 'Янтарь', ['#f49c30', '#e88a20', '#ffb040', '#d47818'], { ...R, value: 30 });
 def('amberInsect', 'Янтарь с насекомым', ['#f49c30', '#3a2008', '#ffb040', '#e88a20'], { ...R, value: 150 });
+def('jasper', 'Яшма', ['#a8442c', '#b8503a', '#983c26', '#c86048'], { ...R, value: 6, marker: true });
+def('bentonite', 'Бентонит', ['#b8c0ae', '#c4ccba', '#acb4a2', '#d0d8c6'], { ...R, value: 8, marker: true });
+def('boundaryRock', 'Пограничный слой', ['#e8c870', '#f2d688', '#dcbc60', '#fae6a0'], { ...R, value: 30, marker: true });
 def('fossil', 'Окаменелость', ['#c8b898', '#b8a888', '#d8c8a8', '#a89878'], { ...R, value: 25 });
 // fixed
 def('bedrock', 'Коренная порода', ['#363a48', '#2e323f', '#3e4352', '#262a36'], { kind: 'solid' });
@@ -174,15 +191,15 @@ const ROCKS = MATS.filter((m) => m.kind === 'rock');
 
 // ---------------- epochs, upgrades ----------------
 const EPOCHS = [
-  { name: 'Голая земля', need: 0, unlock: [], feat: null, text: 'Пустая равнина. Роняйте кучки пыли на артефакт — когда толща поднимется почти до верха, низ начнёт уплотняться.' },
-  { name: 'Горы', need: 30, unlock: ['sand', 'gravel'], feat: 'mtn', text: 'Поднимаются горы. Открыты песок и галька — их можно подмешивать в кучку.' },
-  { name: 'Вулканы', need: 150, unlock: ['ash'], feat: 'vol', text: 'Проснулись вулканы и иногда сыплют пеплом. Открыт пепел: из него быстро выходит туф.' },
-  { name: 'Мхи', need: 450, unlock: ['clay'], feat: 'moss', text: 'Камни и свежие кучки зарастают мхом. Открыта глина: аргиллит, сланец, кровельный сланец.' },
-  { name: 'Растения', need: 900, unlock: ['litter'], feat: 'plant', text: 'Появились растения. Открыт опад: торф → бурый уголь → уголь → антрацит.' },
-  { name: 'Леса', need: 2500, unlock: ['resin'], feat: 'forest', text: 'Выросли леса. Открыта смола: под давлением она становится янтарём.' },
-  { name: 'Насекомые', need: 6000, unlock: [], feat: 'insect', text: 'Летают насекомые. Иногда смола ловит их — получается янтарь с насекомым.' },
-  { name: 'Животные', need: 12000, unlock: ['bone'], feat: 'animal', text: 'Бродят животные. Открыты кости: под толщей они становятся окаменелостями.' },
-  { name: 'Дальше — люди', need: 22000, unlock: [], feat: 'end', text: 'Здесь прототип заканчивается. Дальше были бы люди.' },
+  { name: 'Голая земля', need: 0, unlock: [], feat: null, short: 'Пустая равнина', text: 'Пустая равнина. Нажимайте над землёй — туда падают кучки пыли. Когда толща поднимется к линии уплотнения, низ начнёт превращаться в камень.' },
+  { name: 'Горы', short: 'Открыты песок и галька', need: 30, unlock: ['sand', 'gravel'], feat: 'mtn', text: 'Поднимаются горы. Открыты песок и галька — их можно подмешивать в кучку.' },
+  { name: 'Вулканы', short: 'Открыт пепел', need: 150, unlock: ['ash'], feat: 'vol', text: 'Проснулись вулканы и иногда сыплют пеплом. Открыт пепел: из него быстро выходит туф.' },
+  { name: 'Мхи', short: 'Открыта глина', need: 450, unlock: ['clay'], feat: 'moss', text: 'Камни и свежие кучки зарастают мхом. Открыта глина: аргиллит, сланец, кровельный сланец.' },
+  { name: 'Растения', short: 'Открыт опад — будущий уголь', need: 900, unlock: ['litter'], feat: 'plant', text: 'Появились растения. Открыт опад: торф → бурый уголь → уголь → антрацит.' },
+  { name: 'Леса', short: 'Открыта смола — будущий янтарь', need: 2500, unlock: ['resin'], feat: 'forest', text: 'Выросли леса. Открыта смола: под давлением она становится янтарём.' },
+  { name: 'Насекомые', short: 'Янтарь ловит насекомых', need: 6000, unlock: [], feat: 'insect', text: 'Летают насекомые. Иногда смола ловит их — получается янтарь с насекомым.' },
+  { name: 'Животные', short: 'Открыты кости — будущие окаменелости', need: 12000, unlock: ['bone'], feat: 'animal', text: 'Бродят животные. Открыты кости: под толщей они становятся окаменелостями.' },
+  { name: 'Дальше — люди', short: 'Конец прототипа', need: 22000, unlock: [], feat: 'end', text: 'Здесь прототип заканчивается. Дальше были бы люди.' },
 ];
 const DUST_W = 6;
 const MAT_UP = {
@@ -190,11 +207,11 @@ const MAT_UP = {
   litter: { base: 3500, w: 1.5 }, resin: { base: 8000, w: 0.5 }, bone: { base: 16000, w: 0.4 },
 };
 const UPS = {
-  pile: { name: 'Кучка побольше', desc: (l) => `${pileSize(l)} → ${pileSize(l + 1)} частиц`, base: 80, g: 1.5, cur: 'energy' },
+  pile: { name: 'Кучка побольше', desc: (l) => `${pileSize(l)} → ${pileSize(l + 1)} частиц`, base: 120, g: 1.65, cur: 'energy' },
   wind: { name: 'Ветер', desc: (l) => l ? `кучка сама каждые ${windEvery(l).toFixed(1)} → ${windEvery(l + 1).toFixed(1)} с` : 'сам роняет кучки', base: 400, g: 1.7, cur: 'energy' },
   press: { name: 'Пресс', desc: (l) => `давление в толще ×${pressMul(l).toFixed(2)} → ×${pressMul(l + 1).toFixed(2)}: глубже уголь, антрацит, сланец`, base: 8, g: 1.7, cur: 'stone' },
 };
-const pileSize = (l) => 50 + 12 * l;
+const pileSize = (l) => 50 + 5 * l;
 const windEvery = (l) => 10 / l;
 const pressMul = (l) => 1 + 0.12 * l;
 const cost = (base, g, l) => Math.ceil(base * Math.pow(g, l));
@@ -204,7 +221,7 @@ const mat = new Uint8Array(N), look = new Uint8Array(N), prog = new Float32Array
 let S;
 function newState() {
   return { v: 1, energy: 0, earned: 0, stone: 0, stoneTotal: 0, rocks: {}, lv: { pile: 0, wind: 0, press: 0 }, mlv: {}, epoch: 0,
-    grow: { mtn: 0, vol: 0, moss: 0, plant: 0, forest: 0, insect: 0, animal: 0 }, clicks: 0, windT: 0, eruptT: 30, speed: 1, sec: -1 };
+    grow: { mtn: 0, vol: 0, moss: 0, plant: 0, forest: 0, insect: 0, animal: 0 }, clicks: 0, windT: 0, eruptT: 30, speed: 1, sec: -1, veilT: 0, beds: 0 };
 }
 function resetWorld() {
   mat.fill(0); look.fill(0); prog.fill(0);
@@ -238,9 +255,9 @@ function saveLocal() { try { localStorage.setItem(KEY, serialize()); } catch (e)
 function loadLocal() { try { const s = localStorage.getItem(KEY); return s ? deserialize(s) : false; } catch (e) { return false; } }
 
 // ---------------- physics ----------------
-let flip = 0;
+let flip = 0, moved = 0;
 function physicsStep() {
-  flip ^= 1;
+  flip ^= 1; moved = 0;
   for (let y = BED - 1; y >= 0; y--) {
     const row = y * GW, below = row + GW;
     for (let k = 0; k < GW; k++) {
@@ -261,6 +278,7 @@ function physicsStep() {
   }
 }
 function move(a, b) {
+  moved++;
   mat[b] = mat[a]; look[b] = look[a]; prog[b] = prog[a];
   mat[a] = 0; prog[a] = 0;
 }
@@ -311,8 +329,9 @@ function squeeze(dt) {
   sqAcc += dt * 2 * r * r * r * r;
   for (let n = 0; sqAcc >= 1 && n < 4; n++) {
     sqAcc -= 1; sqRows++;
-    let gain = 0;
-    for (let x = 0; x < GW; x++) gain += MATS[mat[SQ * GW + x]].value * 0.5;
+    let gain = 0, mk = 0;
+    for (let x = 0; x < GW; x++) { const M = MATS[mat[SQ * GW + x]]; gain += M.value * 0.5; if (M.marker) mk++; }
+    if (mk >= 12) note(`Прослой ушёл в глубину: +${fmt(gain * STONE_K)} ◆`);
     S.stone += gain * STONE_K; S.stoneTotal += gain * STONE_K;
     mat.copyWithin(GW, 0, SQ * GW); look.copyWithin(GW, 0, SQ * GW); prog.copyWithin(GW, 0, SQ * GW);
     mat.fill(0, 0, GW); prog.fill(0, 0, GW);
@@ -326,9 +345,38 @@ function gainRock(T, x, y) {
   S.rocks[T.id] = (S.rocks[T.id] || 0) + 1;
   S.stone += T.value * STONE_K; S.stoneTotal += T.value * STONE_K;
   if (sparks.length < 90 && Math.random() < 0.35) sparks.push({ x: x * 2 + 1, y: y * 2 + 1, t: 0.6, c: T.pal[2] });
-  if (T.id === 'fossil' && !S.rocks._fossilSeen) { S.rocks._fossilSeen = 1; toast('Окаменелость!', 'Кость под толщей стала камнем. Это самая ценная находка в слоях после янтаря с насекомым.'); }
-  if (T.id === 'amberInsect' && !S.rocks._insectSeen) { S.rocks._insectSeen = 1; toast('Янтарь с насекомым', 'Смола поймала насекомое и под давлением стала янтарём.'); }
+  if (T.id === 'fossil' && !S.rocks._fossilSeen) { S.rocks._fossilSeen = 1; note('Первая окаменелость!'); }
+  if (T.id === 'amberInsect' && !S.rocks._insectSeen) { S.rocks._insectSeen = 1; note('Янтарь с насекомым!'); }
   dirtyUI = true;
+}
+
+// ---------------- marker beds ----------------
+/** A thin bed drapes the surface: the skin of the strata (the top particle of each column and the particles of
+ *  steep faces) turns into the marker. It adds no volume, so nothing shifts; it follows the hills exactly and stays in
+ *  the strata as a line of that moment — the outline of the old surface, folded by later piles and compaction.
+ *  Sources: the player («Прослой», with a cooldown), every new epoch (a golden boundary), volcanic eruptions (a pale
+ *  ash lens around the vent). A coat waits until no particles are in the air, so it never lands on a falling pile. */
+const coats = [];
+function queueCoat(m, x0 = 0, x1 = GW - 1) { coats.push({ m, x0, x1, wait: 0 }); }
+function applyCoats(dt) {
+  if (!coats.length) return;
+  const c = coats[0];
+  c.wait += dt;
+  if (moved > 6 && c.wait < 3) return;
+  coats.shift();
+  let n = 0;
+  for (let x = Math.max(0, c.x0); x <= Math.min(GW - 1, c.x1); x++) {
+    for (let y = tops[x], k = 0; y < SQ && k < 14; y++, k++) {
+      const i = y * GW + x, m = mat[i];
+      if (!m) continue;
+      const exposed = y === tops[x] || (x > 0 && !mat[i - 1]) || (x < GW - 1 && !mat[i + 1]);
+      if (!exposed) break;
+      if (MATS[m].kind !== 'loose' || MATS[m].marker) continue;
+      mat[i] = c.m; prog[i] = 0; n++;
+      if (Math.random() < 0.08 && sparks.length < 90) sparks.push({ x: x * 2 + 1, y: y * 2 + 1, t: 0.7, c: MATS[c.m].pal[3] });
+    }
+  }
+  if (n) S.beds++;
 }
 
 // ---------------- piles ----------------
@@ -376,11 +424,11 @@ function drop(n, cx, only) {
   for (; k < cells.length; k++) { const i = cells[k]; mat[i] = order[0].m; look[i] = (Math.random() * 256) | 0; prog[i] = 0; }
   return cells.length;
 }
-function clickDrop() {
-  const n = drop(pileSize(S.lv.pile));
+function clickDrop(cx) {
+  const n = drop(pileSize(S.lv.pile), cx);
   S.energy += n; S.earned += n; S.clicks++;
   if (S.clicks === 3) document.getElementById('hint').style.opacity = 0;
-  if (n === 0 && toastT <= 0) toast('Толща упёрлась в небо', 'Места сверху нет. Подождите, пока низ уплотнится, или купите Пресс.');
+  if (n === 0) note('Здесь места нет — толща упёрлась в небо');
   dirtyUI = true;
 }
 
@@ -389,7 +437,8 @@ function checkEpoch() {
   const nx = EPOCHS[S.epoch + 1];
   if (nx && S.stoneTotal >= nx.need) {
     S.epoch++;
-    toast(nx.name, nx.text);
+    showTitle(`Эпоха ${roman[S.epoch]}`, nx.name, nx.short);
+    queueCoat(MI.boundary);
     dirtyUI = true;
     buildList();
   }
@@ -596,14 +645,11 @@ const lineY = () => Math.round((SQ + 1 - SQ_TH * PLAY_H) * 2);
 const $ = (id) => document.getElementById(id);
 const fmt = (v) => { v = Math.floor(v); if (v < 1e4) return String(v); const u = ['', 'K', 'M', 'B', 'T']; let i = 0; while (v >= 1000 && i < u.length - 1) { v /= 1000; i++; } return v.toFixed(v < 10 ? 2 : v < 100 ? 1 : 0) + u[i]; };
 const roman = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
-let dirtyUI = true, toastT = 0;
-function toast(title, text) {
-  const el = $('toast');
-  el.innerHTML = '';
-  const b = document.createElement('b'); b.textContent = title; el.appendChild(b);
-  el.appendChild(document.createTextNode(text));
-  el.classList.add('on'); toastT = 6;
-}
+let dirtyUI = true, noteT = 0, titleT = 0;
+/** One short line under the HUD, no plate: it never covers the strata. */
+function note(text) { const el = $('note'); el.textContent = text; el.classList.add('on'); noteT = 3; }
+/** A new epoch: a title in the sky for a few seconds, the full text waits in the sheet. */
+function showTitle(a, b, c) { $('t1').textContent = a; $('t2').textContent = b; $('t3').textContent = c || ''; $('title').classList.add('on'); titleT = 4.5; }
 function swatch(m) {
   const c = document.createElement('canvas'); c.width = 4; c.height = 4; c.className = 'sw';
   const x = c.getContext('2d'), d = x.createImageData(4, 4), u = new Uint32Array(d.data.buffer);
@@ -618,7 +664,7 @@ function upRow(sw, title, sub, price, cur, onBuy, locked) {
   const s = document.createElement('span'); s.textContent = sub; t.appendChild(s);
   r.appendChild(t);
   const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'buy' + (cur === 'stone' ? ' stone' : '');
-  btn.textContent = locked ? 'закрыто' : (cur === 'stone' ? '◆ ' : '✦ ') + fmt(price);
+  btn.textContent = locked ? 'закрыто' : (cur === 'stone' ? '◆ ' : '⟡ ') + fmt(price);
   btn.dataset.cost = price; btn.dataset.cur = cur;
   btn.disabled = !!locked;
   if (!locked) btn.addEventListener('click', (e) => { e.stopPropagation(); onBuy(); });
@@ -628,6 +674,15 @@ function upRow(sw, title, sub, price, cur, onBuy, locked) {
 function buildList() {
   const L = $('list'); L.innerHTML = '';
   const sec = (title) => { const s = document.createElement('div'); s.className = 'sec'; const h = document.createElement('h3'); h.textContent = title; s.appendChild(h); L.appendChild(s); return s; };
+  const s0 = sec('Эпоха');
+  const era = document.createElement('div'); era.className = 'era';
+  const E = EPOCHS[S.epoch], NX = EPOCHS[S.epoch + 1];
+  const eb = document.createElement('b'); eb.textContent = `${roman[S.epoch]} · ${E.name}`; era.appendChild(eb);
+  era.appendChild(document.createElement('br')); era.appendChild(document.createTextNode(E.text));
+  if (NX) { era.appendChild(document.createElement('br')); era.appendChild(document.createTextNode(`Дальше — ${NX.name}: ◆ ${fmt(NX.need)} камня всего.`)); }
+  era.appendChild(document.createElement('br'));
+  era.appendChild(document.createTextNode('Прослои: охра (кнопка «Прослой»), золотая граница каждой новой эпохи, светлый пепел от извержений. Они остаются в толще линиями и дорого стоят, когда уходят в глубину.'));
+  s0.appendChild(era);
   // strength
   const s2 = sec('Сила');
   for (const id in UPS) {
@@ -700,7 +755,7 @@ function refreshButtons() {
 }
 function updateHUD() {
   const passive = rockCells * 0.01;
-  $('energy').firstChild.nodeValue = '✦ ' + fmt(S.energy);
+  $('energy').firstChild.nodeValue = '⟡ ' + fmt(S.energy);
   $('eps').textContent = passive >= 0.1 ? `+${passive < 10 ? passive.toFixed(1) : fmt(passive)}/с` : '';
   $('stone').textContent = '◆ ' + fmt(S.stone);
   const E = EPOCHS[S.epoch], nx = EPOCHS[S.epoch + 1];
@@ -711,6 +766,8 @@ function updateHUD() {
   const el = $('mix'); el.innerHTML = '';
   for (const q of mix) { const i = document.createElement('i'); i.style.width = (q.w / tot) * 100 + '%'; i.style.background = MATS[q.m].hex; i.title = MATS[q.m].name; el.appendChild(i); }
   $('pline').style.top = (lineY() / CH) * 100 + '%';
+  $('veil').disabled = S.veilT > 0;
+  $('veilCd').style.width = (S.veilT > 0 ? (S.veilT / VEIL_CD) * 100 : 0) + '%';
   $('pileN').textContent = `${pileSize(S.lv.pile)} частиц`;
   refreshButtons();
 }
@@ -723,8 +780,20 @@ $('closeUp').addEventListener('click', (e) => { e.stopPropagation(); openSheet(f
 sheet.addEventListener('pointerdown', (e) => e.stopPropagation());
 $('game').addEventListener('pointerdown', (e) => {
   if (sheet.classList.contains('on')) { openSheet(false); return; }
-  clickDrop();
+  const r = cv.getBoundingClientRect();
+  const cx = Math.max(3, Math.min(GW - 4, Math.floor(((e.clientX - r.left) / r.width) * GW)));
+  clickDrop(cx);
 });
+const VEIL_CD = 30;
+$('veil').addEventListener('pointerdown', (e) => e.stopPropagation());
+$('veil').addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (S.veilT > 0) return;
+  S.veilT = VEIL_CD;
+  queueCoat(MI.ochre);
+  note('Прослой охры лёг на поверхность');
+});
+$('openUp').addEventListener('pointerdown', (e) => e.stopPropagation());
 
 // ---------------- fit ----------------
 function fit() {
@@ -757,6 +826,8 @@ function frame(t) {
   // passive energy from the rock above the thing
   const inc = rockCells * 0.01 * dt;
   S.energy += inc; S.earned += inc;
+  if (S.veilT > 0) S.veilT = Math.max(0, S.veilT - dt);
+  applyCoats(dt);
   // wind
   if (S.lv.wind > 0) { S.windT += dt; if (S.windT >= windEvery(S.lv.wind)) { S.windT = 0; const n = drop(Math.round(pileSize(S.lv.pile) * 0.6)); S.energy += n; S.earned += n; } }
   // volcanoes
@@ -765,7 +836,9 @@ function frame(t) {
     if (Math.random() < dt * 3) { const vx = VOLC[(Math.random() * 2) | 0]; smoke.push({ x: vx + (Math.random() - 0.5) * 3, y: hY - 62 * S.grow.vol, vx: 2 + Math.random() * 3, vy: -4 - Math.random() * 4, t: 3 + Math.random() * 2 }); }
     if (S.eruptT <= 0) {
       S.eruptT = 25 + Math.random() * 20; erupting = 2.5; eruptX = VOLC[(Math.random() * 2) | 0];
-      drop(40 + 10 * S.lv.pile, Math.round(eruptX / 2 + (Math.random() - 0.5) * 20), MI.ash);
+      const vx = Math.round(eruptX / 2);
+      drop(30 + 4 * S.lv.pile, vx + Math.round((Math.random() - 0.5) * 16), MI.ash);
+      queueCoat(MI.tephra, vx - 24, vx + 24);
     }
     if (erupting > 0) {
       erupting -= dt;
@@ -778,7 +851,8 @@ function frame(t) {
   // ui
   uiAcc += rdt;
   if (dirtyUI || uiAcc > 0.25) { updateHUD(); dirtyUI = false; uiAcc = 0; }
-  if (toastT > 0 && (toastT -= rdt) <= 0) $('toast').classList.remove('on');
+  if (noteT > 0 && (noteT -= rdt) <= 0) $('note').classList.remove('on');
+  if (titleT > 0 && (titleT -= rdt) <= 0) $('title').classList.remove('on');
   saveAcc += rdt;
   if (saveAcc > 5) { saveAcc = 0; saveLocal(); }
   requestAnimationFrame(frame);
