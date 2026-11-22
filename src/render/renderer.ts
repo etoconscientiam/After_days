@@ -1034,15 +1034,35 @@ export class Renderer {
     if (golden > 0) { c.fillStyle = rgb(255, 140, 60, 0.45 * golden); c.fillRect(0, 0, WW, lay.sectionTop); }
     c.globalCompositeOperation = 'lighter';
     if (night > 0.5) { c.fillStyle = rgb(60, 70, 110, 0.12 * night); c.fillRect(0, lay.waterLevel - 20, WW, lay.sectionTop - lay.waterLevel + 20); }
-    // sun rays slanting through the clouds onto the land
-    if (this.sunPos && this.sunPos.up && alt > 0.15 && this.quality === 'high') {
-      for (let k = 0; k < 4; k++) {
-        const x0 = this.sunPos.x + (k - 1.5) * 26 + Math.sin(this.t * 0.2 + k) * 6;
-        c.fillStyle = rgb(255, 240, 200, 0.035 * (1 - this.skyDim));
-        c.beginPath();
-        c.moveTo(x0 - 3, this.sunPos.y); c.lineTo(x0 + 3, this.sunPos.y);
-        c.lineTo(x0 + 3 + (x0 - WW / 2) * 0.4 + 12, lay.sectionTop); c.lineTo(x0 - 3 + (x0 - WW / 2) * 0.4 - 6, lay.sectionTop);
-        c.fill();
+    // sun rays: a soft fan from the sun's disc toward the land — warm, fading with length, no hard edges
+    if (this.sunPos && this.sunPos.up && alt > 0.12 && this.quality === 'high') {
+      const sx = this.sunPos.x, sy = this.sunPos.y;
+      const strength = Math.min(1, (alt - 0.12) / 0.25) * (1 - this.skyDim) * (1 - 0.6 * this.sunPos.low);
+      const tx = WW / 2 + (sx - WW / 2) * 0.35, ty = lay.groundBase + 6;
+      const base = Math.atan2(ty - sy, tx - sx);
+      const L = Math.hypot(tx - sx, ty - sy) * 1.15;
+      const warm = lerp3([255, 222, 160], [255, 170, 100], this.sunPos.low);
+      for (let k = 0; k < 7; k++) {
+        const ang = base + (k - 3) * 0.17 + Math.sin(this.t * 0.11 + k * 2.3) * 0.03;
+        const breathe = 0.6 + 0.4 * Math.sin(this.t * 0.37 + k * 1.9);
+        const half = (0.035 + 0.025 * hash2(k, 71)) * (1 + 0.15 * Math.sin(this.t * 0.23 + k));
+        const r0 = 7;   // start just outside the disc
+        const ex = Math.cos(ang), ey = Math.sin(ang);
+        const grd = c.createLinearGradient(sx + ex * r0, sy + ey * r0, sx + ex * L, sy + ey * L);
+        grd.addColorStop(0, rgb(warm[0], warm[1], warm[2], 0.05 * strength * breathe));
+        grd.addColorStop(0.55, rgb(warm[0], warm[1], warm[2], 0.025 * strength * breathe));
+        grd.addColorStop(1, rgb(warm[0], warm[1], warm[2], 0));
+        c.fillStyle = grd;
+        // nested wedges, each narrower: their sum is a soft profile, brightest along the ray's axis
+        for (const w of [1, 0.66, 0.4, 0.2]) {
+          const h = half * w;
+          c.beginPath();
+          c.moveTo(sx + Math.cos(ang - h) * r0, sy + Math.sin(ang - h) * r0);
+          c.lineTo(sx + Math.cos(ang - h) * L, sy + Math.sin(ang - h) * L);
+          c.lineTo(sx + Math.cos(ang + h) * L, sy + Math.sin(ang + h) * L);
+          c.lineTo(sx + Math.cos(ang + h) * r0, sy + Math.sin(ang + h) * r0);
+          c.fill();
+        }
       }
     }
     // the section: lit by the thing, the far layers in shadow

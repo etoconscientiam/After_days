@@ -108,6 +108,16 @@ async function processOne(buf, t, outName, size = t.size) {
     // pixel art: area-average down (keeps the look of large source pixels), then hard alpha and the palette
     const kernel = t.kernel ?? 'nearest';
     const { data, info } = await sharp(buf).resize(w, h, { fit, kernel, background: { r: 0, g: 0, b: 0, alpha: 0 } }).raw().toBuffer({ resolveWithObject: true });
+    // erode: peel the outer ring of pixels (a halo left from the backdrop)
+    for (let pass = 0; pass < (t.erode ?? 0); pass++) {
+      const a0 = Buffer.from(data);
+      for (let y = 0; y < info.height; y++) for (let x = 0; x < info.width; x++) {
+        const i = (y * info.width + x) * 4;
+        if (a0[i + 3] < 128) continue;
+        const edge = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => { const xx = x + dx, yy = y + dy; return xx < 0 || yy < 0 || xx >= info.width || yy >= info.height || a0[((yy * info.width + xx) * 4) + 3] < 128; });
+        if (edge) data[i + 3] = 0;
+      }
+    }
     for (let i = 0; i < data.length; i += 4) {
       if (data[i + 3] < 128) { data[i] = data[i + 1] = data[i + 2] = data[i + 3] = 0; continue; }
       if (t.palette !== false) { const [r, g, b] = nearest(data[i], data[i + 1], data[i + 2]); data[i] = r; data[i + 1] = g; data[i + 2] = b; }
