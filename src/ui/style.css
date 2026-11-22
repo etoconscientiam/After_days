@@ -41,29 +41,34 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 /* ---------- header ---------- */
 /* The world comes first: the header is a compact strip at the top — the year small at the top left, the era line,
    Energy and rocks, the goal as one line without a plate. */
-#hud { position: absolute; left: 0; right: 0; top: 0; height: 104px; padding: 6px 10px 0; pointer-events: none;
-  background: linear-gradient(to bottom, rgba(14,12,16,0.62), rgba(14,12,16,0.25) 60%, rgba(14,12,16,0)); }
-#top-row { display: flex; align-items: center; gap: 6px; padding-right: 40px; min-height: 32px; }
+#hud { position: absolute; left: 0; right: 0; top: 0; height: 78px; padding: 6px 10px 0; pointer-events: none;
+  background: linear-gradient(to bottom, rgba(14,12,16,0.55), rgba(14,12,16,0.2) 65%, rgba(14,12,16,0)); }
+/* row 1: the year at the left, Energy at the right, the gear */
+#top-row { display: flex; align-items: center; gap: 6px; min-height: 32px; }
+#top-row #energy { margin-left: auto; }
 #hud button { pointer-events: auto; }
 #countdown { text-align: left; font-family: var(--display);  font-size: 32px; line-height: 1; letter-spacing: 1px;
   color: var(--bone); text-shadow: 0 0 18px rgba(242,181,74,0.35), 0 2px 2px rgba(0,0,0,0.6); font-variant-numeric: lining-nums; }
 #countdown.finding { font-size: 32px; color: var(--amber); }
 #cd-sym { color: var(--amber); font-size: 16px; line-height: 1; animation: sym 4s ease-in-out infinite; text-shadow: 0 0 10px rgba(242,181,74,0.6); }
 @keyframes sym { 50% { opacity: 0.55; transform: scale(0.92); } }
-#era-arc { position: relative; height: 2px; margin: 4px 0 0; background: rgba(237,227,208,0.12); border-radius: 2px; overflow: hidden; }
+/* the era's progress: a hairline along the very top edge of the screen */
+#era-arc { position: absolute; left: 0; right: 0; top: 0; height: 2px; margin: 0; background: rgba(237,227,208,0.12); border-radius: 2px; overflow: hidden; }
 #era-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, var(--amber-deep), var(--amber)); box-shadow: 0 0 6px var(--amber); }
-#era-line { display: flex; justify-content: space-between; align-items: baseline; margin-top: 3px; }
+/* row 2: the era (tap: its condition and the goals), the flow of time, the rocks */
+#era-line { display: flex; gap: 8px; align-items: center; margin-top: 2px; white-space: nowrap; }
+#era-line #rocks { margin-left: auto; }
 #era-name { font-family: var(--text);  text-transform: uppercase; letter-spacing: 1px; font-size: 16px; color: var(--bone); text-shadow: 0 1px 2px #000; }
 #era-name::after { content: ' ?'; font-size: 16px; color: var(--bone-dim); vertical-align: 2px; }
 #speed { font-family: var(--num); font-size: 16px; color: var(--bone-dim); font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px #000; }
 #speed.wall { color: var(--amber); }
-#gear { position: absolute; right: 8px; top: 8px; width: 30px; height: 30px; border-radius: 50%; color: var(--bone-dim); display: flex; align-items: center; justify-content: center;
+#gear { position: relative; flex: none; width: 30px; height: 30px; border-radius: 50%; color: var(--bone-dim); display: flex; align-items: center; justify-content: center;
   background: rgba(27,24,22,0.55); box-shadow: inset 0 1px 0 rgba(255,240,210,0.08), 0 2px 6px rgba(0,0,0,0.4); }
 #gear:hover { color: var(--amber); }
-#cond-pop { position: absolute; left: 10px; top: 108px; max-width: 270px; z-index: 6; }
+#cond-pop { position: absolute; left: 10px; top: 84px; max-width: 270px; z-index: 6; }
 #res-row { display: flex; align-items: center; gap: 8px; margin-top: 5px; flex-wrap: nowrap; white-space: nowrap; }
 #energy { display: flex; align-items: center; gap: 5px; pointer-events: auto; text-align: left; }
-#energy .e-col { display: flex; flex-direction: column; line-height: 1; }
+#energy .e-col { display: flex; flex-direction: row-reverse; align-items: baseline; gap: 6px; line-height: 1; }
 #e-ico { align-self: center; display: inline-flex; filter: drop-shadow(0 0 4px rgba(242,181,74,0.7)); }
 #energy b { font-family: var(--display);  font-size: 32px; line-height: 1; color: var(--amber); text-shadow: 0 0 12px rgba(242,181,74,0.4), 0 1px 2px #000; transition: transform 0.12s; display: inline-block; }
 #energy b.bump { transform: scale(1.08); }
@@ -92,9 +97,9 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 .icon-inline { display: inline-flex; vertical-align: middle; }
 
 /* ---------- notifications ---------- */
-#notes { position: absolute; left: 10px; top: 112px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; max-width: 190px; }
-.note-plate { background: rgba(27,24,22,0.85); color: var(--bone); border-radius: 8px; padding: 5px 9px; font-size: 16px; font-family: var(--text);
-  box-shadow: 0 3px 10px rgba(0,0,0,0.35); animation: plateIn 0.3s ease-out; display: flex; align-items: center; gap: 6px; }
+#notes { position: absolute; left: 10px; top: 84px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; max-width: 190px; }
+.note-plate { background: none; color: var(--bone); padding: 1px 0; font-size: 16px; font-family: var(--text);
+  text-shadow: 1px 1px 0 #000, 0 0 4px #000; animation: plateIn 0.3s ease-out; display: flex; align-items: center; gap: 6px; }
 .note-plate.out { animation: plateOut 0.5s ease-in forwards; }
 .note-plate .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
 @keyframes plateIn { from { opacity: 0; transform: translateY(-6px); } }
@@ -114,20 +119,20 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 @keyframes flashIn { 0% { opacity: 0; filter: brightness(3); } 20% { opacity: 1; } }
 
 /* ---------- tabs ---------- */
-#tabbar { position: absolute; left: 0; right: 0; bottom: 0; height: 76px; display: flex; gap: 6px; padding: 7px 8px 9px; z-index: 3;
+#tabbar { position: absolute; left: 0; right: 0; bottom: 0; height: 52px; display: flex; gap: 4px; padding: 4px 6px 5px; z-index: 3;
   background: linear-gradient(var(--stone-900), #141210); box-shadow: 0 -1px 0 rgba(255,240,210,0.05), 0 -8px 20px rgba(0,0,0,0.5); }
-.tab { flex: 1; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-radius: 10px;
+.tab { flex: 1; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; border-radius: 8px; line-height: 16px;
   color: var(--bone-dim); font-size: 16px; font-family: var(--text);
   background: linear-gradient(#36302b, var(--stone-700)), var(--stone-tex); background-blend-mode: overlay;
   box-shadow: inset 0 1px 0 rgba(255,240,210,0.09), 0 3px 0 #0c0a09, 0 4px 8px rgba(0,0,0,0.4); transition: transform 0.15s, box-shadow 0.15s, color 0.15s; }
-.tab .glyph, .tab img { width: 26px; height: 26px; }
+.tab .glyph, .tab img { width: 22px; height: 22px; }
 .tab:hover { color: var(--bone); }
-.tab.active { color: var(--amber); transform: translateY(-4px); box-shadow: inset 0 1px 0 rgba(255,240,210,0.14), 0 0 14px rgba(242,181,74,0.35), 0 6px 0 #0c0a09, 0 8px 14px rgba(0,0,0,0.5); }
-.tab .dot { position: absolute; top: 6px; right: 10px; width: 7px; height: 7px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 6px var(--amber); display: none; }
+.tab.active { color: var(--amber); transform: translateY(-2px); box-shadow: inset 0 1px 0 rgba(255,240,210,0.14), 0 0 14px rgba(242,181,74,0.35), 0 6px 0 #0c0a09, 0 8px 14px rgba(0,0,0,0.5); }
+.tab .dot { position: absolute; top: 4px; right: 8px; width: 7px; height: 7px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 6px var(--amber); display: none; }
 .tab.has-new .dot { display: block; }
 
 /* ---------- drawer ---------- */
-#drawer { position: absolute; left: 0; right: 0; bottom: 76px; height: 34%; z-index: 2; display: flex; flex-direction: column;
+#drawer { position: absolute; left: 0; right: 0; bottom: 52px; height: 34%; z-index: 2; display: flex; flex-direction: column;
   background: linear-gradient(#24201c, var(--stone-900)), var(--stone-tex); background-blend-mode: overlay;
   border-radius: 14px 14px 0 0; box-shadow: inset 0 1px 0 rgba(255,240,210,0.1), 0 -12px 30px rgba(0,0,0,0.55);
   transform: translateY(calc(100% + 80px)); transition: transform 0.25s cubic-bezier(.2,.8,.2,1); }
