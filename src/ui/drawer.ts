@@ -5,10 +5,11 @@ import { CFG, SpeciesDef, ElementDef, UpgradeDef, DensityNode, eraOfYear } from 
 import type { Game } from '../core/game';
 import { totalPop, lifespan } from '../core/life';
 import { upgradeEffect } from '../core/stats';
+import { foundationPreview } from '../core/prestige';
 import { $, h, setText, toggle } from './dom';
 import { t, fmt, setLang, Lang } from './i18n';
 import { chronicleCard } from './chronicle';
-import { energyIcon, rockIcon, tabIcon, elementIcon, habitatIcon, portrait, exhibit } from './icons';
+import { energyIcon, rockIcon, tabIcon, elementIcon, habitatIcon, oxygenIcon, portrait, exhibit } from './icons';
 import { WW } from '../render/common';
 import { assetUrl } from '../render/assets';
 
@@ -153,11 +154,31 @@ export class Drawer {
       seg.append(h('button', { class: this.qty === q ? 'on' : '', onclick: () => { this.qty = q; this.sig = ''; } }, label));
     }
     this.sub.append(seg);
-    const meta = h('div', { class: 'meta-line' });
-    this.body.append(meta);
+    // three zone icons with fill bars and the oxygen bubble; the numbers live in the tooltip
+    const zoneRow = h('div', { class: 'zone-row' });
+    const ZN = ['water', 'shore', 'land'] as const;
+    const fills: HTMLElement[] = [];
+    const chips: HTMLElement[] = [];
+    for (let zi = 0; zi < 3; zi++) {
+      const fill = h('b', {});
+      const chip = h('span', { class: 'zone-chip', 'data-tip': '' }, habitatIcon(ZN[zi], 16), h('i', { class: 'zbar' }, fill));
+      fills.push(fill); chips.push(chip); zoneRow.append(chip);
+    }
+    const o2fill = h('b', {});
+    const o2 = h('span', { class: 'zone-chip o2', 'data-tip': '' }, oxygenIcon(16), h('i', { class: 'zbar' }, o2fill));
+    zoneRow.append(o2);
+    this.body.append(zoneRow);
     this.refreshers.push(() => {
-      const z = (zi: number) => `${fmt(g.used(zi), 0)}/${g.capacity(zi)}`;
-      setText(meta, t('life.zones', { w: z(0), s: z(1), l: z(2) }) + ' · O₂ ' + fmt(r.oxygen, 1) + '%');
+      for (let zi = 0; zi < 3; zi++) {
+        const used = g.used(zi), cap = g.capacity(zi);
+        fills[zi].style.width = (cap > 0 ? Math.min(100, (used / cap) * 100) : 0) + '%';
+        toggle(chips[zi], 'full', cap > 0 && used >= cap);
+        const tip = t('life.zoneTip', { zone: t('zones.' + ZN[zi]), u: fmt(used, 0), c: cap });
+        chips[zi].title = tip; chips[zi].dataset.tip = tip;
+      }
+      o2fill.style.width = Math.min(100, (r.oxygen / 21) * 100) + '%';
+      const tip = t('life.o2tip', { v: fmt(r.oxygen, 1) });
+      o2.title = tip; o2.dataset.tip = tip;
     });
     if (r.mutationOffer && g.mods.living) {
       this.body.append(h('div', { class: 'group-title' }, t('mutation.choose')));
@@ -177,7 +198,7 @@ export class Drawer {
         let hint = t('life.locked', { era: t('era.' + sp.era) });
         if (r.era >= sp.era && sp.needsOxygen && r.oxygen < sp.needsOxygen) hint = t('life.needO2', { v: sp.needsOxygen });
         else if (r.era >= sp.era && sp.unlockAfter) hint = t('life.after', { species: t('species.' + sp.unlockAfter + '.name'), n: CFG.unlockAfterPop });
-        grid.append(h('div', { class: 'card dim' }, h('div', { class: 'pic' }, portrait(sp.id, 56, true)), h('div', { class: 'lock' }, hint)));
+        grid.append(h('div', { class: 'card dim' }, h('div', { class: 'pic' }, portrait(sp.id, 96, true)), h('div', { class: 'lock' }, hint)));
         continue;
       }
       grid.append(this.speciesCard(g, sp));
@@ -207,7 +228,7 @@ export class Drawer {
     const price = h('span', {});
     const btn = h('button', { class: 'buy' }, h('span', { class: 'e' }, energyIcon(14)), price) as HTMLButtonElement;
     const minus = h('button', { class: 'minus', title: t('life.release'), 'aria-label': t('life.release'), onclick: () => g.releaseSpecies(sp.id) }, '−') as HTMLButtonElement;
-    const card = h('div', { class: 'card' }, minus, h('div', { class: 'pic' }, portrait(sp.id, 56), count), name,
+    const card = h('div', { class: 'card' }, minus, h('div', { class: 'pic' }, portrait(sp.id, 96), count), name,
       h('div', { class: 'facts' }, eps, h('span', { class: 'icon-inline', title: t('zones.' + sp.zone) }, habitatIcon(sp.zone))),
       h('div', { class: 'facts' }, lives), btn);
     const buyOnce = () => {
@@ -360,8 +381,12 @@ export class Drawer {
     this.refreshers.push(() => {
       const v = g.prestigeGain();
       gain.firstChild && gain.firstChild !== note ? (gain.firstChild.textContent = t('epoch.gainBig', { v })) : gain.prepend(document.createTextNode(t('epoch.gainBig', { v })));
-      const frac = foundationShare(g);
-      setText(note, v >= 1 ? `${fmt(frac * 100, 0)}% ${t('epoch.foundationNote')}` : t('epoch.notYet'));
+      // the same numbers the shift will use (core/prestige.ts foundationPreview)
+      const fp = foundationPreview(g);
+      const frac = fp.share;
+      setText(note, v < 1 ? t('epoch.notYet') : fp.add >= 0.05
+        ? t('epoch.foundationAdd', { v: fmt(fp.add, 1), p: fmt(Math.max(1, frac * 100), 0) })
+        : t('epoch.foundationNone', { k: CFG.B.physics.foundationK }));
       btn.disabled = v < 1 || g.state.phase !== 'play';
       toggle(btn, 'ok', v >= 1 && v >= g.meta.density * P.glowAt);
       drawColumn(diagram, g, frac);
@@ -528,15 +553,6 @@ function holdToConfirm(btn: HTMLButtonElement, fill: HTMLElement, ms: number, ac
 }
 
 const short = (s: string) => (s.includes('—') ? s.split('—')[1].trim() : s);
-
-/** Share of the column compacted enough (k ≥ 4) to become foundation on a shift. */
-function foundationShare(g: Game): number {
-  const w = g.world;
-  let tot = 0, hard = 0;
-  for (let x = 0; x < w.len.length; x += 4) for (let i = 0; i < w.len[x]; i++) { tot++; if (w.k[x * 320 + i] >= CFG.B.physics.foundationK) hard++; }
-  for (const pk of w.packs) { const n = pk.rows * 45; tot += n; if (pk.k >= CFG.B.physics.foundationK) hard += n; }
-  return tot ? hard / tot : 0;
-}
 
 /** Small picture of the column: layers above, the part that becomes foundation outlined in density violet. */
 function drawColumn(cv: HTMLCanvasElement, g: Game, frac: number): void {

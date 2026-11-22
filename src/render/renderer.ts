@@ -7,7 +7,7 @@ import { totalPop } from '../core/life';
 import { skin, preloadSkins } from './assets';
 import { tintedCanvas, drawTinted, tintInto } from './sprites';
 import { hash2 } from '../core/rng';
-import { Layout, WW, WH, NOISE, lerp, lerp3, hex3, rgb, ACCENT } from './common';
+import { Layout, WW, WH, NOISE, GRAIN, lerp, lerp3, hex3, rgb, ACCENT } from './common';
 import { SectionRenderer } from './section';
 import { drawFossil, fossilKind } from './skins';
 import { CREATURES, Pose, birdFlying, hominid } from './creatures';
@@ -231,6 +231,8 @@ export class Renderer {
     const target = GRADE[Math.min(7, g.run.era)];
     for (let k = 0; k < 3; k++) this.grade[k] += (target[k] - this.grade[k]) * Math.min(1, dt / 1.2);
 
+    this.computeGround(g);
+    this.section.relief = this.gy;
     this.section.maybeRender(g, this.lay, now, this.reveal);
     this.lay.artifactY = this.ayAt(WW / 2);
     if (g.state.phase === 'choose') { this.drawChoose(g); this.drawSink(dt); return; }
@@ -247,7 +249,6 @@ export class Renderer {
     }
     c.fillStyle = '#0e0c10';
     c.fillRect(-4, -4, WW + 8, WH + 8);
-    this.computeGround(g);
     this.drawSky(g, sky);
     this.drawPlanes(g, sky);
     this.drawEcho(dt);
@@ -520,10 +521,14 @@ export class Renderer {
     for (let x = 0; x < WW; x++) if (g.zoneMap[x] === 0) dist[x] = 0;
     for (let x = 1; x < WW; x++) dist[x] = Math.min(dist[x], dist[x - 1] + 1);
     for (let x = WW - 2; x >= 0; x--) dist[x] = Math.min(dist[x], dist[x + 1] + 1);
+    const bare = Math.min(1, (totalPop(g, 'mosses') + totalPop(g, 'trees')) / 30) < 0.05;
     for (let x = 0; x < WW; x++) {
-      const hill = NOISE[(40 << 8) | ((x * 2) & 255)] * 7 + NOISE[(44 << 8) | ((x * 5) & 255)] * 2 + Math.sin(x * 0.045 + 1) * 3.5 + 3;
+      // bare land: calm dunes (long smooth swells); with life the hills get a little more texture
+      const hill = bare
+        ? NOISE[(40 << 8) | ((x * 1) & 255)] * 6 + Math.sin(x * 0.05 + 1) * 3 + 4
+        : NOISE[(40 << 8) | ((x * 2) & 255)] * 7 + NOISE[(44 << 8) | ((x * 5) & 255)] * 2 + Math.sin(x * 0.045 + 1) * 3.5 + 3;
       const land = lay.groundBase - hill;
-      const t = Math.max(0, Math.min(1, (dist[x] + 3) / 26));
+      const t = Math.max(0, Math.min(1, (dist[x] + 3) / (bare ? 34 : 26)));
       const s = t * t * (3 - 2 * t);
       this.gy[x] = Math.round(seabed + (land - seabed) * s);
       if (g.mods.shards) for (const rx of [g.shardXs()[0] + 22, g.shardXs()[1] + 22]) {
@@ -558,12 +563,27 @@ export class Renderer {
       const wet = Math.max(0, Math.min(1, (gy - sea + 8) / 10));
       let top = lerp3(r.era < 3 || green < 0.05 ? dust : lerp3(dust, grass, green), sand, wet);
       if (glacier || winter) top = lerp3(top, [232, 238, 246], gy < sea ? 0.9 : 0.4);
-      for (let y = gy; y < bottom; y++) {
-        const k = (y - gy) / Math.max(1, bottom - gy);
-        const n = NOISE[((y * 7) & 255) * 256 + ((x * 5 + y * 3) & 255)];
-        const shade = (0.72 + 0.28 * k + (n - 0.5) * 0.22) * (y >= bottom - 2 ? 0.55 : 1);
+      const cut = bottom + this.section.topD[x];
+      const bare = green < 0.05 || glacier || winter;
+      for (let y = gy; y < cut; y++) {
+        const rel = y - gy;
         const under = y > sea ? 0.65 : 1;
-        c.fillStyle = rgb(top[0] * shade * nf(0.55) * under, top[1] * shade * nf(0.55) * (under + (1 - under) * 0.1), top[2] * shade * nf(0.5) * (under + (1 - under) * 0.3));
+        let col: number[];
+        if (bare) {
+          // calm dunes: a lit rim on top, then a smooth fall into darker ground; the grain stays quiet
+          const lit = rel < 1 ? 1.22 : rel < 2 ? 1.1 : 1;
+          const grad = 1 - 0.42 * Math.min(1, rel / 16);
+          const q = (GRAIN[((y & 255) << 8) | ((x * 3) & 255)] - 0.5) * 0.06;
+          const f = grad * lit + q;
+          col = [top[0] * f, top[1] * f, top[2] * f];
+        } else {
+          // soil profile: dark humus under the grass, lighter subsoil below; sand toward the water
+          const n = NOISE[((y * 7) & 255) * 256 + ((x * 5 + y * 3) & 255)];
+          const prof = lerp3([66, 48, 34], [158, 126, 90], Math.min(1, Math.max(0, rel - 2) / 20));
+          col = lerp3(prof, sand.map((v) => v * (0.8 + 0.2 * (1 - rel / 30))), wet).map((v) => v * (0.94 + (n - 0.5) * 0.12));
+        }
+        if (y >= cut - 1) col = col.map((v) => v * 0.6);
+        c.fillStyle = rgb(col[0] * nf(0.55) * under, col[1] * nf(0.55) * (under + (1 - under) * 0.1), col[2] * nf(0.5) * (under + (1 - under) * 0.3));
         c.fillRect(x, y, 1, 1);
       }
       if (gy > sea) {
@@ -648,7 +668,7 @@ export class Renderer {
       c.globalAlpha = Math.min(1, a);
       c.drawImage(img, x % img.width, 0, 1, h, x, y, 1, h);
     };
-    const floor = this.lay.sectionTop;
+    const floorAt = (x: number) => this.lay.sectionTop + this.section.topD[x];
     for (let x = 0; x < WW; x++) {
       const gy = this.gy[x];
       if (gy > sea + 1) {
@@ -657,9 +677,9 @@ export class Renderer {
         continue;
       }
       const lw = this.edgeW.land[x];
-      col(T.beach ?? T.barren, x, gy - LIFT, 1, floor);
-      col(T.barren ?? T.grass, x, gy - LIFT, lw, floor);
-      if (!snow) col(T.grass, x, gy - LIFT, lw * green, floor);
+      col(T.beach ?? T.barren, x, gy - LIFT, green < 0.05 ? 1 - lw * 0.85 : 1, floorAt(x));
+      col(T.barren ?? T.grass, x, gy - LIFT, lw * (green < 0.05 ? 0.22 : 1), floorAt(x));
+      if (!snow) col(T.grass, x, gy - LIFT, lw * green, floorAt(x));
     }
     c.globalAlpha = 1;
   }
@@ -822,11 +842,15 @@ export class Renderer {
     const sec = this.section;
     const hh = lay.sectionH;
     c.drawImage(sec.canvas, 0, 0, WW, hh, 0, top, WW, hh);
-    // era boundaries: faint golden lines where an era began
+    // era boundaries: faint golden curves along the layers where an era began
     for (let e = 1; e <= g.run.era; e++) {
-      const y = sec.yOfBirth(CFG.eras[e].start);
-      if (y <= 1 || y >= sec.strataH - 1) continue;
-      c.fillStyle = 'rgba(242,181,74,0.18)'; c.fillRect(0, Math.round(top + y), WW, 1);
+      const b = CFG.eras[e].start;
+      c.fillStyle = 'rgba(242,181,74,0.16)';
+      for (let x = 0; x < WW; x++) {
+        const y = sec.yAt(x, b);
+        if (y <= sec.topD[x] + 1 || y >= sec.strataH - 1) continue;
+        c.fillRect(x, Math.round(top + y), 1, 1);
+      }
     }
     let drawn = 0;
     for (const f of sec.fossils) {
@@ -842,15 +866,21 @@ export class Renderer {
       c.fillRect(z.pts[i], top + z.pts[i + 1], 1, 1);
     }
     for (const gl of g.glints) {
-      const y = top + (gl.birth !== undefined ? sec.yOfBirth(gl.birth) : Math.min(sec.strataH, gl.depth * 2));
       c.globalAlpha = Math.min(1, gl.t * 2);
       c.fillStyle = gl.color;
-      c.fillRect(0, Math.round(y), WW, 1);          // the whole row flashes briefly
-      c.fillRect(gl.x - 1, y - 1, 3, 3);
+      for (let x = 0; x < WW; x++) {
+        // the whole layer line flashes briefly, following its curve
+        const y = top + (gl.birth !== undefined ? sec.yAt(x, gl.birth) : Math.min(sec.strataH, gl.depth * 2));
+        c.fillRect(x, Math.round(y), 1, 1);
+      }
+      const gy = top + (gl.birth !== undefined ? sec.yAt(gl.x, gl.birth) : Math.min(sec.strataH, gl.depth * 2));
+      c.fillRect(gl.x - 1, gy - 1, 3, 3);
       c.globalAlpha = 1;
     }
     if (this.hover && !this.targeting) {
-      c.fillStyle = 'rgba(242,181,74,0.35)'; c.fillRect(0, top + this.hover.y, WW, 1);
+      const b = sec.bAt(this.hover.x, this.hover.y);
+      c.fillStyle = 'rgba(242,181,74,0.3)';
+      if (this.hover.y < sec.strataH) for (let x = 0; x < WW; x++) c.fillRect(x, Math.round(top + sec.yAt(x, b)), 1, 1);
       c.fillStyle = 'rgba(242,181,74,0.9)'; c.fillRect(this.hover.x, top + this.hover.y - 1, 1, 3);
     }
     if (this.targeting) {
@@ -904,13 +934,29 @@ export class Renderer {
     // the column of light above the thing
     const xs = g.mods.shards ? g.shardXs() : [WW / 2];
     const boost = Math.min(1, g.run.boost / 3);
+    // a narrow beam (≈12 px) with soft edges, bright at the thing and melting upward, added on top;
+    // the layers right beside it catch a little warm light
     c.globalCompositeOperation = 'lighter';
     for (const x of xs) {
       const ay = this.ayAt(x);
-      const grd = c.createLinearGradient(0, ay, 0, lay.sectionTop - 10);
-      grd.addColorStop(0, rgb(242, 181, 74, 0.22 + boost * 0.15));
-      grd.addColorStop(1, 'rgba(242,181,74,0)');
-      c.fillStyle = grd; c.fillRect(x - 2, lay.sectionTop - 10, 5, ay - lay.sectionTop + 10);
+      const y0 = lay.sectionTop - 14, len = ay - y0;
+      if (len <= 2) continue;
+      const pulse = 0.9 + 0.1 * Math.sin(this.t * 1.7);
+      const halo = c.createLinearGradient(0, ay, 0, y0);
+      halo.addColorStop(0, rgb(255, 170, 80, 0.16 + boost * 0.08)); halo.addColorStop(0.5, rgb(255, 150, 70, 0.05)); halo.addColorStop(1, 'rgba(255,150,70,0)');
+      c.fillStyle = halo;
+      for (let dx = -18; dx <= 18; dx++) {
+        c.globalAlpha = Math.exp(-((dx / 11) ** 2));
+        c.fillRect(Math.round(x) + dx, y0, 1, len);
+      }
+      const beam = c.createLinearGradient(0, ay, 0, y0);
+      beam.addColorStop(0, rgb(255, 226, 150, 0.55 + boost * 0.25)); beam.addColorStop(0.35, rgb(250, 190, 96, 0.22 + boost * 0.12)); beam.addColorStop(1, 'rgba(242,181,74,0)');
+      c.fillStyle = beam;
+      for (let dx = -6; dx <= 6; dx++) {
+        c.globalAlpha = Math.exp(-((dx / 3.3) ** 2)) * pulse;
+        c.fillRect(Math.round(x) + dx, y0, 1, len);
+      }
+      c.globalAlpha = 1;
     }
     c.globalCompositeOperation = 'source-over';
     const item = g.currentItem() ?? 'artifact_a';

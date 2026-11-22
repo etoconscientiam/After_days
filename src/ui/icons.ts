@@ -178,7 +178,7 @@ export function portrait(speciesId: string, size = 64, locked = false): HTMLElem
     const water = sp.zone === 'water';
     const g = x.createRadialGradient(size * 0.45, size * 0.38, 2, size / 2, size / 2, size * 0.62);
     if (locked) { g.addColorStop(0, '#4a423a'); g.addColorStop(1, '#141210'); }
-    else { g.addColorStop(0, water ? '#3e7c86' : '#6e8b4e'); g.addColorStop(1, water ? '#0e2228' : '#1e2414'); }
+    else { g.addColorStop(0, water ? '#6ab4be' : '#9cbc72'); g.addColorStop(0.6, water ? '#2e6670' : '#4e6a36'); g.addColorStop(1, water ? '#14303a' : '#243018'); }
     x.fillStyle = g;
     x.beginPath(); x.ellipse(size / 2, size / 2, size * 0.47, size * 0.47, 0, 0, 7); x.fill();
     let ic: HTMLCanvasElement = creatureIcon(sp.sprite, sp.tint, water);
@@ -216,5 +216,19 @@ export function exhibit(kind: 'fossil' | 'relic', id: string, rare = false, scal
   else drawRelic(x, id, 7, 6);
   c.style.width = 14 * scale + 'px'; c.style.height = 12 * scale + 'px';
   c.className = 'pixel';
+  return c;
+}
+
+/** Oxygen: two bubbles, cool and light. */
+export function oxygenIcon(size = 16): HTMLElement {
+  const [c, x] = canvas(size);
+  const s = size / 16;
+  x.scale(s, s);
+  for (const [cx, cy, r] of [[6, 9.5, 4.2], [11.5, 5, 2.6]] as const) {
+    const g = x.createRadialGradient(cx - r * 0.4, cy - r * 0.4, 0.5, cx, cy, r);
+    g.addColorStop(0, 'rgba(220,240,255,0.95)'); g.addColorStop(1, 'rgba(110,170,200,0.55)');
+    x.fillStyle = g; x.beginPath(); x.arc(cx, cy, r, 0, 7); x.fill();
+    x.strokeStyle = 'rgba(200,230,245,0.9)'; x.lineWidth = 0.9; x.stroke();
+  }
   return c;
 }

@@ -7,7 +7,7 @@ const L = CFG.B.layout;
 
 // ---------- noise ----------
 const N = 256;
-function makeValueNoise(seed: number, cell: number): Float32Array {
+export function makeValueNoise(seed: number, cell: number): Float32Array {
   const g = Math.ceil(N / cell);
   const grid = new Float32Array(g * g);
   let s = seed;

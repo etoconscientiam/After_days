@@ -72,7 +72,9 @@
     "needO2": "Needs oxygen {v}%",
     "after": "After {species} ×{n}",
     "qtyMax": "max",
-    "zones": "Water {w} · Shore {s} · Land {l}"
+    "zones": "Water {w} · Shore {s} · Land {l}",
+    "o2tip": "Oxygen {v}% of 21%",
+    "zoneTip": "{zone}: {u} of {c} taken"
   },
   "species": {
     "mats": {
@@ -469,7 +471,9 @@
     "gainBig": "Density +{v}",
     "foundationNote": "of the column will become foundation",
     "holdHint": "Hold to shift the epoch",
-    "notYet": "Not enough compacted rock yet"
+    "notYet": "Not enough compacted rock yet",
+    "foundationAdd": "The foundation grows by {v} m ({p}% of the column has turned to stone)",
+    "foundationNone": "The foundation will not grow: nothing has hardened yet (k < {k}). Density comes from the compacted mass itself."
   },
   "book": {
     "chronicle": "Chronicle",

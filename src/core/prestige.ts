@@ -25,23 +25,32 @@ export function startEraFor(g: Game): number {
   return Math.min(lvl + 1, g.meta.maxEra);
 }
 
-export function doPrestige(g: Game): void {
-  const s = g.state;
+/**
+ * What a shift would add to the foundation: strongly compacted rows (k >= threshold) survive as a thin dark band.
+ * share = their part of the column's visible thickness. Used by the shift itself and by the Epoch tab.
+ */
+export function foundationPreview(g: Game): { add: number; share: number } {
   const w = g.world;
-  const gain = prestigeGain(g);
-  // foundation: strongly compacted rows (k >= threshold) survive as a thin dark band
   const kf = CFG.B.physics.foundationK;
-  let vis = 0;
+  let hard = 0, all = 0;
   for (let x = 0; x < W; x++) {
     const base = x * CAP;
     for (let i = 0; i < w.len[x]; i++) {
       const k = w.k[base + i];
-      if (k >= kf) vis += 1 / k;
+      all += 1 / k;
+      if (k >= kf) hard += 1 / k;
     }
   }
-  vis /= W;
-  for (const pk of w.packs) if (pk.k >= kf) vis += pk.rows / pk.k;
-  s.meta.foundation += vis * CFG.B.physics.foundationCompress;
+  hard /= W; all /= W;
+  for (const pk of w.packs) { all += pk.rows / pk.k; if (pk.k >= kf) hard += pk.rows / pk.k; }
+  return { add: hard * CFG.B.physics.foundationCompress, share: all > 0 ? hard / all : 0 };
+}
+
+export function doPrestige(g: Game): void {
+  const s = g.state;
+  const w = g.world;
+  const gain = prestigeGain(g);
+  s.meta.foundation += foundationPreview(g).add;
   s.meta.foundationLines.push(s.meta.foundation);
 
   s.meta.density += gain;

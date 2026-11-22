@@ -165,7 +165,7 @@ function bind(g: Game): void {
     audio.fossil(false);
     const w = g.world;
     const i = Math.max(0, w.len[e.x] - 1 - e.depth);
-    const y = renderer.lay.sectionTop + renderer.section.yOfBirth(w.birth[e.x * CAP + i]);
+    const y = renderer.lay.sectionTop + renderer.section.yAt(e.x, w.birth[e.x * CAP + i]);
     renderer.burst(e.x, y, '#fff4c8', 10);
     const ex = exhibit('fossil', e.species, e.rare, 2);
     const tab = document.querySelectorAll('#tabbar .tab')[4];
@@ -266,6 +266,23 @@ window.addEventListener('keydown', (e) => {
   if (DEV && (e.key === '`' || e.key === '~' || e.key === 'ё')) dev.toggle();
 });
 window.addEventListener('pointerdown', () => audio.unlock(), { once: true });
+// touch has no hover: things with a tooltip explain themselves on tap
+{
+  const pop = $('#hint-pop');
+  pop.classList.add('label');
+  let popTimer = 0;
+  document.addEventListener('click', (e) => {
+    const el = (e.target as HTMLElement).closest('[data-tip]') as HTMLElement | null;
+    if (!el || !el.dataset.tip || !(TOUCH || e.detail === 0)) return;
+    const r = el.getBoundingClientRect(), u = ui.getBoundingClientRect();
+    pop.textContent = el.dataset.tip;
+    pop.hidden = false;
+    pop.style.left = Math.max(6, Math.min(360 - 216, (r.left - u.left) / uiScale - 40)) + 'px';
+    pop.style.top = ((r.bottom - u.top) / uiScale + 6) + 'px';
+    clearTimeout(popTimer);
+    popTimer = window.setTimeout(() => (pop.hidden = true), 3000);
+  });
+}
 
 bind(game);
 applySettings();

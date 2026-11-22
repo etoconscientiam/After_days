@@ -167,7 +167,7 @@ export class Input {
       const tg = this.ren.targeting;
       if (!tg) { if (m.y < this.ren.lay.sectionTop - 4) this.cancelTarget(); return; }
       const half = Math.max(2, tg.ry * 0.6);
-      const [b0, b1] = this.ren.section.birthRange(tg.y - half, tg.y + half);
+      const [b0, b1] = this.ren.section.birthRange(tg.y - half, tg.y + half, tg.x);
       const v = this.ren.section.vOfY(tg.y);
       if (g.cast(this.targeting.id, { x: tg.x, v, b0, b1 })) this.onCast(tg.x, this.ren.lay.sectionTop + tg.y);
       this.cancelTarget();
