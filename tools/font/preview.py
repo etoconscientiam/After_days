@@ -8,7 +8,9 @@ from pathlib import Path
 from PIL import Image
 
 HERE = Path(__file__).resolve().parent
-DATA = json.loads((HERE.parent.parent / "assets/fonts/strata-pixel/StrataPixel-Regular.json").read_text(encoding="utf-8"))
+import os
+_JSON = os.environ.get("FONT_JSON", "assets/fonts/strata-pixel/StrataPixel-Regular.json")
+DATA = json.loads((HERE.parent.parent / _JSON).read_text(encoding="utf-8"))
 G, K = DATA["glyphs"], DATA["kerning"]
 BG = (24, 21, 26)
 INK = (236, 226, 208)

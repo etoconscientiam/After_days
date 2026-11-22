@@ -17,3 +17,16 @@
 @font-face { font-family: 'Press Start 2P'; font-style: normal; font-weight: 400; font-display: swap; src: url('../../assets/fonts/press-start-2p-latin-400-normal.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
 /* Strata Pixel: our own pixel font (OFL-1.1), Latin + Cyrillic + Georgian. Crisp at 16/32/48/64 px. Source: tools/font. */
 @font-face { font-family: 'Strata Pixel'; font-style: normal; font-weight: 400; font-display: swap; src: url('../../assets/fonts/strata-pixel/StrataPixel-Regular.woff2') format('woff2'), url('../../assets/fonts/strata-pixel/StrataPixel-Regular.woff') format('woff'); }
+
+/* Strata Stone: the 32 px-grid family (OFL-1.1). 'Strata Stone' is clean, 'Strata Stone Worn 1..4' are weathered
+   (chips, bumps, fault shift; settings in tools/font/wear.json). Crisp at 32/64/96 px. Pick the level with data-wear. */
+@font-face { font-family: 'Strata Stone'; font-style: normal; font-weight: 400; font-display: swap; src: url('../../assets/fonts/strata-stone/StrataStone-Regular.woff2') format('woff2'), url('../../assets/fonts/strata-stone/StrataStone-Regular.woff') format('woff'); }
+@font-face { font-family: 'Strata Stone Worn 1'; font-style: normal; font-weight: 400; font-display: swap; src: url('../../assets/fonts/strata-stone/StrataStoneWorn1-Regular.woff2') format('woff2'), url('../../assets/fonts/strata-stone/StrataStoneWorn1-Regular.woff') format('woff'); }
+@font-face { font-family: 'Strata Stone Worn 2'; font-style: normal; font-weight: 400; font-display: swap; src: url('../../assets/fonts/strata-stone/StrataStoneWorn2-Regular.woff2') format('woff2'), url('../../assets/fonts/strata-stone/StrataStoneWorn2-Regular.woff') format('woff'); }
+@font-face { font-family: 'Strata Stone Worn 3'; font-style: normal; font-weight: 400; font-display: swap; src: url('../../assets/fonts/strata-stone/StrataStoneWorn3-Regular.woff2') format('woff2'), url('../../assets/fonts/strata-stone/StrataStoneWorn3-Regular.woff') format('woff'); }
+@font-face { font-family: 'Strata Stone Worn 4'; font-style: normal; font-weight: 400; font-display: swap; src: url('../../assets/fonts/strata-stone/StrataStoneWorn4-Regular.woff2') format('woff2'), url('../../assets/fonts/strata-stone/StrataStoneWorn4-Regular.woff') format('woff'); }
+.stone { font-family: var(--stone); font-kerning: normal; font-feature-settings: 'calt' 1; }
+.stone[data-wear="1"] { font-family: 'Strata Stone Worn 1', var(--stone); }
+.stone[data-wear="2"] { font-family: 'Strata Stone Worn 2', var(--stone); }
+.stone[data-wear="3"] { font-family: 'Strata Stone Worn 3', var(--stone); }
+.stone[data-wear="4"] { font-family: 'Strata Stone Worn 4', var(--stone); }

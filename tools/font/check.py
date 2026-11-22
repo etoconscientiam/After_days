@@ -1,21 +1,26 @@
 #!/usr/bin/env python3
-"""Checks for Strata Pixel.
+"""Checks for Strata Pixel (16 grid) and Strata Stone (32 grid, clean master; worn levels reuse its spacing
+and are built so that wear never crosses the clean glyph's side edges).
 1. The TTF rasterises to exactly the source bitmaps at 16 px (no stray or half-covered pixels).
 2. No kerned pair makes two glyphs touch (incl. diagonally).
 3. Every character the game's texts use is in the font.
-python3 tools/font/check.py"""
+python3 tools/font/check.py [--grid 32]"""
 import json, sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent.parent
-FONT = ROOT / "assets/fonts/strata-pixel"
-data = json.loads((FONT / "StrataPixel-Regular.json").read_text(encoding="utf-8"))
+if "--grid" in sys.argv and sys.argv[sys.argv.index("--grid") + 1] == "32":
+    FONT, NAME = ROOT / "assets/fonts/strata-stone", "StrataStone-Regular"
+else:
+    FONT, NAME = ROOT / "assets/fonts/strata-pixel", "StrataPixel-Regular"
+data = json.loads((FONT / f"{NAME}.json").read_text(encoding="utf-8"))
+EM = data["em"]
 asc = data["lineAscent"]
 bad = 0
 
 # 1. raster == bitmap (FreeType directly, at 16/32/48 px, in the hinting modes browsers use)
 import freetype  # pip install freetype-py
-face = freetype.Face(str(FONT / "StrataPixel-Regular.ttf"))
+face = freetype.Face(str(FONT / f"{NAME}.ttf"))
 MODES = {"default": freetype.FT_LOAD_DEFAULT, "light": freetype.FT_LOAD_TARGET_LIGHT,
          "unhinted": freetype.FT_LOAD_NO_HINTING}
 
@@ -23,7 +28,7 @@ MODES = {"default": freetype.FT_LOAD_DEFAULT, "light": freetype.FT_LOAD_TARGET_L
 def raster(ch, size, flags):
     face.set_pixel_sizes(0, size)
     face.load_char(ch, flags | freetype.FT_LOAD_RENDER)
-    b, s = face.glyph.bitmap, size // 16
+    b, s = face.glyph.bitmap, size // EM
     out, grey = set(), 0
     for r in range(b.rows):
         for c in range(b.width):
@@ -40,7 +45,7 @@ for ch, g in data["glyphs"].items():
         continue
     want = {(g["x"] + x, g["top"] - r) for r, line in enumerate(g["rows"]) for x, c in enumerate(line) if c == "#"}
     got, grey = want, 0
-    for size in (16, 32, 48):
+    for size in (EM, 2 * EM, 3 * EM):
         for mode, fl in MODES.items():
             got, grey = raster(ch, size, fl)
             if got != want or grey:
@@ -52,6 +57,7 @@ for ch, g in data["glyphs"].items():
         print(f"raster mismatch U+{ord(ch):04X} {ch}: missing {len(want - got)}, extra {len(got - want)}, grey {len(grey)}")
 
 # 2. kerned pairs keep at least one empty pixel between glyphs (8-neighbourhood)
+import itertools
 def ink(ch, dx):
     g = data["glyphs"][ch]
     return {(dx + g["x"] + x, g["top"] - r) for r, line in enumerate(g["rows"]) for x, c in enumerate(line) if c == "#"}

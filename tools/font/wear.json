@@ -1,0 +1,10 @@
+{
+  "_comment": "Strata Stone weathering. Level 0 is the clean font; levels 1..N are built as 'Strata Stone Worn N'. chips: share of edge pixels knocked out; bumps: share of outward bumps; fault: sideways shift (px) of the upper part along a fault line, 0 = off. Damage is progressive: everything at level N is also at level N+1. alternates: variants per glyph, cycled by the calt feature.",
+  "alternates": 3,
+  "levels": [
+    {"chips": 0.04, "bumps": 0.015, "fault": 0},
+    {"chips": 0.07, "bumps": 0.03, "fault": 0},
+    {"chips": 0.10, "bumps": 0.045, "fault": 1},
+    {"chips": 0.14, "bumps": 0.06, "fault": 1}
+  ]
+}
