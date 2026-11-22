@@ -1578,11 +1578,12 @@ export class Renderer {
     const count = this.particles.filter((p) => p.kind === 'mote' || p.kind === 'firefly').length;
     if (count > 40) return;
     if (era === 0 && Math.random() < dt * 10) this.particles.push({ x: -2, y: lay.surfaceTop - 30 + Math.random() * 70, vx: 8 + Math.random() * 10, vy: (Math.random() - 0.5) * 2, life: 0, max: 20, color: 'rgba(220,200,170,0.6)', size: 1, kind: 'mote' });
-    if (era === 3 && sky.light > 0.6 && Math.random() < dt * 6) this.particles.push({ x: Math.random() * WW, y: lay.groundBase + Math.random() * 20, vx: (Math.random() - 0.5) * 4, vy: -1 - Math.random() * 2, life: 0, max: 6, color: 'rgba(255,236,140,0.8)', size: 1, kind: 'mote' });
+    if (era === 3 && sky.light > 0.6 && Math.random() < dt * 6) { const mx = Math.random() * WW; this.particles.push({ x: mx, y: this.gy[Math.floor(mx)] - 2 - Math.random() * 16, vx: (Math.random() - 0.5) * 4, vy: -1 - Math.random() * 2, life: 0, max: 6, color: 'rgba(255,236,140,0.8)', size: 1, kind: 'mote' }); }
     if (era >= 3 && sky.light < 0.45 && Math.random() < dt * 5) {
       const x = g.zoneMap.findIndex((z) => z === 2);
       const x0 = x >= 0 ? x : 0;
-      this.particles.push({ x: x0 + Math.random() * (WW - x0), y: lay.groundBase + Math.random() * 24, vx: (Math.random() - 0.5) * 3, vy: (Math.random() - 0.5) * 2, life: 0, max: 4 + Math.random() * 3, color: '#d8ff70', size: 1, kind: 'firefly' });
+      const fx = x0 + Math.random() * (WW - x0);
+      this.particles.push({ x: fx, y: this.gy[Math.min(WW - 1, Math.floor(fx))] - 3 - Math.random() * 20, vx: (Math.random() - 0.5) * 3, vy: (Math.random() - 0.5) * 2, life: 0, max: 4 + Math.random() * 3, color: '#d8ff70', size: 1, kind: 'firefly' });
     }
   }
 
@@ -1617,12 +1618,25 @@ export class Renderer {
     c.globalCompositeOperation = 'multiply';
     const nc = lerp3([255, 255, 255], [90, 100, 150], night * 0.85);
     c.fillStyle = rgb(nc[0], nc[1], nc[2]);
-    c.fillRect(0, lay.surfaceTop - 60, WW, lay.sectionTop - lay.surfaceTop + 60);
+    const fade0 = lay.sectionTop - 10, fade1 = lay.sectionTop + 24;
+    c.fillRect(0, lay.surfaceTop - 60, WW, fade0 - lay.surfaceTop + 60);
+    // a pile that rises above that band gets the same night (column by column, from its real top)
+    this.fillAboveBand(lay.surfaceTop - 60);
+    // the strata below are lit by the thing: the night fades out with depth, no hard edge
+    const fade = c.createLinearGradient(0, fade0, 0, fade1);
+    fade.addColorStop(0, rgb(nc[0], nc[1], nc[2]));
+    fade.addColorStop(1, 'rgb(255,255,255)');
+    c.fillStyle = fade;
+    c.fillRect(0, fade0, WW, fade1 - fade0);
     c.globalCompositeOperation = 'soft-light';
     const golden = Math.max(0, 1 - Math.abs(alt - 0.08) / 0.25);
     if (golden > 0) { c.fillStyle = rgb(255, 140, 60, 0.45 * golden); c.fillRect(0, 0, WW, lay.sectionTop); }
     c.globalCompositeOperation = 'lighter';
-    if (night > 0.5) { c.fillStyle = rgb(60, 70, 110, 0.12 * night); c.fillRect(0, lay.waterLevel - 20, WW, lay.sectionTop - lay.waterLevel + 20); }
+    if (night > 0.5) {
+      c.fillStyle = rgb(60, 70, 110, 0.12 * night);
+      c.fillRect(0, lay.waterLevel - 20, WW, lay.sectionTop - lay.waterLevel + 20);
+      this.fillAboveBand(lay.waterLevel - 20);
+    }
     // the section: lit by the thing, the far layers in shadow
     const xs = g.mods.shards ? g.shardXs() : [WW / 2];
     c.globalCompositeOperation = 'multiply';
@@ -1662,6 +1676,15 @@ export class Renderer {
     });
     if (this.flash > 0) { c.fillStyle = rgb(255, 230, 170, this.flash * 0.08); c.fillRect(0, 0, WW, WH); }
     c.globalCompositeOperation = 'source-over';
+  }
+
+  /** Fill (with the current style and blend) the particles of every column that stand above the row `band`. */
+  private fillAboveBand(band: number): void {
+    const c = this.ctx;
+    for (let x = 0; x < WW; x++) {
+      const top = this.section.topD[x] + this.lay.sectionTop;
+      if (top < band) c.fillRect(x, top, 1, band - top);
+    }
   }
 
   private rayCanvas = document.createElement('canvas');
