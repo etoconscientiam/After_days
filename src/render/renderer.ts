@@ -486,7 +486,7 @@ export class Renderer {
         const iw = img.naturalWidth, ih = img.naturalHeight;
         // before land life the green hills are bare: multiplied toward ochre-brown, greening with mosses and trees
         const bare = l === 0 ? 0 : 1 - green;
-        const base = lerp3([255, 255, 255], [205, 150, 120], bare * 0.85);
+        const base = lerp3([255, 255, 255], [214, 186, 150], bare * 0.8);
         const tint = lerp3(base, sky.hor, [0.5, 0.24, 0.08][l]).map((v) => v * (1 - night * 0.55));
         const t = tintedCanvas(img, iw, ih, tint, l === 0 ? 0.12 : 0);
         // far: sits on the horizon; mid and near: their crest only a little above the land, the rest behind it
@@ -571,7 +571,7 @@ export class Renderer {
         let col: number[];
         if (bare) {
           // calm dunes: a lit rim on top, then a smooth fall into darker ground; the grain stays quiet
-          const lit = rel < 1 ? 1.22 : rel < 2 ? 1.1 : 1;
+          const lit = rel < 1 ? 1.1 : 1;
           const grad = 1 - 0.42 * Math.min(1, rel / 16);
           const q = (GRAIN[((y & 255) << 8) | ((x * 3) & 255)] - 0.5) * 0.06;
           const f = grad * lit + q;
@@ -1034,37 +1034,9 @@ export class Renderer {
     if (golden > 0) { c.fillStyle = rgb(255, 140, 60, 0.45 * golden); c.fillRect(0, 0, WW, lay.sectionTop); }
     c.globalCompositeOperation = 'lighter';
     if (night > 0.5) { c.fillStyle = rgb(60, 70, 110, 0.12 * night); c.fillRect(0, lay.waterLevel - 20, WW, lay.sectionTop - lay.waterLevel + 20); }
-    // sun rays: a soft fan from the sun's disc toward the land — warm, fading with length, no hard edges
-    if (this.sunPos && this.sunPos.up && alt > 0.12 && this.quality === 'high') {
-      const sx = this.sunPos.x, sy = this.sunPos.y;
-      const strength = Math.min(1, (alt - 0.12) / 0.25) * (1 - this.skyDim) * (1 - 0.6 * this.sunPos.low);
-      const tx = WW / 2 + (sx - WW / 2) * 0.35, ty = lay.groundBase + 6;
-      const base = Math.atan2(ty - sy, tx - sx);
-      const L = Math.hypot(tx - sx, ty - sy) * 1.15;
-      const warm = lerp3([255, 222, 160], [255, 170, 100], this.sunPos.low);
-      for (let k = 0; k < 7; k++) {
-        const ang = base + (k - 3) * 0.17 + Math.sin(this.t * 0.11 + k * 2.3) * 0.03;
-        const breathe = 0.6 + 0.4 * Math.sin(this.t * 0.37 + k * 1.9);
-        const half = (0.035 + 0.025 * hash2(k, 71)) * (1 + 0.15 * Math.sin(this.t * 0.23 + k));
-        const r0 = 7;   // start just outside the disc
-        const ex = Math.cos(ang), ey = Math.sin(ang);
-        const grd = c.createLinearGradient(sx + ex * r0, sy + ey * r0, sx + ex * L, sy + ey * L);
-        grd.addColorStop(0, rgb(warm[0], warm[1], warm[2], 0.05 * strength * breathe));
-        grd.addColorStop(0.55, rgb(warm[0], warm[1], warm[2], 0.025 * strength * breathe));
-        grd.addColorStop(1, rgb(warm[0], warm[1], warm[2], 0));
-        c.fillStyle = grd;
-        // nested wedges, each narrower: their sum is a soft profile, brightest along the ray's axis
-        for (const w of [1, 0.66, 0.4, 0.2]) {
-          const h = half * w;
-          c.beginPath();
-          c.moveTo(sx + Math.cos(ang - h) * r0, sy + Math.sin(ang - h) * r0);
-          c.lineTo(sx + Math.cos(ang - h) * L, sy + Math.sin(ang - h) * L);
-          c.lineTo(sx + Math.cos(ang + h) * L, sy + Math.sin(ang + h) * L);
-          c.lineTo(sx + Math.cos(ang + h) * r0, sy + Math.sin(ang + h) * r0);
-          c.fill();
-        }
-      }
-    }
+    // sun rays: volumetric light, not geometry. A quarter-resolution field around the sun: soft angular noise makes
+    // broad shafts and gaps of uneven width, fading with distance; smoothed up to the world, so no edge anywhere.
+    if (this.sunPos && this.sunPos.up && alt > 0.1 && this.quality === 'high') this.drawRays(lay, alt);
     // the section: lit by the thing, the far layers in shadow
     const xs = g.mods.shards ? g.shardXs() : [WW / 2];
     c.globalCompositeOperation = 'multiply';
@@ -1103,6 +1075,50 @@ export class Renderer {
     });
     if (this.flash > 0) { c.fillStyle = rgb(255, 230, 170, this.flash * 0.08); c.fillRect(0, 0, WW, WH); }
     c.globalCompositeOperation = 'source-over';
+  }
+
+  private rayCanvas = document.createElement('canvas');
+  private rayImg: ImageData | null = null;
+  private drawRays(lay: Layout, alt: number): void {
+    const sp = this.sunPos!;
+    const Q = 4;
+    const w = Math.ceil(WW / Q), h = Math.ceil((lay.groundBase + 10) / Q);
+    const rc = this.rayCanvas;
+    if (rc.width !== w || rc.height !== h) { rc.width = w; rc.height = h; this.rayImg = null; }
+    const rx = rc.getContext('2d')!;
+    if (!this.rayImg) this.rayImg = rx.createImageData(w, h);
+    const d = this.rayImg.data;
+    const strength = Math.min(1, (alt - 0.1) / 0.3) * (1 - this.skyDim) * (1 - 0.5 * sp.low);
+    const warm = lerp3([255, 232, 184], [255, 184, 120], sp.low);
+    const t = this.t;
+    // angular noise: 28 lattice points round the circle, smoothly interpolated, two octaves, slow drift
+    const ang = (u: number, oct: number, drift: number) => {
+      const n = 28 * oct, f = ((u / (Math.PI * 2)) * n + drift) % n, i = Math.floor(f), fr = f - i, s2 = fr * fr * (3 - 2 * fr);
+      return hash2((i + n) % n, 900 + oct) * (1 - s2) + hash2((i + 1) % n, 900 + oct) * s2;
+    };
+    for (let py = 0; py < h; py++) for (let px = 0; px < w; px++) {
+      const x = px * Q + Q / 2, y = py * Q + Q / 2;
+      const dx = x - sp.x, dy = y - sp.y;
+      const dist = Math.hypot(dx, dy);
+      const a = Math.atan2(dy, dx) + Math.PI;
+      const shaft = ang(a, 1, t * 0.05) * 0.7 + ang(a, 2, -t * 0.03) * 0.3;
+      const beam = Math.max(0, (shaft - 0.42) / 0.58);                                  // gaps between the shafts
+      const near = Math.min(1, Math.max(0, (dist - 8) / 14));                           // the disc has its own glow
+      const fall = Math.exp(-dist / 70);
+      const down = dy > 0 ? 1 : 0.45;                                                   // brighter toward the land
+      const v = beam * beam * near * fall * down * strength;
+      const o = (py * w + px) * 4;
+      d[o] = warm[0]; d[o + 1] = warm[1]; d[o + 2] = warm[2]; d[o + 3] = Math.min(255, v * 120);
+    }
+    rx.putImageData(this.rayImg, 0, 0);
+    const c = this.ctx;
+    c.save();
+    c.imageSmoothingEnabled = true;
+    c.imageSmoothingQuality = 'high';
+    c.globalCompositeOperation = 'screen';
+    c.drawImage(rc, 0, 0, w, h, 0, 0, w * Q, h * Q);
+    c.restore();
+    c.imageSmoothingEnabled = false;
   }
 
   /** The era tone, multiplied over the world; drifts to the new era over ~3 s. */

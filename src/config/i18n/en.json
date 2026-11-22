@@ -61,7 +61,7 @@
     "lifespan": "lives ~{v} yrs",
     "zone": "{zone}",
     "full": "No room in {zone}",
-    "release": "Release one (it dies and is buried)",
+    "release": "Let one go: frees room in its zone (it dies and is laid into the layer)",
     "lockedEra": "Appears in era: {era}",
     "lockedOxygen": "Needs oxygen ≥ {v}%",
     "lockedAfter": "Appears after {species} ×{n}",

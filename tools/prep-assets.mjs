@@ -118,6 +118,92 @@ async function processOne(buf, t, outName, size = t.size) {
         if (edge) data[i + 3] = 0;
       }
     }
+    // defringe: pixels on the edge that drifted toward the magenta backdrop (JPEG blends the art into it) take the
+    // colour of their inner neighbours; 'all' repaints the whole outer ring from inside (no dark rim against a glow)
+    if (t.defringe !== false) {
+      const W = info.width, Hh = info.height;
+      const op = (x, y) => x >= 0 && y >= 0 && x < W && y < Hh && data[(y * W + x) * 4 + 3] >= 128;
+      for (let pass = 0; pass < (t.defringe === 'all' ? 1 : 3); pass++) {
+        const src = Buffer.from(data);
+        const opS = (x, y) => x >= 0 && y >= 0 && x < W && y < Hh && src[(y * W + x) * 4 + 3] >= 128;
+        for (let y = 0; y < Hh; y++) for (let x = 0; x < W; x++) {
+          if (!opS(x, y)) continue;
+          const edge = !opS(x + 1, y) || !opS(x - 1, y) || !opS(x, y + 1) || !opS(x, y - 1);
+          if (!edge) continue;
+          // inner neighbours: opaque and themselves not on the edge
+          let r = 0, g = 0, b = 0, n = 0;
+          for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+            const xx = x + dx, yy = y + dy;
+            if ((dx || dy) && opS(xx, yy) && opS(xx + 1, yy) && opS(xx - 1, yy) && opS(xx, yy + 1) && opS(xx, yy - 1)) {
+              const j = (yy * W + xx) * 4; r += src[j]; g += src[j + 1]; b += src[j + 2]; n++;
+            }
+          }
+          if (!n) continue;
+          r /= n; g /= n; b /= n;
+          const i = (y * W + x) * 4;
+          const pink = (src[i] + src[i + 2]) / 2 - src[i + 1], pinkIn = (r + b) / 2 - g;
+          if (t.defringe === 'all' || pink - pinkIn > 14) { data[i] = r; data[i + 1] = g; data[i + 2] = b; }
+        }
+        void op;
+      }
+    }
+    // despeck: lone pixels much darker than their neighbours (leftovers of an outline) take the neighbours' colour
+    if (t.despeck) {
+      const W = info.width, Hh = info.height;
+      const L = (j) => data[j] * 0.3 + data[j + 1] * 0.59 + data[j + 2] * 0.11;
+      const src = Buffer.from(data);
+      for (let y = 0; y < Hh; y++) for (let x = 0; x < W; x++) {
+        const i = (y * W + x) * 4;
+        if (src[i + 3] < 128) continue;
+        let r = 0, g = 0, b = 0, n = 0, l = 0;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          const xx = x + dx, yy = y + dy;
+          if ((!dx && !dy) || xx < 0 || yy < 0 || xx >= W || yy >= Hh) continue;
+          const j = (yy * W + xx) * 4;
+          if (src[j + 3] < 128) continue;
+          r += src[j]; g += src[j + 1]; b += src[j + 2]; l += src[j] * 0.3 + src[j + 1] * 0.59 + src[j + 2] * 0.11; n++;
+        }
+        if (n >= 3 && L(i) < (l / n) * t.despeck) { data[i] = r / n; data[i + 1] = g / n; data[i + 2] = b / n; }
+      }
+    }
+    // softTop: the top few pixels of every column blend toward the colour just below (no bright rim line on a crest)
+    if (t.softTop) {
+      const W = info.width, Hh = info.height;
+      for (let x = 0; x < W; x++) {
+        let top = 0;
+        while (top < Hh && data[(top * W + x) * 4 + 3] < 128) top++;
+        const ref = Math.min(Hh - 1, top + t.softTop + 1);
+        const j = (ref * W + x) * 4;
+        if (data[j + 3] < 128) continue;
+        for (let d = 0; d < t.softTop; d++) {
+          const i = ((top + d) * W + x) * 4;
+          if (data[i + 3] < 128) continue;
+          const k = 0.75 * (1 - d / (t.softTop + 1));
+          for (let c = 0; c < 3; c++) data[i + c] = data[i + c] * (1 - k) + data[j + c] * k;
+        }
+      }
+    }
+    // depink: anywhere in the picture, pixels pulled toward magenta take the colour of their non-pink neighbours
+    if (t.depink) {
+      const W = info.width, Hh = info.height;
+      const pk = (j) => (data[j] + data[j + 2]) / 2 - data[j + 1];
+      for (let pass = 0; pass < 3; pass++) {
+        const src = Buffer.from(data);
+        for (let y = 0; y < Hh; y++) for (let x = 0; x < W; x++) {
+          const i = (y * W + x) * 4;
+          if (src[i + 3] < 128 || pk(i) < t.depink) continue;
+          let r = 0, g = 0, b = 0, n = 0;
+          for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) {
+            const xx = x + dx, yy = y + dy;
+            if (xx < 0 || yy < 0 || xx >= W || yy >= Hh) continue;
+            const j = (yy * W + xx) * 4;
+            if (src[j + 3] < 128 || (src[j] + src[j + 2]) / 2 - src[j + 1] >= t.depink) continue;
+            r += src[j]; g += src[j + 1]; b += src[j + 2]; n++;
+          }
+          if (n) { data[i] = r / n; data[i + 1] = g / n; data[i + 2] = b / n; }
+        }
+      }
+    }
     for (let i = 0; i < data.length; i += 4) {
       if (data[i + 3] < 128) { data[i] = data[i + 1] = data[i + 2] = data[i + 3] = 0; continue; }
       if (t.palette !== false) { const [r, g, b] = nearest(data[i], data[i + 1], data[i + 2]); data[i] = r; data[i + 1] = g; data[i + 2] = b; }

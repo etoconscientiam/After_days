@@ -1,5 +1,5 @@
 {
- "_comment": "Asset targets for npm run prep-assets: raw/<name>.png -> <dest>. type world = nearest-neighbour + world palette + binary alpha; ui = Lanczos to size x2, soft edges. grid: [cols, rows] splits a sheet into names in reading order ({n} in dest = 1..). fit: contain (default) | fill (stretch, for tiles) | width (scale to the width, keep aspect). trim: false keeps the frame (tiles). palette: false keeps the source colours (textures are tinted by depth in code). variants: extra sizes of the same picture. Any raw tex_<id>.png without an entry goes to world/tex/<id>.png (64x64 tile). crop: [x0,y0,x1,y1] fractions cut before trimming. straighten: shift each column up so the top edge is flat. tile: flatten the painted lighting and make the tile seamless (64x64: the painted textures carry ~68 big pixels across, 32 would alias them into noise). erode: n peels n outer pixel rings (halo left by the backdrop).",
+ "_comment": "Asset targets for npm run prep-assets: raw/<name>.png -> <dest>. type world = nearest-neighbour + world palette + binary alpha; ui = Lanczos to size x2, soft edges. grid: [cols, rows] splits a sheet into names in reading order ({n} in dest = 1..). fit: contain (default) | fill (stretch, for tiles) | width (scale to the width, keep aspect). trim: false keeps the frame (tiles). palette: false keeps the source colours (textures are tinted by depth in code). variants: extra sizes of the same picture. Any raw tex_<id>.png without an entry goes to world/tex/<id>.png (64x64 tile). crop: [x0,y0,x1,y1] fractions cut before trimming. straighten: shift each column up so the top edge is flat. tile: flatten the painted lighting and make the tile seamless (64x64: the painted textures carry ~68 big pixels across, 32 would alias them into noise). erode: n peels n outer pixel rings (halo left by the backdrop). defringe (on by default for world sprites): edge pixels tinted by the backdrop take their inner neighbours' colour; 'all' repaints the outer ring. depink: n repaints any pixel whose magenta lean ((r+b)/2-g) is at least n from its neighbours. softTop: n top pixels of each column blend toward the colour below. despeck: f repaints pixels darker than f x their neighbours' mean.",
  "assets": {
   "panel_stone": {
    "dest": "ui/panel_stone.png",
@@ -636,7 +636,9 @@
    ],
    "type": "world",
    "palette": false,
-   "erode": 1
+   "erode": 1,
+   "defringe": "all",
+   "despeck": 0.75
   },
   "sky_moon": {
    "dest": "world/sky/moon.png",
@@ -658,7 +660,8 @@
     2,
     2
    ],
-   "palette": false
+   "palette": false,
+   "depink": 32
   },
   "hills_far": {
    "dest": "world/hills/far.png",
@@ -668,7 +671,9 @@
    ],
    "type": "world",
    "fit": "width",
-   "palette": false
+   "palette": false,
+   "depink": 32,
+   "softTop": 3
   },
   "hills_mid": {
    "dest": "world/hills/mid.png",
@@ -678,7 +683,9 @@
    ],
    "type": "world",
    "fit": "width",
-   "palette": false
+   "palette": false,
+   "depink": 32,
+   "softTop": 3
   },
   "hills_near": {
    "dest": "world/hills/near.png",
@@ -688,7 +695,9 @@
    ],
    "type": "world",
    "fit": "width",
-   "palette": false
+   "palette": false,
+   "depink": 32,
+   "softTop": 3
   },
   "surface_grass": {
    "dest": "world/surface/grass.png",
@@ -699,7 +708,8 @@
    "type": "world",
    "fit": "width",
    "palette": false,
-   "straighten": true
+   "straighten": true,
+   "depink": 32
   },
   "surface_beach": {
    "dest": "world/surface/beach.png",
@@ -716,7 +726,8 @@
     0,
     1,
     0.5
-   ]
+   ],
+   "depink": 32
   },
   "surface_water": {
    "dest": "world/surface/water.png",
@@ -733,7 +744,8 @@
     0,
     1,
     0.5
-   ]
+   ],
+   "depink": 32
   },
   "surface_barren": {
    "dest": "world/surface/barren.png",
@@ -744,7 +756,8 @@
    "type": "world",
    "fit": "width",
    "palette": false,
-   "straighten": true
+   "straighten": true,
+   "depink": 32
   },
   "tex_bedrock": {
    "dest": "world/tex/bedrock.png",

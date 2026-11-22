@@ -9,7 +9,8 @@ import { foundationPreview } from '../core/prestige';
 import { $, h, setText, toggle } from './dom';
 import { t, fmt, setLang, Lang } from './i18n';
 import { chronicleCard } from './chronicle';
-import { energyIcon, rockIcon, tabIcon, elementIcon, habitatIcon, oxygenIcon, portrait, exhibit } from './icons';
+import { energyIcon, rockIcon, tabIcon, elementIcon, oxygenIcon, portrait, exhibit } from './icons';
+import { habitatPixel, releasePixel } from './pixelIcons';
 import { WW } from '../render/common';
 import { assetUrl } from '../render/assets';
 
@@ -161,7 +162,7 @@ export class Drawer {
     const chips: HTMLElement[] = [];
     for (let zi = 0; zi < 3; zi++) {
       const fill = h('b', {});
-      const chip = h('span', { class: 'zone-chip', 'data-tip': '' }, habitatIcon(ZN[zi], 16), h('i', { class: 'zbar' }, fill));
+      const chip = h('span', { class: 'zone-chip', 'data-tip': '' }, habitatPixel(ZN[zi], 20), h('i', { class: 'zbar' }, fill));
       fills.push(fill); chips.push(chip); zoneRow.append(chip);
     }
     const o2fill = h('b', {});
@@ -227,9 +228,9 @@ export class Drawer {
     const lives = h('span', {});
     const price = h('span', {});
     const btn = h('button', { class: 'buy' }, h('span', { class: 'e' }, energyIcon(14)), price) as HTMLButtonElement;
-    const minus = h('button', { class: 'minus', title: t('life.release'), 'aria-label': t('life.release'), onclick: () => g.releaseSpecies(sp.id) }, '−') as HTMLButtonElement;
+    const minus = h('button', { class: 'minus', title: t('life.release'), 'aria-label': t('life.release'), 'data-tip': t('life.release'), onclick: () => g.releaseSpecies(sp.id) }, releasePixel(24)) as HTMLButtonElement;
     const card = h('div', { class: 'card' }, minus, h('div', { class: 'pic' }, portrait(sp.id, 96), count), name,
-      h('div', { class: 'facts' }, eps, h('span', { class: 'icon-inline', title: t('zones.' + sp.zone) }, habitatIcon(sp.zone))),
+      h('div', { class: 'facts' }, eps, h('span', { class: 'icon-inline habitat', title: t('zones.' + sp.zone), 'data-tip': t('zones.' + sp.zone) }, habitatPixel(sp.zone, 22))),
       h('div', { class: 'facts' }, lives), btn);
     const buyOnce = () => {
       const { n } = this.qtyFor(g, sp);
