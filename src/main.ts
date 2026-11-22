@@ -213,6 +213,7 @@ function bind(g: Game): void {
     renderer.showEcho(def.picture, e.alpha);
     audio.echo(def.sound, e.alpha);
   });
+  bus.on('displaced', (e) => hud.notify('displaced:' + e.id + ':' + e.of, t('toast.displaced', { a: t('species.' + e.id + '.name'), b: t('species.' + e.of + '.name') }), '#9cc8d8'));
   bus.on('relicFound', () => { hud.notify('relic', '⟡', '#F2B54A'); audio.fossil(false); });
   bus.on('itemChosen', () => { audio.whoosh(); });
   bus.on('element', (e) => {

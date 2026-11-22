@@ -97,12 +97,13 @@ export type Loc = { kind: 'cell'; i: number; depth: number } | { kind: 'pack'; p
 /** One epoch's span on screen (middle column), for the era ruler. */
 export interface EraSpan { era: number; y0: number; y1: number }
 
-const NB = 240;          // time bins between now and the oldest deposit
-const BIN_POW = 2;       // bin spacing: finer near the present
+const BPE = 48;          // time bins per era, on a fixed calendar grid: a boundary, once laid, keeps its year
+const NBMAX = 8 * BPE + 4;
+const BED_EVERY = 8;     // bed partings may only fall on every 8th grid line (also fixed years)
 const XS = 2;            // column step for the time–depth table (interpolated between)
 const TOPMAX = 6;        // how far the cut's top edge follows the surface relief
 const MIN_PX = 6;        // no layer is thinner on screen: thinner runs merge (into a belt of their epoch)
-const BED_PX = 40;       // thicker layers are split into beds
+const BED_PX = 26;       // thicker layers part into beds (on fixed calendar lines)
 /** soft large-scale noise (cells of 64 and 48 world px): brightness and hue drift that hides the tile grid */
 const LOW_A = makeValueNoise(91, 64), LOW_B = makeValueNoise(97, 48);
 const low = (n: Float32Array, x: number, y: number) => n[((y & 255) << 8) | (x & 255)];
@@ -201,7 +202,7 @@ const SPRITES: Record<Exclude<InclKind, 'root'>, Spr> = {
     pal: { a: [204, 112, 30], A: [255, 204, 96] },
   },
 };
-type Incl = { kind: InclKind; x: number; f: number; w: number; ax: number; ay: number };
+type Incl = { kind: InclKind; x: number; b: number; w: number; ax: number; ay: number };
 
 const INCL_BY_FAM = (fam: Fam, era: number): InclKind[] => {
   switch (fam) {
@@ -268,9 +269,13 @@ export class SectionRenderer {
   focusEra = -1;
   focusT = 0;
   private strataBot = new Int16Array(WW);
-  private bG = new Float64Array(NB + 1);
-  private VS = new Float32Array((NB + 1) * WW);   // smoothed visual depth per bin per column
-  private YG = new Float32Array((NB + 1) * WW);   // its screen row
+  /** bin boundaries (years, youngest first): now, the calendar grid lines below it, the oldest deposit */
+  private bG = new Float64Array(NBMAX + 1);
+  /** the grid index of each boundary (-1 for now and for the oldest deposit) */
+  private gid = new Int32Array(NBMAX + 1);
+  private nb = 1;
+  private VS = new Float32Array((NBMAX + 1) * WW);   // smoothed visual depth per bin per column
+  private YG = new Float32Array((NBMAX + 1) * WW);   // its screen row
   private Dt = 0;
   private Hs = 0;
   private sH = 1;
@@ -321,12 +326,13 @@ export class SectionRenderer {
   /** Screen row (from the section top) of birth year b in column x. */
   yAt(x: number, b: number): number {
     const xi = Math.max(0, Math.min(WW - 1, Math.round(x)));
-    const bG = this.bG;
+    const bG = this.bG, NB = this.nb;
     if (!(bG[0] > bG[NB])) return this.topD[xi];
     if (b >= bG[0]) return this.YG[xi];
     if (b <= bG[NB]) return this.YG[NB * WW + xi];
-    const u = Math.pow((bG[0] - b) / (bG[0] - bG[NB]), 1 / BIN_POW) * NB;
-    const k = Math.min(NB - 1, Math.floor(u));
+    let lo = 0, hi = NB;           // bG[lo] >= b > bG[hi]
+    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (bG[m] >= b) lo = m; else hi = m; }
+    const k = lo;
     const t = (bG[k] - b) / Math.max(1e-9, bG[k] - bG[k + 1]);
     return this.YG[k * WW + xi] + (this.YG[Math.min(NB, k + 1) * WW + xi] - this.YG[k * WW + xi]) * t;
   }
@@ -334,7 +340,7 @@ export class SectionRenderer {
   /** Birth year shown at (x, y) inside the strata (inverse of yAt). */
   bAt(x: number, y: number): number {
     const xi = Math.max(0, Math.min(WW - 1, Math.round(x)));
-    const YG = this.YG, bG = this.bG;
+    const YG = this.YG, bG = this.bG, NB = this.nb;
     let lo = 0, hi = NB;
     if (y <= YG[xi]) return bG[0];
     if (y >= YG[NB * WW + xi]) return bG[NB];
@@ -392,11 +398,20 @@ export class SectionRenderer {
     let bMin = now;
     for (let x = 0; x < WW; x += XS) if (w.len[x]) bMin = Math.min(bMin, w.birth[x * CAP]);
     for (const pk of w.packs) bMin = Math.min(bMin, pk.ageMin);
-    const bG = this.bG;
-    // bins get finer toward the present (the top of the cut is drawn large), so young layers can split into beds
-    for (let k = 0; k <= NB; k++) bG[k] = now - (now - bMin) * Math.pow(k / NB, BIN_POW);
-    const span = Math.max(1e-6, now - bMin);
-    const binOf = (b: number) => Math.max(1, Math.min(NB, Math.ceil(Math.pow(Math.max(0, (now - b) / span), 1 / BIN_POW) * NB)));
+    const bG = this.bG, gid = this.gid;
+    // a fixed calendar grid (BPE lines per era): a layer boundary sits on a year and keeps it while it sinks,
+    // so new layers appear only at the top and the old ones move down whole
+    let NB = 0;
+    bG[0] = now; gid[0] = -1;
+    for (let e = CFG.eras.length - 1; e >= 0 && NB < NBMAX - 2; e--) {
+      const E = CFG.eras[e], step = (E.end - E.start) / BPE;
+      for (let i = BPE - 1; i >= 0 && NB < NBMAX - 2; i--) {
+        const b = E.start + i * step;
+        if (b < now - 1e-6 && b > bMin + 1e-6) { NB++; bG[NB] = b; gid[NB] = e * BPE + i; }
+      }
+    }
+    NB++; bG[NB] = Math.min(bMin, now - 1e-3); gid[NB] = -1;
+    this.nb = NB;
     const VS = this.VS;
     VS.fill(0);
     const nCols = Math.ceil(WW / XS);
@@ -409,7 +424,7 @@ export class SectionRenderer {
         while (i >= 0 && w.birth[base + i] > b) {
           const kk = w.k[base + i], m = w.mat[base + i];
           acc += 1 / kk;
-          const bin = binOf(w.birth[base + i]);
+          const bin = Math.max(1, k);
           hist[bin * NMAT + m] += 1 / kk / nCols;
           cnt[bin] += 1 / nCols;
           i--;
@@ -469,7 +484,7 @@ export class SectionRenderer {
   private applyFocus(g: Game, t: number): void {
     const e = this.focusEra;
     if (e < 0 || e > g.run.era || t <= 0) return;
-    const YG = this.YG;
+    const YG = this.YG, NB = this.nb;
     const k = ease(t);
     const yTop = new Float32Array(WW), yBot = new Float32Array(WW);
     for (let x = 0; x < WW; x++) {
@@ -494,7 +509,7 @@ export class SectionRenderer {
 
   // ---------- layers ----------
   private buildLayers(g: Game, hist: Float32Array, cnt: Float32Array): void {
-    const YG = this.YG;
+    const YG = this.YG, NB = this.nb;
     const SW = this.SW;
     const avgY = (k: number) => { let s = 0, n = 0; for (let x = 0; x < SW; x += 6) { s += YG[k * WW + x]; n++; } return s / n; };
     const dom = (k0: number, k1: number) => {
@@ -516,10 +531,12 @@ export class SectionRenderer {
     // 2) runs thinner than MIN_PX join a neighbour: the same rock first, then the same epoch, then the thinner one
     const px = (r: Run) => avgY(r.k1) - avgY(r.k0);
     for (let guard = 0; guard < 600 && runs.length > 1; guard++) {
+      // the fresh run at the very top is what is being laid down now: it is never merged away, it grows
       let wi = -1, wpx = MIN_PX;
-      for (let i = 0; i < runs.length; i++) { const p = px(runs[i]); if (p < wpx) { wpx = p; wi = i; } }
+      for (let i = 1; i < runs.length; i++) { const p = px(runs[i]); if (p < wpx) { wpx = p; wi = i; } }
       if (wi < 0) break;
-      const r = runs[wi], a = runs[wi - 1], b = runs[wi + 1];
+      const r = runs[wi], a = wi - 1 >= 1 || (runs[0] && runs[0].mat === r.mat) ? runs[wi - 1] : undefined, b = runs[wi + 1];
+      if (!a && !b) break;
       const er = eraOfRun(r);
       const into = !a ? wi + 1 : !b ? wi - 1
         : a.mat === r.mat ? wi - 1 : b.mat === r.mat ? wi + 1
@@ -530,24 +547,21 @@ export class SectionRenderer {
       merged.mat = dom(merged.k0, merged.k1);
       runs.splice(lo, 2, merged);
     }
-    // 3) thick layers split into beds of ~20 px (the same rock: only a faint parting between them)
+    // 3) thick layers part into beds — only on fixed calendar lines, so a parting keeps its year and sinks with it;
+    //    the bed below a parting must stay ≥ 12 px (deep, squeezed beds join again)
     const out: Run[] = [];
+    const gid = this.gid;
     for (const r of runs) {
-      const p = px(r);
-      const n = p > BED_PX ? Math.min(4, Math.round(p / 20)) : 1;
-      if (n <= 1) { out.push(r); continue; }
-      let k0 = r.k0;
-      const y0 = avgY(r.k0);
-      for (let s = 1; s <= n; s++) {
-        let k1 = r.k1;
-        if (s < n) {
-          const target = y0 + (p * s) / n + (hash2(r.k0 + s, 33) - 0.5) * 4;
-          k1 = k0 + 1;
-          while (k1 < r.k1 - 1 && avgY(k1) < target) k1++;
-        }
-        if (k1 > k0) out.push({ k0, k1, mat: r.mat, merged: r.merged, bed: s > 1 });
-        k0 = k1;
+      if (px(r) < BED_PX) { out.push(r); continue; }
+      let k0 = r.k0, first = true;
+      for (let k = r.k0 + 1; k < r.k1; k++) {
+        if (gid[k] < 0 || gid[k] % BED_EVERY !== 0) continue;
+        if (avgY(k) - avgY(k0) < 3 || avgY(r.k1) - avgY(k) < 12) continue;
+        out.push({ k0, k1: k, mat: r.mat, merged: r.merged, bed: !first });
+        first = false;
+        k0 = k;
       }
+      out.push({ k0, k1: r.k1, mat: r.mat, merged: r.merged, bed: !first });
     }
     runs = out;
     // 4) the layers themselves: texture, tone against the neighbours, inclusions
@@ -555,9 +569,12 @@ export class SectionRenderer {
     const texCompacted = skinPixels('world/tex/compacted.png');
     const MID = PAL_RGB.map((pal) => pal[Math.min(2, pal.length - 1)]);
     const lum = (m: number) => MID[m][0] * 0.3 + MID[m][1] * 0.59 + MID[m][2] * 0.11;
-    this.layers = [];
+    this.layers = new Array(runs.length);
+    // tones are set from the oldest layer up, so a new layer on top never changes the look of the ones below
     let prevL = -1, prevLight = false, prevTone = 1;
-    runs.forEach((r) => {
+    for (let ri = runs.length - 1; ri >= 0; ri--) {
+      const r = runs[ri];
+      const below = runs[ri + 1];
       let c = 0, wsum = 0;
       for (let k = r.k0 + 1; k <= r.k1; k++) { let s = 0; for (let m = 0; m < NMAT; m++) s += hist[k * NMAT + m]; wsum += s; c += cnt[k]; }
       const kAvg = wsum > 0 ? Math.max(1, c / wsum) : 1;
@@ -581,7 +598,7 @@ export class SectionRenderer {
       const depthK = 1 - 0.35 * Math.min(1, avgY(r.k0) / Math.max(1, this.Hs));
       const L = lum(r.mat) * depthK;
       let tone = 1, warm = 0;
-      if (r.bed && prevL > 0) tone = prevTone * (prevLight ? 0.93 : 1.06);
+      if (below && below.bed && prevL > 0) tone = prevTone * (prevLight ? 0.93 : 1.06);
       else if (prevL > 0) {
         const ratio = L / prevL;
         if (Math.abs(1 - ratio) < 0.22) {
@@ -590,10 +607,11 @@ export class SectionRenderer {
         }
       }
       tone = Math.max(0.58, Math.min(1.5, tone));
-      if (!r.bed) prevLight = L * tone > prevL;
+      if (!(below && below.bed)) prevLight = L * tone > prevL;
       prevL = L * tone;
       prevTone = tone;
-      const seed = (hash2(r.mat * 31 + Math.floor(this.bG[r.k0] / 97), 11) * 1e6) | 0;
+      // the seed comes from the layer's older edge (its top edge moves while the layer is being laid down)
+      const seed = (hash2(r.mat * 31 + Math.floor(this.bG[r.k1] / 7), 11) * 1e6) | 0;
       const era = eraOfRun(r);
       const fam = famOf(r.mat);
       const layer: Layer = {
@@ -607,10 +625,14 @@ export class SectionRenderer {
       for (let q = 0; q < nInc; q++) {
         const kind = kinds[Math.floor(hash2(seed, 70 + q) * kinds.length)];
         const x = Math.round(((q + 0.5) / nInc) * (SW - 20) + 10 + (hash2(seed, 20 + q) - 0.5) * (SW / nInc) * 0.6);
-        layer.inc.push({ kind, x, f: 0.3 + hash2(seed, 40 + q) * 0.4, w: 6 + Math.floor(hash2(seed, 60 + q) * 10), ax: -1, ay: -1 });
+        // an inclusion is buried at a year (the middle of one of the layer's closed bins): it sinks with the rock
+        const kLo = Math.min(r.k1, Math.max(r.k0 + 2, r.k0 + 1)), span = r.k1 - kLo + 1;
+        const kk = kLo + Math.min(span - 1, Math.floor((0.25 + hash2(seed, 40 + q) * 0.5) * span));
+        const b = (this.bG[kk - 1] + this.bG[kk]) / 2;
+        layer.inc.push({ kind, x, b, w: 6 + Math.floor(hash2(seed, 60 + q) * 10), ax: -1, ay: -1 });
       }
-      this.layers.push(layer);
-    });
+      this.layers[ri] = layer;
+    }
     // 5) boundaries per column: the smoothed depth, a soft wave of ±2–3 px, a fault where the earth shook; never crossing
     const faults = g.run.faults.map((f) => ({
       x0: f.x * WW, b: f.b, up: f.up,
@@ -621,9 +643,11 @@ export class SectionRenderer {
       const bTop = this.bG[L.kTop];
       for (let x = 0; x < WW; x++) {
         let y = YG[L.kTop * WW + x];
-        L.anchor[x] = Math.round(YG[L.kTop * WW + (x & ~1)]);
+        // the texture hangs from the layer's bottom: new material is added on top, the rest sinks with its grain
+        L.anchor[x] = Math.round(YG[L.kBot * WW + (x & ~1)]);
         if (j > 0) {
-          y += (low(LOW_B, x * 2 + j * 37, j * 53) - 0.5) * 5 + (low(LOW_A, x * 5 + j * 11, j * 29) - 0.5) * 2;
+          const sd = L.seed & 255;
+          y += (low(LOW_B, x * 2 + sd * 37, sd * 53) - 0.5) * 5 + (low(LOW_A, x * 5 + sd * 11, sd * 29) - 0.5) * 2;
           for (const f of faults) {
             if (bTop > f.b) continue;          // younger than the quake: it lies over the fault undisturbed
             const dx = x - f.x0;
@@ -648,7 +672,7 @@ export class SectionRenderer {
     const bedF = rib >= 8 ? 1 : 0;
     const s0 = cut + 1, s1 = Hv - hrF - bedF;      // stripes
     this.hr = hrF;
-    const YG = this.YG;
+    const YG = this.YG, NB = this.nb;
     const knots: number[] = [];
     for (let x = 0; x < WW; x++) {
       const bot = this.strataBot[x];
@@ -696,8 +720,9 @@ export class SectionRenderer {
       for (let x = 0; x < WW; x++) this.topD[x] = Math.max(0, Math.min(TOPMAX, Math.round((this.relief[x] - mn) * 0.16)));
     } else this.topD.fill(0);
     // time–depth table
-    const hist = new Float32Array((NB + 1) * NMAT), cnt = new Float32Array(NB + 1);
+    const hist = new Float32Array((NBMAX + 1) * NMAT), cnt = new Float32Array(NBMAX + 1);
     this.buildTable(g, hist, cnt);
+    const NB = this.nb;
     let Dt = 0;
     for (let x = 0; x < WW; x++) Dt = Math.max(Dt, this.VS[NB * WW + x]);
     this.Dt = Dt;
@@ -917,7 +942,7 @@ export class SectionRenderer {
         }
         const spr = SPRITES[inc.kind];
         const sw = spr.rows[0].length, sh = spr.rows.length;
-        const y = Math.round(t0 + 2 + (th - 3 - sh) * inc.f);
+        const y = Math.round(Math.max(t0 + 2, Math.min(t1 - sh - 1, this.yAt(x, inc.b) - sh / 2)));
         const ax = x - (sw >> 1);
         inc.ax = ax; inc.ay = y;
         for (let r = 0; r < sh; r++) for (let q = 0; q < sw; q++) {

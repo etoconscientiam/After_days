@@ -179,6 +179,43 @@ export class Game {
     return -1;
   }
 
+  /**
+   * Where one unit of sp can go when bought: a zone with free room, or — when its zones are full — a zone where
+   * simpler (cheaper) life gives way to it: the most numerous of them die off to make room (never the last of a
+   * kind). Returns the zone and who gives way, or null. (Natural regrowth never displaces: it uses freeZoneFor.)
+   */
+  placeFor(sp: SpeciesDef): { zi: number; take: [string, number][] } | null {
+    const zi0 = this.freeZoneFor(sp);
+    if (zi0 >= 0) return { zi: zi0, take: [] };
+    const need = this.unitSize(sp);
+    for (const zi of this.habitatZones(sp)) {
+      let lack = need - (this.capacity(zi) - this.used(zi));
+      const others = CFG.species.filter((o) => o.id !== sp.id && o.cost < sp.cost && this.run.pop[o.id][zi] > 1)
+        .sort((a, b) => this.run.pop[b.id][zi] * this.unitSize(b) - this.run.pop[a.id][zi] * this.unitSize(a));
+      const take: [string, number][] = [];
+      for (const o of others) {
+        if (lack <= 1e-9) break;
+        const size = this.unitSize(o);
+        const n = Math.min(this.run.pop[o.id][zi] - 1, Math.ceil(lack / size - 1e-9));
+        if (n > 0) { take.push([o.id, n]); lack -= n * size; }
+      }
+      if (lack <= 1e-9) return { zi, take };
+    }
+    return null;
+  }
+
+  /** How many units of sp could still be bought (free room plus what simpler life would give up). */
+  roomUnits(sp: SpeciesDef): number {
+    const size = this.unitSize(sp);
+    let n = 0;
+    for (const zi of this.habitatZones(sp)) {
+      let room = Math.max(0, this.capacity(zi) - this.used(zi));
+      for (const o of CFG.species) if (o.id !== sp.id && o.cost < sp.cost) room += Math.max(0, this.run.pop[o.id][zi] - 1) * this.unitSize(o);
+      n += Math.floor(room / size + 1e-9);
+    }
+    return n;
+  }
+
   // ---------- time ----------
   eraDef() { return CFG.eras[this.run.era]; }
 
@@ -282,7 +319,7 @@ export class Game {
         if (!r.shepherd[id]) continue;
         if (slots-- <= 0) { r.shepherd[id] = false; continue; }
         const sp = CFG.speciesById[id];
-        if (sp && this.speciesUnlocked(sp) && r.energy >= this.speciesCost(sp) && this.freeZoneFor(sp) >= 0) this.buySpecies(id);
+        if (sp && this.speciesUnlocked(sp) && r.energy >= this.speciesCost(sp) && this.placeFor(sp)) this.buySpecies(id);
       }
     }
     drawOrders(this);
@@ -510,9 +547,16 @@ export class Game {
     if (!sp || !this.speciesUnlocked(sp)) return false;
     const cost = this.speciesCost(sp);
     if (this.run.energy < cost) return false;
-    const zi = this.freeZoneFor(sp);
-    if (zi < 0) return false;
+    const place = this.placeFor(sp);
+    if (!place) return false;
+    const zi = place.zi;
     this.run.energy -= cost;
+    // simpler life gives way: it dies (and goes to the carcass pool — future fossils)
+    for (const [oid, n] of place.take) {
+      this.run.pop[oid][zi] -= n;
+      addCarcass(this, zi, CFG.speciesById[oid], n);
+      this.bus.emit('displaced', { id, of: oid, n });
+    }
     this.run.pop[id][zi]++;
     const t = totalPop(this, id);
     if (t > (this.run.peak[id] ?? 0)) this.run.peak[id] = t;
@@ -647,7 +691,7 @@ export class Game {
     for (let guard = 0; guard < 500; guard++) {
       let best: SpeciesDef | null = null, score = 0;
       for (const sp of CFG.species) {
-        if (!this.speciesUnlocked(sp) || this.freeZoneFor(sp) < 0) continue;
+        if (!this.speciesUnlocked(sp) || !this.placeFor(sp)) continue;
         const cost = this.speciesCost(sp);
         if (cost > this.run.energy) continue;
         const v = sp.eps / cost;

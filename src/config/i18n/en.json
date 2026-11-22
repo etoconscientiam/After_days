@@ -568,7 +568,8 @@
     "unlocked": "New life: {s}",
     "saved": "Saved",
     "imported": "Save imported",
-    "importFailed": "Could not read that save"
+    "importFailed": "Could not read that save",
+    "displaced": "{a} crowd out {b}"
   },
   "notes": {
     "n01": {

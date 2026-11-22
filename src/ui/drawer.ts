@@ -251,7 +251,7 @@ export class Drawer {
   private qtyFor(g: Game, sp: SpeciesDef): { n: number; cost: number } {
     const want = this.qty === 0 ? 1000 : this.qty;
     let free = 0;
-    for (const zi of g.habitatZones(sp)) free += Math.max(0, Math.floor((g.capacity(zi) - g.used(zi)) / g.unitSize(sp)));
+    free = g.roomUnits(sp);
     const pop = totalPop(g, sp.id);
     let n = 0, cost = 0;
     while (n < Math.min(want, free)) {
@@ -302,7 +302,7 @@ export class Drawer {
       setText(lives, t('life.livesShort', { v: fmt(lifespan(g, sp), 0) }));
       const q = this.qtyFor(g, sp);
       setText(price, (this.qty !== 1 && q.n > 1 ? `×${q.n} · ` : '') + fmt(q.cost));
-      const can = g.run.energy >= q.cost && g.freeZoneFor(sp) >= 0;
+      const can = g.run.energy >= q.cost && !!g.placeFor(sp);
       btn.disabled = !can;
       toggle(btn, 'ok', can);
       toggle(row, 'afford', can);

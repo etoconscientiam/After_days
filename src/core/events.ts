@@ -14,6 +14,7 @@ export interface GameEvents {
   element: { id: string; x?: number; depth?: number };
   echo: { id: string; alpha: number };
   relicFound: { id: string };
+  displaced: { id: string; of: string; n: number };
   itemChosen: { id: string };
   speciesUnlocked: { id: string };
   toast: { key: string; vars?: Record<string, string | number>; color?: string };

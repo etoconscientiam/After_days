@@ -934,11 +934,13 @@ export class Renderer {
       drawFossil(c, f.x, top + f.y, sp ? fossilKind(sp.id) : 'bone', f.rare, this.t);
     }
     // pixels that turned to rock under a press (or a glowing-layer event) flash
+    let pfShown = 0;
     for (const pf of g.pressFlashes) {
+      if (pfShown++ >= 24) break;
       const y = Math.round(top + sec.yAt(pf.x, pf.birth));
-      const a = Math.min(1, pf.t * 1.6);
+      const a = Math.min(1, pf.t * 1.6) * 0.7;
       c.fillStyle = pf.color; c.globalAlpha = a; c.fillRect(pf.x, y, 1, 1);
-      c.fillStyle = 'rgba(255,240,200,1)'; c.globalAlpha = a * 0.55;
+      c.fillStyle = 'rgba(255,240,200,1)'; c.globalAlpha = a * 0.4;
       c.fillRect(pf.x - 1, y, 1, 1); c.fillRect(pf.x + 1, y, 1, 1); c.fillRect(pf.x, y - 1, 1, 1); c.fillRect(pf.x, y + 1, 1, 1);
       c.globalAlpha = 1;
     }
@@ -948,16 +950,20 @@ export class Renderer {
       c.fillStyle = z.kind === 'water' ? rgb(140, 200, 255, ph * 0.8) : rgb(255, 140 + 60 * ph, 60, ph * 0.7);
       c.fillRect(z.pts[i], top + z.pts[i + 1], 1, 1);
     }
+    // a rock is born: a small local sparkle where it happened (not a line across the whole layer), soft and few
+    let shown = 0;
     for (const gl of g.glints) {
-      c.globalAlpha = Math.min(1, gl.t * 2);
+      if (shown++ >= 10) break;
+      if (gl.x >= SW) continue;
+      const gy = Math.round(top + (gl.birth !== undefined ? sec.yAt(gl.x, gl.birth) : Math.min(sec.strataH, gl.depth * 2)));
+      if (gy - top >= sec.cut) continue;
+      const a = Math.min(1, gl.t * 1.6) * 0.55;
+      c.globalAlpha = a;
       c.fillStyle = gl.color;
-      for (let x = 0; x < SW; x++) {
-        // the whole layer line flashes briefly, following its curve
-        const y = top + (gl.birth !== undefined ? sec.yAt(x, gl.birth) : Math.min(sec.strataH, gl.depth * 2));
-        c.fillRect(x, Math.round(y), 1, 1);
-      }
-      const gy = top + (gl.birth !== undefined ? sec.yAt(gl.x, gl.birth) : Math.min(sec.strataH, gl.depth * 2));
-      c.fillRect(gl.x - 1, gy - 1, 3, 3);
+      c.fillRect(gl.x, gy, 1, 1);
+      c.globalAlpha = a * 0.45;
+      c.fillRect(gl.x - 1, gy, 1, 1); c.fillRect(gl.x + 1, gy, 1, 1);
+      c.fillRect(gl.x, gy - 1, 1, 1); c.fillRect(gl.x, gy + 1, 1, 1);
       c.globalAlpha = 1;
     }
     if (this.hover && !this.targeting) {
