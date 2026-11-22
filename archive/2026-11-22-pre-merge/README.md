@@ -10,12 +10,13 @@
 
 ## Как вернуться к этому состоянию кода
 
-Код обеих версий помечен git-тегом `pre-merge-2026-11-22`:
+Код обеих версий — коммит `024a5d3` в ветке `claude/admiring-davinci-2hm6an` (коммит, который добавил эту папку):
 
 ```bash
-git fetch origin tag pre-merge-2026-11-22
-git checkout pre-merge-2026-11-22
+git checkout 024a5d3
 ```
+
+Чтобы продолжить работу от него в отдельной ветке: `git switch -c <имя-ветки> 024a5d3`.
 
 Сборка оригинала: `node tools/build-single.mjs` → `dist-single/strata.html`.
 Сборка прототипа: `node tools/build-proto.mjs` → `dist-single/sand.html`.
