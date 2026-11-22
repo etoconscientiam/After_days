@@ -104,17 +104,42 @@ export class Game {
   prefill(): void {
     const g = this.grid;
     const line = this.lineRow() + SAND.startBelowLine;
-    const src = zoneSourcesBase(this);
+    const base = zoneSourcesBase(this);
+    // the old ground has strata of its own: one sequence of wavy beds across the whole world (so they run on
+    // under every zone), beds of uneven thickness; the even beds are the zone's own rock, with a ragged border
+    // between zones, the odd ones are thin partings shared by all
+    const M2 = CFG.matIndex;
+    const partings = [M2.clay, M2.silt, M2.sand, M2.clay, this.run.era < CFG.B.zones.landAltBeforeEra ? M2.silt : M2.dust];
     let seed = this.state.seed >>> 0;
     const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) >>> 24);
+    const ph = (rnd() / 255) * 6;
+    // bed boundaries (depth from the top line): a thick bed of the zone's rock, then a thin parting
+    const bedOf = new Int16Array(g.floor + 16);
+    for (let d = 0, k = 0; d < bedOf.length; k++) {
+      const h = k % 2 === 0 ? 5 + (rnd() % 7) : 2 + (rnd() % 3);
+      for (let j = 0; j < h && d < bedOf.length; j++) bedOf[d++] = k;
+    }
     for (let x = 0; x < GW; x++) {
       const zi = this.zoneMap[x * 2 + 1];
       const wave = Math.round(Math.sin(x * 0.11 + 1.3) * 1.5 + Math.sin(x * 0.037) * 1.5);
       const top = line + wave + (zi === 0 ? SAND.seaFloorBelow : zi === 1 ? Math.round(SAND.seaFloorBelow / 3) : 0);
       const bottom = g.isArtifactCol(x) ? g.sinkRow : g.floor - 1;
-      for (let y = Math.max(0, top); y <= bottom; y++) g.put(x, y, src[zi], rnd(), this.run.year - 1);
+      const bend = 2.2 * Math.sin(x * 0.09 + ph) + 1.4 * Math.sin(x * 0.23 + ph * 2);
+      for (let y = Math.max(0, top); y <= bottom; y++) {
+        const d = Math.max(0, Math.min(bedOf.length - 1, Math.floor(y - line + 4 + bend)));
+        const k = bedOf[d];
+        let m: number;
+        if (k % 2) m = partings[(k >> 1) % partings.length];
+        else {
+          // the zone of this cell: the border wanders with depth (tongues of one rock into the next)
+          const jx = Math.round(x + 3 * Math.sin(y * 0.35 + ph) + 2 * Math.sin(y * 0.9));
+          m = base[this.zoneMap[Math.max(0, Math.min(GW - 1, jx)) * 2 + 1]];
+        }
+        g.put(x, y, m, rnd(), this.run.year - 1);
+      }
     }
     g.computeTops();
+    g.still.fill(1);
   }
 
   /** The row of the line where the strata settle (the conveyor holds them there). */
@@ -122,9 +147,18 @@ export class Game {
     return this.grid.sinkRow + 1 - Math.round(SAND.sinkLine * SAND.refRows);
   }
 
-  private updateWater(): void {
-    for (let x = 0; x < GW; x++) this.water.col[x] = this.zoneMap[x * 2 + 1] === 0 ? 1 : 0;
-    this.water.level = this.lineRow() - SAND.seaAboveLine;
+  /** The sea: its columns and every low column next to them whose ground lies under the water line (the water
+   *  spreads from the sea over the lowland, it does not stand as a wall at the zone border). */
+  updateWater(): void {
+    const g = this.grid, col = this.water.col;
+    const level = this.lineRow() - SAND.seaAboveLine;
+    this.water.level = level;
+    col.fill(0);
+    for (let x = 0; x < GW; x++) if (this.zoneMap[x * 2 + 1] === 0) col[x] = 1;
+    for (let pass = 0; pass < 2; pass++) {
+      for (let x = 1; x < GW; x++) if (!col[x] && col[x - 1] && g.surf[x] > level) col[x] = 1;
+      for (let x = GW - 2; x >= 0; x--) if (!col[x] && col[x + 1] && g.surf[x] > level) col[x] = 1;
+    }
   }
 
   // ---------- derived ----------
@@ -396,6 +430,7 @@ export class Game {
     this.geoAcc += dt;
     this.geoYears += dy;
     if (this.geoAcc >= CFG.B.time.geoTick) {
+      this.updateWater();
       geoTickGame(this, this.geoYears);
       this.geoAcc = 0;
       this.geoYears = 0;

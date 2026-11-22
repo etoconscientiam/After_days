@@ -182,7 +182,7 @@ export function tapPile(g: Game, X: number, n: number): number {
   const zi = g.zoneMap[wx(x)];
   const insects = g.run.pop.insects ? g.run.pop.insects[1] + g.run.pop.insects[2] : 0;
   const placed = dropPile(g.grid, g.rng, g.water, {
-    cx: x, n, mix: pileMix(g, zi), birth: g.run.year, y0: 2,
+    cx: x, n, mix: pileMix(g, zi), birth: g.run.year, y0: Math.max(S.pileSkyRow, g.grid.surf[x] - S.pileDrop),
     decorate: (i, m) => { if (m === M.resin && g.rng.next() < 0.06 * (insects > 0 ? 3 : 1)) g.grid.flags[i] |= P_INSECT; },
   }, g.headless);
   g.run.layers += placed;

@@ -1,7 +1,7 @@
 // World renderer at 180×320, scaled up with nearest-neighbour. Everything here is the pixel world:
 // sky, three parallax planes, a living surface, the section, the thing, light and atmosphere.
 // Reads core state only; never mutates it.
-import { CFG } from '../config';
+import { CFG, eraOfYear } from '../config';
 import type { Game } from '../core/game';
 import { totalPop } from '../core/life';
 import { skin, preloadSkins } from './assets';
@@ -10,7 +10,7 @@ import { forecastParticle, conditionsAt, Forecast } from '../core/forecast';
 import { GW } from '../world/Grid';
 import { hash2 } from '../core/rng';
 import { Layout, WW, WH, NOISE, GRAIN, lerp, lerp3, hex3, rgb, ACCENT } from './common';
-import { SectionRenderer } from './section';
+import { SectionRenderer, ERA_COLORS } from './section';
 import { drawFossil, fossilKind } from './skins';
 import { CREATURES, Pose, birdFlying, hominid } from './creatures';
 import { drawItem } from './items';
@@ -290,6 +290,8 @@ export class Renderer {
 
     this.computeGround(g);
     this.section.relief = this.gy;
+    // an open drawer: the history ribbon stands right above it
+    this.section.cut = this.lay.drawer > 1 ? WH - CFG.B.layout.tabBarH - this.lay.drawer - RIBBON_H - this.lay.sectionTop : Infinity;
     this.section.maybeRender(g, this.lay, now, this.reveal, dt);
     this.lay.artifactY = this.ayAt(WW / 2);
     if (g.state.phase === 'choose') { this.drawChoose(g); this.drawSink(dt); return; }
@@ -655,7 +657,7 @@ export class Renderer {
         c.fillStyle = rgb(col[0] * nf(0.55) * under, col[1] * nf(0.55) * (under + (1 - under) * 0.1), col[2] * nf(0.5) * (under + (1 - under) * 0.3));
         c.fillRect(x, y, 1, 1);
       }
-      if (g.zoneMap[x] === 0 && gy > sea) {
+      if (g.water.col[x >> 1] === 1 && gy > sea) {
         for (let y = sea; y < gy; y++) {
           const k = (y - sea) / Math.max(1, bottom - sea);
           const shaft = Math.max(0, Math.sin(x * 0.12 + y * 0.25 - t * 0.6)) ** 6 * 0.25 * sky.light;
@@ -682,7 +684,7 @@ export class Renderer {
     // 3) water life on top: ripples, the sun's glitter, surf foam, ice
     for (let x = 0; x < WW; x++) {
       const gy = this.gy[x];
-      if (g.zoneMap[x] !== 0 || gy <= sea) continue;
+      if (g.water.col[x >> 1] !== 1 || gy <= sea) continue;
       const wave = Math.sin(x * 0.5 + t * 2) + Math.sin(x * 0.2 - t * 1.3);
       c.fillStyle = rgb(200, 230, 245, 0.45 + wave * 0.15);
       c.fillRect(x, sea + (wave > 1 ? -1 : 0), 1, 1);
@@ -740,7 +742,7 @@ export class Renderer {
     const floorAt = (x: number) => this.lay.sectionTop + this.section.topD[x];
     for (let x = 0; x < WW; x++) {
       const gy = this.gy[x];
-      if (g.zoneMap[x] === 0 && gy > sea + 1) {
+      if (g.water.col[x >> 1] === 1 && gy > sea + 1) {
         // under water: the surface strip of the water itself (ripples and glints go on top)
         col(T.water, x, sea - 1, Math.min(1, (gy - sea) / 4) * 0.8, gy);
         continue;
@@ -912,6 +914,7 @@ export class Renderer {
     // the grid has a fixed place in the world; an open drawer lifts the whole world (and the grid with it)
     const gdy = top - CFG.B.layout.sectionTop;
     c.drawImage(sec.canvas, 0, gdy);
+    if (sec.cut !== Infinity) this.drawRibbon(g);
     const SW = sec.SW;
     // era boundaries: faint golden curves along the layers where an era began
     for (let e = 1; e <= g.run.era; e++) {
@@ -978,6 +981,48 @@ export class Renderer {
       grd.addColorStop(1, rgb(col[0], col[1], col[2], 0));
       c.fillStyle = grd; c.fillRect(cx - tg.rx * 1.3, cy - tg.rx * 1.3, tg.rx * 2.6, tg.rx * 2.6);
     }
+  }
+
+  /** Above an open drawer: the history ribbon — everything below the cut (the strata, the archive of the depth,
+   *  the thing) squeezed into a thin strip, real colours of the beds; ticks of the epochs at its left edge. */
+  private drawRibbon(g: Game): void {
+    const c = this.ctx, sec = this.section, lay = this.lay;
+    const y0 = Math.round(lay.sectionTop + sec.cut), H = RIBBON_H;
+    c.fillStyle = '#14110f';
+    c.fillRect(0, y0, WW, H);
+    // the section canvas lies with its local y at canvas y + layout.sectionTop
+    const sy = Math.max(0, Math.round(sec.cut + CFG.B.layout.sectionTop));
+    const sh = Math.max(1, WH - sy);
+    c.imageSmoothingEnabled = true;
+    c.drawImage(sec.canvas, 0, sy, sec.SW, sh, 0, y0 + 1, sec.SW, H - 2);
+    c.imageSmoothingEnabled = false;
+    // epochs below the cut: how much of each lies there (particles of the middle column, then the archive)
+    const amount = new Float64Array(CFG.eras.length);
+    const grid = g.grid;
+    const cx = Math.max(0, (GW >> 1) - 8);
+    for (let r = Math.max(grid.surf[cx], sec.rowOfY(sec.cut)); r < grid.floor; r++) {
+      const i = r * GW + cx;
+      if (grid.mat[i] && grid.mat[i] !== CFG.matIndex.artifact) amount[eraOfYear(grid.birth[i])] += 2;
+    }
+    for (const L of g.archive.layers) amount[L.era] += Math.sqrt(g.archive.meanRows(L) / Math.max(1, L.k)) * 2;
+    let tot = 0;
+    for (const a of amount) tot += a;
+    let y = y0 + 1;
+    const inner = H - 2;
+    for (let e = CFG.eras.length - 1; e >= 0 && tot > 0; e--) {
+      if (amount[e] <= 0) continue;
+      const h = Math.max(1, Math.round((amount[e] / tot) * inner));
+      c.fillStyle = ERA_COLORS[e];
+      c.fillRect(0, y, 2, Math.min(h, y0 + H - 1 - y));
+      y += h;
+    }
+    // the thing glows at the bottom of history
+    const ax = WW / 2, ay = y0 + H - 2;
+    const grd = c.createRadialGradient(ax, ay, 0, ax, ay, 10);
+    grd.addColorStop(0, 'rgba(255,214,120,0.8)'); grd.addColorStop(1, 'rgba(255,180,80,0)');
+    c.fillStyle = grd; c.fillRect(ax - 10, ay - 10, 20, 12);
+    c.fillStyle = 'rgba(242,181,74,0.55)'; c.fillRect(0, y0, sec.SW, 1);
+    c.fillStyle = 'rgba(0,0,0,0.45)'; c.fillRect(0, y0 + H - 1, WW, 1);
   }
 
   /** Coal glints and amber sparks: a slow twinkle. */
@@ -1898,5 +1943,8 @@ export class Renderer {
     return -1;
   }
 }
+
+/** height of the history ribbon above an open drawer (world px) */
+const RIBBON_H = 14;
 
 function ease(k: number): number { return k * k * (3 - 2 * k); }

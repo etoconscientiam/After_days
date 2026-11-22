@@ -117,7 +117,7 @@ export class SectionRenderer {
   }
 
   /** Pick an epoch on the ruler; -1 lets go. */
-  focus(era: number): void { this.focusEra = era; }
+  focus(era: number): void { this.focusEra = era; this.lastVersion = -1; }
 
   maybeRender(g: Game, lay: Layout, now: number, revealY = Infinity, dt = 0): boolean {
     void dt;
@@ -200,6 +200,7 @@ export class SectionRenderer {
     const grid = g.grid, buf = this.buf, px = this.px;
     this.SW = WW - lay.rulerW;
     buf.fill(0);
+    const focus = this.focusEra;
     this.sparks.length = 0;
     this.fossils.length = 0;
     const BONE = CFG.matIndex.bone;
@@ -216,6 +217,8 @@ export class SectionRenderer {
           continue;
         }
         particlePx(m, grid.look[i], px);
+        // an epoch picked on the ruler: its grains stay lit where they lie (folded by heaps and faults), the rest dims
+        if (focus >= 0 && eraOfYear(grid.birth[i]) !== focus) { px[0] = shade(px[0], 0.4); px[1] = shade(px[1], 0.4); px[2] = shade(px[2], 0.4); px[3] = shade(px[3], 0.4); }
         const o = yPix * WW + x * 2;
         buf[o] = px[0]; buf[o + 1] = px[1]; buf[o + WW] = px[2]; buf[o + WW + 1] = px[3];
         if (GLINTY[m] && (grid.look[i] & 0x3f) === 7 && this.sparks.length < 160) this.sparks.push(x * 2, yPix - BASE);
@@ -275,6 +278,18 @@ export class SectionRenderer {
       } else cur.y1 = y + 2;
     }
     if (!spans.length) spans.push({ era: g.run.era, y0: this.topD[cx * 2], y1: this.strataH });
+    // the archive of the depth below: its epochs, oldest last, sized by their (compacted) thickness, compressed
+    const arcRows = new Float64Array(CFG.eras.length);
+    for (const L of g.archive.layers) arcRows[L.era] += g.archive.meanRows(L) / Math.max(1, L.k);
+    let y = this.strataH;
+    const last = spans[spans.length - 1];
+    for (let e = Math.min(last.era, CFG.eras.length - 1); e >= 0; e--) {
+      if (arcRows[e] <= 0) continue;
+      const h = Math.min(40, 4 + Math.sqrt(arcRows[e]) * 2);
+      if (e === last.era && spans[spans.length - 1] === last) { last.y1 += h; y += h; continue; }
+      spans.push({ era: e, y0: y, y1: y + h });
+      y += h;
+    }
     this.eras = spans;
   }
 
