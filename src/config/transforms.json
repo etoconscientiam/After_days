@@ -34,6 +34,10 @@
     { "from": "magma",      "to": "obsidian",     "tMax": 120, "maxDepth": 40, "years": 300, "yield": 12, "world": "hot" },
     { "from": "magma",      "to": "basalt",       "tMax": 200, "maxDepth": 120, "years": 1500, "yield": 3, "world": "hot" },
     { "from": "magma",      "to": "granite",      "tMax": 260, "years": 6000, "yield": 6, "world": "hot" },
-    { "from": "granite",    "to": "gneiss",       "pMin": 25, "tMin": 300, "years": 8000, "yield": 10, "world": "hot" }
+    { "from": "granite",    "to": "gneiss",       "pMin": 25, "tMin": 300, "years": 8000, "yield": 10, "world": "hot" },
+    { "from": "ochre",      "to": "jasper",       "pMin": 0.5, "years": 400,  "yield": 3 },
+    { "from": "tephra",     "to": "bentonite",    "pMin": 0.5, "years": 600,  "yield": 4 },
+    { "from": "boundary",   "to": "boundaryRock", "pMin": 0.5, "years": 600,  "yield": 2 },
+    { "from": "floodSilt",  "to": "mudstone",     "pMin": 2,   "years": 1500, "yield": 1 }
   ]
 }

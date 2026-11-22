@@ -22,7 +22,7 @@ export const B_FAST = F_FAST, B_ROLLED = F_ROLLED, B_FOSSIL = F_FOSSIL, B_RARE =
 /** A bone in a layer: x in world px, f = depth inside the layer (0 top .. 1 bottom), species index, decay 0..255. */
 export interface Bone { x: number; f: number; sp: number; decay: number; flags: number }
 
-export type LayerKind = '' | 'flood' | 'ash' | 'moraine' | 'meteor' | 'magma' | 'foundation';
+export type LayerKind = '' | 'flood' | 'ash' | 'moraine' | 'meteor' | 'magma' | 'foundation' | 'marker';
 
 export interface Layer {
   id: number;

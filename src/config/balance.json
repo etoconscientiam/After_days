@@ -139,5 +139,33 @@
   "before": 25,
   "after": 25,
   "fossilMul": 3
+ },
+ "sand": {
+  "_comment": "The falling-sand strata (core/sand.ts, pressure.ts, beds.ts, world/Grid.ts, Archive.ts). One particle = 2x2 world pixels. Rows count from the top of the grid. bedRows: bedrock rows at the bottom (under the bottom menu); the thing lies on the bedrock, artifactW x artifactH particles; sinkRow = the row right above the thing: the oldest rock there sinks into the archive as a whole row when the mean column above it is taller than sinkLine x refRows (raw count, the press does not change the level); the rate is sinkRate x overload^4 rows per second, full when sinkRockShare of the row is rock, a quarter when none is. pressurePerParticle: MPa of each particle above per unit of density (calibrated in merge stage 2). gradientPerRow: degrees per particle row of depth. oxygenRows: organic matter rots this close to the surface. waterFallEvery: in water a particle falls every Nth step; waterSlipMul scales its slide chance. cellsPerParticle: how many old 1x1 cells one particle stands for in the archive (2x2). archiveMaxRows: an archive layer closes after this many rows (mean); archiveMaxLayers: above this the oldest layers of one epoch merge into a belt. pile: the pile a tap drops (base + perLevel particles). coatDepth: how deep a marker bed reaches down a steep face. coatWait: seconds a bed waits for falling particles to land.",
+  "gridW": 90,
+  "gridH": 160,
+  "bedRows": 22,
+  "artifactW": 4,
+  "artifactH": 3,
+  "blockSize": 8,
+  "refRows": 104,
+  "sinkLine": 0.8,
+  "sinkRockShare": 0.85,
+  "sinkRate": 2,
+  "pressurePerParticle": 0.05,
+  "gradientPerRow": 0.6,
+  "oxygenRows": 6,
+  "fossilP": 2,
+  "waterFallEvery": 2,
+  "waterSlipMul": 0.3,
+  "cellsPerParticle": 4,
+  "archiveMaxRows": 12,
+  "archiveMaxLayers": 160,
+  "pile": {
+   "base": 50,
+   "perLevel": 5
+  },
+  "coatDepth": 14,
+  "coatWait": 3
  }
 }

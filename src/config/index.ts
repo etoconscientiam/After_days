@@ -16,9 +16,12 @@ export type ZoneId = 'water' | 'shore' | 'land';
 export const ZONES: ZoneId[] = ['water', 'shore', 'land'];
 export type HabitatId = ZoneId | 'any' | 'shoreLand';
 
+export type MatKind = 'none' | 'loose' | 'rock' | 'marker' | 'solid';
 export interface MaterialDef {
   id: string; idx: number; density: number; palette: string[]; grain: number;
   organic?: boolean; fertile?: boolean; rock?: string; glint?: boolean; banded?: boolean; emissive?: boolean;
+  /** behaviour in the falling-sand strata (see materials.json _comment) */
+  kind: MatKind; slip?: number; marker?: boolean;
   rgb: [number, number, number][];
 }
 export interface RockDef { id: string; icon: string; value: number }
@@ -122,6 +125,8 @@ export const M = {
   bone: mat('bone'), resin: mat('resin'), ash: mat('ash'), moraine: mat('moraine'), meteor: mat('meteor'),
   magma: mat('magma'), glowstone: mat('glowstone'), iridium: mat('iridium'),
   concrete: mat('concrete'), glassSand: mat('glassSand'), plastic: mat('plastic'), metal: mat('metal'),
+  bedrock: mat('bedrock'), foundation: mat('foundation'), artifact: mat('artifact'),
+  ochre: mat('ochre'), tephra: mat('tephra'), boundary: mat('boundary'), floodSilt: mat('floodSilt'),
 };
 export const NMAT = materials.length;
 

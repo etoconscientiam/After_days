@@ -1,5 +1,5 @@
 {
-  "_comment": "Every material in the section. density = weight for pressure. rock = currency id given when something turns into it (null = not a currency). grain = noise scale (bigger = coarser). organic = rots in the oxygen zone.",
+  "_comment": "Every material in the section. density = weight for pressure. rock = currency id given when something turns into it (null = not a currency). grain = noise scale (bigger = coarser). organic = rots in the oxygen zone. kind = how a particle behaves in the falling-sand strata: loose (falls and slides down slopes with probability `slip`), rock (falls only straight down, never slides), marker (a thin bed: falls straight, never slides; see core/beds.ts), solid (never moves: bedrock, foundation, the thing). Materials are appended at the end only: saves store their indices.",
   "materials": [
     {
       "id": "void",
@@ -11,7 +11,8 @@
         "#000000",
         "#000000"
       ],
-      "grain": 4
+      "grain": 4,
+      "kind": "none"
     },
     {
       "id": "soil",
@@ -23,7 +24,9 @@
         "#6b4d38",
         "#7a5a41"
       ],
-      "grain": 3
+      "grain": 3,
+      "kind": "loose",
+      "slip": 0.6
     },
     {
       "id": "dust",
@@ -35,7 +38,9 @@
         "#9a8f7e",
         "#a89c8a"
       ],
-      "grain": 2
+      "grain": 2,
+      "kind": "loose",
+      "slip": 0.85
     },
     {
       "id": "silt",
@@ -47,7 +52,9 @@
         "#636456",
         "#707160"
       ],
-      "grain": 5
+      "grain": 5,
+      "kind": "loose",
+      "slip": 0.5
     },
     {
       "id": "sand",
@@ -59,7 +66,9 @@
         "#d3b67f",
         "#dec28c"
       ],
-      "grain": 1
+      "grain": 1,
+      "kind": "loose",
+      "slip": 0.95
     },
     {
       "id": "clay",
@@ -71,7 +80,9 @@
         "#95826c",
         "#a28f78"
       ],
-      "grain": 6
+      "grain": 6,
+      "kind": "loose",
+      "slip": 0.4
     },
     {
       "id": "shellOoze",
@@ -83,7 +94,9 @@
         "#c3bfae",
         "#cfcbba"
       ],
-      "grain": 2
+      "grain": 2,
+      "kind": "loose",
+      "slip": 0.7
     },
     {
       "id": "limeCrust",
@@ -95,7 +108,9 @@
         "#a6c0a2",
         "#b3cbae"
       ],
-      "grain": 3
+      "grain": 3,
+      "kind": "loose",
+      "slip": 0.3
     },
     {
       "id": "orgLand",
@@ -108,7 +123,9 @@
         "#514e2c"
       ],
       "grain": 2,
-      "organic": true
+      "organic": true,
+      "kind": "loose",
+      "slip": 0.5
     },
     {
       "id": "orgMarine",
@@ -121,7 +138,9 @@
         "#434a42"
       ],
       "grain": 3,
-      "organic": true
+      "organic": true,
+      "kind": "loose",
+      "slip": 0.45
     },
     {
       "id": "bone",
@@ -133,7 +152,9 @@
         "#ede7d6",
         "#f5f1e4"
       ],
-      "grain": 1
+      "grain": 1,
+      "kind": "loose",
+      "slip": 0.6
     },
     {
       "id": "resin",
@@ -146,7 +167,9 @@
         "#e6a040"
       ],
       "grain": 2,
-      "organic": true
+      "organic": true,
+      "kind": "loose",
+      "slip": 0.3
     },
     {
       "id": "guano",
@@ -159,7 +182,9 @@
         "#cdcdb0"
       ],
       "grain": 2,
-      "fertile": true
+      "fertile": true,
+      "kind": "loose",
+      "slip": 0.6
     },
     {
       "id": "dung",
@@ -172,7 +197,9 @@
         "#766240"
       ],
       "grain": 2,
-      "fertile": true
+      "fertile": true,
+      "kind": "loose",
+      "slip": 0.5
     },
     {
       "id": "ash",
@@ -184,7 +211,9 @@
         "#838387",
         "#929296"
       ],
-      "grain": 4
+      "grain": 4,
+      "kind": "loose",
+      "slip": 0.7
     },
     {
       "id": "moraine",
@@ -196,7 +225,9 @@
         "#5e6066",
         "#aeb0b6"
       ],
-      "grain": 1
+      "grain": 1,
+      "kind": "loose",
+      "slip": 1.0
     },
     {
       "id": "meteor",
@@ -208,7 +239,9 @@
         "#2e2e3e",
         "#6a4a6a"
       ],
-      "grain": 1
+      "grain": 1,
+      "kind": "loose",
+      "slip": 0.8
     },
     {
       "id": "hearth",
@@ -220,7 +253,9 @@
         "#4a382c",
         "#8a4a20"
       ],
-      "grain": 1
+      "grain": 1,
+      "kind": "loose",
+      "slip": 0.6
     },
     {
       "id": "shards",
@@ -232,7 +267,9 @@
         "#ba6e42",
         "#c87a4a"
       ],
-      "grain": 1
+      "grain": 1,
+      "kind": "loose",
+      "slip": 0.8
     },
     {
       "id": "peat",
@@ -245,7 +282,8 @@
         "#564224"
       ],
       "grain": 3,
-      "rock": "peat"
+      "rock": "peat",
+      "kind": "rock"
     },
     {
       "id": "lignite",
@@ -258,7 +296,8 @@
         "#4a3828"
       ],
       "grain": 4,
-      "rock": "lignite"
+      "rock": "lignite",
+      "kind": "rock"
     },
     {
       "id": "coal",
@@ -271,7 +310,8 @@
         "#34343c"
       ],
       "grain": 4,
-      "rock": "coal"
+      "rock": "coal",
+      "kind": "rock"
     },
     {
       "id": "anthracite",
@@ -285,7 +325,8 @@
       ],
       "grain": 2,
       "rock": "anthracite",
-      "glint": true
+      "glint": true,
+      "kind": "rock"
     },
     {
       "id": "diamond",
@@ -299,7 +340,8 @@
       ],
       "grain": 1,
       "rock": "diamond",
-      "glint": true
+      "glint": true,
+      "kind": "rock"
     },
     {
       "id": "oil",
@@ -312,7 +354,8 @@
         "#3a2a14"
       ],
       "grain": 6,
-      "rock": "oil"
+      "rock": "oil",
+      "kind": "rock"
     },
     {
       "id": "gas",
@@ -325,7 +368,8 @@
         "#505868"
       ],
       "grain": 6,
-      "rock": "gas"
+      "rock": "gas",
+      "kind": "rock"
     },
     {
       "id": "chalk",
@@ -338,7 +382,8 @@
         "#efede4"
       ],
       "grain": 4,
-      "rock": "chalk"
+      "rock": "chalk",
+      "kind": "rock"
     },
     {
       "id": "limestone",
@@ -351,7 +396,8 @@
         "#d6d2c0"
       ],
       "grain": 4,
-      "rock": "limestone"
+      "rock": "limestone",
+      "kind": "rock"
     },
     {
       "id": "marble",
@@ -364,7 +410,8 @@
         "#f2eff4"
       ],
       "grain": 7,
-      "rock": "marble"
+      "rock": "marble",
+      "kind": "rock"
     },
     {
       "id": "sandstone",
@@ -377,7 +424,8 @@
         "#d29a6a"
       ],
       "grain": 3,
-      "rock": "sandstone"
+      "rock": "sandstone",
+      "kind": "rock"
     },
     {
       "id": "quartzite",
@@ -391,7 +439,8 @@
       ],
       "grain": 3,
       "rock": "quartzite",
-      "glint": true
+      "glint": true,
+      "kind": "rock"
     },
     {
       "id": "mudstone",
@@ -404,7 +453,8 @@
         "#8a726e"
       ],
       "grain": 5,
-      "rock": "mudstone"
+      "rock": "mudstone",
+      "kind": "rock"
     },
     {
       "id": "shale",
@@ -417,7 +467,8 @@
         "#62646c"
       ],
       "grain": 6,
-      "rock": "shale"
+      "rock": "shale",
+      "kind": "rock"
     },
     {
       "id": "slate",
@@ -430,7 +481,8 @@
         "#4a5058"
       ],
       "grain": 7,
-      "rock": "slate"
+      "rock": "slate",
+      "kind": "rock"
     },
     {
       "id": "tuff",
@@ -443,7 +495,8 @@
         "#c2b29a"
       ],
       "grain": 3,
-      "rock": "tuff"
+      "rock": "tuff",
+      "kind": "rock"
     },
     {
       "id": "amber",
@@ -457,7 +510,8 @@
       ],
       "grain": 2,
       "rock": "amber",
-      "glint": true
+      "glint": true,
+      "kind": "rock"
     },
     {
       "id": "amberInsect",
@@ -471,7 +525,8 @@
       ],
       "grain": 1,
       "rock": "amber",
-      "glint": true
+      "glint": true,
+      "kind": "rock"
     },
     {
       "id": "phosphorite",
@@ -484,7 +539,8 @@
         "#a2a28a"
       ],
       "grain": 3,
-      "rock": "phosphorite"
+      "rock": "phosphorite",
+      "kind": "rock"
     },
     {
       "id": "stromatolite",
@@ -498,7 +554,8 @@
       ],
       "grain": 2,
       "rock": "stromatolite",
-      "banded": true
+      "banded": true,
+      "kind": "rock"
     },
     {
       "id": "iridium",
@@ -512,7 +569,8 @@
       ],
       "grain": 1,
       "rock": "rare",
-      "glint": true
+      "glint": true,
+      "kind": "rock"
     },
     {
       "id": "magma",
@@ -525,7 +583,8 @@
         "#ffb020"
       ],
       "grain": 3,
-      "emissive": true
+      "emissive": true,
+      "kind": "rock"
     },
     {
       "id": "basalt",
@@ -538,7 +597,8 @@
         "#464652"
       ],
       "grain": 3,
-      "rock": "basalt"
+      "rock": "basalt",
+      "kind": "rock"
     },
     {
       "id": "obsidian",
@@ -552,7 +612,8 @@
       ],
       "grain": 6,
       "rock": "obsidian",
-      "glint": true
+      "glint": true,
+      "kind": "rock"
     },
     {
       "id": "granite",
@@ -565,7 +626,8 @@
         "#c8b0a8"
       ],
       "grain": 1,
-      "rock": "granite"
+      "rock": "granite",
+      "kind": "rock"
     },
     {
       "id": "gneiss",
@@ -579,7 +641,8 @@
       ],
       "grain": 2,
       "rock": "gneiss",
-      "banded": true
+      "banded": true,
+      "kind": "rock"
     },
     {
       "id": "ruby",
@@ -593,7 +656,8 @@
       ],
       "grain": 1,
       "rock": "ruby",
-      "glint": true
+      "glint": true,
+      "kind": "rock"
     },
     {
       "id": "sapphire",
@@ -607,7 +671,8 @@
       ],
       "grain": 1,
       "rock": "sapphire",
-      "glint": true
+      "glint": true,
+      "kind": "rock"
     },
     {
       "id": "graphite",
@@ -620,7 +685,8 @@
         "#4a4a4a"
       ],
       "grain": 3,
-      "rock": "graphite"
+      "rock": "graphite",
+      "kind": "rock"
     },
     {
       "id": "glowstone",
@@ -634,7 +700,8 @@
       ],
       "grain": 2,
       "rock": "glowstone",
-      "emissive": true
+      "emissive": true,
+      "kind": "rock"
     },
     {
       "id": "concrete",
@@ -647,7 +714,8 @@
         "#96938f"
       ],
       "grain": 1,
-      "techno": true
+      "techno": true,
+      "kind": "solid"
     },
     {
       "id": "glassSand",
@@ -660,7 +728,8 @@
         "#d2e2dc"
       ],
       "grain": 1,
-      "techno": true
+      "techno": true,
+      "kind": "solid"
     },
     {
       "id": "plastic",
@@ -673,7 +742,8 @@
         "#3ac87a"
       ],
       "grain": 1,
-      "techno": true
+      "techno": true,
+      "kind": "solid"
     },
     {
       "id": "metal",
@@ -686,7 +756,150 @@
         "#a4aab2"
       ],
       "grain": 8,
-      "techno": true
+      "techno": true,
+      "kind": "solid"
+    },
+    {
+      "id": "bedrock",
+      "density": 3.0,
+      "palette": [
+        "#262a36",
+        "#2e323f",
+        "#363a48",
+        "#3e4352",
+        "#484e5e"
+      ],
+      "grain": 3,
+      "kind": "solid"
+    },
+    {
+      "id": "foundation",
+      "density": 3.0,
+      "palette": [
+        "#16121a",
+        "#1c1822",
+        "#221e2a",
+        "#28243a",
+        "#302a40"
+      ],
+      "grain": 2,
+      "kind": "solid"
+    },
+    {
+      "id": "artifact",
+      "density": 5.0,
+      "palette": [
+        "#c9782a",
+        "#f2b54a",
+        "#ffd27a",
+        "#ffe7a8",
+        "#fff4d0"
+      ],
+      "grain": 1,
+      "kind": "solid",
+      "emissive": true
+    },
+    {
+      "id": "ochre",
+      "density": 1.6,
+      "palette": [
+        "#a84c2a",
+        "#b85830",
+        "#c8643a",
+        "#d4744a",
+        "#e08458"
+      ],
+      "grain": 2,
+      "kind": "marker",
+      "marker": true
+    },
+    {
+      "id": "tephra",
+      "density": 1.2,
+      "palette": [
+        "#bcb7ac",
+        "#c8c3b8",
+        "#d6d1c6",
+        "#e2ddd2",
+        "#ece8de"
+      ],
+      "grain": 2,
+      "kind": "marker",
+      "marker": true
+    },
+    {
+      "id": "boundary",
+      "density": 1.8,
+      "palette": [
+        "#d6bc6a",
+        "#e4cc80",
+        "#f2dc96",
+        "#fff0bc",
+        "#fff6d6"
+      ],
+      "grain": 1,
+      "kind": "marker",
+      "marker": true
+    },
+    {
+      "id": "floodSilt",
+      "density": 1.8,
+      "palette": [
+        "#4f5a52",
+        "#5a665c",
+        "#667266",
+        "#727e70",
+        "#7e8a7a"
+      ],
+      "grain": 3,
+      "kind": "marker",
+      "marker": true
+    },
+    {
+      "id": "jasper",
+      "density": 2.6,
+      "palette": [
+        "#883420",
+        "#983c26",
+        "#a8442c",
+        "#b8503a",
+        "#c86048"
+      ],
+      "grain": 2,
+      "kind": "rock",
+      "rock": "jasper",
+      "marker": true
+    },
+    {
+      "id": "bentonite",
+      "density": 2.2,
+      "palette": [
+        "#a0a896",
+        "#acb4a2",
+        "#b8c0ae",
+        "#c4ccba",
+        "#d0d8c6"
+      ],
+      "grain": 3,
+      "kind": "rock",
+      "rock": "bentonite",
+      "marker": true
+    },
+    {
+      "id": "boundaryRock",
+      "density": 2.8,
+      "palette": [
+        "#ccaa50",
+        "#dcbc60",
+        "#e8c870",
+        "#f2d688",
+        "#fae6a0"
+      ],
+      "grain": 1,
+      "kind": "rock",
+      "rock": "rare",
+      "glint": true,
+      "marker": true
     }
   ],
   "rocks": [
@@ -829,6 +1042,16 @@
       "id": "glowstone",
       "icon": "#60ffb8",
       "value": 30
+    },
+    {
+      "id": "jasper",
+      "icon": "#b8503a",
+      "value": 6
+    },
+    {
+      "id": "bentonite",
+      "icon": "#c4ccba",
+      "value": 5
     }
   ]
 }

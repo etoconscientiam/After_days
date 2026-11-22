@@ -320,7 +320,9 @@
     "ruby": "limestone, extreme heat and pressure",
     "sapphire": "mudstone, extreme heat and pressure",
     "graphite": "organics burned above 150 °C",
-    "glowstone": "glowing life, buried"
+    "glowstone": "glowing life, buried",
+    "jasper": "lay an ochre bed and bury it",
+    "bentonite": "volcanic dust from an eruption, buried"
   },
   "rocks": {
     "stromatolite": "Stromatolite",
@@ -350,7 +352,9 @@
     "ruby": "Ruby",
     "sapphire": "Sapphire",
     "graphite": "Graphite",
-    "glowstone": "Glowstone"
+    "glowstone": "Glowstone",
+    "jasper": "Jasper",
+    "bentonite": "Bentonite"
   },
   "materials": {
     "void": "—",
@@ -406,7 +410,16 @@
     "concrete": "Concrete crumbs",
     "glassSand": "Glass sand",
     "plastic": "Plastic pellets",
-    "metal": "Metal"
+    "metal": "Metal",
+    "bedrock": "Bedrock",
+    "artifact": "The thing",
+    "ochre": "Ochre",
+    "tephra": "Volcanic dust",
+    "boundary": "Epoch boundary",
+    "floodSilt": "Flood silt",
+    "jasper": "Jasper",
+    "bentonite": "Bentonite",
+    "boundaryRock": "Boundary layer"
   },
   "tip": {
     "years": "{a} yrs ago",
