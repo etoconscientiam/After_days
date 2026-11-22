@@ -1,0 +1,49 @@
+
+> strata@0.1.0 sim
+> tsx sim/sim.ts
+
+[0.0 min] rock mudstone
+[0.1 min] rock sandstone
+[0.1 min] era 1
+[0.2 min] rock rare
+[0.2 min] rock stromatolite
+[0.5 min] rock shale
+[1.0 min] rock slate
+[1.0 min] era 2
+[1.1 min] rock chalk
+[1.3 min] rock limestone
+[1.5 min] rock oil
+[2.0 min] era 3
+[2.1 min] rock peat
+[2.3 min] rock lignite
+[2.7 min] rock amber
+[2.7 min] rock coal
+[3.3 min] rock anthracite
+[3.5 min] note n01
+[3.5 min] prestige gain=2 total=3 foundation=15.4
+[3.6 min] era 1
+[4.4 min] era 2
+[5.3 min] era 3
+[7.5 min] rock gas
+[7.5 min] era 4
+[7.9 min] rock phosphorite
+[8.3 min] fossil molluscs
+[8.5 min] fossil molluscs
+[9.8 min] fossil molluscs
+[9.9 min] rock quartzite
+  .. 10m era=4 year=83186 E=8.03e+5 inc=1.61e+5 yps=74.1 O2=21.0 particles=10404 archive=160 sunk=2457 gain=4 cond=1.00 fossils=3 mudstone:384 sandstone:18 rare:85 stromatolite:243 shale:17530 slate:31036 chalk:714 limestone:3076 oil:470 peat:634 lignite:12436 amber:150 coal:1111 anthracite:3657 gas:733 phosphorite:15 quartzite:518
+[10.3 min] era 5
+[10.4 min] fossil predators
+[10.4 min] fossil herds
+[11.1 min] rock marble
+[12.6 min] prestige gain=6 total=8 foundation=36.3
+[13.8 min] era 3
+[16.3 min] era 4
+[18.8 min] era 5
+  .. 20m era=5 year=89042 E=1.97e+6 inc=2.80e+5 yps=21.9 O2=21.0 particles=9064 archive=160 sunk=2617 gain=5 cond=0.00 fossils=83 mudstone:257 stromatolite:259 sandstone:50 rare:75 shale:14019 slate:28268 chalk:175 limestone:1584 peat:849 lignite:14294 oil:70 coal:2707 anthracite:1587 amber:19 phosphorite:38 gas:1239 quartzite:1414
+[23.5 min] era 6
+[26.4 min] era 7
+[28.0 min] temple bury
+[28.0 min] done playthrough 1
+[28.0 min] end density=3 prestiges=2
+wrote sim/out/sim_1.csv

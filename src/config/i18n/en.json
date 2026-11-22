@@ -290,6 +290,33 @@
     "widePress": {
       "name": "Wide press",
       "desc": "+6 to the press radius"
+    },
+    "pile": "Pile composition",
+    "pileNow": "{n} grains · yours {p}%",
+    "opensEra": "Opens in epoch {n} · {name}",
+    "pileSize": {
+      "name": "Bigger pile",
+      "desc": "More grains in every pile"
+    },
+    "pileSand": {
+      "name": "Sand in the pile",
+      "desc": "A share of sand in every pile: sandstone in the depth"
+    },
+    "pileClay": {
+      "name": "Clay in the pile",
+      "desc": "A share of clay: shale in the depth"
+    },
+    "pileShell": {
+      "name": "Shells in the pile",
+      "desc": "A share of shell ooze: limestone and chalk in the depth"
+    },
+    "pilePeat": {
+      "name": "Peat in the pile",
+      "desc": "A share of organic matter: peat, lignite, coal"
+    },
+    "pileResin": {
+      "name": "Resin in the pile",
+      "desc": "A share of resin: amber, now and then with an insect"
     }
   },
   "rockHow": {
@@ -740,7 +767,10 @@
     "packs": "archive layers",
     "layers": "rows sunk",
     "mass": "mass",
-    "foundation": "foundation"
+    "foundation": "foundation",
+    "phys": "physics",
+    "awake": "blocks",
+    "moving": "moving"
   },
   "rocksView": {
     "title": "Rocks"
@@ -832,5 +862,8 @@
     "buyBest": "Buy the best",
     "buyBestTip": "Buys the best income per price while there is enough",
     "requires": "Opens after shift no. {n}"
+  },
+  "bed": {
+    "button": "Bed: an ochre bed over all the land (jasper in the depth)"
   }
 }

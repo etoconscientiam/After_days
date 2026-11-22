@@ -404,6 +404,15 @@ html[data-tremor] #ui { animation: letterTremor 0.14s steps(1) infinite; }
 .geo-plate.no { background: rgba(120,110,100,0.85); color: #f0e8dc; }
 .geo-plate.no canvas { filter: grayscale(1) brightness(0.8); }
 #ui.choosing .geo-btn, #ui.finale .geo-btn { display: none; }
+/* «Bed»: the cooldown is a dark sector that shrinks clockwise; ready — a warm rim */
+.bed-btn { overflow: hidden; }
+.bed-btn[hidden] { display: none; }
+.bed-btn:disabled { opacity: 1; cursor: default; }
+.bed-btn .bed-ring { position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: conic-gradient(rgba(10,8,8,0.62) calc(var(--wait, 0) * 360deg), transparent 0); }
+.bed-btn.ready { box-shadow: inset 0 1px 0 rgba(255,240,210,0.1), 0 0 0 1px rgba(224,132,88,0.7), 0 2px 6px rgba(0,0,0,0.5); }
+.bed-btn.fired { animation: bedFire 0.6s ease-out; }
+@keyframes bedFire { 0% { transform: scale(1.18); box-shadow: 0 0 0 2px #e08458, 0 0 16px #e08458; } 100% { transform: scale(1); } }
 
 /* goal line under the resources (brief 5, Б2) */
 #goal { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; margin-top: 3px; pointer-events: auto; text-align: left; max-width: 78%;

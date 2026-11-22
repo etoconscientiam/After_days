@@ -345,7 +345,7 @@ window.addEventListener('pointerdown', () => audio.unlock(), { once: true });
       el.hidden = true;
     }
     // the lens: taps on the world are handled by the input (another layer moves it, off the layers closes it)
-    if (!tgt.closest('#lens, #geo-btn, #world')) geo.closeLens();
+    if (!tgt.closest('#lens, #geo-btn, #bed-btn, #world')) geo.closeLens();
   }, true);
 }
 // touch has no hover: things with a tooltip explain themselves on tap

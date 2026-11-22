@@ -75,8 +75,35 @@ function pick(src: ZoneSource, u: number): number {
 export const wx = (x: number) => x * 2 + 1;
 
 /** The drizzle: dy game years of sediment from the zones, life and elements. */
+/** The relief the sediment keeps: the row of the surface column x aims at (sea floor below the water, the shore at
+ *  the water, the land above it), blended across zone borders. */
+export function reliefRow(g: Game, x: number): number {
+  const X = wx(x), mix = g.zoneMix, R = S.relief;
+  const level = g.seaRow();
+  return level + mix[X * 3] * R.sea + mix[X * 3 + 1] * R.shore + mix[X * 3 + 2] * R.land;
+}
+
+/** Room under the relief, per column (rows; > 0: the column is lower than its shape). */
+const room = new Float32Array(GW);
+
+/** Where a particle meant for column x settles: there if it has room, else the column with the most room, nearer
+ *  ones first (room less spill-cost per column of distance): the surplus of a full sea goes to the hollows of the
+ *  land, not only next door. If nowhere has room, x (everything rises together and the conveyor takes it down). */
+function route(x: number): number {
+  if (room[x] > 0) return x;
+  let best = x, bs = 0;
+  const cost = 1 / S.relief.spill;
+  for (let xx = 0; xx < GW; xx++) {
+    const sc = room[xx] - Math.abs(xx - x) * cost;
+    if (sc > bs) { bs = sc; best = xx; }
+  }
+  return best;
+}
+
 export function drizzle(g: Game, dy: number): void {
   const r = g.run;
+  const surf = g.grid.surf;
+  for (let x = 0; x < GW; x++) room[x] = surf[x] - reliefRow(g, x);
   const src = zoneSources(g);
   const depMul = 1 + g.stats.deposition;
   const advFrom = r.startWaterEnd;
@@ -101,7 +128,10 @@ export function drizzle(g: Game, dy: number): void {
       const uz = valueNoise(X / 9, ty * 0.6 + 31.7);
       const zsrc = uz < m0 ? 0 : uz < m0 + m1 ? 1 : 2;
       const u = valueNoise(X / 22 + zsrc * 50, ty) * 0.8 + g.rng.next() * 0.2;
-      layParticle(g, x, pick(src[zsrc], u), zi, 1, fast);
+      // one particle raises a column by a row; slides spread it, so count half
+      const xs = route(x);
+      room[xs] -= 0.5;
+      layParticle(g, xs, pick(src[zsrc], u), zi, 1, fast);
     }
   }
 }
@@ -164,15 +194,25 @@ export function pileMix(g: Game, zi: number): { m: number; w: number }[] {
   const life: { m: number; w: number }[] = [];
   for (let k = 0; k < src.mats.length; k++) if (src.mats[k] !== src.base) life.push({ m: src.mats[k], w: src.w[k] });
   const mix = [{ m: src.base, w: Math.max(1e-6, src.bg) }];
-  if (!life.length) return mix;
-  const lifeW = life.reduce((s, q) => s + q.w, 0);
-  const r = g.run;
+  if (life.length) {
+    const lifeW = life.reduce((s, q) => s + q.w, 0);
+    const r = g.run;
   if (!life.some((q) => q.m === r.pileSec) || g.rng.next() < 0.25) {
     let u = g.rng.next() * lifeW;
     r.pileSec = life[life.length - 1].m;
-    for (const q of life) { u -= q.w; if (u <= 0) { r.pileSec = q.m; break; } }
+      for (const q of life) { u -= q.w; if (u <= 0) { r.pileSec = q.m; break; } }
+    }
+    mix.push({ m: r.pileSec, w: lifeW });
   }
-  mix.push({ m: r.pileSec, w: lifeW });
+  // branch «pile composition»: the bought shares of materials, the rest as above
+  const shares = g.stats.pile;
+  let tot = 0;
+  for (const id in shares) tot += shares[id];
+  if (tot <= 0) return mix;
+  const k = Math.min(1, S.pileShareMax / tot);
+  const S0 = tot * k;
+  const W = mix.reduce((s, q) => s + q.w, 0);
+  for (const id in shares) if (shares[id] > 0) mix.push({ m: mat(id), w: (W * shares[id] * k) / (1 - S0) });
   return mix;
 }
 

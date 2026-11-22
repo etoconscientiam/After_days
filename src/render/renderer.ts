@@ -217,7 +217,7 @@ export class Renderer {
     for (let x = 0; x < WW; x++) if (g.zoneMap[x] === zi) xs.push(x);
     if (!xs.length) return;
     const x = xs[Math.floor(Math.random() * xs.length)];
-    const y = zi === 0 ? this.gy[x] : this.gy[x] + 3 + Math.random() * (this.lay.sectionTop - this.gy[x] - 6);
+    const y = this.gy[x] - 2;
     this.spawns.push({ x, y, t: 0 });
   }
 
@@ -797,6 +797,28 @@ export class Renderer {
     const caps: Record<string, number> = { mat: 6, plankton: 14, mollusc: 6, fish: 7, moss: 12, tree: 9, insect: 8, bird: 5, herd: 6, predator: 4, hominid: 4, tribe: 7 };
     const queue: { y: number; draw: () => void }[] = [];
     const herdXs: number[] = [];
+    // where there is water now (the sea and the flooded lowland) and how deep: piles can fill the sea, the sea
+    // can flood the lowland, so life finds its place by the real surface, not by the zone map
+    const sea = lay.waterLevel;
+    const wet = new Uint8Array(WW);
+    for (let x = 0; x < WW; x++) wet[x] = g.water.col[x >> 1] === 1 && this.gy[x] > sea + 1 ? 1 : 0;
+    const swim: { x0: number; x1: number }[] = [];
+    for (let x = 0; x < WW;) {
+      if (!wet[x] || this.gy[x] < sea + 7) { x++; continue; }
+      let x1 = x;
+      while (x1 + 1 < WW && wet[x1 + 1] && this.gy[x1 + 1] >= sea + 7) x1++;
+      if (x1 - x >= 7) swim.push({ x0: x, x1 });
+      x = x1 + 1;
+    }
+    const swimW = swim.reduce((a, r) => a + r.x1 - r.x0 + 1, 0);
+    /** The nearest dry column of zone zi to x (or -1). */
+    const dryNear = (x: number, zi: number): number => {
+      for (let d = 0; d < 48; d++) for (const xx of [x - d, x + d]) {
+        if (xx < 0 || xx >= WW) continue;
+        if (!wet[xx] && g.zoneMap[xx] === zi) return xx;
+      }
+      return -1;
+    };
     for (const pass of [0, 1]) for (const sp of CFG.species) {
       if ((sp.sprite === 'predator') !== (pass === 1)) continue;
       const p = g.run.pop[sp.id];
@@ -828,17 +850,52 @@ export class Renderer {
             flip = prey < x;
           }
           const pose: Pose = { t: t + h * 10, i, flip, alert, walk: walking || sp.sprite === 'predator' ? 1 : 0, season: this.seasonPhase, tint: sp.tint };
-          const xi = Math.max(0, Math.min(WW - 1, Math.round(x)));
-          let y = this.gy[xi];
-          if (zi !== 0 && sp.sprite !== 'tree') y = Math.round(y + 3 + hash2(i, sp.idx + 99) * Math.max(1, lay.sectionTop - y - 6));
-          else if (sp.sprite === 'tree') y = Math.round(y + 1 + hash2(i, sp.idx + 99) * 5);
-          if (zi === 0) {
-            if (sp.sprite === 'fish') {
-              const depth = Math.max(4, this.gy[xi] - lay.waterLevel - 3);
-              y = lay.waterLevel + 3 + h * depth;
-              x = bx + Math.sin(t * (0.4 + h * 0.3) + h * 9) * 16 + (since < 1.5 ? (h > 0.5 ? 1 : -1) * since * 20 : 0);
-              pose.flip = Math.cos(t * (0.4 + h * 0.3) + h * 9) < 0;
-            } else if (sp.sprite === 'plankton') y = lay.waterLevel + 3 + h * Math.max(3, this.gy[xi] - lay.waterLevel - 4);
+          const swimmer = sp.sprite === 'fish' || sp.sprite === 'plankton';
+          const bed = sp.sprite === 'mollusc' || (sp.sprite === 'mat' && zi === 0);
+          let y: number;
+          if (swimmer) {
+            // in open water only: a run of water deep enough, never through the ground
+            if (!swimW) continue;
+            let u2 = hash2(i * 13 + zi, sp.idx * 7 + 1) * swimW;
+            let run = swim[0];
+            for (const r of swim) { const w = r.x1 - r.x0 + 1; if (u2 < w) { run = r; break; } u2 -= w; }
+            const cx = run.x0 + 3 + h * Math.max(1, run.x1 - run.x0 - 6);
+            const amp = Math.min(16, (run.x1 - run.x0) / 2 - 3);
+            x = sp.sprite === 'fish'
+              ? cx + Math.sin(t * (0.4 + h * 0.3) + h * 9) * amp + (since < 1.5 ? (h > 0.5 ? 1 : -1) * since * 20 : 0)
+              : cx + Math.sin(t * 0.05 + h * 6) * amp * 0.3;
+            x = Math.max(run.x0 + 3, Math.min(run.x1 - 3, x));
+            if (sp.sprite === 'fish') pose.flip = Math.cos(t * (0.4 + h * 0.3) + h * 9) < 0;
+            // between the surface and the bed under it (and the bed a few pixels around: the fish is 8 px long)
+            const xi2 = Math.round(x);
+            let bot = this.gy[xi2];
+            for (let d = -4; d <= 4; d++) bot = Math.min(bot, this.gy[Math.max(0, Math.min(WW - 1, xi2 + d))]);
+            const room = bot - sea - 7;
+            if (room < 0) continue;
+            y = Math.round(sea + 4 + hash2(i, sp.idx + 99) * room);
+          } else if (bed) {
+            // on the sea floor, in water if there is any
+            if (zi === 0 && !wet[Math.round(bx)] && swimW) {
+              let u2 = hash2(i * 17 + 3, sp.idx) * swimW;
+              for (const r of swim) { const w = r.x1 - r.x0 + 1; if (u2 < w) { bx = r.x0 + u2; break; } u2 -= w; }
+            }
+            x = bx;
+            y = this.gy[Math.max(0, Math.min(WW - 1, Math.round(x)))];
+          } else if (sp.sprite === 'bird' && wet[Math.round(bx)]) {
+            // over the water a bird flies (it does not sit on the sea floor)
+            const fx = bx + Math.sin(t * 0.3 + h * 7) * 20, fy = sea - 10 - h * 26 + Math.sin(t * 1.3 + h * 4) * 2;
+            queue.push({ y: 999, draw: () => birdFlying(c, fx, fy, pose) });
+            continue;
+          } else {
+            // on dry ground: never under the water and never inside the strata
+            const home = wet[Math.round(bx)] ? dryNear(Math.round(bx), zi) : Math.round(bx);
+            if (home < 0) continue;
+            if (home !== Math.round(bx)) { x += home - bx; bx = home; }
+            if (x < 0 || x >= WW || wet[Math.round(x)]) x = bx;
+            const xi2 = Math.max(0, Math.min(WW - 1, Math.round(x)));
+            // a pixel or two of depth for a crowd (who stands in front), the roots of a tree a little deeper
+            const sink = sp.sprite === 'tree' ? 1 + Math.round(hash2(i, sp.idx + 99) * 2) : Math.round(hash2(i, sp.idx + 99) * 2);
+            y = this.gy[xi2] + sink;
           }
           if (sp.sprite === 'herd') herdXs.push(x);
           if (sp.sprite === 'bird' && since < 5) {
@@ -875,7 +932,7 @@ export class Renderer {
   private drawCamp(g: Game): void {
     const c = this.ctx;
     const x = WW / 2;
-    const gy = this.gy[x] + 6;
+    const gy = this.gy[x] + 1;
     if (!(g.run.era >= 7 || g.settlePop() > 0)) return;
     const f = 0.6 + 0.4 * Math.sin(this.t * 9) * Math.sin(this.t * 13);
     c.fillStyle = rgb(255, 180, 60, f); c.fillRect(x + 9, gy - 3, 3, 2);

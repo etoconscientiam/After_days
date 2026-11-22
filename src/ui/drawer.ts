@@ -10,7 +10,7 @@ import { $, h, setText, toggle } from './dom';
 import { t, fmt, setLang, Lang } from './i18n';
 import { chronicleCard } from './chronicle';
 import { energyIcon, rockIcon, tabIcon, elementIcon, oxygenIcon, portrait, exhibit } from './icons';
-import { habitatPixel, releasePixel, bugPixel } from './pixelIcons';
+import { habitatPixel, releasePixel, bugPixel, pilePixel as pileIcon, ROMAN } from './pixelIcons';
 import { WW } from '../render/common';
 import { assetUrl } from '../render/assets';
 
@@ -389,13 +389,14 @@ export class Drawer {
     const btn = h('button', { class: 'buy' }, u.currency === 'energy' ? h('span', { class: 'e' }, energyIcon(13)) : h('span', { class: 'e' }, rockIcon(u.currency, 14)), price) as HTMLButtonElement;
     const fill = h('b', {});
     const scale = h('div', { class: 'scale' }, fill, ...CFG.milestones.map((m) => h('i', { style: `left:${m}%`, 'data-m': String(m) })));
-    const row = h('div', { class: 'row' }, h('div', { class: 'r-ico' }, u.currency === 'energy' ? energyIcon(26) : rockIcon(u.currency, 28)), name, h('div', { class: 'r-act' }, btn), eff, scale);
+    const ico = u.branch === 'pile' ? pileIcon(26, u.pileMat) : u.currency === 'energy' ? energyIcon(26) : rockIcon(u.currency, 28);
+    const row = h('div', { class: 'row' }, h('div', { class: 'r-ico' }, ico), name, h('div', { class: 'r-act' }, btn), eff, scale);
     holdToRepeat(btn, () => g.buyUpgrade(u.id));
     this.refreshers.push(() => {
       const lvl = g.upgradeLevel(u.id);
       name.replaceChildren(t('upgrades.' + u.id + '.name'), h('small', {}, lvl ? String(lvl) : ''));
       const cur = lvl > 0 ? upgradeEffect(lvl, u.value, u.kind, !!u.milestones) : 0;
-      const curStr = lvl > 0 ? (u.kind === 'mul' ? ` · ×${fmt(cur, 2)}` : u.stat.endsWith('Add') || u.stat === 'geoHeat' || u.stat === 'kMax' ? ` · +${fmt(cur, 1)}` : ` · +${fmt(cur * 100, 0)}%`) : '';
+      const curStr = lvl > 0 && u.stat === 'pileSize' ? ` · +${fmt(cur * CFG.B.sand.pile.perLevel, 0)}` : lvl > 0 ? (u.kind === 'mul' ? ` · ×${fmt(cur, 2)}` : u.stat.endsWith('Add') || u.stat === 'geoHeat' || u.stat === 'kMax' ? ` · +${fmt(cur, 1)}` : ` · +${fmt(cur * 100, 0)}%`) : '';
       setText(eff, t('upgrades.' + u.id + '.desc') + curStr);
       const cost = g.upgradeCost(u.id);
       setText(price, fmt(cost));
@@ -413,7 +414,23 @@ export class Drawer {
 
   private buildUpgrades(g: Game): void {
     this.body.append(h('div', { class: 'group-title' }, energyIcon(18), t('upgrades.awakening')));
-    for (const u of CFG.upgrades.filter((x) => x.currency === 'energy')) this.body.append(this.upgradeRow(g, u));
+    for (const u of CFG.upgrades.filter((x) => x.currency === 'energy' && x.branch !== 'pile')) this.body.append(this.upgradeRow(g, u));
+    // branch «pile composition»: the size of a tapped pile and the shares of materials in it, opening by epochs
+    const shareNow = h('small', {});
+    this.body.append(h('div', { class: 'group-title' }, pileIcon(18), t('upgrades.pile'), shareNow));
+    this.refreshers.push(() => {
+      let s = 0;
+      for (const id in g.stats.pile) s += g.stats.pile[id];
+      setText(shareNow, t('upgrades.pileNow', { n: g.pileSize(), p: fmt(Math.min(CFG.B.sand.pileShareMax, s) * 100, 0) }));
+    });
+    for (const u of CFG.upgrades.filter((x) => x.branch === 'pile')) {
+      if (u.era && g.run.era < u.era) {
+        this.body.append(h('div', { class: 'row dim' }, h('div', { class: 'r-ico' }, h('span', { class: 'silhouette' }, pileIcon(26, u.pileMat))), h('div', { class: 'r-name' }, t('upgrades.' + u.id + '.name')), h('div', { class: 'r-act' }),
+          h('div', { class: 'hint' }, t('upgrades.opensEra', { n: ROMAN[u.era] ?? String(u.era), name: t('era.' + u.era) }))));
+        continue;
+      }
+      this.body.append(this.upgradeRow(g, u));
+    }
     const byRock = new Map<string, UpgradeDef[]>();
     for (const u of CFG.upgrades.filter((x) => x.currency !== 'energy')) byRock.set(u.currency, [...(byRock.get(u.currency) ?? []), u]);
     const locked: [string, UpgradeDef[]][] = [];

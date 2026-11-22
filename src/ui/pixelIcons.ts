@@ -1,5 +1,6 @@
 // Hand-placed pixel icons for the small signs on the cards: where a creature lives (water, shore, land) and
 // "let one go" (a bird leaving its nest). Drawn at 1:1 and scaled up by whole pixels (image-rendering: pixelated).
+import { CFG, mat } from '../config';
 
 type Art = { rows: string[]; pal: Record<string, string> };
 
@@ -238,3 +239,43 @@ const BUG: Art = {
   pal: { o: OUT, h: '#5a4a3a', H: '#8a7058', A: '#f2b54a', a: '#a8661e', w: '#fff3c4' },
 };
 export function bugPixel(size = 18): HTMLCanvasElement { return show(paint(BUG, 'bug'), size); }
+
+/** A heap of grains (branch «pile composition»), in the colours of its material (sand by default). 14×10. */
+const PILE_ROWS = [
+  '......oo......',
+  '.....oLAo.....',
+  '....oLAaAo....',
+  '...oLAAAaAo...',
+  '..oLAaAAAAAo..',
+  '.oLAAAAaAAaAo.',
+  'oLAAaAAAAAAAAo',
+  'oAAAAAaAAAaAAo',
+  '.oooooooooooo.',
+  '..............',
+];
+export function pilePixel(size = 18, matId = 'sand'): HTMLCanvasElement {
+  const m = CFG.materials[mat(matId)] ?? CFG.materials[mat('sand')];
+  const p = m.palette;
+  return show(paint({ rows: PILE_ROWS, pal: { o: OUT, A: p[2], a: p[0], L: p[4] ?? p[3] } }, 'pile-' + matId), size);
+}
+
+/** The «Bed» button: strata with a bright ochre bed across them. 14×13. */
+const BED: Art = {
+  rows: [
+    'oooooooooooooo',
+    'oYYYYYYYYYYYYo',
+    'oYyYYYYyYYYYYo',
+    'oYYYYYYYYYYYYo',
+    'oBBBBBBBBBBBBo',
+    'oBbBBBBBBbBBBo',
+    'oGGGGGGGGGGGGo',
+    'oGGGgGGGGGgGGo',
+    'oBBBBBBBBBBBBo',
+    'oBBBbBBBBBBbBo',
+    'oGGGGGGGGGGGGo',
+    'oGgGGGGGgGGGGo',
+    'oooooooooooooo',
+  ],
+  pal: { o: OUT, Y: '#e08458', y: '#f3b07a', B: '#6b5a4e', b: '#887562', G: '#4a4640', g: '#5e5952' },
+};
+export function bedPixel(size = 22): HTMLCanvasElement { return show(paint(BED, 'bed'), size); }

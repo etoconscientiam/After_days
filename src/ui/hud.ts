@@ -130,7 +130,9 @@ export class Hud {
   private placeNotes(): void {
     const u = $('#ui').getBoundingClientRect();
     const k = u.width / 360;
-    const under = !this.goal.hidden && this.goal.offsetParent ? this.goal : $('#era-line');
+    // the goal line, else the era line, else (drawer open: both hidden) the top row
+    const eraLine = $('#era-line');
+    const under = !this.goal.hidden && this.goal.offsetParent ? this.goal : eraLine.offsetParent ? eraLine : $('#top-row');
     const b = (under.getBoundingClientRect().bottom - u.top) / k;
     this.notes.style.top = Math.round(b + 6) + 'px';
     this.bottomUI = b;

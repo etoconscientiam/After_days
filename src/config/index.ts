@@ -48,6 +48,8 @@ export interface ElementDef {
 export interface UpgradeDef {
   id: string; branch: string; currency: string; base: number; stat: string; kind: 'add' | 'mul'; value: number;
   extra?: { stat: string; value: number }; milestones?: boolean; growth?: number;
+  /** branch pile: the material this upgrade adds to every tapped pile; era: the epoch it opens in */
+  pileMat?: string; era?: number;
 }
 export interface DensityNode { id: string; base: number; mult: number; max: number; stat: string; value: number; requires?: number }
 export interface RareDef { id: string; eras: [number, number]; place: 'sky' | 'shore' | 'land' | 'section' | 'strata' | 'horizon'; weight?: number; reward: Record<string, number | boolean> }

@@ -158,6 +158,8 @@ export class Grid {
   }
 
   wakeAll(): void { this.awakeNext.fill(1); }
+  /** How many blocks are awake this step (debug). */
+  awakeBlocks(): number { let n = 0; for (let i = 0; i < this.awake.length; i++) n += this.awake[i]; return n; }
 
   /** Swap the sleeping masks at the start of a physics step. */
   beginStep(): void {

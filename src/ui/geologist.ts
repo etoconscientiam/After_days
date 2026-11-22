@@ -11,7 +11,7 @@ import type { Input } from './input';
 import { $, h, toggle } from './dom';
 import { t, fmt } from './i18n';
 import { rockIcon } from './icons';
-import { lensPixel, eraPixel, ROMAN } from './pixelIcons';
+import { lensPixel, eraPixel, bedPixel, ROMAN } from './pixelIcons';
 import { WH, WW } from '../render/common';
 import { ERA_COLORS } from '../render/section';
 
@@ -20,6 +20,9 @@ const LENS_Z = 3;      // magnification
 
 export class Geologist {
   btn = $('#geo-btn') as HTMLButtonElement;
+  /** «Bed»: an ochre bed over the whole surface (it turns to jasper in the depth), then a cooldown. */
+  bedBtn: HTMLButtonElement;
+  private bedRing: HTMLElement;
   plates = $('#geo-plates');
   private age = 9;
   private hintT = 0;
@@ -38,6 +41,12 @@ export class Geologist {
     this.btn.title = t('geo.button');
     this.btn.setAttribute('aria-label', t('geo.button'));
     this.btn.addEventListener('click', () => this.set(!this.ren.geologist));
+    this.bedRing = h('i', { class: 'bed-ring' });
+    this.bedBtn = h('button', { id: 'bed-btn', class: 'geo-btn bed-btn', title: t('bed.button'), 'aria-label': t('bed.button') }, bedPixel(22), this.bedRing) as HTMLButtonElement;
+    this.bedBtn.addEventListener('click', () => {
+      if (this.g().layBed()) { this.bedBtn.classList.remove('fired'); void this.bedBtn.offsetWidth; this.bedBtn.classList.add('fired'); }
+    });
+    this.btn.before(this.bedBtn);
     // the era ruler
     this.ruler = h('div', { id: 'ruler', 'aria-label': t('geo.ruler') });
     this.btn.after(this.ruler);
@@ -127,6 +136,18 @@ export class Geologist {
     this.btn.style.width = this.btn.style.height = bs + 'px';
     this.btn.style.left = stripL + (stripW - bs) / 2 + 'px';
     this.btn.style.top = F.toUiY(top) + 2 + 'px';
+    // «Bed» right above it, from the first epoch; a ring shows the cooldown
+    const bedOn = play && g.run.era >= 1 && this.ren.section.cut === Infinity;
+    this.bedBtn.hidden = !bedOn;
+    if (bedOn) {
+      this.bedBtn.style.width = this.bedBtn.style.height = bs + 'px';
+      this.bedBtn.style.left = this.btn.style.left;
+      this.bedBtn.style.top = F.toUiY(top) - bs - 4 + 'px';
+      const wait = g.run.bedT / CFG.B.sand.bedCooldown;
+      this.bedRing.style.setProperty('--wait', String(Math.max(0, Math.min(1, wait))));
+      toggle(this.bedBtn, 'ready', wait <= 0);
+      this.bedBtn.disabled = wait > 0;
+    }
     this.updateRuler(g, F, stripL, stripW, F.toUiY(top) + bs + 6, play, dt);
     if (this.lensAt) {
       if (!play) this.closeLens();

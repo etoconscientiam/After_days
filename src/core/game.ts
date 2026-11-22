@@ -5,7 +5,7 @@ import { Archive } from '../world/Archive';
 import { stepFull, Water } from './sand';
 import { sinkStep } from './pressure';
 import { coat } from './beds';
-import { drizzle, tapPile, zoneSourcesBase } from './sources';
+import { drizzle, reliefRow, tapPile, zoneSourcesBase } from './sources';
 import { geoTickGame } from './geology';
 import type { GeoReport } from './pressure';
 import { EventBus } from './events';
@@ -120,9 +120,9 @@ export class Game {
       for (let j = 0; j < h && d < bedOf.length; j++) bedOf[d++] = k;
     }
     for (let x = 0; x < GW; x++) {
-      const zi = this.zoneMap[x * 2 + 1];
-      const wave = Math.round(Math.sin(x * 0.11 + 1.3) * 1.5 + Math.sin(x * 0.037) * 1.5);
-      const top = line + wave + (zi === 0 ? SAND.seaFloorBelow : zi === 1 ? Math.round(SAND.seaFloorBelow / 3) : 0);
+      const wave = Math.round(Math.sin(x * 0.11 + 1.3) * 0.8 + Math.sin(x * 0.037) * 0.8);
+      // the old ground already has the relief the sediment keeps: a sea floor under the water, dry land
+      const top = Math.round(reliefRow(this, x)) + SAND.startBelowLine + wave;
       const bottom = g.isArtifactCol(x) ? g.sinkRow : g.floor - 1;
       const bend = 2.2 * Math.sin(x * 0.09 + ph) + 1.4 * Math.sin(x * 0.23 + ph * 2);
       for (let y = Math.max(0, top); y <= bottom; y++) {
@@ -142,6 +142,13 @@ export class Game {
     g.still.fill(1);
   }
 
+  /** Mean of the relief shape (rows below the water), set with the zones. */
+  reliefMean = 0;
+  /** The row of the water line. */
+  seaRow(): number {
+    return Math.round(this.lineRow() - SAND.seaAboveLine - this.reliefMean);
+  }
+
   /** The row of the line where the strata settle (the conveyor holds them there). */
   lineRow(): number {
     return this.grid.sinkRow + 1 - Math.round(SAND.sinkLine * SAND.refRows);
@@ -151,7 +158,7 @@ export class Game {
    *  spreads from the sea over the lowland, it does not stand as a wall at the zone border). */
   updateWater(): void {
     const g = this.grid, col = this.water.col;
-    const level = this.lineRow() - SAND.seaAboveLine;
+    const level = this.seaRow();
     this.water.level = level;
     col.fill(0);
     for (let x = 0; x < GW; x++) if (this.zoneMap[x * 2 + 1] === 0) col[x] = 1;
@@ -211,6 +218,12 @@ export class Game {
       }
       for (let z = 0; z < 3; z++) this.zoneMix[x * 3 + z] = m[z] / n;
     }
+    // the relief the sediment keeps has its mean on the line where the conveyor holds the strata: the water stands
+    // that much above the line, so the sea floor is under it and the land above it, whatever the zones' widths
+    const RL = SAND.relief;
+    let off = 0;
+    for (let x = 0; x < W; x++) off += this.zoneMix[x * 3] * RL.sea + this.zoneMix[x * 3 + 1] * RL.shore + this.zoneMix[x * 3 + 2] * RL.land;
+    this.reliefMean = off / W;
     // the technogenic horizon glows around the thing; creatures above bright ground earn a little more
     const H = CFG.story.horizon;
     const centers = this.mods.shards ? this.shardXs() : [W / 2];
@@ -454,15 +467,21 @@ export class Game {
 
   /** Particles fall (full mode, a fixed number of steps a second), the conveyor sinks the oldest rows, waiting marker beds
    *  are laid. dt = real seconds. In the balance run and offline (headless) particles settle at once, no steps. */
+  /** Milliseconds of physics a frame (eased), for the debug panel. */
+  physMs = 0;
+
   strataStep(dt: number): void {
     const r = this.run;
     if (!this.headless) {
       const step = 1 / SAND.stepsPerSecond;
       this.physAcc = Math.min(this.physAcc + dt, step * 6);
+      const t0 = performance.now();
       while (this.physAcc >= step) {
         this.physAcc -= step;
         this.moving = stepFull(this.grid, this.rng, this.water, this.physTick++);
       }
+      // for the debug panel: physics time a frame, eased
+      this.physMs += (performance.now() - t0 - this.physMs) * 0.1;
     } else this.moving = 0;
     sinkStep(this.grid, r.sink, dt, (g, y) => this.archive.addRow(g, y));
     this.layBeds(dt);
@@ -497,9 +516,12 @@ export class Game {
   }
 
   /** A tap in the world: Energy as before, and a pile falls into that column. */
+  /** Particles in a tapped pile. */
+  pileSize(): number { return Math.round(SAND.pile.base + SAND.pile.perLevel * this.stats.pileSize); }
+
   tap(X: number, shard = -1): number {
     const e = this.click(shard);
-    if (this.state.phase === 'play') tapPile(this, X, SAND.pile.base);
+    if (this.state.phase === 'play') tapPile(this, X, this.pileSize());
     return e;
   }
 
@@ -741,6 +763,7 @@ export class Game {
   buyUpgrade(id: string): boolean {
     const u = CFG.upgrades.find((x) => x.id === id);
     if (!u) return false;
+    if (u.era && this.run.era < u.era) return false;
     const cost = this.upgradeCost(id);
     if (this.currency(u.currency) < cost) return false;
     if (u.currency === 'energy') this.run.energy -= cost;

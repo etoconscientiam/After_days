@@ -64,6 +64,8 @@ function botBuy() {
     }
     if (!best || !best()) break;
   }
+  // branch «pile composition»: a player spends spare energy on it (a few percent of the stock at a time)
+  for (const u of CFG.upgrades) if (u.branch === 'pile') while (g.upgradeCost(u.id) < g.run.energy * 0.03 && g.buyUpgrade(u.id)) {}
 }
 
 /** Make room for a species the era condition needs by releasing the weakest earners in its habitat. */
