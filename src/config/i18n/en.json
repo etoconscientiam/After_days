@@ -749,7 +749,10 @@
     "migration": "A herd migrates: Energy ×3 for 30 s",
     "bloom": "Bloom: time ×2 for 30 s",
     "glowLayer": "A glowing layer: transformed",
-    "ancient": "An ancient object"
+    "ancient": "An ancient object",
+    "geode": "A geode: rocks",
+    "fossilGleam": "A fossil shows through: 2 minutes of Energy",
+    "bubble": "Gas from the deep: time ×2 for 30 s"
   },
   "burial": {
     "open": "Mass death — a Flood or a Volcano now will keep the bones",

@@ -115,7 +115,7 @@ export class Renderer {
   private hot = new Float32Array(WW);
   private hotY = new Float32Array(WW);
   /** grains settling in the top layers (section-local) */
-  private settle: { x: number; y: number; vy: number; j: number; life: number; c: string }[] = [];
+  private settle: { x: number; y: number; vy: number; j: number; life: number; c: string; stop: number }[] = [];
   /** per layer: where to put its plate and what it is becoming (refreshed twice a second) */
   geoLayers: { j: number; x: number; y: number; h: number; f: Forecast | null }[] = [];
   private geoHeat: Float32Array[] = [];
@@ -583,8 +583,37 @@ export class Renderer {
   }
 
   /** Ground profile: seabed under the water, a gentle slope water → sand → grass, rolling hills on land. */
+  /** How the land swells where more is being laid down now (eased): fresh thickness per column against the mean. */
+  private swell = new Float32Array(WW);
+  private swellAge = 9;
+  private updateSwell(g: Game): void {
+    this.swellAge += this.dt;
+    if (this.swellAge < 0.5) return;
+    const k = Math.min(1, this.swellAge * 0.25);
+    this.swellAge = 0;
+    const w = g.world;
+    const since = g.run.year - Math.max(20, g.yps(false) * 40);
+    const fresh = new Float32Array(WW);
+    let mean = 0;
+    for (let x = 0; x < WW; x++) {
+      let i = w.len[x] - 1, v = 0;
+      const base = x * CAP;
+      while (i >= 0 && w.birth[base + i] >= since) { v += 1 / w.k[base + i]; i--; }
+      fresh[x] = v; mean += v;
+    }
+    mean /= WW;
+    if (mean <= 1e-6) return;
+    for (let x = 0; x < WW; x++) {
+      let s2 = 0, n = 0;
+      for (let d = -6; d <= 6; d++) { const xx = x + d; if (xx >= 0 && xx < WW) { s2 += fresh[xx]; n++; } }
+      const t = Math.max(-3, Math.min(5, ((s2 / n - mean) / mean) * 3));
+      this.swell[x] += (t - this.swell[x]) * k;
+    }
+  }
+
   private computeGround(g: Game): void {
     const lay = this.lay;
+    this.updateSwell(g);
     const seabed = lay.sectionTop - 2;
     // distance from each column to the nearest water column
     const dist = new Float32Array(WW).fill(999);
@@ -597,10 +626,11 @@ export class Renderer {
       const hill = bare
         ? NOISE[(40 << 8) | ((x * 1) & 255)] * 6 + Math.sin(x * 0.05 + 1) * 3 + 4
         : NOISE[(40 << 8) | ((x * 2) & 255)] * 7 + NOISE[(44 << 8) | ((x * 5) & 255)] * 2 + Math.sin(x * 0.045 + 1) * 3.5 + 3;
-      const land = lay.groundBase - hill;
+      // where more is being laid down now (a dune field in a drought, a delta, an ash cone) the land swells
+      const land = lay.groundBase - hill - this.swell[x];
       const t = Math.max(0, Math.min(1, (dist[x] + 3) / (bare ? 34 : 26)));
       const s = t * t * (3 - 2 * t);
-      this.gy[x] = Math.round(seabed + (land - seabed) * s);
+      this.gy[x] = Math.round(seabed - this.swell[x] * 0.5 * (1 - s) + (land - seabed) * s);
       if (g.mods.shards) for (const rx of [g.shardXs()[0] + 22, g.shardXs()[1] + 22]) {
         const d = Math.abs(x - rx);
         if (d < 7) this.gy[x] = Math.min(this.gy[x], Math.round(lay.groundBase - 12 * Math.pow(1 - d / 7, 1.3)));
@@ -991,13 +1021,20 @@ export class Renderer {
     if (g.state.phase !== 'play' || L.length === 0) { this.settle.length = 0; return; }
     const nTop = Math.min(2, L.length);
     const rate = this.quality === 'high' ? 9 : 4;
+    // what is being laid down now: grains drift down from the surface and come to rest on top of the newest layer
+    if (this.settle.length < 50 && g.yps() > 0 && Math.random() < this.dt * rate * 1.4) {
+      const x = Math.floor(Math.random() * (sec.SW - 4)) + 2;
+      const t0 = sec.topD[x];
+      const col = g.zoneMap[x] === 0 ? 'rgba(200,215,205,0.5)' : 'rgba(235,215,175,0.55)';
+      this.settle.push({ x, y: t0 - 4 - Math.random() * 4, vy: 2 + Math.random() * 2, j: -1, life: 3 + Math.random() * 2, c: col, stop: t0 + 1 + Math.random() * 2 });
+    }
     if (this.settle.length < 40 && Math.random() < this.dt * rate) {
       const j = Math.floor(Math.random() * nTop);
       const x = Math.floor(Math.random() * (sec.SW - 4)) + 2;
       const y0 = L[j].top[x] + 1, y1 = (L[j + 1] ? L[j + 1].top[x] : sec.strataH) - 1;
       if (y1 - y0 > 3 && y0 < sec.cut) {
         const light = Math.random() < 0.5;
-        this.settle.push({ x, y: y0 + Math.random() * (y1 - y0) * 0.4, vy: 0.6 + Math.random() * 1.2, j, life: 2 + Math.random() * 3, c: light ? 'rgba(255,240,210,0.35)' : 'rgba(20,14,10,0.4)' });
+        this.settle.push({ x, y: y0 + Math.random() * (y1 - y0) * 0.4, vy: 0.6 + Math.random() * 1.2, j, life: 2 + Math.random() * 3, c: light ? 'rgba(255,240,210,0.35)' : 'rgba(20,14,10,0.4)', stop: 1e9 });
       }
     }
     for (let i = this.settle.length - 1; i >= 0; i--) {
@@ -1005,6 +1042,16 @@ export class Renderer {
       p.life -= this.dt;
       p.y += p.vy * this.dt;
       const xi = Math.max(0, Math.min(WW - 1, Math.round(p.x)));
+      if (p.j < 0) {
+        // a falling grain stops on the top and fades there (it has become part of the layer)
+        if (p.y >= p.stop) { p.y = p.stop; p.vy = 0; }
+        if (p.life <= 0 || p.y >= sec.cut) { this.settle.splice(i, 1); continue; }
+        c.globalAlpha = Math.min(1, p.life);
+        c.fillStyle = p.c;
+        c.fillRect(xi, Math.round(top + p.y), 1, 1);
+        c.globalAlpha = 1;
+        continue;
+      }
       const bot = (L[p.j + 1] ? L[p.j + 1].top[xi] : sec.strataH) - 1;
       if (p.life <= 0 || p.y >= bot || p.y >= sec.cut) { this.settle.splice(i, 1); continue; }
       c.fillStyle = p.c;
@@ -1289,7 +1336,7 @@ export class Renderer {
       }
       case 'shore': return { x: ev.x, y: this.groundY(ev.x) - 1 };
       case 'land': return { x: ev.x, y: this.groundY(ev.x) - 4 };
-      case 'section': return { x: ev.x, y: this.lay.sectionTop + this.section.yAt(ev.x, ev.birth ?? 0) };
+      case 'section': case 'strata': return { x: ev.x, y: this.lay.sectionTop + this.section.yAt(ev.x, ev.birth ?? 0) };
       case 'horizon': return { x: ev.x, y: this.ayAt(ev.x) };
     }
     return null;
@@ -1368,6 +1415,33 @@ export class Renderer {
           c.fillStyle = '#ffe890'; c.fillRect(fx, fy - 1, 1, 1);
         }
         for (let k = 0; k < 6; k++) { c.fillStyle = 'rgba(255,240,170,0.8)'; c.fillRect(Math.round(x - 8 + ((k * 5 + this.t * 3) % 16)), Math.round(y - 6 - ((this.t * 4 + k * 3) % 8)), 1, 1); }
+        break;
+      }
+      case 'geode': {
+        // a dark hollow in the rock lined with violet crystals that catch the light
+        c.fillStyle = '#1c1420'; c.fillRect(x - 3, y - 2, 7, 5); c.fillRect(x - 2, y - 3, 5, 7);
+        const cr = ['#b89ae8', '#8a64c8', '#e0d0ff'];
+        for (let k = 0; k < 8; k++) { const a = (k / 8) * Math.PI * 2; c.fillStyle = cr[k % 3]; c.fillRect(Math.round(x + Math.cos(a) * 2.6), Math.round(y + Math.sin(a) * 2.6), 1, 1); }
+        if (tw > 0.7) { px(0, -1, '#ffffff'); px(-1, -1, '#e8dcff'); }
+        break;
+      }
+      case 'fossilGleam': {
+        // the curl of an ammonite showing through, its edge gleaming
+        const sp = ['..ooo..', '.oLLLo.', 'oLdddLo', 'oLdLdLo', 'oLLdLLo', '.oLLLo.', '..ooo..'];
+        const pal: Record<string, string> = { o: '#6a5a46', L: '#f0e2c0', d: '#a8885a' };
+        for (let r = 0; r < 7; r++) for (let q = 0; q < 7; q++) { const col = pal[sp[r][q]]; if (col) { c.fillStyle = col; c.fillRect(x - 3 + q, y - 3 + r, 1, 1); } }
+        const gx = Math.round(-3 + ((this.t * 6) % 7));
+        c.fillStyle = 'rgba(255,255,240,0.9)'; c.fillRect(x + gx, y - 3, 1, 7);
+        break;
+      }
+      case 'bubble': {
+        // gas from the deep rising through the layers in a string of bubbles
+        for (let k = 0; k < 5; k++) {
+          const ph = (this.t * 0.8 + k / 5) % 1;
+          const by = Math.round(y + 6 - ph * 16), bx = Math.round(x + Math.sin(ph * 9 + k) * 1.5);
+          c.fillStyle = rgb(190, 225, 255, 0.85 * (1 - ph)); c.fillRect(bx - 1, by, 3, 1); c.fillRect(bx, by - 1, 1, 3);
+          c.fillStyle = rgb(255, 255, 255, 0.9 * (1 - ph)); c.fillRect(bx, by - 1, 1, 1);
+        }
         break;
       }
       case 'glowLayer': {

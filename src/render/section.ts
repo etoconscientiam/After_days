@@ -12,6 +12,7 @@ import type { Game } from '../core/game';
 import { CAP, F_FOSSIL, F_FRAGMENT, F_RARE, F_GLOW } from '../world/World';
 import { Layout, PAL_RGB, GRAIN_SCALE, NOISE, WW, WH, makeValueNoise } from './common';
 import { hash2 } from '../core/rng';
+import { totalPop } from '../core/life';
 import { skinPixels, SkinPixels } from './assets';
 
 const DARK = 16, SH = 5;
@@ -281,6 +282,11 @@ export class SectionRenderer {
   private sH = 1;
   private MIDL = PAL_RGB.map((pal) => { const c = pal[Math.min(2, pal.length - 1)]; return c[0] * 0.3 + c[1] * 0.59 + c[2] * 0.11; });
   private glint = false;
+  // what the last build decided, keyed by fixed years, so decisions near a threshold do not flip back and forth
+  private memDom = new Map<number, number>();     // bin (its older edge) -> dominant material
+  private memBounds = new Set<number>();          // layer boundaries (years)
+  private memBelt = new Set<number>();            // layers drawn as belts (their older edge)
+  private memTone = new Map<number, boolean>();   // layers whose tone was pushed apart from the one below
   private lastRender = -1;
   private lastLayout = -1;
 
@@ -301,7 +307,7 @@ export class SectionRenderer {
     const want = this.focusEra >= 0 ? 1 : 0;
     const moving = Math.abs(want - this.focusT) > 1e-3;
     if (moving) this.focusT += Math.sign(want - this.focusT) * Math.min(Math.abs(want - this.focusT), dt * 2.2);
-    if (!moving && lay.version === this.lastLayout && now - this.lastRender < 100 && revealY === Infinity) return false;
+    if (!moving && lay.version === this.lastLayout && now - this.lastRender < 50 && revealY === Infinity) return false;
     this.render(g, lay, revealY);
     this.lastRender = now;
     this.lastLayout = lay.version;
@@ -521,19 +527,27 @@ export class SectionRenderer {
     // 1) runs of bins with the same dominant material
     type Run = { k0: number; k1: number; mat: number; merged: boolean; bed: boolean };
     let runs: Run[] = [];
+    const memDom = new Map<number, number>();
     for (let k = 1; k <= NB; k++) {
       let best = 0, bm = -1;
       for (let m = 0; m < NMAT; m++) { const v = hist[k * NMAT + m]; if (v > best) { best = v; bm = m; } }
+      // a near tie keeps last time's winner (no flicker between two rocks)
+      const was = this.memDom.get(this.bG[k]);
+      if (was !== undefined && was !== bm && hist[k * NMAT + was] >= best * 0.8) bm = was;
+      if (bm >= 0) memDom.set(this.bG[k], bm);
       const last = runs[runs.length - 1];
       if (bm < 0 || (last && last.mat === bm)) { if (last) last.k1 = k; else runs.push({ k0: 0, k1: k, mat: M.dust, merged: false, bed: false }); continue; }
       runs.push({ k0: last ? last.k1 : 0, k1: k, mat: bm, merged: false, bed: false });
     }
+    this.memDom = memDom;
+    const mb = this.memBounds;
+    const minFor = (r: Run) => (mb.has(this.bG[r.k0]) && mb.has(this.bG[r.k1]) ? MIN_PX - 1.5 : MIN_PX);   // a layer already shown holds on a little longer
     // 2) runs thinner than MIN_PX join a neighbour: the same rock first, then the same epoch, then the thinner one
     const px = (r: Run) => avgY(r.k1) - avgY(r.k0);
     for (let guard = 0; guard < 600 && runs.length > 1; guard++) {
       // the fresh run at the very top is what is being laid down now: it is never merged away, it grows
-      let wi = -1, wpx = MIN_PX;
-      for (let i = 1; i < runs.length; i++) { const p = px(runs[i]); if (p < wpx) { wpx = p; wi = i; } }
+      let wi = -1, wpx = 1e9;
+      for (let i = 1; i < runs.length; i++) { const p = px(runs[i]); if (p < minFor(runs[i]) && p < wpx) { wpx = p; wi = i; } }
       if (wi < 0) break;
       const r = runs[wi], a = wi - 1 >= 1 || (runs[0] && runs[0].mat === r.mat) ? runs[wi - 1] : undefined, b = runs[wi + 1];
       if (!a && !b) break;
@@ -556,7 +570,7 @@ export class SectionRenderer {
       let k0 = r.k0, first = true;
       for (let k = r.k0 + 1; k < r.k1; k++) {
         if (gid[k] < 0 || gid[k] % BED_EVERY !== 0) continue;
-        if (avgY(k) - avgY(k0) < 3 || avgY(r.k1) - avgY(k) < 12) continue;
+        if (avgY(k) - avgY(k0) < 3 || avgY(r.k1) - avgY(k) < (mb.has(this.bG[k]) ? 9 : 12)) continue;
         out.push({ k0, k1: k, mat: r.mat, merged: r.merged, bed: !first });
         first = false;
         k0 = k;
@@ -572,6 +586,7 @@ export class SectionRenderer {
     this.layers = new Array(runs.length);
     // tones are set from the oldest layer up, so a new layer on top never changes the look of the ones below
     let prevL = -1, prevLight = false, prevTone = 1;
+    const memTone = new Map<number, boolean>();
     for (let ri = runs.length - 1; ri >= 0; ri--) {
       const r = runs[ri];
       const below = runs[ri + 1];
@@ -592,7 +607,7 @@ export class SectionRenderer {
         sums.sort((p, q) => q[1] - p[1]);
         const mats = sums.filter(([, s]) => s / Math.max(1e-9, tot) > 0.15).slice(0, 3).map(([m]) => m);
         // one rock still dominates: it stays that rock; only a real mix becomes a striped belt
-        if (mats.length > 1 && sums[0][1] / Math.max(1e-9, tot) < 0.62) belt = mats;
+        if (mats.length > 1 && sums[0][1] / Math.max(1e-9, tot) < (this.memBelt.has(this.bG[r.k1]) ? 0.67 : 0.57)) belt = mats;
       }
       // brightness against the layer above: clearly apart (≥ 22%), alternating light — dark; beds only a little
       const depthK = 1 - 0.35 * Math.min(1, avgY(r.k0) / Math.max(1, this.Hs));
@@ -601,7 +616,9 @@ export class SectionRenderer {
       if (below && below.bed && prevL > 0) tone = prevTone * (prevLight ? 0.93 : 1.06);
       else if (prevL > 0) {
         const ratio = L / prevL;
-        if (Math.abs(1 - ratio) < 0.22) {
+        const was = this.memTone.get(this.bG[r.k1]);
+        if (Math.abs(1 - ratio) < (was === undefined ? 0.22 : was ? 0.25 : 0.19)) {
+          memTone.set(this.bG[r.k1], true);
           if (prevLight) tone = (prevL * 0.76) / L;
           else { tone = (prevL * 1.26) / L; warm = 1; }
         }
@@ -632,7 +649,12 @@ export class SectionRenderer {
         layer.inc.push({ kind, x, b, w: 6 + Math.floor(hash2(seed, 60 + q) * 10), ax: -1, ay: -1 });
       }
       this.layers[ri] = layer;
+      if (!memTone.has(this.bG[r.k1])) memTone.set(this.bG[r.k1], false);
     }
+    this.memTone = memTone;
+    this.memBelt = new Set(this.layers.filter((L) => L.belt).map((L) => this.bG[L.kBot]));
+    this.memBounds = new Set(this.layers.map((L) => this.bG[L.kTop]));
+    this.memBounds.add(this.bG[NB]);
     // 5) boundaries per column: the smoothed depth, a soft wave of ±2–3 px, a fault where the earth shook; never crossing
     const faults = g.run.faults.map((f) => ({
       x0: f.x * WW, b: f.b, up: f.up,
@@ -641,10 +663,12 @@ export class SectionRenderer {
     for (let j = 0; j < this.layers.length; j++) {
       const L = this.layers[j];
       const bTop = this.bG[L.kTop];
+      const anchorY = Math.round(avgY(L.kBot));
       for (let x = 0; x < WW; x++) {
         let y = YG[L.kTop * WW + x];
-        // the texture hangs from the layer's bottom: new material is added on top, the rest sinks with its grain
-        L.anchor[x] = Math.round(YG[L.kBot * WW + (x & ~1)]);
+        // the texture hangs from the layer's bottom: new material is added on top, the rest sinks with its grain;
+        // one anchor for the whole layer, so its grain moves as one piece (no ripple of columns stepping apart)
+        L.anchor[x] = anchorY;
         if (j > 0) {
           const sd = L.seed & 255;
           y += (low(LOW_B, x * 2 + sd * 37, sd * 53) - 0.5) * 5 + (low(LOW_A, x * 5 + sd * 11, sd * 29) - 0.5) * 2;
@@ -804,6 +828,7 @@ export class SectionRenderer {
       }
     }
     if (revealY === Infinity || revealY > sH) { this.paintFaults(g, H); this.paintInclusions(H); }
+    this.paintSoil(g, H);
     this.collectFossils(g, H);
     this.ctx.putImageData(this.img, 0, 0, 0, 0, WW, H);
   }
@@ -862,6 +887,43 @@ export class SectionRenderer {
       else if (rel < line * 3 && !L.bed) fct *= 1.06;              // a lit lip under the line
     }
     return scale(c, fct, L.warm, dep, (low(LOW_B, qx + 50, qy) - 0.5) * 0.06);
+  }
+
+  /** The soil on top of the newest layer: what lives above shapes it. Bare land: a pale dusty crust; mosses: a thin
+   *  dark skin; forest: dark humus with roots reaching down; under water: a film of silt. */
+  private paintSoil(g: Game, H: number): void {
+    const buf = this.buf;
+    const green = Math.min(1, (totalPop(g, 'mosses') + totalPop(g, 'trees') * 2) / 30);
+    const forest = Math.min(1, totalPop(g, 'trees') / 12);
+    for (let x = 0; x < this.SW; x++) {
+      const z = g.zoneMap[x];
+      const y0 = this.topD[x];
+      if (y0 >= this.cut) continue;
+      let th: number;
+      if (z === 0) th = 1;
+      else th = z === 1 ? 1 + Math.round(green) : 1 + Math.round(green * 2 + forest * 2);
+      for (let r = 0; r < th; r++) {
+        const y = y0 + r;
+        if (y >= H || y >= this.cut || y >= this.strataBot[x]) break;
+        const n = hash2(x >> 1, (y >> 1) + 31);
+        let c: number;
+        if (z === 0) c = pack32(46 + n * 10, 56 + n * 10, 54 + n * 10);                         // silt film
+        else if (green < 0.08) c = pack32(150 + n * 20, 128 + n * 16, 98 + n * 12);              // dusty crust
+        else { const f = r === 0 ? 1.15 : 1 - r * 0.08; c = pack32((52 + n * 14) * f, (38 + n * 10) * f, (26 + n * 8) * f); } // humus
+        buf[y * WW + x] = c;
+      }
+      // roots under the forest
+      if (z !== 0 && forest > 0.2 && hash2(x, 77) < forest * 0.22) {
+        const len = 2 + Math.floor(hash2(x, 78) * 5 * forest);
+        let xx = x;
+        for (let r = 0; r < len; r++) {
+          const y = y0 + th + r;
+          if (y >= H || y >= this.cut || y >= this.strataBot[x]) break;
+          buf[y * WW + xx] = pack32(58, 40, 28);
+          if (hash2(xx, y) > 0.7) xx = Math.max(0, Math.min(this.SW - 1, xx + (hash2(y, xx) > 0.5 ? 1 : -1)));
+        }
+      }
+    }
   }
 
   /** The history ribbon: one stripe per epoch, its colour, a crease at the fold. */
