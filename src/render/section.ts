@@ -31,11 +31,14 @@ export type Loc =
 /** One epoch's span on screen (section-local rows, middle column), for the era ruler. */
 export interface EraSpan { era: number; y0: number; y1: number }
 
-// per material: two close main shades, two accents (darker, lighter)
-const MAIN0 = PAL_RGB.map((p) => pack32(...(p[Math.min(1, p.length - 1)] as [number, number, number])));
-const MAIN1 = PAL_RGB.map((p) => pack32(...(p[Math.min(2, p.length - 1)] as [number, number, number])));
-const ACC0 = PAL_RGB.map((p) => pack32(...(p[0] as [number, number, number])));
-const ACC1 = PAL_RGB.map((p) => pack32(...(p[Math.min(3, p.length - 1)] as [number, number, number])));
+// per material: two close main shades, two grains — the particle's own four colours (materials.json px, as in the
+// prototype); a material without them takes shades of its palette
+const hexPx = (h: string) => { const n = parseInt(h.slice(1), 16); return pack32((n >> 16) & 255, (n >> 8) & 255, n & 255); };
+const PX = CFG.materials.map((m) => (m.px && m.px.length >= 4 ? m.px.map(hexPx) : null));
+const MAIN0 = PAL_RGB.map((p, i) => PX[i]?.[0] ?? pack32(...(p[Math.min(1, p.length - 1)] as [number, number, number])));
+const MAIN1 = PAL_RGB.map((p, i) => PX[i]?.[1] ?? pack32(...(p[Math.min(2, p.length - 1)] as [number, number, number])));
+const ACC0 = PAL_RGB.map((p, i) => PX[i]?.[2] ?? pack32(...(p[0] as [number, number, number])));
+const ACC1 = PAL_RGB.map((p, i) => PX[i]?.[3] ?? pack32(...(p[Math.min(3, p.length - 1)] as [number, number, number])));
 const GLINTY = CFG.materials.map((m) => !!m.glint);
 /** Bedrock: dark grey-blue, coarse, never pure black; the foundation of past epochs darker still. */
 const BEDROCK = [[38, 42, 54], [46, 50, 63], [54, 58, 72], [62, 67, 82]].map(([r, g, b]) => pack32(r, g, b));

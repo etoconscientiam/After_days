@@ -1998,34 +1998,8 @@ export class Renderer {
       }
       if (this.seedThread > 6) this.seedThread = -1;
     }
-    // the column of light above the thing
+    // no column of light over the strata (as in the prototype: the thing only glows, drawWorldLight)
     const xs = g.mods.shards ? g.shardXs() : [WW / 2];
-    const boost = Math.min(1, g.run.boost / 3);
-    // a narrow beam (≈12 px) with soft edges, bright at the thing and melting upward, added on top;
-    // the layers right beside it catch a little warm light
-    c.globalCompositeOperation = 'lighter';
-    for (const x of xs) {
-      const ay = this.ayAt(x);
-      const y0 = lay.sectionTop - 14, len = ay - y0;
-      if (len <= 2) continue;
-      const pulse = 0.9 + 0.1 * Math.sin(this.t * 1.7);
-      const halo = c.createLinearGradient(0, ay, 0, y0);
-      halo.addColorStop(0, rgb(255, 170, 80, 0.16 + boost * 0.08)); halo.addColorStop(0.5, rgb(255, 150, 70, 0.05)); halo.addColorStop(1, 'rgba(255,150,70,0)');
-      c.fillStyle = halo;
-      for (let dx = -18; dx <= 18; dx++) {
-        c.globalAlpha = Math.exp(-((dx / 11) ** 2));
-        c.fillRect(Math.round(x) + dx, y0, 1, len);
-      }
-      const beam = c.createLinearGradient(0, ay, 0, y0);
-      beam.addColorStop(0, rgb(255, 226, 150, 0.55 + boost * 0.25)); beam.addColorStop(0.35, rgb(250, 190, 96, 0.22 + boost * 0.12)); beam.addColorStop(1, 'rgba(242,181,74,0)');
-      c.fillStyle = beam;
-      for (let dx = -6; dx <= 6; dx++) {
-        c.globalAlpha = Math.exp(-((dx / 3.3) ** 2)) * pulse;
-        c.fillRect(Math.round(x) + dx, y0, 1, len);
-      }
-      c.globalAlpha = 1;
-    }
-    c.globalCompositeOperation = 'source-over';
     const item = g.currentItem() ?? 'artifact_a';
     const ph = g.state.phase;
     xs.forEach((x, idx) => {
@@ -2111,17 +2085,8 @@ export class Renderer {
       c.fillRect(0, lay.waterLevel - 20, WW, lay.sectionTop - lay.waterLevel + 20);
       this.fillAboveBand(lay.waterLevel - 20);
     }
-    // the section: lit by the thing, the far layers in shadow
+    // the section is lit evenly, as in the prototype (no shadow of the far layers): the thing only glows
     const xs = g.mods.shards ? g.shardXs() : [WW / 2];
-    c.globalCompositeOperation = 'multiply';
-    const ay = this.ayAt(WW / 2);
-    const shadow = c.createRadialGradient(WW / 2, ay, 8, WW / 2, ay, 150);
-    shadow.addColorStop(0, 'rgb(255,250,240)');
-    shadow.addColorStop(0.45, 'rgb(190,180,190)');
-    shadow.addColorStop(1, 'rgb(110,100,120)');
-    c.fillStyle = shadow;
-    // from the ground line down (the strata rise above the old top of the section now)
-    for (let x = 0; x < WW; x++) c.fillRect(x, this.gy[x], 1, Math.max(0, lay.sectionTop + lay.sectionH - this.gy[x]));
     c.globalCompositeOperation = 'lighter';
     const boost = Math.min(1, g.run.boost / 3);
     for (const x of xs) {
@@ -2231,13 +2196,14 @@ export class Renderer {
   private drawGrade(sky: Sky): void {
     const c = this.ctx;
     const col = this.grade;
+    // the sky and the background only: the strata keep their own colours, as in the prototype
     c.globalCompositeOperation = 'soft-light';
     c.fillStyle = rgb(col[0], col[1], col[2], 0.45);
-    c.fillRect(0, 0, WW, WH);
+    for (let x = 0; x < WW; x++) c.fillRect(x, 0, 1, this.gy[x]);
     c.globalCompositeOperation = 'multiply';
     const m = lerp3([255, 255, 255], col, 0.18);
     c.fillStyle = rgb(m[0], m[1], m[2]);
-    c.fillRect(0, 0, WW, WH);
+    for (let x = 0; x < WW; x++) c.fillRect(x, 0, 1, this.gy[x]);
     c.globalCompositeOperation = 'source-over';
     void sky;
   }
@@ -2275,7 +2241,9 @@ export class Renderer {
     const v = c.createRadialGradient(WW / 2, WH * 0.5, WW * 0.42, WW / 2, WH * 0.5, WH * 0.62);
     v.addColorStop(0, 'rgba(0,0,0,0)');
     v.addColorStop(1, `rgba(8,6,12,${0.34 + (1 - sky.light) * 0.08})`);
-    c.fillStyle = v; c.fillRect(0, 0, WW, WH);
+    // over the sky and the background, not over the strata
+    c.fillStyle = v;
+    for (let x = 0; x < WW; x++) c.fillRect(x, 0, 1, this.gy[x]);
   }
 
   private drawShift(dt: number): void {

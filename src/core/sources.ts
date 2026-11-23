@@ -194,30 +194,33 @@ function buryFromPool(g: Game, x: number, zi: number, burialMul: number, fast: b
 
 /** The pile a tap drops: the zone's base and one of life's materials (sticky for a few piles). */
 export function pileMix(g: Game, zi: number): { m: number; w: number }[] {
+  // as in the prototype: a pile is the zone's base and ONE more material — what life lays down here or a bought
+  // share of the «pile composition» branch, chosen by their weights and kept for a few piles in a row — so the
+  // strata lie in thick clean beds, not in confetti of thin stripes
   const src = zoneSources(g)[zi];
-  const life: { m: number; w: number }[] = [];
-  for (let k = 0; k < src.mats.length; k++) if (src.mats[k] !== src.base) life.push({ m: src.mats[k], w: src.w[k] });
-  const mix = [{ m: src.base, w: Math.max(1e-6, src.bg) }];
-  if (life.length) {
-    const lifeW = life.reduce((s, q) => s + q.w, 0);
-    const r = g.run;
-  if (!life.some((q) => q.m === r.pileSec) || g.rng.next() < 0.25) {
-    let u = g.rng.next() * lifeW;
-    r.pileSec = life[life.length - 1].m;
-      for (const q of life) { u -= q.w; if (u <= 0) { r.pileSec = q.m; break; } }
-    }
-    mix.push({ m: r.pileSec, w: lifeW });
-  }
-  // branch «pile composition»: the bought shares of materials, the rest as above
+  const base = { m: src.base, w: Math.max(1e-6, src.bg) };
+  const extra = new Map<number, number>();
+  for (let k = 0; k < src.mats.length; k++) if (src.mats[k] !== src.base) extra.set(src.mats[k], (extra.get(src.mats[k]) ?? 0) + src.w[k]);
   const shares = g.stats.pile;
   let tot = 0;
   for (const id in shares) tot += shares[id];
-  if (tot <= 0) return mix;
-  const k = Math.min(1, S.pileShareMax / tot);
-  const S0 = tot * k;
-  const W = mix.reduce((s, q) => s + q.w, 0);
-  for (const id in shares) if (shares[id] > 0) mix.push({ m: mat(id), w: (W * shares[id] * k) / (1 - S0) });
-  return mix;
+  if (tot > 0) {
+    const k = Math.min(1, S.pileShareMax / tot);
+    const S0 = tot * k;
+    let W = base.w;
+    for (const w of extra.values()) W += w;
+    for (const id in shares) if (shares[id] > 0) { const m = mat(id); extra.set(m, (extra.get(m) ?? 0) + (W * shares[id] * k) / (1 - S0)); }
+  }
+  extra.delete(src.base);
+  if (!extra.size) return [base];
+  let et = 0;
+  for (const w of extra.values()) et += w;
+  const r = g.run;
+  if (!extra.has(r.pileSec) || g.rng.next() < 0.25) {
+    let u = g.rng.next() * et;
+    for (const [m, w] of extra) { r.pileSec = m; u -= w; if (u <= 0) break; }
+  }
+  return [base, { m: r.pileSec, w: et }];
 }
 
 /** Drop the pile of a tap into world column X. Returns the number of particles laid. */

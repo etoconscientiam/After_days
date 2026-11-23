@@ -22,6 +22,8 @@ export interface MaterialDef {
   organic?: boolean; fertile?: boolean; rock?: string; glint?: boolean; banded?: boolean; emissive?: boolean;
   /** behaviour in the falling-sand strata (see materials.json _comment) */
   kind: MatKind; slip?: number; marker?: boolean;
+  /** a particle's own four colours, as in the prototype: two main shades, a darker and a lighter grain */
+  px?: string[];
   rgb: [number, number, number][];
 }
 export interface RockDef { id: string; icon: string; value: number }
