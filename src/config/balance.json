@@ -40,6 +40,24 @@
   "landAltMat": "dust",
   "landAltBeforeEra": 3
  },
+ "niche": {
+  "_comment": "Life arises on its own (core/niche.ts). The surface of each zone is read every geology tick: the shares of material groups in its top surfaceRows rows. A species' suitability is the product over its needs of min(1, have / need) (food: 1 if any of its foods lives, else 0); its niche opens when every need is met at least openAt, and once lived in it holds while every need is met at least closeAt. Then up to round(wild × suitability) units (at least 1) arise on their own, one every growSec seconds where there is room; when the niche shrinks, one wild unit dies every declineSec. Drought multiplies the suitability of shore and land life by drought, a glacier all life by glacier.",
+  "surfaceRows": 4,
+  "openAt": 0.5,
+  "closeAt": 0.25,
+  "growSec": 5,
+  "declineSec": 10,
+  "drought": 0.6,
+  "glacier": 0.5,
+  "groups": {
+   "mud": ["silt", "clay", "floodSilt", "biomat"],
+   "carbonate": ["shellOoze", "limeCrust", "chalk", "limestone", "stromatolite"],
+   "soil": ["soil", "paleosol", "orgLand", "peat", "dung", "guano"],
+   "wet": ["silt", "clay", "floodSilt", "soil", "paleosol", "orgLand", "peat", "biomat"],
+   "sand": ["sand", "sandstone", "glassSand", "moraine"],
+   "barren": ["dust", "ash", "tephra", "sinter"]
+  }
+ },
  "energy": {
   "click": 1,
   "clickIncomeShare": 0.02,

@@ -14,6 +14,10 @@ export interface GameEvents {
   /** the thing absorbed a line of the strata (core/absorb.ts) */
   /** the thing absorbed a line of the strata (its particles, for the animation) */
   absorb: { energy: number; mat: string; value: number; mats: Uint8Array; looks: Uint8Array };
+  /** a unit of a species arose on its own (first: the species was not there before) */
+  wildBorn: { id: string; zi: number; first: boolean };
+  /** a wild unit died as its niche shrank (last: the species is gone) */
+  wildDied: { id: string; zi: number; last: boolean };
   /** gas or oil seeped out at the surface (particle column x, row y) */
   seep: { x: number; y: number; oil: boolean };
   /** a buried lens of water broke out: vent column x, the lens's top row y0 and the vent's row y1, n particles */

@@ -39,6 +39,8 @@ export interface SpeciesDef {
   death: { org?: number; orgMat?: string; bone?: number };
   oxygen?: number; needsOxygen?: number; insects?: boolean; predator?: boolean; digs?: boolean;
   unlockAfter?: string | null; trait?: Record<string, number>; sprite: string; tint?: string;
+  /** units that arise on their own in a perfect niche; the niche itself (core/niche.ts) */
+  wild?: number; niche?: { mix?: Record<string, number>; food?: string[]; deep?: number };
   idx: number;
 }
 export interface ElementDef {

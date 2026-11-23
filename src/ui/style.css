@@ -442,6 +442,9 @@ html[data-tremor] #ui { animation: letterTremor 0.14s steps(1) infinite; }
 .life-row .buy { min-width: 74px; padding: 6px 8px; white-space: nowrap; }
 .life-row.locked { grid-template-columns: 44px 1fr; opacity: 0.75; cursor: default; background: rgba(0,0,0,0.18); border-radius: 10px; }
 .life-row.locked .lr-name { color: var(--bone-dim); white-space: normal; }
+.life-row.waiting { opacity: 0.9; }
+.life-row .niche-needs { white-space: normal; font-size: 0.85em; line-height: 1.25; color: #c8b890; }
+.species-card .sc-niche { color: #b8c890; }
 .species-card { display: grid; grid-template-columns: 96px 1fr; gap: 10px; padding: 4px 10px 10px; border-top: 1px solid rgba(255,240,210,0.06); }
 .species-card .sc-pic img, .species-card .sc-pic canvas { width: 96px !important; height: 96px !important; border-radius: 50%; }
 .species-card .sc-name { color: var(--bone); margin-bottom: 4px; }

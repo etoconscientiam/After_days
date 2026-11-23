@@ -6,6 +6,7 @@ import { stepFull, Water } from './sand';
 import { sinkStep } from './pressure';
 import { BandLine, captureRow, pushBand } from './absorb';
 import { fluidStep } from './fluids';
+import { Surface, newSurface, readSurface, wildStep, nicheOpen, wildOf } from './niche';
 import { coat } from './beds';
 import { drizzle, reliefRow, tapPile, zoneSourcesBase } from './sources';
 import { geoTickGame } from './geology';
@@ -169,6 +170,7 @@ export class Game {
       for (let x = 1; x < GW; x++) if (!col[x] && col[x - 1] && g.surf[x] > level) col[x] = 1;
       for (let x = GW - 2; x >= 0; x--) if (!col[x] && col[x + 1] && g.surf[x] > level) col[x] = 1;
     }
+    readSurface(this);
   }
 
   // ---------- derived ----------
@@ -453,6 +455,7 @@ export class Game {
       this.geoYears = 0;
     }
     this.strataStep(dt);
+    wildStep(this, dt);
     // the absorbed energy a second, eased over a few seconds (the lines come in bursts)
     if (dt > 0) { this.absorbRate += (this.absorbAcc / dt - this.absorbRate) * Math.min(1, dt / 4); this.absorbAcc = 0; }
     this.autoElements(dt);
@@ -486,6 +489,8 @@ export class Game {
   physMs = 0;
   /** migration ticks owed (core/fluids.ts) */
   fluidAcc = 0;
+  /** what the surface of the zones is made of (core/niche.ts) */
+  surface: Surface = newSurface();
   /** seconds to the next lens of buried water; seconds since the last eruption check (core/fluids.ts) */
   lensT = 8;
   eruptT = 0;
@@ -715,7 +720,8 @@ export class Game {
     return e;
   }
 
-  speciesUnlocked(sp: SpeciesDef): boolean {
+  /** Can sp live at all now (its epoch, oxygen, forerunners)? Whether it fits the surface is core/niche.ts. */
+  speciesGate(sp: SpeciesDef): boolean {
     const r = this.run;
     if (r.era < sp.era) return false;
     if (sp.needsOxygen && r.oxygen < sp.needsOxygen) return false;
@@ -726,8 +732,14 @@ export class Game {
     return true;
   }
 
+  /** Can sp be strengthened (bought) now: it lives, or its niche is open. */
+  speciesUnlocked(sp: SpeciesDef): boolean {
+    return this.speciesGate(sp) && (totalPop(this, sp.id) > 0 || nicheOpen(this, sp));
+  }
+
+  /** The price of strengthening sp by one unit: only the bought units raise it, not the wild ones. */
   speciesCost(sp: SpeciesDef): number {
-    return sp.cost * CFG.costGrowth ** totalPop(this, sp.id);
+    return sp.cost * CFG.costGrowth ** Math.max(0, totalPop(this, sp.id) - wildOf(this, sp.id));
   }
 
   buySpecies(id: string): boolean {

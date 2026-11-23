@@ -4,6 +4,7 @@
 import { CFG, SpeciesDef, ElementDef, UpgradeDef, DensityNode, eraOfYear } from '../config';
 import type { Game } from '../core/game';
 import { totalPop, lifespan } from '../core/life';
+import { needs, suitability, wildOf } from '../core/niche';
 import { upgradeEffect } from '../core/stats';
 import { foundationPreview, prestigeRaw } from '../core/prestige';
 import { $, h, setText, toggle } from './dom';
@@ -180,7 +181,7 @@ export class Drawer {
   private signature(g: Game, id: ViewId): string {
     const r = g.run;
     switch (id) {
-      case 'life': return CFG.species.map((s) => (g.speciesUnlocked(s) ? 1 : 0)).join('') + r.era + (r.mutationOffer ? 'm' + r.mutationEraOffered : '') + (this.expanded ?? '') + g.stats.buyBest + g.stats.shepherdSlots;
+      case 'life': return CFG.species.map((s) => (g.speciesUnlocked(s) ? 1 : g.speciesGate(s) ? 2 : 0)).join('') + r.era + (r.mutationOffer ? 'm' + r.mutationEraOffered : '') + (this.expanded ?? '') + g.stats.buyBest + g.stats.shepherdSlots;
       case 'elements': return CFG.elements.map((e) => (g.elementAvailable(e) ? 1 : 0)).join('') + g.stats.autoSlots;
       case 'upgrades': return g.legacy.discovered.join(',') + g.mods.living;
       case 'epoch': return String(g.meta.prestiges);
@@ -240,8 +241,10 @@ export class Drawer {
     const list = h('div', { class: 'life-list' });
     this.body.append(list);
     // the next species to open: one silhouette row, not a row each
-    const next = CFG.species.find((sp) => !g.speciesUnlocked(sp));
     for (const sp of CFG.species) if (g.speciesUnlocked(sp)) list.append(this.speciesRow(g, sp));
+    // species whose time has come but whose niche is not there yet: what the surface lacks (core/niche.ts)
+    for (const sp of CFG.species) if (g.speciesGate(sp) && !g.speciesUnlocked(sp)) list.append(this.waitingRow(g, sp));
+    const next = CFG.species.find((sp) => !g.speciesGate(sp));
     if (next) {
       let hint = t('life.openIn', { era: t('era.' + next.era) });
       if (r.era >= next.era && next.needsOxygen && r.oxygen < next.needsOxygen) hint = t('life.needO2', { v: next.needsOxygen });
@@ -254,10 +257,10 @@ export class Drawer {
     const want = this.qty === 0 ? 1000 : this.qty;
     let free = 0;
     free = g.roomUnits(sp);
-    const pop = totalPop(g, sp.id);
+    const bought = Math.max(0, totalPop(g, sp.id) - wildOf(g, sp.id));
     let n = 0, cost = 0;
     while (n < Math.min(want, free)) {
-      const c = sp.cost * CFG.costGrowth ** (pop + n);
+      const c = sp.cost * CFG.costGrowth ** (bought + n);
       if (this.qty === 0 && cost + c > g.run.energy) break;
       cost += c; n++;
     }
@@ -272,7 +275,7 @@ export class Drawer {
     const eps = h('span', { class: 'lr-eps' });
     const lives = h('span', {});
     const price = h('span', {});
-    const btn = h('button', { class: 'buy' }, h('span', { class: 'e' }, energyIcon(14)), price) as HTMLButtonElement;
+    const btn = h('button', { class: 'buy', title: t('niche.strengthen'), 'data-tip': t('niche.strengthen') }, h('span', { class: 'e' }, energyIcon(14)), price) as HTMLButtonElement;
     const row = h('div', { class: 'life-row' },
       h('div', { class: 'lr-pic' }, portrait(sp.id, 40)),
       h('div', { class: 'lr-mid' }, h('div', { class: 'lr-name' }, name, count),
@@ -297,7 +300,8 @@ export class Drawer {
     this.refreshers.push(() => {
       const n = totalPop(g, sp.id);
       setText(name, short(t('species.' + sp.id + '.name')));
-      setText(count, n > 0 ? ' · ×' + n : '');
+      const w = wildOf(g, sp.id);
+      setText(count, n > 0 ? ' · ×' + n + (w > 0 ? ' · ' + t('niche.wild', { n: w }) : '') : '');
       let e = sp.eps * (1 + g.stats.lifeEnergy) * g.stats.energyMul;
       if (g.run.mutations[sp.id] === 'vigor') e *= 1.5;
       setText(eps, '+' + fmt(e) + '/' + t('life.sec'));
@@ -310,6 +314,15 @@ export class Drawer {
       toggle(row, 'afford', can);
     });
     return wrap;
+  }
+
+  /** A species whose epoch has come but whose niche is not open yet: its silhouette and what is missing. */
+  private waitingRow(g: Game, sp: SpeciesDef): HTMLElement {
+    const what = h('div', { class: 'lr-sub niche-needs' });
+    const row = h('div', { class: 'life-row locked waiting' }, h('div', { class: 'lr-pic' }, portrait(sp.id, 40, true)),
+      h('div', { class: 'lr-mid' }, h('div', { class: 'lr-name' }, short(t('species.' + sp.id + '.name')), h('span', { class: 'lr-count' }, ' · ' + t('niche.waiting'))), what));
+    this.refreshers.push(() => setText(what, needText(g, sp, true)));
+    return row;
   }
 
   /** The big card under a row: large portrait, description, numbers, release and the Shepherd's auto switch. */
@@ -340,6 +353,7 @@ export class Drawer {
       const p = g.run.pop[sp.id];
       stats.replaceChildren(
         h('div', {}, t('life.lives', { v: fmt(lifespan(g, sp), 0) })),
+        h('div', { class: 'sc-niche' }, t('niche.fit', { v: fmt(suitability(g, sp) * 100, 0) }) + (needs(g, sp).length ? ' · ' + needText(g, sp, false) : '')),
         h('div', {}, '×' + n + (n ? ` (${['water', 'shore', 'land'].map((z, i) => (p[i] ? t('zones.' + z) + ' ' + p[i] : '')).filter(Boolean).join(', ')})` : '')));
     });
     return card;
@@ -725,4 +739,17 @@ function drawColumn(cv: HTMLCanvasElement, g: Game, frac: number): void {
   for (let i = 0; i < g.meta.foundationLines.length && i < 5; i++) x.fillRect(4, H - 17 + i, W - 8, 1);
   x.fillStyle = '#3a3e4c'; x.fillRect(4, H - 12, W - 8, 8);
   x.fillStyle = '#F2B54A'; x.beginPath(); x.arc(W / 2, H - 15, 2.2, 0, 7); x.fill();
+}
+
+/** What a species needs from the surface, as one line: every need with what there is now (missing only: the
+ *  needs not met at least halfway). */
+function needText(g: Game, sp: SpeciesDef, missingOnly: boolean): string {
+  const parts: string[] = [];
+  for (const n of needs(g, sp)) {
+    if (missingOnly && n.ok >= CFG.B.niche.openAt) continue;
+    if (n.kind === 'mix') parts.push(t('niche.mixItem', { g: t('niche.g.' + n.key), have: fmt(n.have * 100, 0), need: fmt(n.need * 100, 0) }));
+    else if (n.kind === 'deep') parts.push(t('niche.deepItem', { have: fmt(n.have, 1), need: fmt(n.need, 0) }));
+    else parts.push(t('niche.foodItem', { list: (n.foods ?? []).map((f) => short(t('species.' + f + '.name'))).join(t('niche.or')) }));
+  }
+  return parts.length ? t('niche.need', { list: parts.join('; ') }) : '';
 }

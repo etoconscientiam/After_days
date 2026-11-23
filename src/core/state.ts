@@ -43,6 +43,10 @@ export interface RunState {
   pop: Record<string, number[]>;  // per species: [water, shore, land]
   peak: Record<string, number>;
   regrow: Record<string, number>;
+  /** units of each species that arose on their own (core/niche.ts); the rest were bought. Absent in old saves. */
+  wild?: Record<string, number>;
+  /** seconds toward the next wild birth or death of each species */
+  wildT?: Record<string, number>;
   rocks: Record<string, number>;
   rocksEarned: Record<string, number>;
   upgrades: Record<string, number>;
@@ -172,6 +176,8 @@ export function newRun(era = 0): RunState {
     pop,
     peak: {},
     regrow: {},
+    wild: {},
+    wildT: {},
     rocks: {},
     rocksEarned: {},
     upgrades: {},

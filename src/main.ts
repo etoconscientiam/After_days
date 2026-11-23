@@ -197,6 +197,14 @@ function bind(g: Game): void {
     const tab = document.querySelectorAll('#tabbar .tab')[4];
     if (tab) flyDom(ex, worldToUi(e.x, y), tab);
   });
+  // life that arises or dies out on its own (core/niche.ts)
+  bus.on('wildBorn', (e) => {
+    renderer.spawnFlash(e.zi, game);
+    if (e.first) hud.notify('wildBorn', t('toast.wildBorn', { s: t('species.' + e.id + '.name') }), '#9cc060', plural('wildBorn'));
+  });
+  bus.on('wildDied', (e) => {
+    if (e.last) hud.notify('wildDied', t('toast.wildDied', { s: t('species.' + e.id + '.name') }), '#B5523B', plural('wildDied'));
+  });
   bus.on('extinction', (e) => {
     turmoil.hit(SEVERITY.extinction(e.killed));
     if (e.killed >= 3) hud.notify('extinction', t('toast.extinction', { n: e.killed }), '#B5523B', plural('extinction'));

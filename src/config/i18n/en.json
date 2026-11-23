@@ -80,6 +80,25 @@
     "more": "More",
     "sec": "s"
   },
+  "niche": {
+    "strengthen": "Strengthen: +1 unit over what the niche keeps",
+    "wild": "{n} wild",
+    "waiting": "waiting for its niche",
+    "fit": "Niche: {v}%",
+    "need": "Needs: {list}",
+    "mixItem": "{g} {have}% of {need}%",
+    "deepItem": "sea depth {have} of {need}",
+    "foodItem": "food: {list}",
+    "or": " or ",
+    "g": {
+      "mud": "mud and clay",
+      "carbonate": "lime and shells",
+      "soil": "soil and organics",
+      "wet": "wet ground",
+      "sand": "sand",
+      "barren": "dust and ash"
+    }
+  },
   "species": {
     "mats": {
       "name": "Bacterial mats",
@@ -603,6 +622,8 @@
     "horizon": "Technogenic horizon"
   },
   "toast": {
+    "wildBorn": "Arose on its own: {s}",
+    "wildDied": "Niche gone, died out: {s}",
     "rock": "New rock: {rock}",
     "fossil": "Fossil: {s}",
     "rare": "Perfect fossil: {s}!",
@@ -786,6 +807,8 @@
     "years": "{a}–{b}"
   },
   "toastN": {
+    "wildBorn": "+{n} species arose on their own",
+    "wildDied": "{n} species died out without a niche",
     "era": "+{n} new eras",
     "rock": "+{n} new rocks",
     "fossil": "+{n} fossils",
