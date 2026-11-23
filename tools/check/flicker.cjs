@@ -19,7 +19,7 @@ const { chromium, devices } = require('playwright');
   const tap = setInterval(() => p.mouse.click(40 + Math.random() * 300, 220).catch(() => {}), 300);
   const r = await p.evaluate(async () => {
     const s = window.__strata, sec = s.renderer.section, grid = s.game.grid, W = 180, GW = grid.W;
-    const band = 8;
+    const band = 16;
     const frames = [];
     for (let i = 0; i < 40; i++) {
       await new Promise((res) => setTimeout(res, 100));

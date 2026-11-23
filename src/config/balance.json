@@ -176,8 +176,9 @@
   "archiveYieldMul": 0.65,
   "startBelowLine": 3,
   "absorb": {
-   "_comment": "The thing absorbs the strata: the bottom bandRows rows of the visible strata are drawn as 1-px lines, then as many rows the conveyor took, also 1 px each; the lowest line touches the thing and is absorbed. Energy of a line = sum over its particles of value × (flat × energyMul + incomePerSec × incomeShare). value: by kind (loose, rock, marker), then by material (overrides); a fossil bone × fossilMul.",
-   "bandRows": 8,
+   "_comment": "The thing absorbs the strata: the bottom squeezeRows rows of the visible strata and then the bandRows rows the conveyor took are drawn squeezed into the height of squeezeRows rows, each line thinner than the one above it by the same ratio (2 px at the top, a fraction of a pixel at the bottom: the lower, the denser); the lowest line touches the thing and is absorbed. Energy of a line = sum over its particles of value × (flat × energyMul + incomePerSec × incomeShare). value: by kind (loose, rock, marker), then by material (overrides); a fossil bone × fossilMul.",
+   "squeezeRows": 16,
+   "bandRows": 24,
    "flat": 0.004,
    "incomeShare": 0.0008,
    "fossilMul": 3,

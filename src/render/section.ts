@@ -210,7 +210,7 @@ export class SectionRenderer {
     this.fossils.length = 0;
     const BONE = CFG.matIndex.bone;
     // the band above the thing: its bottom rows squeeze into 1-px lines (core/absorb.ts)
-    const bandN = CFG.B.sand.absorb.bandRows;
+    const bandN = CFG.B.sand.absorb.squeezeRows;
     const band0 = grid.sinkRow - bandN + 1;
     // the strata
     for (let r = 0; r < grid.floor; r++) {
@@ -268,43 +268,70 @@ export class SectionRenderer {
     this.buildZones(g);
   }
 
-  /** The squeeze above the thing: first the bottom rows of the strata, then the lines the conveyor already took,
-   *  1 px each; the lines darken a little toward the thing (they are pressed thin) and warm in its light. */
+  /** The squeeze above the thing: the bottom n rows of the strata, then the lines the conveyor already took, all
+   *  pressed into the height of n rows. Each line is thinner than the one above it by the same ratio — 2 px at the
+   *  top, a fraction of a pixel at the bottom — so the strata grow denser smoothly toward the thing; a pixel that
+   *  holds several thin lines shows their blend. The lines even out toward their mean colour as they thin, darken a
+   *  little and warm in the thing's light. */
   private drawBand(g: Game, y0: number, n: number): void {
     const grid = g.grid, buf = this.buf, px = this.px;
     const ax0 = grid.artifacts.length ? grid.artifacts[0] * 2 : WW / 2;
-    const row = new Uint32Array(WW);
-    const line = (k: number, mats: ArrayLike<number>, looks: ArrayLike<number>, rowOff = 0) => {
-      const y = y0 + k, depth = k / (2 * n);
-      // pressed thin: the line evens out toward its mean colour, more so near the thing; neighbouring lines differ a
-      // little in brightness, so each reads as its own lamina
+    const L = n + g.band.length;
+    const H = n * 2;
+    const r = squeezeRatio(L, H);
+    const acc = this.bandAcc.length === H * WW * 4 ? this.bandAcc : (this.bandAcc = new Float32Array(H * WW * 4));
+    acc.fill(0);
+    const top = new Uint32Array(WW), bot = new Uint32Array(WW);
+    let y = 0, h = 2;
+    for (let k = 0; k < L; k++, h *= r) {
+      let mats: ArrayLike<number>, looks: ArrayLike<number>, off = 0;
+      if (k < n) { mats = grid.mat; looks = grid.look; off = (grid.sinkRow - n + 1 + k) * GW; }
+      else { const B = g.band[k - n]; mats = B.mats; looks = B.looks; }
+      const depth = Math.min(1, (y + h / 2) / H);
+      // the colours of the line: the top and bottom halves of its particles, pulled toward the line's mean
       let sr = 0, sg = 0, sb = 0, cnt = 0;
-      row.fill(0);
+      top.fill(0); bot.fill(0);
       for (let x = 0; x < GW; x++) {
-        const m = mats[rowOff + x];
+        const m = mats[off + x];
         if (!m || KIND[m] === K_NONE || KIND[m] === K_SOLID) continue;
-        particlePx(m, looks[rowOff + x], px);
-        row[x * 2] = px[0]; row[x * 2 + 1] = px[1];
-        for (const c of [px[0], px[1]]) { sr += c & 255; sg += (c >> 8) & 255; sb += (c >> 16) & 255; cnt++; }
+        particlePx(m, looks[off + x], px);
+        top[x * 2] = px[0]; top[x * 2 + 1] = px[1]; bot[x * 2] = px[2]; bot[x * 2 + 1] = px[3];
+        for (let q = 0; q < 4; q++) { const c = px[q]; sr += c & 255; sg += (c >> 8) & 255; sb += (c >> 16) & 255; cnt++; }
       }
-      if (!cnt) return;
-      const mean = pack32(sr / cnt, sg / cnt, sb / cnt);
-      const even = 0.45 + 0.45 * depth;
-      const lit = (k & 1 ? 0.9 : 1.04) * (1 - 0.22 * depth);
+      if (cnt) {
+        const mean = pack32(sr / cnt, sg / cnt, sb / cnt);
+        const even = Math.min(0.92, 0.2 + 0.8 * depth);
+        const lit = (k & 1 ? 0.94 : 1.03) * (1 - 0.25 * depth);
+        // the two halves of the line, each over its span of pixels
+        for (let half = 0; half < 2; half++) {
+          const a = y + half * h / 2, b = a + h / 2;
+          const src = half ? bot : top;
+          for (let p = Math.floor(a); p < Math.min(H, Math.ceil(b)); p++) {
+            const w = Math.min(b, p + 1) - Math.max(a, p);
+            if (w <= 0) continue;
+            const o = p * WW * 4;
+            for (let xx = 0; xx < WW; xx++) {
+              const c0 = src[xx];
+              if (!c0) continue;
+              const warm = Math.max(0, 1 - Math.abs(xx - ax0 - 4) / 40) * depth * depth * 0.55;
+              const c = tint(shade(mix(c0, mean, even), lit), warm);
+              const q = o + xx * 4;
+              acc[q] += (c & 255) * w; acc[q + 1] += ((c >> 8) & 255) * w; acc[q + 2] += ((c >> 16) & 255) * w; acc[q + 3] += w;
+            }
+          }
+        }
+      }
+      y += h;
+    }
+    for (let p = 0; p < H; p++) {
       for (let xx = 0; xx < WW; xx++) {
-        const c = row[xx];
-        if (!c) continue;
-        // the thing's warmth on the lowest lines
-        const warm = Math.max(0, 1 - Math.abs(xx - ax0 - 4) / 40) * depth * 0.5;
-        buf[y * WW + xx] = tint(shade(mix(c, mean, even), lit), warm);
+        const q = (p * WW + xx) * 4, w = acc[q + 3];
+        if (w < 0.35) continue;
+        buf[(y0 + p) * WW + xx] = pack32(acc[q] / w, acc[q + 1] / w, acc[q + 2] / w);
       }
-    };
-    for (let k = 0; k < n; k++) line(k, grid.mat, grid.look, (grid.sinkRow - n + 1 + k) * GW);
-    for (let k = 0; k < n; k++) {
-      const L = g.band[k];
-      if (L) line(n + k, L.mats, L.looks);
     }
   }
+  private bandAcc = new Float32Array(0);
 
   /** Epoch spans down the middle column (away from the thing), youngest first. */
   private buildEras(g: Game): void {
@@ -363,12 +390,14 @@ export class SectionRenderer {
     const g = this.g;
     if (!g) return null;
     const grid = g.grid, px = this.px;
+    // the squeeze above the thing is read from the picture (its rows are not where the grid has them)
+    const sq0 = grid.sinkRow - CFG.B.sand.absorb.squeezeRows + 1;
     for (let v = 0; v < N; v++) {
       for (let u = 0; u < N; u++) {
         const wx = cx + (u - N / 2) / Z, wy = cy + (v - N / 2) / Z + BASE;
         const x = Math.floor(wx / 2), r = Math.floor(wy / 2);
         let c = pack32(20, 16, 22);
-        if (x >= 0 && x < GW && r >= 0 && r < grid.floor) {
+        if (x >= 0 && x < GW && r >= 0 && r < sq0) {
           const i = r * GW + x, m = grid.mat[i];
           if (m && KIND[m] !== K_SOLID) {
             particlePx(m, grid.look[i], px);
@@ -376,7 +405,7 @@ export class SectionRenderer {
             // the grain of the magnified particle: a soft edge between particles
             if (((u * 2) % (Z * 2) === 0 || (v * 2) % (Z * 2) === 0) && KIND[m] !== K_MARKER) c = shade(c, 0.9);
           } else if (m) c = this.buf[Math.max(0, Math.min(WH - 1, Math.floor(wy))) * WW + Math.max(0, Math.min(WW - 1, Math.floor(wx)))];
-        } else if (r >= grid.floor && r < GH) c = this.buf[Math.max(0, Math.min(WH - 1, Math.floor(wy))) * WW + Math.max(0, Math.min(WW - 1, Math.floor(wx)))];
+        } else if (r >= sq0 && r < GH) c = this.buf[Math.max(0, Math.min(WH - 1, Math.floor(wy))) * WW + Math.max(0, Math.min(WW - 1, Math.floor(wx)))];
         out[v * N + u] = c;
       }
     }
@@ -391,6 +420,23 @@ export class SectionRenderer {
 function shade(c: number, f: number): number {
   const r = (c & 255) * f, g = ((c >> 8) & 255) * f, b = ((c >> 16) & 255) * f;
   return pack32(r, g, b);
+}
+
+/** The ratio r of the squeeze: L lines, the first 2 px high, each next one r times the one above, fill H px. */
+const ratioCache = new Map<number, number>();
+export function squeezeRatio(L: number, H: number): number {
+  const key = L * 4096 + H;
+  const hit = ratioCache.get(key);
+  if (hit !== undefined) return hit;
+  let lo = 0.01, hi = 1;
+  if (2 * L <= H) return 1;
+  for (let i = 0; i < 40; i++) {
+    const m = (lo + hi) / 2;
+    const sum = (2 * (1 - Math.pow(m, L))) / (1 - m);
+    if (sum > H) hi = m; else lo = m;
+  }
+  ratioCache.set(key, lo);
+  return lo;
 }
 
 /** Mix two pixels (k 0..1 toward b). */

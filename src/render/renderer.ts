@@ -7,7 +7,7 @@ import { totalPop } from '../core/life';
 import { skin, preloadSkins } from './assets';
 import { tintedCanvas, drawTinted, tintInto } from './sprites';
 import { forecastParticle, conditionsAt, Forecast } from '../core/forecast';
-import { GW } from '../world/Grid';
+import { GW, KIND, K_MARKER, K_ROCK } from '../world/Grid';
 import { hash2 } from '../core/rng';
 import { Layout, WW, WH, NOISE, GRAIN, lerp, lerp3, hex3, rgb, ACCENT } from './common';
 import { SectionRenderer, ERA_COLORS } from './section';
@@ -20,6 +20,34 @@ import { drawScene, pictogram, VW, VH } from './ritual';
 interface Particle { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string; size: number; kind?: 'mote' | 'firefly' | 'spark' }
 interface Flyer { x: number; y: number; vx: number; vy: number; tx: number; ty: number; t: number; color: string; done?: () => void }
 interface Ring { t: number; x: number }
+/** Sprites that do not stand on the strata: drawn as background life (drawBackdropLife, drawFlyingBirds). */
+const BACKDROP = new Set(['fish', 'plankton', 'bird', 'herd', 'predator']);
+/** A swarm of insects: n specks circling a point, wings catching the light now and then. */
+function swarm(c: CanvasRenderingContext2D, x: number, y: number, t: number, n: number, col: string): void {
+  for (let j = 0; j < n; j++) {
+    const a = t * (2 + j * 0.37) + j * 2.1;
+    const X = Math.round(x + Math.sin(a) * (3 + (j % 3) * 2)), Y = Math.round(y + Math.cos(a * 1.3) * (2 + (j % 2)));
+    c.fillStyle = Math.sin(t * 30 + j * 5) > 0.7 ? 'rgba(230,240,240,0.9)' : col;
+    c.fillRect(X, Y, 1, 1);
+  }
+}
+type AbsorbFx = 'dust' | 'crumble' | 'ember' | 'oil' | 'gas' | 'steam' | 'bone' | 'amber' | 'gem' | 'marker';
+interface AbsorbBit { kind: 'dot' | 'ember' | 'bubble' | 'star'; x: number; y: number; vx: number; vy: number; g: number; t: number; max: number; color: string; a: number }
+/** How a line goes into the thing, by its most valuable material (by kind when the material has no way of its own). */
+const FX_MAT: Record<string, AbsorbFx> = {
+  peat: 'ember', lignite: 'ember', coal: 'ember', anthracite: 'ember', graphite: 'ember', hearth: 'ember', magma: 'ember',
+  oil: 'oil', gas: 'gas', bone: 'bone', phosphorite: 'bone', shards: 'bone',
+  amber: 'amber', amberInsect: 'amber', resin: 'amber',
+  diamond: 'gem', ruby: 'gem', sapphire: 'gem', glowstone: 'gem', iridium: 'gem', meteor: 'gem', obsidian: 'gem',
+};
+function absorbFxOf(id: string): AbsorbFx {
+  const f = FX_MAT[id];
+  if (f) return f;
+  const i = CFG.matIndex[id];
+  if (i === undefined) return 'dust';
+  const k = KIND[i];
+  return k === K_MARKER ? 'marker' : k === K_ROCK ? 'crumble' : 'dust';
+}
 type Sky = { top: number[]; hor: number[]; light: number };
 
 const SKY = {
@@ -208,12 +236,14 @@ export class Renderer {
     }
   }
   /** The thing absorbed a line of the strata: it glows in the line's colour, a spark flies to the counter
-   *  (a dearer line — brighter, more sparks). */
+   *  (a dearer line — brighter, more sparks), and the line goes in its own way by what it is made of
+   *  (absorbFx: rock crumbles, coal smoulders, oil ripples dark, gas puffs, bone flashes white, amber glows…). */
   onAbsorb(matId: string, value: number): void {
     const m = CFG.materials[CFG.matIndex[matId]];
     const col = m ? m.palette[Math.min(4, m.palette.length - 1)] : ACCENT;
     const k = Math.min(1, value / 400);
-    this.absorb = { t: 0, color: col, k: Math.max(this.absorb && this.absorb.t < 0.3 ? this.absorb.k : 0, 0.35 + 0.65 * k) };
+    const fx = absorbFxOf(matId);
+    this.absorb = { t: 0, color: col, k: Math.max(this.absorb && this.absorb.t < 0.3 ? this.absorb.k : 0, 0.35 + 0.65 * k), long: fx === 'amber' };
     const xs = this.lastAbsorbX = (this.lastAbsorbX + 1) % 3;
     const x = WW / 2 + (xs - 1) * 3, ay = this.ayAt(WW / 2) - 2;
     const target = this.sparkTarget();
@@ -222,8 +252,112 @@ export class Renderer {
       const a = -Math.PI / 2 + (Math.random() - 0.5) * 1.6, sp = 30 + Math.random() * 30;
       this.flyers.push({ x, y: ay, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, tx: target.x, ty: target.y, t: 0, color: col });
     }
+    this.spawnAbsorbFx(fx, col, k);
   }
-  private absorb: { t: number; color: string; k: number } | null = null;
+
+  /** The pieces of an absorption effect, drawn over the night (they glow). */
+  private afx: AbsorbBit[] = [];
+  private absorbRing: { t: number; color: string; kind: 'oil' | 'marker'; k: number } | null = null;
+
+  private spawnAbsorbFx(fx: AbsorbFx, col: string, k: number): void {
+    const x0 = this.thingX0, x1 = this.thingX1, y = this.bandBottom;
+    const low = this.quality === 'low';
+    const N = (a: number) => Math.max(1, Math.round(a * (low ? 0.5 : 1) * (0.6 + 0.8 * k)));
+    if (this.afx.length > 120) return;
+    const rx = () => x0 + Math.random() * (x1 - x0);
+    const add = (b: Omit<AbsorbBit, 't'>) => this.afx.push({ ...b, t: 0 });
+    switch (fx) {
+      case 'dust':
+        for (let i = 0; i < N(4); i++) add({ kind: 'dot', x: rx(), y: y - 1, vx: (Math.random() - 0.5) * 6, vy: 3 + Math.random() * 4, g: 0, max: 0.7, color: col, a: 0.5 });
+        break;
+      case 'crumble':
+        for (let i = 0; i < N(6); i++) add({ kind: 'dot', x: rx(), y: y - 2, vx: (Math.random() - 0.5) * 16, vy: -6 - Math.random() * 10, g: 70, max: 0.55, color: i % 3 ? col : '#e8dcc8', a: 0.9 });
+        break;
+      case 'ember':
+        for (let i = 0; i < N(6); i++) add({ kind: 'ember', x: rx(), y: y - 1, vx: (Math.random() - 0.5) * 8, vy: -10 - Math.random() * 14, g: 0, max: 0.6 + Math.random() * 0.5, color: i % 2 ? '#ff9a3a' : '#ff5a2a', a: 1 });
+        break;
+      case 'oil':
+        this.absorbRing = { t: 0, color: '#1a120e', kind: 'oil', k };
+        for (let i = 0; i < N(3); i++) add({ kind: 'dot', x: rx(), y: y - 1, vx: (Math.random() - 0.5) * 4, vy: 4, g: 10, max: 0.8, color: '#2a1e16', a: 0.9 });
+        break;
+      case 'gas':
+        for (let i = 0; i < N(4); i++) add({ kind: 'bubble', x: rx(), y: y - 2, vx: (Math.random() - 0.5) * 5, vy: -8 - Math.random() * 8, g: 0, max: 0.9 + Math.random() * 0.4, color: '#d8eef0', a: 0.55 });
+        break;
+      case 'steam':
+        for (let i = 0; i < N(5); i++) add({ kind: 'bubble', x: rx(), y: y - 2, vx: (Math.random() - 0.5) * 8, vy: -14 - Math.random() * 10, g: 0, max: 1.1, color: '#f4f8fa', a: 0.45 });
+        break;
+      case 'bone':
+        this.absorb = { t: 0, color: '#ffffff', k: Math.max(0.8, this.absorb?.k ?? 0), long: false };
+        for (let i = 0; i < N(5); i++) add({ kind: 'star', x: rx(), y: y - 2 - Math.random() * 3, vx: 0, vy: -3, g: 0, max: 0.5, color: '#ffffff', a: 1 });
+        break;
+      case 'amber':
+        for (let i = 0; i < N(5); i++) add({ kind: 'ember', x: rx(), y: y - 1, vx: (Math.random() - 0.5) * 4, vy: -4 - Math.random() * 5, g: 0, max: 1.2 + Math.random() * 0.6, color: i % 2 ? '#ffc850' : '#ffe090', a: 0.9 });
+        break;
+      case 'gem':
+        for (let i = 0; i < N(3); i++) add({ kind: 'star', x: rx(), y: y - 2 - Math.random() * 4, vx: 0, vy: 0, g: 0, max: 0.7 + Math.random() * 0.3, color: i % 2 ? col : '#ffffff', a: 1 });
+        break;
+      case 'marker':
+        this.absorbRing = { t: 0, color: col, kind: 'marker', k };
+        break;
+    }
+  }
+
+  private drawAbsorbFx(): void {
+    const c = this.ctx, dt = this.dt, y = this.bandBottom;
+    if (this.absorbRing) {
+      const R = this.absorbRing;
+      R.t += dt;
+      const dur = R.kind === 'oil' ? 0.9 : 0.6;
+      const f = R.t / dur;
+      if (f >= 1) this.absorbRing = null;
+      else if (R.kind === 'oil') {
+        // a dark ripple spreading along the line from the thing
+        const cx = (this.thingX0 + this.thingX1) / 2, rx = 8 + f * (30 + 30 * R.k);
+        c.globalAlpha = 0.55 * (1 - f);
+        c.strokeStyle = R.color; c.lineWidth = 1;
+        c.beginPath(); c.ellipse(cx, y - 0.5, rx, 1.5 + f * 2, 0, 0, Math.PI * 2); c.stroke();
+        c.globalAlpha = 1;
+      } else {
+        // a marker bed: the whole line flashes in its colour, running out from the thing
+        const cx = (this.thingX0 + this.thingX1) / 2, w = f * WW;
+        c.globalAlpha = 0.7 * (1 - f) * (0.5 + 0.5 * R.k);
+        c.fillStyle = R.color;
+        c.fillRect(Math.round(cx - w), y - 1, Math.round(w * 2), 1);
+        c.globalAlpha = 1;
+      }
+    }
+    for (let i = this.afx.length - 1; i >= 0; i--) {
+      const b = this.afx[i];
+      b.t += dt;
+      if (b.t >= b.max) { this.afx.splice(i, 1); continue; }
+      b.vy += b.g * dt;
+      b.x += b.vx * dt; b.y += b.vy * dt;
+      // a chip that falls lands on the thing
+      if (b.g > 0 && b.y > y + 2) { b.y = y + 2; b.vy = 0; b.vx *= 0.5; }
+      const f = b.t / b.max;
+      let a = b.a * (1 - f);
+      if (b.kind === 'ember') a *= 0.6 + 0.4 * Math.sin(b.t * 30 + i);
+      c.globalAlpha = Math.max(0, a);
+      c.fillStyle = b.color;
+      const X = Math.round(b.x), Y = Math.round(b.y);
+      if (b.kind === 'bubble') {
+        const r = 1 + f * 2.5;
+        c.strokeStyle = b.color; c.lineWidth = 1;
+        c.beginPath(); c.arc(b.x, b.y, r, 0, Math.PI * 2); c.stroke();
+      } else if (b.kind === 'star') {
+        const s = f < 0.5 ? 1 : 0;
+        c.fillRect(X, Y, 1, 1);
+        if (s) { c.fillRect(X - 1, Y, 3, 1); c.fillRect(X, Y - 1, 1, 3); }
+      } else c.fillRect(X, Y, 1, 1);
+    }
+    c.globalAlpha = 1;
+  }
+
+  private absorb: { t: number; color: string; k: number; long: boolean } | null = null;
+  /** Where the thing takes the strata (screen): the bottom of the squeeze, the thing's span (set every frame). */
+  private bandBottom = 0;
+  private thingX0 = WW / 2 - 8;
+  private thingX1 = WW / 2 + 8;
   private lastAbsorbX = 0;
 
   onExtinction(): void { this.skyDim = 1; this.shake = Math.min(3, this.shake + 2); this.alarm = this.t; }
@@ -332,6 +466,7 @@ export class Renderer {
     this.drawEcho(dt);
     this.drawSection(g);
     this.drawGround(g, sky);
+    this.drawBackdropLife(g, sky);
     this.drawLife(g);
     this.drawFinaleWorld(g);
     this.drawShift(dt);
@@ -539,16 +674,148 @@ export class Renderer {
     }
   }
 
+  /** Birds as flocks across the sky: more birds — more flocks, at different heights; the far ones are specks. */
   private drawFlyingBirds(g: Game): void {
-    const n = Math.min(12, Math.ceil(totalPop(g, 'birds') / 3));
-    if (n <= 0) return;
+    const pop = totalPop(g, 'birds');
+    if (pop <= 0) return;
     const c = this.ctx, t = this.t;
+    const flocks = Math.min(this.quality === 'low' ? 2 : 5, Math.ceil(pop / 8));
     const pose: Pose = { t, i: 0, flip: false, alert: 0, walk: 0, season: this.seasonPhase };
-    const lx = ((t * 7 + 40) % (WW + 80)) - 40;
-    const ly = this.lay.surfaceTop - 22 + Math.sin(t * 0.4) * 5;
-    for (let i = 0; i < n; i++) {
-      const row = Math.ceil(i / 2), side = i === 0 ? 0 : i % 2 ? 1 : -1;
-      birdFlying(c, lx - row * 11 + Math.sin(t * 2 + i) * 1.2, ly + row * 4 * side + Math.cos(t * 1.7 + i) * 1.2, { ...pose, i });
+    const flee = t - this.alarm < 3 ? (t - this.alarm) * 2.5 : 0;   // startled: the flocks hurry off
+    for (let f = 0; f < flocks; f++) {
+      const h = hash2(f, 77), far = f > 0 && h > 0.45;
+      const n = Math.max(3, Math.min(9, Math.round(pop / flocks / 2)));
+      const dir = f % 2 ? -1 : 1, sp = (far ? 4 : 7) + h * 4;
+      const span = WW + 120;
+      const run = (t + flee) * sp + h * span;
+      const lx = dir > 0 ? (run % span) - 60 : WW + 60 - (run % span);
+      const ly = this.lay.surfaceTop - 16 - h * 46 + Math.sin(t * 0.4 + f) * 4;
+      for (let i = 0; i < n; i++) {
+        const row = Math.ceil(i / 2), side = i === 0 ? 0 : i % 2 ? 1 : -1;
+        const bx = lx - dir * row * (far ? 5 : 9) + Math.sin(t * 2 + i + f) * 1.2, by = ly + row * (far ? 2 : 3.5) * side + Math.cos(t * 1.7 + i) * 1.2;
+        if (far) {
+          // a far bird: a flicker of two wings
+          const up = Math.sin(t * 9 + i * 1.7 + f) > 0;
+          c.fillStyle = 'rgba(42,38,46,0.6)';
+          c.fillRect(Math.round(bx) - 1, Math.round(by) + (up ? -1 : 0), 1, 1); c.fillRect(Math.round(bx), Math.round(by), 1, 1); c.fillRect(Math.round(bx) + 1, Math.round(by) + (up ? -1 : 0), 1, 1);
+        } else birdFlying(c, bx, by, { ...pose, i: i + f * 9, flip: dir < 0 });
+      }
+    }
+  }
+
+  /** Life as the background of geological time: the sea blooms with plankton and flashes with shoals, mats
+   *  breathe bubbles, herds cross the land far off as a line of small silhouettes with their hunters behind. */
+  private drawBackdropLife(g: Game, sky: Sky): void {
+    const c = this.ctx, t = this.t, lay = this.lay, sea = lay.waterLevel;
+    const low = this.quality === 'low';
+    const wetX: number[] = [];
+    for (let x = 0; x < WW; x++) if (g.water.col[x >> 1] === 1 && this.gy[x] > sea + 1) wetX.push(x);
+    const day = 0.35 + 0.65 * sky.light;
+    if (wetX.length) {
+      // plankton: the water greens, and specks drift and glint just under the surface
+      const P = totalPop(g, 'plankton');
+      if (P > 0) {
+        const bloom = Math.min(1, P / 30);
+        c.fillStyle = rgb(70, 170, 120, 0.16 * bloom);
+        for (const x of wetX) c.fillRect(x, sea + 1, 1, this.gy[x] - sea - 1);
+        const n = Math.min(low ? 16 : 36, Math.ceil(P * 1.5));
+        for (let i = 0; i < n; i++) {
+          const x = wetX[Math.floor(hash2(i, 501) * wetX.length)] + Math.sin(t * 0.3 + i) * 3;
+          const xi = Math.max(0, Math.min(WW - 1, Math.round(x)));
+          if (g.water.col[xi >> 1] !== 1) continue;
+          const room = this.gy[xi] - sea - 2;
+          if (room < 1) continue;
+          const y = sea + 1 + ((hash2(i, 502) * Math.min(8, room) + Math.sin(t * 0.5 + i * 1.3)) % room + room) % room;
+          c.fillStyle = rgb(190, 245, 215, (0.25 + 0.5 * Math.max(0, Math.sin(t * 2 + i))) * day);
+          c.fillRect(xi, Math.round(y), 1, 1);
+        }
+      }
+      // fish: shoals in the deeper water — a moving cloud of dark specks that flashes silver as it turns
+      const F = totalPop(g, 'fish');
+      const runs: { x0: number; x1: number }[] = [];
+      for (let k = 0; k < wetX.length;) {
+        let k1 = k;
+        while (k1 + 1 < wetX.length && wetX[k1 + 1] === wetX[k1] + 1) k1++;
+        if (wetX[k1] - wetX[k] >= 10) runs.push({ x0: wetX[k], x1: wetX[k1] });
+        k = k1 + 1;
+      }
+      if (F > 0 && runs.length) {
+        const shoals = Math.min(low ? 2 : 4, Math.ceil(F / 5));
+        for (let sI = 0; sI < shoals; sI++) {
+          const run = runs[sI % runs.length], h = hash2(sI, 511);
+          const w = run.x1 - run.x0;
+          const cx = run.x0 + w / 2 + Math.sin(t * (0.15 + h * 0.1) + h * 9) * (w / 2 - 4);
+          const turn = Math.cos(t * (0.15 + h * 0.1) + h * 9);
+          const n = 5 + Math.round(h * 4);
+          for (let j = 0; j < n; j++) {
+            const a = j * 2.4 + t * 0.8;
+            const x = Math.round(cx + Math.cos(a) * (2 + (j % 3)) * 1.6);
+            const xi = Math.max(0, Math.min(WW - 1, x));
+            const bot = this.gy[xi];
+            if (g.water.col[xi >> 1] !== 1 || bot - sea < 5) continue;
+            const mid = sea + 2 + (bot - sea - 4) * (0.35 + 0.3 * h);
+            const y = Math.round(Math.max(sea + 2, Math.min(bot - 2, mid + Math.sin(a) * 1.5)));
+            const flash = Math.abs(turn) < 0.25 && Math.sin(t * 7 + j * 2) > 0.2;
+            c.fillStyle = flash ? rgb(230, 240, 250, 0.85 * day) : rgb(20, 40, 56, 0.45);
+            c.fillRect(x, y, 1, 1);
+          }
+          // the shoal at the top now and then: a ring on the surface
+          const ph = (t * 0.2 + h) % 1;
+          if (ph < 0.12) {
+            const r = 1 + ph * 30;
+            c.fillStyle = rgb(220, 240, 250, 0.5 * (1 - ph / 0.12));
+            c.fillRect(Math.round(cx - r), sea, 1, 1); c.fillRect(Math.round(cx + r), sea, 1, 1);
+          }
+        }
+      }
+      // bacterial mats under water breathe: small bubbles rise to the surface
+      const M = totalPop(g, 'mats');
+      if (M > 0) {
+        const n = Math.min(low ? 4 : 8, Math.ceil(M / 2));
+        for (let i = 0; i < n; i++) {
+          const x = wetX[Math.floor(hash2(i, 521) * wetX.length)];
+          const bot = this.gy[x], room = bot - sea - 1;
+          if (room < 3) continue;
+          const ph = (t * (0.25 + hash2(i, 522) * 0.2) + hash2(i, 523)) % 1;
+          c.fillStyle = rgb(210, 240, 240, 0.55 * (1 - ph * 0.6));
+          c.fillRect(x + (Math.sin(t * 3 + i) > 0.6 ? 1 : 0), Math.round(bot - 1 - ph * room), 1, 1);
+        }
+      }
+    }
+    // herds and their hunters: a far line of small silhouettes migrating over the dry land
+    const H = totalPop(g, 'herds'), Pd = totalPop(g, 'predators');
+    if (H <= 0 && Pd <= 0) return;
+    let x0 = -1, x1 = -1;
+    for (let x = 0; x < WW; x++) if (g.zoneMap[x] !== 0 && !(g.water.col[x >> 1] === 1 && this.gy[x] > sea + 1)) { if (x0 < 0) x0 = x; x1 = x; }
+    if (x0 < 0 || x1 - x0 < 30) return;
+    const span = x1 - x0;
+    const startled = t - this.alarm < 2.5 ? 2.5 : 1;
+    const col = lerp3([34, 26, 24], sky.hor, 0.12).map((v) => v * (1 - (1 - sky.light) * 0.5));
+    const nH = Math.min(low ? 8 : 16, Math.ceil(H / 2)), nP = Math.min(4, Math.ceil(Pd / 2));
+    const head = t * 2.2 + (t - this.alarm < 2.5 ? (t - this.alarm) * 4 : 0);
+    const wrap = (v: number) => x0 + ((v % span) + span) % span;
+    const beast = (x: number, kind: 'herd' | 'pred', i: number) => {
+      if (x < x0 || x > x1) return;
+      const xi = Math.round(x), gy = this.gy[xi] - 1;
+      const step = Math.sin(t * (kind === 'pred' ? 9 : 6) * startled + i * 1.7) > 0;
+      c.fillStyle = rgb(col[0], col[1], col[2], 0.95);
+      if (kind === 'herd') {
+        c.fillRect(xi - 2, gy - 3, 4, 2);                 // body
+        c.fillRect(xi + 2, gy - 4, 1, 2);                 // neck and head
+        c.fillRect(xi - 2 + (step ? 0 : 1), gy - 1, 1, 1); // legs
+        c.fillRect(xi + 1 - (step ? 0 : 1), gy - 1, 1, 1);
+        if (i % 5 === 0) c.fillRect(xi + 2, gy - 5, 1, 1); // a horn, a tall one
+      } else {
+        c.fillRect(xi - 2, gy - 2, 4, 1);
+        c.fillRect(xi + 2, gy - 3, 1, 1);
+        c.fillRect(xi - 2 + (step ? 0 : 1), gy - 1, 1, 1);
+        c.fillRect(xi + 1 - (step ? 0 : 1), gy - 1, 1, 1);
+      }
+    };
+    for (let i = 0; i < nH; i++) beast(wrap(head - i * 6 - (i % 2) * 2 + Math.sin(t * 0.7 + i) * 1.5), 'herd', i);
+    for (let i = 0; i < nP; i++) {
+      const lag = Math.max(0, Math.sin(t * 0.3 + i * 2)) * 14;
+      beast(wrap(head - nH * 6 - 14 - i * 8 + lag), 'pred', i);
     }
   }
 
@@ -840,6 +1107,9 @@ export class Renderer {
     };
     for (const pass of [0, 1]) for (const sp of CFG.species) {
       if ((sp.sprite === 'predator') !== (pass === 1)) continue;
+      // a thousand years a second: no single fish or deer stays long enough to be seen; the sea, the sky and the
+      // far land show them as a whole (drawBackdropLife, drawFlyingBirds)
+      if (BACKDROP.has(sp.sprite)) continue;
       const p = g.run.pop[sp.id];
       for (let zi = 0; zi < 3; zi++) {
         if (p[zi] <= 0) continue;
@@ -921,6 +1191,18 @@ export class Renderer {
             const k = since / 5;
             const fx = x + (h - 0.5) * 60 * k, fy = y - 4 - Math.sin(k * Math.PI) * 40;
             queue.push({ y: 999, draw: () => birdFlying(c, fx, fy, pose) });
+            continue;
+          }
+          if (sp.sprite === 'mollusc') {
+            // shells on the bed: a pale fleck or two, no animal
+            const sx = Math.round(x), sy = Math.round(y) - 1, shell = ['#e6d2ae', '#d0b4c8', '#dcc09a'][i % 3];
+            queue.push({ y: sy, draw: () => { c.fillStyle = shell; c.fillRect(sx, sy, 2, 1); if (h > 0.5) c.fillRect(sx + 3, sy, 1, 1); } });
+            continue;
+          }
+          if (sp.sprite === 'insect') {
+            // a swarm over the plants: a cloud of specks that drifts and hums
+            const sx = x, sy = y - 9 - h * 6;
+            queue.push({ y: 999, draw: () => swarm(c, sx, sy, t + h * 10, 6, '#2e3a40') });
             continue;
           }
           const fn = CREATURES[sp.sprite] ?? CREATURES.glow;
@@ -1682,7 +1964,7 @@ export class Renderer {
     if (this.absorb) {
       const ab = this.absorb;
       ab.t += this.dt;
-      const f = Math.max(0, 1 - ab.t / 0.6) * ab.k;
+      const f = Math.max(0, 1 - ab.t / (ab.long ? 1.4 : 0.6)) * ab.k;
       if (f <= 0) this.absorb = null;
       else {
         const a = this.ayAt(WW / 2) - 3, R = 12 + 10 * ab.k;
@@ -1692,6 +1974,12 @@ export class Renderer {
         grd.addColorStop(1, 'rgba(0,0,0,0)');
         c.fillStyle = grd; c.fillRect(WW / 2 - R, a - R, R * 2, R * 2);
       }
+    }
+    {
+      const grid = g.grid;
+      this.bandBottom = this.lay.sectionTop + this.section.yOfRow(grid.sinkRow + 1);
+      if (grid.artifacts.length) { this.thingX0 = grid.artifacts[0] * 2; this.thingX1 = this.thingX0 + CFG.B.sand.artifactW * 2; }
+      this.drawAbsorbFx();
     }
     for (let x = 0; x < WW; x += 3) {
       c.fillStyle = rgb(242, 170, 70, g.glow[x] * (0.1 + 0.03 * Math.sin(this.t * 1.7 + x * 0.1)));
