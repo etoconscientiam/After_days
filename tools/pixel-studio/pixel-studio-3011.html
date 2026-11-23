@@ -26,7 +26,7 @@
 html,body{height:100%}
 body{background:var(--bg);color:var(--fg);font:14px/1.45 var(--f-body);margin:0}
 *{box-sizing:border-box}
-.app{display:flex;flex-direction:column;height:100%;gap:8px;padding-block:8px;
+.app{display:flex;flex-direction:column;height:100%;gap:6px;padding-block:8px;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 header{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap}
 header .toolbar{flex:1 1 auto;min-width:0}
@@ -41,7 +41,7 @@ h1 b{font-weight:500;color:var(--accent)}
 .tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 
 .layout{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) clamp(320px,30vw,440px);gap:12px}
-.stage-col{min-width:0;min-height:0;display:flex;flex-direction:column;gap:8px}
+.stage-col{min-width:0;min-height:0;display:flex;flex-direction:column;gap:6px}
 .stage{flex:1;min-height:0;position:relative;border:1px solid var(--line);border-radius:10px;overflow:hidden;
   background-color:var(--surface);
   background-image:radial-gradient(var(--line) 1px,transparent 1px);background-size:12px 12px}
@@ -88,7 +88,49 @@ kbd{font:500 11px var(--f-mono);padding:1px 5px;border:1px solid var(--line-2);b
 .n{font:500 11px/1 var(--f-mono);color:var(--bg);background:var(--accent);border-radius:4px;padding:3px 5px;min-width:20px;text-align:center}
 .n.o{background:var(--line-2);color:var(--fg)}
 .body{display:flex;flex-direction:column;gap:10px;padding:0 14px 14px}
-.row{display:grid;grid-template-columns:104px minmax(0,1fr) 48px;align-items:center;gap:8px}
+.row{display:grid;grid-template-columns:104px minmax(0,1fr) 48px 22px;align-items:center;gap:8px}
+.kbtn{all:unset;box-sizing:border-box;cursor:pointer;width:22px;height:22px;display:grid;place-items:center;color:var(--line-2);font-size:11px;border-radius:5px}
+.kbtn:hover{color:var(--muted);background:var(--raise)}
+.kbtn:focus-visible{outline:2px solid var(--accent)}
+.kbtn[aria-pressed="true"]{color:var(--warm)}
+.row.anim>label{color:var(--warm)}
+.row.flash{animation:flash .9s ease-out}
+@keyframes flash{0%{background:rgba(207,159,88,.25)}100%{background:transparent}}
+.kedit{margin-top:-4px;padding:10px;border:1px solid var(--line-2);border-radius:8px;background:var(--bg);display:flex;flex-direction:column;gap:8px}
+.kehead{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.seg.sm button{padding:3px 10px;font-size:12px}
+.krows{display:flex;flex-direction:column;gap:5px}
+.krow{display:grid;grid-template-columns:10px minmax(0,1fr) minmax(0,1.3fr) 28px 28px;gap:6px;align-items:center;border-radius:6px}
+.krow.sel{background:var(--raise)}
+.krow label,.krand label{display:flex;gap:4px;align-items:center;font-size:11.5px;color:var(--muted);min-width:0}
+.krow input,.krand input{width:100%;min-width:0;padding:3px 5px;font:12px var(--f-mono)}
+.kdot{width:7px;height:7px;background:var(--warm);transform:rotate(45deg)}
+.krand{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.body h3{margin:6px 0 0;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.tl{flex:none;border:1px solid var(--line);border-radius:10px;background:var(--surface);display:flex;flex-direction:column}
+.tlbar{display:flex;align-items:center;gap:6px 8px;padding:4px 8px;flex-wrap:wrap}
+.tlbar label{color:var(--muted);font-size:12px}
+.tlbar input[type=number]{width:54px;padding:3px 6px;font:12px var(--f-mono)}
+#tlCount{margin-left:auto}
+.tlgrid{display:grid;grid-template-columns:minmax(90px,150px) minmax(0,1fr) 28px;align-items:center;column-gap:6px;row-gap:2px;padding:0 8px 8px;max-height:min(26vh,180px);overflow-y:auto}
+.tlgrid>*{min-width:0}
+.tlempty{padding:0 10px 8px}
+.lane{position:relative;height:22px;margin:0 8px;cursor:pointer;touch-action:none}
+.lane::before{content:"";position:absolute;left:-8px;right:-8px;top:50%;height:1px;background:var(--line)}
+.lane svg{position:absolute;left:0;top:3px;width:100%;height:16px;overflow:visible}
+.lane polyline{fill:none;stroke:var(--accent);stroke-width:1.5;vector-effect:non-scaling-stroke;opacity:.6}
+.lane.ruler{height:18px}
+.lane.ruler::before{display:none}
+.ruler .tick{position:absolute;bottom:0;width:1px;height:4px;background:var(--line-2)}
+.ruler .tick.sec{height:8px;background:var(--muted)}
+.ruler b{position:absolute;top:0;font:500 10px/1 var(--f-mono);color:var(--muted);transform:translateX(-50%);white-space:nowrap}
+.kd{position:absolute;top:50%;width:11px;height:11px;margin:-6px 0 0 -6px;background:var(--warm);transform:rotate(45deg);box-shadow:0 0 0 1.5px var(--surface);cursor:ew-resize;z-index:2}
+.kd.sel{background:#fff3c4}
+.ph{position:absolute;top:-2px;bottom:-2px;width:2px;margin-left:-1px;background:#fff3c4;pointer-events:none;z-index:3}
+.tlname{all:unset;box-sizing:border-box;cursor:pointer;font-size:12px;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:2px 0}
+.tlname:hover{color:var(--warm)}
+.tlname small{color:var(--muted);margin-left:6px}
+.tlname:focus-visible{outline:2px solid var(--accent)}
 .row label{color:var(--muted);font-size:12.5px}
 .row output{font:12px var(--f-mono);text-align:right;color:var(--fg);font-variant-numeric:tabular-nums}
 .line{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -161,7 +203,8 @@ input[type=color]::-moz-color-swatch{border:0;border-radius:4px}
   .layout{grid-template-columns:minmax(0,1fr)}
   /* холст закреплён сверху: настройки прокручиваются под ним, картинку видно всегда */
   .stage-col{position:sticky;top:env(safe-area-inset-top,0px);z-index:6;background:var(--bg);padding-block:6px;margin-block:-6px;box-shadow:0 10px 14px -10px rgba(0,0,0,.7)}
-  .stage{flex:none;height:clamp(220px,44vh,520px)}
+  .stage{flex:none;height:clamp(200px,38vh,480px)}
+  .tlgrid{max-height:16vh}
   .panel{overflow:visible}
   .phead{position:static}
 }
@@ -191,7 +234,8 @@ input[type=color]::-moz-color-swatch{border:0;border-radius:4px}
         </div>
         <div class="tg end">
           <button class="tb primary" id="tbPng" title="PNG 1080 с подачей и Shore (Ctrl+S)">PNG</button>
-          <button class="tb" id="tbGif" title="Анимированный GIF глитча (Ctrl+Shift+S)">GIF</button>
+          <button class="tb" id="tbGif" title="Анимированный GIF (Ctrl+Shift+S)">GIF</button>
+          <button class="tb" id="tbMp4" title="Видео MP4 (Ctrl+Alt+S)">MP4</button>
           <button class="tb icon" id="helpBtn" title="Горячие клавиши (?)" aria-label="Горячие клавиши">?</button>
         </div>
       </div>
@@ -213,6 +257,20 @@ input[type=color]::-moz-color-swatch{border:0;border-radius:4px}
           <div class="lamp" id="lamp" hidden tabindex="0" role="button" aria-label="Лампа: перетащите или двигайте стрелками"></div>
         </div>
         <div class="drop" id="dropHint" hidden>Отпустите картинку</div>
+      </div>
+      <div class="tl" id="tl" aria-label="Таймлайн">
+        <div class="tlbar">
+          <button class="tb" id="tlPlay" aria-pressed="false" title="Проиграть (P)">▶</button>
+          <span class="info" id="tlTime"></span>
+          <label for="tlFrames">кадров</label><input type="number" id="tlFrames" data-bind="anim.frames" data-stage="N" min="2" max="96" step="1">
+          <label for="tlFps">к/с</label><input type="number" id="tlFps" data-bind="anim.fps" data-stage="N" min="2" max="30" step="1">
+          <span class="info" id="tlCount"></span>
+          <button class="tb icon" id="tlToggle" aria-expanded="true" title="Свернуть или развернуть дорожки">▾</button>
+        </div>
+        <div id="tlBody">
+          <div class="tlgrid" id="tlGrid" hidden></div>
+          <p class="hint tlempty" id="tlEmpty" hidden></p>
+        </div>
       </div>
       <div class="stage-bar">
         <span class="info" id="info">—</span>
@@ -252,7 +310,9 @@ input[type=color]::-moz-color-swatch{border:0;border-radius:4px}
               </div>
               <canvas id="cropCv" aria-label="Кадрирование: перетащите рамку"></canvas>
               <div class="row" data-r="crop.zoom,Масштаб кадра,1,4,0.01,x2,A"></div>
-              <p class="hint">Тяните рамку мышью или пальцем, колесо меняет масштаб.</p>
+              <div class="row" data-r="crop.cx,Кадр по X,0,1,0.001,pct100,A"></div>
+              <div class="row" data-r="crop.cy,Кадр по Y,0,1,0.001,pct100,A"></div>
+              <p class="hint" id="cropHint">Тяните рамку мышью или пальцем, колесо меняет масштаб.</p>
             </div>
           </div>
         </section>
@@ -392,6 +452,8 @@ input[type=color]::-moz-color-swatch{border:0;border-radius:4px}
               <input type="color" id="lightColor" data-bind="light.color" data-stage="C" aria-label="Цвет света">
             </div>
             <p class="hint">Кружок на кадре — это лампа. Тащите его, пока открыта вкладка «Свет».</p>
+            <div class="row" data-r="light.x,Лампа X,-0.2,1.2,0.01,pct100,C"></div>
+            <div class="row" data-r="light.y,Лампа Y,-0.2,1.2,0.01,pct100,C"></div>
             <div class="row" data-r="light.power,Сила,0,3,0.01,x2,C"></div>
             <div class="row" data-r="light.radius,Радиус,0.1,2.5,0.01,x2,C"></div>
             <div class="row" data-r="light.z,Высота,0.03,1,0.01,x2,C"></div>
@@ -481,26 +543,32 @@ input[type=color]::-moz-color-swatch{border:0;border-radius:4px}
           </div>
         </section>
         <section class="sec">
-          <h2><span class="n o">▶</span>Анимация (GIF)</h2>
+          <h2><span class="n o">▶</span>Анимация и экспорт</h2>
           <div class="body">
-            <div class="seg" id="animSeg" role="group" aria-label="Характер анимации">
+            <p class="hint">Длительность, частота кадров и ключи ползунков — на таймлайне под картинкой.</p>
+            <div class="line"><label>Движение глитча</label></div>
+            <div class="seg" id="animSeg" role="group" aria-label="Движение глитча">
+              <button data-anim="still">нет</button>
               <button data-anim="jitter">дрожь</button>
               <button data-anim="bursts">вспышки</button>
               <button data-anim="roll">прокатка VHS</button>
             </div>
             <p class="hint" id="animHint"></p>
-            <div class="row" data-r="anim.frames,Кадров,4,48,1,int,N"></div>
-            <div class="row" data-r="anim.fps,Скорость,2,25,1,fps,N"></div>
             <div class="line">
               <input type="checkbox" id="recBlink" data-bind="anim.recBlink" data-stage="N"><label for="recBlink">Мигать REC</label>
               <input type="checkbox" id="caPulse" data-bind="anim.caPulse" data-stage="N"><label for="caPulse">Пульс аберрации</label>
             </div>
-            <div class="line"><label for="gifSize">Размер GIF</label><select id="gifSize" data-bind="anim.size" data-stage="N"></select></div>
-            <div class="line">
-              <button class="btn" id="playBtn2" aria-pressed="false">▶ Просмотр</button>
-              <button class="btn primary" id="gifBtn">Скачать GIF</button>
-            </div>
-            <p class="hint" id="gifHint">Кадры отличаются только глитчем, зерном, пылью и миганием REC — палитра и свет общие, поэтому GIF не мерцает.</p>
+            <div class="line"><input type="checkbox" id="lockPal" data-bind="anim.lockPal" data-stage="N"><label for="lockPal">Палитра по первому кадру — цвета не прыгают</label></div>
+            <div class="line"><button class="btn" id="playBtn2" aria-pressed="false">▶ Просмотр</button></div>
+            <h3>GIF</h3>
+            <div class="line"><label for="gifSize">Размер</label><select id="gifSize" data-bind="anim.size" data-stage="N"></select><button class="btn primary" id="gifBtn">Скачать GIF</button></div>
+            <p class="hint" id="gifHint">Один цикл, повторяется бесконечно.</p>
+            <h3>Видео</h3>
+            <div class="line"><label for="vidSize">Размер</label><select id="vidSize" data-bind="anim.vsize" data-stage="N"></select></div>
+            <div class="row" data-r="anim.loops,Повторов цикла,1,20,1,int,N"></div>
+            <div class="line"><label for="vidFmt">Формат</label><select id="vidFmt" data-bind="anim.vformat" data-stage="N"><option value="auto">MP4, если браузер умеет, иначе WebM</option><option value="webm">сразу WebM</option></select></div>
+            <div class="line"><button class="btn primary" id="vidBtn">Скачать MP4</button></div>
+            <p class="hint" id="vidHint">Видео кодируется прямо в браузере. Пиксели увеличены целым числом раз, битрейт высокий — края остаются чёткими.</p>
           </div>
         </section>
       </div>
@@ -535,6 +603,7 @@ input[type=color]::-moz-color-swatch{border:0;border-radius:4px}
               <button class="btn primary" id="exp1080">PNG 1080×1920</button>
               <button class="btn" id="expGrid">PNG сетка</button>
               <button class="btn" id="expGif">GIF анимация</button>
+              <button class="btn" id="expVid">MP4 видео</button>
             </div>
             <p class="hint" id="expHint"></p>
           </div>
@@ -571,6 +640,10 @@ input[type=color]::-moz-color-swatch{border:0;border-radius:4px}
       <dt>R</dt><dd>перемешать глитч</dd>
       <dt>L · H</dt><dd>лампа · интерфейс Shore</dd>
       <dt>[ · ]</dt><dd>сетка мельче · крупнее</dd>
+      <dt>, · . · Home · End</dt><dd>кадр назад · вперёд · в начало · в конец таймлайна</dd>
+      <dt><span class="kmod">Ctrl</span> Alt S</dt><dd>видео MP4</dd>
+      <dt>◆ у ползунка</dt><dd>анимировать его; дальше бегунок таймлайна + ползунок ставят ключи</dd>
+      <dt>двойной щелчок по дорожке</dt><dd>новый ключ; ключи тянутся вбок</dd>
       <dt>колесо · + · − · 0</dt><dd>масштаб · вписать</dd>
       <dt>тянуть кадр</dt><dd>двигать увеличенную картинку (или средней кнопкой)</dd>
       <dt>щелчок по числу</dt><dd>ввести значение с клавиатуры</dd>
@@ -622,7 +695,8 @@ const DEFAULTS = {
   tone: { shadows: '#24345a', shadowsAmt: 0, highlights: '#ecd9a0', highlightsAmt: 0 },
   tint: 0.25,
   vignette: 0.4,
-  anim: { mode: 'bursts', frames: 16, fps: 10, recBlink: true, caPulse: true, size: 'half' },
+  anim: { mode: 'bursts', frames: 16, fps: 10, recBlink: true, caPulse: true, size: 'half', vsize: 'full', loops: 3, vformat: 'auto', lockPal: true },
+  keys: {},
   fx: { ca: 0, caMode: 'radial', shift: 0, bands: 0, blocks: 0, sort: 0, sortThr: 0.55, sortDir: 'h',
         vhs: 0, vhsPos: 0.72, dead: 0, grain: 0, grainColor: false, toPalette: false, seed: 3011 },
   shore: {
@@ -1138,14 +1212,14 @@ function drawCrop() {
     const k = src.width / cropView.cssW;
     const r = drag.r;
     const nx = clamp(r.x + (e.clientX - drag.x) * k, 0, src.width - r.w), ny = clamp(r.y + (e.clientY - drag.y) * k, 0, src.height - r.h);
-    S.crop.cx = (nx + r.w / 2) / src.width; S.crop.cy = (ny + r.h / 2) / src.height;
+    userSet('crop.cx', +((nx + r.w / 2) / src.width).toFixed(4)); userSet('crop.cy', +((ny + r.h / 2) / src.height).toFixed(4)); syncUI();
     drawCrop(); invalidate('A');
   });
   const end = () => { drag = null; };
   cropCv.addEventListener('pointerup', end); cropCv.addEventListener('pointercancel', end);
   cropCv.addEventListener('wheel', e => {
     e.preventDefault();
-    S.crop.zoom = clamp(S.crop.zoom * (e.deltaY < 0 ? 1.08 : 1 / 1.08), 1, 4);
+    userSet('crop.zoom', quant('crop.zoom', S.crop.zoom * (e.deltaY < 0 ? 1.08 : 1 / 1.08)));
     syncUI(); drawCrop(); invalidate('A');
   }, { passive: false });
 })();
@@ -1887,7 +1961,7 @@ function applyLook(ctx, ox, oy, w, h, k) {
 }
 const view = { fit: true, k: 1, px: 0, py: 0 };
 function fitK() {
-  const aw = Math.max(40, stageEl.clientWidth - 10), ah = Math.max(40, stageEl.clientHeight - 10), dpr = window.devicePixelRatio || 1;
+  const aw = Math.max(40, stageEl.clientWidth - 6), ah = Math.max(40, stageEl.clientHeight - 6), dpr = window.devicePixelRatio || 1;
   return Math.max(1, Math.floor(Math.min(aw * dpr / G.W, ah * dpr / G.H)));
 }
 function maxK(W, H) { let k = 48; while (k > 1 && (W * k > 12000 || H * k > 12000 || W * H * k * k > 32e6)) k--; return k; }
@@ -1902,7 +1976,7 @@ function positionFrame() {
 }
 function renderDisplay() {
   const { W, H } = G; if (!W) return;
-  const aw = Math.max(40, stageEl.clientWidth - 10), ah = Math.max(40, stageEl.clientHeight - 10);
+  const aw = Math.max(40, stageEl.clientWidth - 6), ah = Math.max(40, stageEl.clientHeight - 6);
   const dpr = window.devicePixelRatio || 1;
   const kf = fitK();
   const k = view.fit ? kf : (view.k = Math.min(view.k, maxK(W, H)));
@@ -1965,10 +2039,17 @@ const FMT = {
   int: v => String(Math.round(v)), signed: v => (v > 0 ? '+' : '') + Math.round(v), pct: v => Math.round(v) + '%',
   pct100: v => Math.round(v * 100) + '%', x2: v => (+v).toFixed(2), px: v => v + ' px', fps: v => v + ' к/с', px1: v => (+v).toFixed(2).replace(/\.?0+$/, '') + ' px'
 };
+const RANGES = {};
 document.querySelectorAll('[data-r]').forEach(el => {
   const [path, label, min, max, step, fmt, stage] = el.dataset.r.split(',');
   const id = 'r-' + path.replace(/\./g, '-');
-  el.innerHTML = `<label for="${id}">${label}</label><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" data-bind="${path}" data-stage="${stage}" data-fmt="${fmt}"><output for="${id}"></output>`;
+  const animatable = stage !== 'N' && !['grid.width'].includes(path);
+  el.innerHTML = `<label for="${id}">${label}</label><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" data-bind="${path}" data-stage="${stage}" data-fmt="${fmt}"><output for="${id}"></output>` +
+    (animatable ? `<button class="kbtn" data-kpath="${path}" aria-pressed="false" aria-label="Анимировать: ${label}" title="Анимировать этот ползунок">◆</button>` : '<span></span>');
+  if (animatable) {
+    RANGES[path] = { label, min: +min, max: +max, step: +step, fmt, stage, tab: (el.closest('.tabpane') || {}).dataset ? el.closest('.tabpane').dataset.tab : 'src' };
+    el.insertAdjacentHTML('afterend', `<div class="kedit" data-kfor="${path}" hidden></div>`);
+  }
 });
 function getPath(o, p) { return p.split('.').reduce((a, k) => a == null ? a : a[k], o); }
 function setPath(o, p, v) { const ks = p.split('.'), last = ks.pop(); const t = ks.reduce((a, k) => a[k], o); t[last] = v; }
@@ -1984,6 +2065,7 @@ const METHOD_HINT = {
 };
 function syncUI() {
   const focused = document.activeElement;
+  document.querySelectorAll('input[data-randlock]').forEach(el => { el.disabled = false; el.removeAttribute('data-randlock'); });
   document.querySelectorAll('[data-bind]').forEach(el => {
     const v = getPath(S, el.dataset.bind);
     if (el === focused && (el.tagName === 'TEXTAREA' || el.type === 'text' || el.type === 'number')) return;
@@ -2012,14 +2094,23 @@ function syncUI() {
   $('#toPal').disabled = !fxActive();
   document.querySelectorAll('#caSeg button').forEach(b => { b.disabled = !(S.fx.ca > 0); });
   $('#methodHint').textContent = METHOD_HINT[S.pix.method];
+  if (src && S.mode === 'image') {
+    const cr = cropRect(), canX = cr.w < src.width - 0.5, canY = cr.h < src.height - 0.5;
+    $('#r-crop-cx').disabled = !canX && !(KEYS_READY && S.keys['crop.cx']);
+    $('#r-crop-cy').disabled = !canY && !(KEYS_READY && S.keys['crop.cy']);
+    $('#cropHint').textContent = canX || canY ? 'Тяните рамку мышью или пальцем, колесо меняет масштаб.' : 'Кадр занимает всю картинку. Чтобы двигать его (и анимировать проезд камеры), увеличьте «Масштаб кадра».';
+  }
+  if (KEYS_READY) for (const p of tracks()) if (S.keys[p].mode === 'rand') { const el = rangeEl(p); if (el) { el.disabled = true; el.setAttribute('data-randlock', ''); } }
+  $('#vidBtn').textContent = vidJob ? $('#vidBtn').textContent : (S.anim.vformat === 'webm' ? 'Скачать WebM' : 'Скачать MP4');
   document.querySelectorAll('#animSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.anim === S.anim.mode)));
   fillGifSizes();
   const sec = S.anim.frames / S.anim.fps;
   $('#animHint').textContent = ({
     jitter: 'Каждый кадр — новый вариант глитча той же силы. Нервная дрожь записи.',
     bursts: 'Почти чистая картинка, и в случайных кадрах — резкие срывы. Похоже на сбоящие очки.',
-    roll: 'Полоса VHS проезжает сверху вниз за один цикл, строки дёргаются через кадр.'
-  })[S.anim.mode] + ` Цикл ${sec.toFixed(1)} с.` + (!fxActive() && !(S.fx.grain > 0) && S.anim.mode !== 'roll' ? ' Сейчас глитч выключен — двигаться будет только REC.' : '');
+    roll: 'Полоса VHS проезжает сверху вниз за один цикл, строки дёргаются через кадр.',
+    still: 'Глитч стоит на месте. Двигаются только ключи ползунков и REC.'
+  })[S.anim.mode] + ` Цикл ${sec.toFixed(1)} с.` + (!fxActive() && !(S.fx.grain > 0) && S.anim.mode !== 'roll' && !(KEYS_READY && tracks().length) ? ' Сейчас ни глитч, ни ключи не включены — двигаться будет только REC.' : '');
   $('#seedInfo').textContent = 'вариант #' + S.fx.seed;
   $('#exp1080').textContent = S.aspect === '1:1' ? 'PNG 1080×1080' : 'PNG 1080×1920';
   $('#expGrid').textContent = `PNG сетка ${gridW()}×${gridH()}`;
@@ -2042,7 +2133,14 @@ function onBind(ev) {
   else if (el.type === 'range' || el.type === 'number') { v = +el.value; if (!isFinite(v)) return; }
   else v = el.value;
   if (path === 'grid.width' && S.grid.snap) { v = snapW(v); el.value = v; }
+  if (path === 'anim.frames') v = clamp(Math.round(v), 2, 96);
+  if (path === 'anim.fps') v = clamp(Math.round(v), 2, 30);
   setPath(S, path, v);
+  if (KEYS_READY) {
+    anim.pal = undefined;
+    if (S.keys[path]) autoKey(path, v);
+    if (path === 'anim.frames' || path === 'anim.fps') { TL.frame = Math.min(TL.frame, nFrames() - 1); applyTimeline(TL.frame); renderTimeline(); renderKeyUI(); invalidate(tracksStage()); }
+  }
   if (path === 'grid.snap' && v) S.grid.width = snapW(S.grid.width);
   if (!/^(shore|grid|crop)\./.test(path)) S.style = '';
   updateOut(el);
@@ -2086,6 +2184,7 @@ $('#styles').addEventListener('click', e => {
   for (const k of STYLE_KEYS) S[k] = base[k];
   S.palette.custom = custom;
   S.style = st.id;
+  applyTimeline(TL.frame);
   syncUI(); invalidate('B');
   toast(`Стиль «${st.name}». Любой ползунок можно подвинуть дальше.`);
 });
@@ -2100,7 +2199,7 @@ function placeLamp() {
   let on = false;
   const setP = e => {
     const r = frameEl.getBoundingClientRect();
-    S.light.x = clamp((e.clientX - r.left) / r.width, -0.2, 1.2); S.light.y = clamp((e.clientY - r.top) / r.height, -0.2, 1.2);
+    userSet('light.x', quant('light.x', (e.clientX - r.left) / r.width)); userSet('light.y', quant('light.y', (e.clientY - r.top) / r.height));
     S.style = ''; placeLamp(); invalidate('C');
   };
   lampEl.addEventListener('pointerdown', e => { on = true; lampEl.setPointerCapture(e.pointerId); e.stopPropagation(); e.preventDefault(); });
@@ -2109,7 +2208,7 @@ function placeLamp() {
   lampEl.addEventListener('keydown', e => {
     const d = { ArrowLeft: [-0.02, 0], ArrowRight: [0.02, 0], ArrowUp: [0, -0.02], ArrowDown: [0, 0.02] }[e.key];
     if (!d) return; e.preventDefault();
-    S.light.x = clamp(S.light.x + d[0], -0.2, 1.2); S.light.y = clamp(S.light.y + d[1], -0.2, 1.2); placeLamp(); invalidate('C');
+    userSet('light.x', quant('light.x', S.light.x + d[0])); userSet('light.y', quant('light.y', S.light.y + d[1])); placeLamp(); syncUI(); invalidate('C');
   });
 })();
 
@@ -2370,7 +2469,7 @@ $('#tbPng').onclick = exportPng;
 $('#expGrid').onclick = () => { if (G.idx) gridCv.toBlob(b => saveBlob(b, `pixel3011_${G.W}x${G.H}.png`), 'image/png'); };
 
 /* ---------- пресеты (текст JSON, без localStorage) ---------- */
-const SAVE_KEYS = ['aspect', 'crop', 'pre', 'fisheye', 'grid', 'pix', 'palette', 'dither', 'clean', 'outline', 'light', 'glow', 'fog', 'tone', 'tint', 'vignette', 'fx', 'anim', 'shore'];
+const SAVE_KEYS = ['aspect', 'crop', 'pre', 'fisheye', 'grid', 'pix', 'palette', 'dither', 'clean', 'outline', 'light', 'glow', 'fog', 'tone', 'tint', 'vignette', 'fx', 'anim', 'keys', 'shore'];
 function presetText() {
   const settings = {}; for (const k of SAVE_KEYS) settings[k] = JSON.parse(JSON.stringify(S[k]));
   const o = { app: 'pixel-studio-3011', version: 2, settings, scene: $('#sceneText').value };
@@ -2403,6 +2502,8 @@ $('#presetLoad').onclick = () => {
   snap.grid.width = clamp(Math.round(snap.grid.width), 64, 512);
   if (snap.grid.snap) { S.aspect = snap.aspect; snap.grid.width = snapW(snap.grid.width); }
   for (const k of SAVE_KEYS) S[k] = snap[k];
+  S.keys = sanitizeKeys(o.settings.keys);
+  TL.frame = Math.min(TL.frame, nFrames() - 1); applyTimeline(TL.frame); renderKeyUI(); renderTimeline();
   S.style = '';
   if (typeof o.scene === 'string') $('#sceneText').value = o.scene;
   let note = '';
@@ -2410,55 +2511,6 @@ $('#presetLoad').onclick = () => {
   syncUI(); drawCrop(); invalidate('A');
   pst.textContent = 'Пресет загружен.' + note; pst.className = note ? 'ai err' : 'ai ok';
 };
-
-/* ---------- анимация глитча ---------- */
-function animFrame(i, n) {
-  const A = S.anim, F = S.fx, t = i / n;
-  let m = 1, seed = F.seed + i * 101, vhsPos = F.vhsPos, ca = F.ca, vhs = F.vhs;
-  if (A.mode === 'bursts') {
-    let any = false; for (let j = 0; j < n; j++) if (hash2(j, 3, F.seed) < 0.3) { any = true; break; }
-    const burst = any ? hash2(i, 3, F.seed) < 0.3 : i === Math.floor(n / 2);
-    m = burst ? 1 + hash2(i, 5, F.seed) * 0.6 : 0.12;
-    if (!burst) seed = F.seed;
-    if (A.caPulse) ca = F.ca * (burst ? 1.5 : 0.5);
-  } else if (A.mode === 'roll') {
-    vhsPos = (F.vhsPos + t) % 1; vhs = Math.max(F.vhs, 0.35);
-    seed = F.seed + Math.floor(i / 2) * 101;
-    if (A.caPulse) ca = F.ca * (0.65 + 0.35 * Math.sin(t * Math.PI * 2));
-  } else {
-    m = 0.85 + hash2(i, 9, F.seed) * 0.3;
-    if (A.caPulse) ca = F.ca * (0.65 + 0.35 * Math.sin(t * Math.PI * 2));
-  }
-  const rec = !A.recBlink || Math.floor(i / A.fps * 2) % 2 === 0;
-  return { m, seed, vhsPos, vhs, ca, rec };
-}
-function withFrame(fp, fn) {
-  const F = S.fx, keep = { ...F }, rec = S.shore.rec;
-  F.seed = fp.seed; F.shift *= fp.m; F.bands *= fp.m; F.blocks *= fp.m; F.sort *= fp.m; F.dead *= fp.m;
-  F.vhs = (S.anim.mode === 'roll' ? fp.vhs : F.vhs * fp.m); F.vhsPos = fp.vhsPos; F.ca = fp.ca;
-  S.shore.rec = rec && fp.rec;
-  try { return fn(); } finally { Object.assign(F, keep); S.shore.rec = rec; }
-}
-const needCPerFrame = () => S.fx.grain > 0 || (S.light.on && S.light.rays > 0 && S.light.dust > 0);
-
-var anim = { on: false, i: 0, timer: 0 };
-function updPlay() {
-  for (const b of [$('#playBtn'), $('#playBtn2')]) { b.setAttribute('aria-pressed', String(anim.on)); b.textContent = anim.on ? '■ Стоп' : (b.id === 'playBtn' ? '▶ Анимация' : '▶ Просмотр'); }
-}
-function animTick() {
-  if (!anim.on) return;
-  const t0 = performance.now(), n = S.anim.frames;
-  try {
-    withFrame(animFrame(anim.i % n, n), () => { if (needCPerFrame()) quantize(G.pal); applyEffects(); renderDisplay(); });
-  } catch (e) { console.error(e); stopPreview(); return; }
-  anim.i = (anim.i + 1) % n;
-  anim.timer = setTimeout(animTick, Math.max(0, 1000 / S.anim.fps - (performance.now() - t0)));
-}
-function startPreview() { if (!G.rgb || anim.on) return; anim.on = true; anim.i = 0; updPlay(); animTick(); }
-function stopPreview() { if (!anim.on) return; anim.on = false; clearTimeout(anim.timer); updPlay(); invalidate('C'); }
-const togglePreview = () => anim.on ? stopPreview() : startPreview();
-$('#playBtn').onclick = togglePreview; $('#playBtn2').onclick = togglePreview;
-$('#animSeg').addEventListener('click', e => { const b = e.target.closest('button[data-anim]'); if (!b) return; S.anim.mode = b.dataset.anim; syncUI(); histSchedule(); });
 
 /* ---------- кодировщик GIF (LZW) в фоновом потоке ---------- */
 const GIF_WORKER = `
@@ -2566,12 +2618,14 @@ let gifSizesKey = '';
 function fillGifSizes() {
   const sizes = gifSizes(), gs = $('#gifSize');
   if (!sizes.length) return;
-  const key = sizes.map(o => o.id + o.label).join() + S.anim.size;
+  const key = sizes.map(o => o.id + o.label).join() + S.anim.size + S.anim.vsize;
   if (key === gifSizesKey) return;
   gifSizesKey = key;
-  gs.innerHTML = sizes.map(o => `<option value="${o.id}">${o.label}</option>`).join('');
+  const opts = sizes.map(o => `<option value="${o.id}">${o.label}</option>`).join('');
+  gs.innerHTML = opts; $('#vidSize').innerHTML = opts;
   if (!sizes.some(o => o.id === S.anim.size)) S.anim.size = sizes[Math.min(1, sizes.length - 1)].id;
-  gs.value = S.anim.size;
+  if (!sizes.some(o => o.id === S.anim.vsize)) S.anim.vsize = sizes[0].id;
+  gs.value = S.anim.size; $('#vidSize').value = S.anim.vsize;
 }
 function gifSizes() {
   if (!G.W) return [];
@@ -2582,18 +2636,337 @@ function gifSizes() {
   const q = Math.max(1, Math.floor(ex.k / 4)); add('small', q, G.W * q, G.H * q, 0, 0, ' — лёгкий');
   return list;
 }
-function drawAnimFrame(i, n, pal, ctx, sz) {
-  withFrame(animFrame(i, n), () => {
-    if (needCPerFrame()) quantize(pal);
-    applyEffects();
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = hexOf(G.pal[G.darkest]); ctx.fillRect(0, 0, sz.w, sz.h);
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(gridCv, sz.ox, sz.oy, G.W * sz.s, G.H * sz.s);
-    applyLook(ctx, sz.ox, sz.oy, G.W * sz.s, G.H * sz.s, sz.s);
-    drawShore(ctx, sz.w, sz.h, null);
-  });
+/* ---------- анимация: движение глитча по кадрам ---------- */
+function animFrame(i, n) {
+  const A = S.anim, F = S.fx, t = i / n;
+  let m = 1, seed = F.seed + i * 101, vhsPos = F.vhsPos, ca = F.ca, vhs = F.vhs;
+  if (A.mode === 'bursts') {
+    let any = false; for (let j = 0; j < n; j++) if (hash2(j, 3, F.seed) < 0.3) { any = true; break; }
+    const burst = any ? hash2(i, 3, F.seed) < 0.3 : i === Math.floor(n / 2);
+    m = burst ? 1 + hash2(i, 5, F.seed) * 0.6 : 0.12;
+    if (!burst) seed = F.seed;
+    if (A.caPulse) ca = F.ca * (burst ? 1.5 : 0.5);
+  } else if (A.mode === 'roll') {
+    vhsPos = (F.vhsPos + t) % 1; vhs = Math.max(F.vhs, 0.35);
+    seed = F.seed + Math.floor(i / 2) * 101;
+    if (A.caPulse) ca = F.ca * (0.65 + 0.35 * Math.sin(t * Math.PI * 2));
+  } else if (A.mode === 'still') {
+    seed = F.seed;
+  } else {
+    m = 0.85 + hash2(i, 9, F.seed) * 0.3;
+    if (A.caPulse) ca = F.ca * (0.65 + 0.35 * Math.sin(t * Math.PI * 2));
+  }
+  const rec = !A.recBlink || Math.floor(i / A.fps * 2) % 2 === 0;
+  return { m, seed, vhsPos, vhs, ca, rec };
 }
+function withFrame(fp, fn) {
+  const F = S.fx, keep = { ...F }, rec = S.shore.rec;
+  F.seed = fp.seed; F.shift *= fp.m; F.bands *= fp.m; F.blocks *= fp.m; F.sort *= fp.m; F.dead *= fp.m;
+  F.vhs = (S.anim.mode === 'roll' ? fp.vhs : F.vhs * fp.m); F.vhsPos = fp.vhsPos; F.ca = fp.ca;
+  S.shore.rec = rec && fp.rec;
+  try { return fn(); } finally { Object.assign(F, keep); S.shore.rec = rec; }
+}
+const needCPerFrame = () => S.fx.grain > 0 || (S.light.on && S.light.rays > 0 && S.light.dust > 0);
+
+/* ---------- ключи ползунков ---------- */
+const NOANIM = new Set(['grid.width', 'anim.frames', 'anim.fps', 'anim.loops']);
+const TL = { frame: 0, sel: null };
+const nFrames = () => clamp(Math.round(S.anim.frames) || 16, 2, 96);
+const frameT = i => i / (nFrames() - 1);
+const snapT = t => Math.round(clamp(t, 0, 1) * (nFrames() - 1)) / (nFrames() - 1);
+const hashStr = s => { let h = 2166136261; for (const c of s) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h | 0; };
+const rangeEl = p => document.getElementById('r-' + p.replace(/\./g, '-'));
+const tracks = () => Object.keys(S.keys).filter(p => RANGES[p] && !NOANIM.has(p));
+function quant(p, v) { const R = RANGES[p]; v = clamp(+v, R.min, R.max); return R.step >= 1 ? Math.round(v) : +(Math.round(v / R.step) * R.step).toFixed(4); }
+const toDisp = (p, v) => RANGES[p].fmt === 'pct100' ? Math.round(v * 1000) / 10 : +(+v).toFixed(3);
+const fromDisp = (p, d) => RANGES[p].fmt === 'pct100' ? d / 100 : d;
+function evalTrack(p, i, n) {
+  const tr = S.keys[p], R = RANGES[p];
+  let v;
+  if (tr.mode === 'rand') {
+    const ev = clamp(Math.round(tr.every) || 1, 1, n), segs = Math.max(1, Math.ceil(n / ev)), s = Math.floor(i / ev), f = (i % ev) / ev;
+    const r = k => tr.min + hash2(((k % segs) + segs) % segs, hashStr(p), tr.seed) * (tr.max - tr.min);
+    v = tr.smooth ? r(s) + (r(s + 1) - r(s)) * (f * f * (3 - 2 * f)) : r(s);
+  } else {
+    const ks = tr.keys.slice().sort((a, b) => a.t - b.t), t = n > 1 ? i / (n - 1) : 0;
+    if (t <= ks[0].t) v = ks[0].v;
+    else if (t >= ks[ks.length - 1].t) v = ks[ks.length - 1].v;
+    else {
+      let j = 0; while (t > ks[j + 1].t) j++;
+      const a = ks[j], b = ks[j + 1];
+      let u = (t - a.t) / Math.max(1e-6, b.t - a.t);
+      if (tr.ease === 'step') u = 0; else if (tr.ease === 'smooth') u = u * u * (3 - 2 * u);
+      v = a.v + (b.v - a.v) * u;
+    }
+  }
+  return quant(p, clamp(v, R.min, R.max));
+}
+function tracksStage() { let m = 'D'; for (const p of tracks()) { const st = RANGES[p].stage; if (ORDER[st] < ORDER[m]) m = st; } return m; }
+function applyTimeline(i) { const n = nFrames(); for (const p of tracks()) setPath(S, p, evalTrack(p, i, n)); }
+function autoKey(p, v) {
+  const tr = S.keys[p]; if (!tr || tr.mode !== 'keys') return;
+  const t = frameT(TL.frame), half = 0.5 / (nFrames() - 1);
+  let k = tr.keys.find(k => Math.abs(k.t - t) <= half + 1e-9);
+  if (!k && tr.keys.length < 5) { k = { t, v }; tr.keys.push(k); tr.keys.sort((a, b) => a.t - b.t); }
+  if (!k) k = tr.keys.reduce((a, b) => Math.abs(a.t - t) <= Math.abs(b.t - t) ? a : b);
+  k.v = quant(p, v);
+  renderTimeline(); renderEditor(p);
+}
+function userSet(p, v) { setPath(S, p, v); if (S.keys[p]) autoKey(p, v); }
+function addTrack(p) {
+  const R = RANGES[p], cur = quant(p, getPath(S, p)), span = R.max - R.min;
+  const other = quant(p, cur + (cur - R.min < span / 2 ? 0.35 : -0.35) * span);
+  S.keys[p] = { mode: 'keys', ease: 'smooth', keys: [{ t: 0, v: cur }, { t: 1, v: other }],
+                min: quant(p, cur - span * 0.15), max: quant(p, cur + span * 0.15), every: 2, smooth: false, seed: 1 };
+  openEd.add(p);
+  keysChanged(p);
+  toast(`«${R.label}»: два ключа — в начале и в конце. Ставьте бегунок таймлайна и двигайте ползунок — ключ появится сам.`);
+}
+function removeTrack(p) { delete S.keys[p]; openEd.delete(p); keysChanged(p); }
+function keysChanged(p) {
+  applyTimeline(TL.frame); syncUI(); renderKeyUI(); renderTimeline();
+  invalidate(p && RANGES[p] ? RANGES[p].stage : 'A');
+}
+function sanitizeKeys(o) {
+  const out = {};
+  if (!o || typeof o !== 'object') return out;
+  for (const p in o) {
+    const tr = o[p]; if (!RANGES[p] || NOANIM.has(p) || !tr || typeof tr !== 'object') continue;
+    const keys = Array.isArray(tr.keys) ? tr.keys.filter(k => k && isFinite(+k.t) && isFinite(+k.v)).slice(0, 5).map(k => ({ t: clamp(+k.t, 0, 1), v: quant(p, k.v) })) : [];
+    while (keys.length < 2) keys.push({ t: keys.length ? 1 : 0, v: quant(p, getPath(S, p)) });
+    out[p] = { mode: tr.mode === 'rand' ? 'rand' : 'keys', ease: ['smooth', 'linear', 'step'].includes(tr.ease) ? tr.ease : 'smooth', keys,
+               min: quant(p, isFinite(+tr.min) ? tr.min : RANGES[p].min), max: quant(p, isFinite(+tr.max) ? tr.max : RANGES[p].max),
+               every: clamp(Math.round(+tr.every) || 2, 1, 96), smooth: !!tr.smooth, seed: Math.round(+tr.seed) || 1 };
+  }
+  return out;
+}
+
+/* редактор ключей под ползунком */
+const openEd = new Set();
+const EASE = { smooth: 'плавно', linear: 'линейно', step: 'ступенькой' };
+function renderEditor(p) {
+  const box = document.querySelector(`.kedit[data-kfor="${p}"]`); if (!box) return;
+  const tr = S.keys[p];
+  if (!tr || !openEd.has(p)) { box.hidden = true; box.innerHTML = ''; return; }
+  box.hidden = false;
+  const R = RANGES[p], unit = R.fmt === 'pct100' ? '%' : '', n = nFrames(), stepD = R.fmt === 'pct100' ? 1 : R.step;
+  let h = `<div class="kehead"><div class="seg sm"><button data-kact="mode" data-v="keys" aria-pressed="${tr.mode === 'keys'}">ключи</button><button data-kact="mode" data-v="rand" aria-pressed="${tr.mode === 'rand'}">случайно</button></div><button class="btn small" data-kact="off">Убрать анимацию</button></div>`;
+  if (tr.mode === 'keys') {
+    h += '<div class="krows">' + tr.keys.map((k, i) => `<div class="krow${TL.sel && TL.sel.p === p && TL.sel.i === i ? ' sel' : ''}"><span class="kdot" aria-hidden="true"></span>
+      <label>кадр<input type="number" data-kf="t" data-ki="${i}" min="1" max="${n}" step="1" value="${Math.round(k.t * (n - 1)) + 1}"></label>
+      <label>знач.<input type="number" data-kf="v" data-ki="${i}" min="${toDisp(p, R.min)}" max="${toDisp(p, R.max)}" step="${stepD}" value="${toDisp(p, k.v)}">${unit}</label>
+      <button class="tb icon" data-kact="here" data-ki="${i}" title="Перенести ключ на бегунок таймлайна">⇥</button>
+      <button class="tb icon" data-kact="del" data-ki="${i}" title="Удалить ключ" ${tr.keys.length <= 2 ? 'disabled' : ''}>×</button></div>`).join('') + '</div>';
+    h += `<div class="line"><button class="btn small" data-kact="add" ${tr.keys.length >= 5 ? 'disabled' : ''}>+ ключ на бегунке</button>
+      <select data-kf="ease" aria-label="Переход между ключами">${Object.entries(EASE).map(([k, v]) => `<option value="${k}" ${tr.ease === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
+      <p class="hint">От 2 до 5 ключей. Поставьте бегунок таймлайна на кадр и двигайте ползунок — ключ создастся или обновится.</p>`;
+  } else {
+    h += `<div class="krand">
+      <label>от<input type="number" data-kf="min" step="${stepD}" value="${toDisp(p, tr.min)}">${unit}</label>
+      <label>до<input type="number" data-kf="max" step="${stepD}" value="${toDisp(p, tr.max)}">${unit}</label>
+      <label>каждые<input type="number" data-kf="every" min="1" max="${n}" step="1" value="${tr.every}">кадр.</label></div>
+      <div class="line"><input type="checkbox" id="ks-${p}" data-kf="smooth" ${tr.smooth ? 'checked' : ''}><label for="ks-${p}">плавно, без рывков</label>
+      <button class="btn small" data-kact="reseed">Другой случай</button></div>
+      <p class="hint">Значение выпадает случайно в диапазоне и держится заданное число кадров. Цикл замкнут: последний кадр плавно переходит в первый.</p>`;
+  }
+  box.innerHTML = h;
+}
+function renderKeyUI() {
+  document.querySelectorAll('.kbtn').forEach(b => {
+    const p = b.dataset.kpath, on = !!S.keys[p];
+    b.setAttribute('aria-pressed', String(on));
+    b.title = on ? 'Ключи этого ползунка — показать или скрыть' : 'Анимировать этот ползунок';
+    b.closest('.row').classList.toggle('anim', on);
+  });
+  document.querySelectorAll('.kedit').forEach(b => renderEditor(b.dataset.kfor));
+}
+function markAnimatedRanges() {
+  for (const p of tracks()) {
+    const el = rangeEl(p); if (!el) continue;
+    if (S.keys[p].mode === 'rand') { el.disabled = true; el.title = 'Значение задаёт случайная анимация'; } else el.title = '';
+  }
+}
+document.addEventListener('click', e => {
+  const kb = e.target.closest('.kbtn');
+  if (kb) { const p = kb.dataset.kpath; if (!S.keys[p]) addTrack(p); else { openEd.has(p) ? openEd.delete(p) : openEd.add(p); renderEditor(p); } return; }
+  const a = e.target.closest('.kedit [data-kact]'); if (!a) return;
+  const p = a.closest('.kedit').dataset.kfor, tr = S.keys[p]; if (!tr) return;
+  const i = +a.dataset.ki, act = a.dataset.kact;
+  if (act === 'mode') tr.mode = a.dataset.v;
+  else if (act === 'off') { removeTrack(p); return; }
+  else if (act === 'add' && tr.keys.length < 5) { const t = frameT(TL.frame); const ex = tr.keys.find(k => Math.abs(k.t - t) < 1e-6); if (ex) { toast('На этом кадре уже есть ключ.'); return; } tr.keys.push({ t, v: quant(p, getPath(S, p)) }); tr.keys.sort((x, y) => x.t - y.t); }
+  else if (act === 'del' && tr.keys.length > 2) tr.keys.splice(i, 1);
+  else if (act === 'here') { tr.keys[i].t = frameT(TL.frame); tr.keys.sort((x, y) => x.t - y.t); }
+  else if (act === 'reseed') tr.seed = 1 + Math.floor(Math.random() * 9999);
+  keysChanged(p);
+});
+document.addEventListener('change', e => {
+  const f = e.target.closest('.kedit [data-kf]'); if (!f) return;
+  const p = f.closest('.kedit').dataset.kfor, tr = S.keys[p]; if (!tr) return;
+  const k = f.dataset.kf, i = +f.dataset.ki, num = parseFloat(String(f.value).replace(',', '.'));
+  if (k === 'ease') tr.ease = f.value;
+  else if (k === 'smooth') tr.smooth = f.checked;
+  else if (!isFinite(num)) { renderEditor(p); return; }
+  else if (k === 't') { tr.keys[i].t = clamp((Math.round(num) - 1) / (nFrames() - 1), 0, 1); tr.keys.sort((x, y) => x.t - y.t); }
+  else if (k === 'v') tr.keys[i].v = quant(p, fromDisp(p, num));
+  else if (k === 'min' || k === 'max') tr[k] = quant(p, fromDisp(p, num));
+  else if (k === 'every') tr.every = clamp(Math.round(num), 1, nFrames());
+  keysChanged(p);
+});
+
+/* общий таймлайн */
+const TAB_NAMES = { src: 'Источник', pix: 'Пиксели', light: 'Свет', fx: 'Эффекты', shore: 'Shore', file: 'Файл' };
+function renderTimeline() {
+  const ps = tracks(), n = nFrames(), fps = S.anim.fps;
+  $('#tlEmpty').hidden = ps.length > 0;
+  $('#tlGrid').hidden = ps.length === 0;
+  let ru = '';
+  const every = n > 48 ? 4 : n > 24 ? 2 : 1;
+  for (let i = 0; i < n; i += every) ru += `<i class="tick${i % fps === 0 ? ' sec' : ''}" style="left:${frameT(i) * 100}%"></i>`;
+  for (let s = 0; s * fps < n; s++) ru += `<b style="left:${frameT(s * fps) * 100}%">${s} с</b>`;
+  let rows = `<span></span><div class="lane ruler" id="tlRuler" title="Тяните, чтобы перемотать">${ru}<i class="ph"></i></div><span></span>`;
+  for (const p of ps) {
+    const tr = S.keys[p], R = RANGES[p];
+    const pts = []; for (let i = 0; i < n; i++) pts.push(`${i},${(1 - (evalTrack(p, i, n) - R.min) / ((R.max - R.min) || 1)).toFixed(3)}`);
+    const dia = tr.mode === 'keys' ? tr.keys.map((k, i) => `<span class="kd${TL.sel && TL.sel.p === p && TL.sel.i === i ? ' sel' : ''}" data-p="${p}" data-ki="${i}" style="left:${k.t * 100}%" title="Ключ: кадр ${Math.round(k.t * (n - 1)) + 1}, ${FMT[R.fmt] ? FMT[R.fmt](k.v) : k.v}. Тяните вбок"></span>`).join('') : '';
+    rows += `<button class="tlname" data-p="${p}" title="Открыть ползунок">${R.label}<small>${TAB_NAMES[R.tab] || ''}${tr.mode === 'rand' ? ' · случайно' : ''}</small></button>
+      <div class="lane" data-p="${p}" title="Двойной щелчок — новый ключ"><svg viewBox="0 0 ${n - 1} 1" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts.join(' ')}"/></svg>${dia}<i class="ph"></i></div>
+      <button class="tb icon tlx" data-p="${p}" title="Убрать анимацию" aria-label="Убрать анимацию: ${R.label}">×</button>`;
+  }
+  $('#tlGrid').innerHTML = rows;
+  $('#tlCount').textContent = ps.length ? `${ps.length} ${ps.length === 1 ? 'ползунок' : ps.length < 5 ? 'ползунка' : 'ползунков'}` : 'дорожек нет — нажмите ◆ у любого ползунка';
+  $('#tlEmpty').hidden = true; $('#tlToggle').hidden = !ps.length;
+  updatePlayhead();
+}
+function updatePlayhead() {
+  const n = nFrames(), fps = S.anim.fps, x = frameT(TL.frame) * 100 + '%';
+  document.querySelectorAll('#tl .ph').forEach(e => { e.style.left = x; });
+  $('#tlTime').textContent = `кадр ${TL.frame + 1}/${n} · ${(TL.frame / fps).toFixed(1).replace('.', ',')} с из ${(n / fps).toFixed(1).replace('.', ',')} с`;
+}
+function setPlayhead(i, quiet) {
+  if (anim.on) stopPreview();
+  TL.frame = clamp(Math.round(i), 0, nFrames() - 1);
+  updatePlayhead();
+  if (!tracks().length) return;
+  applyTimeline(TL.frame); syncUI(); renderKeyUI();
+  invalidate(tracksStage());
+}
+function syncAnimatedOutputs() { for (const p of tracks()) { const el = rangeEl(p); if (el) { el.value = getPath(S, p); updateOut(el); } } }
+(() => {
+  const grid = $('#tlGrid');
+  let drag = null;
+  const tAt = (lane, x) => { const r = lane.getBoundingClientRect(); return clamp((x - r.left) / r.width, 0, 1); };
+  grid.addEventListener('pointerdown', e => {
+    const kd = e.target.closest('.kd'), lane = e.target.closest('.lane');
+    if (kd) {
+      const p = kd.dataset.p, i = +kd.dataset.ki;
+      drag = { kind: 'key', p, key: S.keys[p].keys[i], lane: kd.parentElement, moved: false, x: e.clientX };
+      TL.sel = { p, i };
+      grid.querySelectorAll('.kd.sel').forEach(x => x.classList.remove('sel')); kd.classList.add('sel');
+      grid.setPointerCapture(e.pointerId); e.preventDefault(); return;
+    }
+    if (lane) { drag = { kind: 'scrub', lane }; setPlayhead(snapT(tAt(lane, e.clientX)) * (nFrames() - 1)); if (e.detail < 2) grid.setPointerCapture(e.pointerId); e.preventDefault(); }
+  });
+  grid.addEventListener('pointermove', e => {
+    if (!drag) return;
+    if (drag.kind === 'scrub') { const f = Math.round(snapT(tAt(drag.lane, e.clientX)) * (nFrames() - 1)); if (f !== TL.frame) setPlayhead(f); return; }
+    if (Math.abs(e.clientX - drag.x) < 3 && !drag.moved) return;
+    drag.moved = true;
+    drag.key.t = snapT(tAt(drag.lane, e.clientX));
+    const el = grid.querySelector(`.kd.sel`) || null;
+    if (el) el.style.left = drag.key.t * 100 + '%';
+    else renderTimeline();
+  });
+  const end = () => {
+    if (!drag) return;
+    const d = drag; drag = null;
+    if (d.kind !== 'key') return;
+    const tr = S.keys[d.p];
+    tr.keys.sort((a, b) => a.t - b.t); TL.sel = { p: d.p, i: tr.keys.indexOf(d.key) };
+    if (!d.moved) { openEd.add(d.p); setPlayhead(Math.round(d.key.t * (nFrames() - 1))); }
+    keysChanged(d.p);
+  };
+  grid.addEventListener('pointerup', end); grid.addEventListener('pointercancel', end);
+  grid.addEventListener('dblclick', e => {
+    const hit = document.elementsFromPoint(e.clientX, e.clientY);
+    if (hit.some(el => el.classList && el.classList.contains('kd'))) return;
+    const lane = hit.find(el => el.classList && el.classList.contains('lane') && el.dataset.p); if (!lane) return;
+    const p = lane.dataset.p, tr = S.keys[p];
+    if (tr.mode !== 'keys') { toast('В случайном режиме ключей нет — переключите на «ключи».'); return; }
+    if (tr.keys.length >= 5) { toast('Уже 5 ключей — это максимум.'); return; }
+    const t = snapT(tAt(lane, e.clientX));
+    if (tr.keys.some(k => Math.abs(k.t - t) < 1e-6)) return;
+    const i = Math.round(t * (nFrames() - 1));
+    tr.keys.push({ t, v: evalTrack(p, i, nFrames()) }); tr.keys.sort((a, b) => a.t - b.t);
+    TL.sel = { p, i: tr.keys.findIndex(k => k.t === t) };
+    setPlayhead(i); keysChanged(p);
+  });
+  grid.addEventListener('click', e => {
+    const x = e.target.closest('.tlx'); if (x) { removeTrack(x.dataset.p); return; }
+    const nm = e.target.closest('.tlname'); if (!nm) return;
+    const p = nm.dataset.p; setTab(RANGES[p].tab); openEd.add(p); renderEditor(p);
+    const row = rangeEl(p).closest('.row'); row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    row.classList.add('flash'); setTimeout(() => row.classList.remove('flash'), 900);
+  });
+  $('#tlToggle').onclick = () => { const b = $('#tlBody'); b.hidden = !b.hidden; $('#tlToggle').setAttribute('aria-expanded', String(!b.hidden)); $('#tlToggle').textContent = b.hidden ? '▴' : '▾'; };
+})();
+
+/* ---------- покадровый расчёт: превью, GIF, видео ---------- */
+var anim = { on: false, i: 0, timer: 0, pal: undefined };
+function computeFrom(level, pal) {
+  if (ORDER[level] <= 0) buildWork();
+  if (ORDER[level] <= 1) buildBase();
+  if (ORDER[level] <= 2) quantize(pal || undefined);
+  applyEffects();
+}
+function frameLevel() { let st = tracksStage(); if (needCPerFrame() && ORDER[st] > 2) st = 'C'; if (ORDER[st] > 3) st = 'E'; return st; }
+function lockedPal() {
+  const st = tracksStage();
+  if (!S.anim.lockPal || ORDER[st] > 2 || S.keys['palette.colors']) return null;
+  applyTimeline(0); computeFrom('A', null);
+  return G.pal.map(c => c.slice());
+}
+function restoreAfterFrames() {
+  applyTimeline(TL.frame); syncUI();
+  const st = tracksStage(); invalidate(ORDER[st] <= 2 ? st : 'C');
+}
+function computeAnimFrame(i, n, pal, draw) {
+  applyTimeline(i);
+  withFrame(animFrame(i, n), () => { computeFrom(frameLevel(), pal); draw(); });
+}
+function drawOut(ctx, sz, w, h, bg) {
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = bg || hexOf(G.pal[G.darkest]); ctx.fillRect(0, 0, w, h);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(gridCv, sz.ox, sz.oy, G.W * sz.s, G.H * sz.s);
+  applyLook(ctx, sz.ox, sz.oy, G.W * sz.s, G.H * sz.s, sz.s);
+  drawShore(ctx, w, h, null);
+}
+function updPlay() {
+  for (const b of [$('#playBtn'), $('#playBtn2'), $('#tlPlay')]) {
+    b.setAttribute('aria-pressed', String(anim.on));
+    b.textContent = anim.on ? '■ Стоп' : (b.id === 'playBtn' ? '▶ Анимация' : b.id === 'tlPlay' ? '▶' : '▶ Просмотр');
+  }
+}
+function animTick() {
+  if (!anim.on) return;
+  const t0 = performance.now(), n = nFrames();
+  try {
+    if (anim.pal === undefined) anim.pal = lockedPal();
+    const i = anim.i % n;
+    computeAnimFrame(i, n, anim.pal, renderDisplay);
+    TL.frame = i; updatePlayhead(); syncAnimatedOutputs();
+  } catch (e) { console.error(e); stopPreview(); toast('Анимация остановлена: ' + e.message, true); return; }
+  anim.i = (anim.i + 1) % n;
+  anim.timer = setTimeout(animTick, Math.max(0, 1000 / S.anim.fps - (performance.now() - t0)));
+}
+function startPreview() { if (!G.rgb || anim.on) return; anim.on = true; anim.i = TL.frame; anim.pal = undefined; updPlay(); animTick(); }
+function stopPreview() { if (!anim.on) return; anim.on = false; clearTimeout(anim.timer); updPlay(); restoreAfterFrames(); }
+const togglePreview = () => anim.on ? stopPreview() : startPreview();
+$('#playBtn').onclick = togglePreview; $('#playBtn2').onclick = togglePreview; $('#tlPlay').onclick = togglePreview;
+$('#animSeg').addEventListener('click', e => { const b = e.target.closest('button[data-anim]'); if (!b) return; S.anim.mode = b.dataset.anim; syncUI(); histSchedule(); });
+
+/* ---------- GIF ---------- */
 let gifJob = null;
 function setGifBusy(i, n) {
   const busy = i != null;
@@ -2603,10 +2976,10 @@ function setGifBusy(i, n) {
 }
 async function exportGif() {
   if (gifJob) { gifJob.cancel = true; return; }
-  if (!G.rgb) return;
+  if (!G.rgb || vidJob) return;
   stopPreview();
   const sizes = gifSizes(), sz = sizes.find(s => s.id === S.anim.size) || sizes[sizes.length > 1 ? 1 : 0];
-  const n = S.anim.frames, delay = Math.max(2, Math.round(100 / S.anim.fps));
+  const n = nFrames(), delay = Math.max(2, Math.round(100 / S.anim.fps));
   let worker, url;
   try { url = URL.createObjectURL(new Blob([GIF_WORKER], { type: 'text/javascript' })); worker = new Worker(url); }
   catch (e) { toast('Браузер не дал запустить кодировщик GIF.', true); return; }
@@ -2621,10 +2994,10 @@ async function exportGif() {
     worker.postMessage({ type: 'start', w: sz.w, h: sz.h, delay });
     const cv = document.createElement('canvas'); cv.width = sz.w; cv.height = sz.h;
     const c = cv.getContext('2d', { willReadFrequently: true });
-    const pal = G.pal;
+    const pal = lockedPal();
     for (let i = 0; i < n; i++) {
       if (gifJob.cancel) throw { cancel: true };
-      drawAnimFrame(i, n, pal, c, sz);
+      computeAnimFrame(i, n, pal, () => drawOut(c, sz, sz.w, sz.h));
       const id = c.getImageData(0, 0, sz.w, sz.h);
       const r = await send({ type: 'frame', i, buf: id.data.buffer }, [id.data.buffer]);
       reduced = reduced || r.reduced;
@@ -2633,15 +3006,108 @@ async function exportGif() {
     const done = await send({ type: 'end' });
     const mb = (done.blob.size / 1048576).toFixed(1);
     $('#gifHint').textContent = `Последний GIF: ${sz.w}×${sz.h}, ${n} кадров, ${mb} МБ, собран за ${((performance.now() - t0) / 1000).toFixed(1)} с.` + (reduced ? ' В части кадров было больше 256 цветов — их свели медианным сечением.' : '');
-    await saveBlob(done.blob, `pixel3011_glitch_${sz.w}x${sz.h}.gif`);
+    await saveBlob(done.blob, `pixel3011_${sz.w}x${sz.h}.gif`);
   } catch (e) {
     if (e && e.cancel) toast('Сборка GIF отменена.');
     else { console.error(e); toast('Не удалось собрать GIF: ' + (e && e.message || e), true); }
   } finally {
-    worker.terminate(); URL.revokeObjectURL(url); gifJob = null; setGifBusy(); invalidate('C');
+    worker.terminate(); URL.revokeObjectURL(url); gifJob = null; setGifBusy(); restoreAfterFrames();
   }
 }
 $('#tbGif').onclick = exportGif; $('#gifBtn').onclick = exportGif; $('#expGif').onclick = exportGif;
+
+/* ---------- видео: WebCodecs → MP4 (H.264), запасной WebM (VP9) ---------- */
+const LIBS = {
+  mp4: ['https://cdn.jsdelivr.net/npm/mp4-muxer@5.2.2/build/mp4-muxer.js', 'Mp4Muxer'],
+  webm: ['https://cdn.jsdelivr.net/npm/webm-muxer@5.1.4/build/webm-muxer.js', 'WebMMuxer']
+};
+function loadLib(kind) {
+  const [url, g] = LIBS[kind];
+  if (window[g]) return Promise.resolve(window[g]);
+  return new Promise((ok, fail) => {
+    const s = document.createElement('script'); s.src = url; s.async = true;
+    s.onload = () => window[g] ? ok(window[g]) : fail(new Error('библиотека упаковки видео не запустилась'));
+    s.onerror = () => fail(new Error('не загрузилась библиотека упаковки видео — проверьте интернет'));
+    document.head.appendChild(s);
+  });
+}
+async function pickCodec(w, h, fps, bitrate) {
+  if (typeof VideoEncoder === 'undefined' || typeof VideoFrame === 'undefined') return null;
+  const tries = S.anim.vformat === 'webm' ? [] : [['mp4', 'avc1.640034'], ['mp4', 'avc1.640033'], ['mp4', 'avc1.64002a'], ['mp4', 'avc1.4d0034'], ['mp4', 'avc1.42e034'], ['mp4', 'avc1.42003e']];
+  tries.push(['webm', 'vp09.00.40.08'], ['webm', 'vp09.00.10.08'], ['webm', 'vp8']);
+  for (const [kind, codec] of tries) {
+    const cfg = { codec, width: w, height: h, bitrate, framerate: fps };
+    if (kind === 'mp4') cfg.avc = { format: 'avc' };
+    try { const r = await VideoEncoder.isConfigSupported(cfg); if (r && r.supported) return { kind, cfg }; } catch (e) { /* пробуем следующий */ }
+  }
+  return null;
+}
+let vidJob = null;
+function setVidBusy(i, n) {
+  const busy = i != null;
+  $('#tbMp4').textContent = busy ? `Видео ${i}/${n} · отмена` : 'MP4';
+  $('#vidBtn').textContent = busy ? `Кодирую ${i}/${n} · отменить` : 'Скачать MP4';
+  $('#expVid').textContent = busy ? `Видео ${i}/${n} · отменить` : 'MP4 видео';
+}
+async function exportVideo() {
+  if (vidJob) { vidJob.cancel = true; return; }
+  if (!G.rgb || gifJob) return;
+  stopPreview();
+  const sizes = gifSizes(), sz = sizes.find(s => s.id === S.anim.vsize) || sizes[0];
+  const w = sz.w + (sz.w & 1), h = sz.h + (sz.h & 1);
+  const n = nFrames(), fps = S.anim.fps, loops = clamp(Math.round(S.anim.loops) || 1, 1, 30), total = n * loops;
+  const bitrate = Math.round(clamp(w * h * fps * 0.5, 4e6, 40e6));
+  vidJob = { cancel: false };
+  setVidBusy(0, total);
+  const t0 = performance.now();
+  let enc = null;
+  try {
+    const pick = await pickCodec(w, h, fps, bitrate);
+    if (!pick) throw new Error('в этом окне нет кодировщика видео (WebCodecs). Откройте студию в Chrome, Edge или Safari, или скачайте GIF');
+    const lib = await loadLib(pick.kind);
+    const target = new lib.ArrayBufferTarget();
+    const muxer = pick.kind === 'mp4'
+      ? new lib.Muxer({ target, video: { codec: 'avc', width: w, height: h, frameRate: fps }, fastStart: 'in-memory', firstTimestampBehavior: 'offset' })
+      : new lib.Muxer({ target, video: { codec: pick.cfg.codec.startsWith('vp09') ? 'V_VP9' : 'V_VP8', width: w, height: h, frameRate: fps }, firstTimestampBehavior: 'offset' });
+    let encErr = null;
+    enc = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: e => { encErr = e; } });
+    enc.configure(pick.cfg);
+    const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    const c = cv.getContext('2d');
+    const pal = lockedPal(), cache = [], dur = Math.round(1e6 / fps);
+    for (let f = 0; f < total; f++) {
+      if (vidJob.cancel) throw { cancel: true };
+      if (encErr) throw encErr;
+      const i = f % n;
+      if (!cache[i]) {
+        computeAnimFrame(i, n, pal, () => { cache[i] = { img: new ImageData(new Uint8ClampedArray(G.out), G.W, G.H), bg: hexOf(G.pal[G.darkest]) }; drawOut(c, sz, w, h, cache[i].bg); });
+      } else {
+        applyTimeline(i);
+        withFrame(animFrame(i, n), () => { gridCv.width = G.W; gridCv.height = G.H; gridCv.getContext('2d').putImageData(cache[i].img, 0, 0); drawOut(c, sz, w, h, cache[i].bg); });
+      }
+      const vf = new VideoFrame(cv, { timestamp: f * dur, duration: dur });
+      enc.encode(vf, { keyFrame: f % Math.max(1, fps * 2) === 0 });
+      vf.close();
+      while (enc.encodeQueueSize > 3) await new Promise(r => setTimeout(r, 4));
+      if (f % 2 === 1 || f === total - 1) { setVidBusy(f + 1, total); await new Promise(r => setTimeout(r, 0)); }
+    }
+    await enc.flush();
+    muxer.finalize();
+    const isMp4 = pick.kind === 'mp4';
+    const blob = new Blob([target.buffer], { type: isMp4 ? 'video/mp4' : 'video/webm' });
+    $('#vidHint').textContent = `Последнее видео: ${isMp4 ? 'MP4 (H.264)' : 'WebM (' + (pick.cfg.codec.startsWith('vp09') ? 'VP9' : 'VP8') + ')' + (S.anim.vformat === 'webm' ? '' : ' — кодировщика H.264 здесь нет')}, ${w}×${h}, ${(total / fps).toFixed(1)} с, ${(blob.size / 1048576).toFixed(1)} МБ, собрано за ${((performance.now() - t0) / 1000).toFixed(1)} с.`;
+    await saveBlob(blob, `pixel3011_${w}x${h}.${isMp4 ? 'mp4' : 'webm'}`);
+  } catch (e) {
+    if (e && e.cancel) toast('Запись видео отменена.');
+    else { console.warn(e); toast('Не удалось собрать видео: ' + (e && e.message || e), true); $('#vidHint').textContent = 'Не получилось: ' + (e && e.message || e) + '.'; }
+  } finally {
+    try { if (enc && enc.state !== 'closed') enc.close(); } catch (e) { /* уже закрыт */ }
+    vidJob = null; setVidBusy(); restoreAfterFrames();
+  }
+}
+$('#tbMp4').onclick = exportVideo; $('#vidBtn').onclick = exportVideo; $('#expVid').onclick = exportVideo;
+
+var KEYS_READY = true;
 
 /* ---------- масштаб, перемещение, пипетка ---------- */
 const KSTEPS = [1, 2, 3, 4, 5, 6, 8, 10, 12, 16, 20, 24, 32, 40, 48];
@@ -2700,7 +3166,7 @@ function pick(e) {
 
 /* ---------- отмена и повтор ---------- */
 var HIST = { stack: [], i: -1, t: 0, lock: false, cur: null, sig: '' };
-const snapState = () => JSON.stringify({ s: Object.fromEntries(SAVE_KEYS.map(k => [k, S[k]])), style: S.style });
+const snapState = () => { const o = JSON.parse(JSON.stringify(Object.fromEntries(SAVE_KEYS.map(k => [k, S[k]])))); if (KEYS_READY) for (const p of tracks()) setPath(o, p, null); return JSON.stringify({ s: o, style: S.style }); };
 function flat(o, pre, out) { out = out || {}; for (const k in o) { const v = o[k], p = pre ? pre + '.' + k : k; if (v && typeof v === 'object') flat(v, p, out); else out[p] = v; } return out; }
 function histCommit(st) {
   if (HIST.stack[HIST.i] === st) return;
@@ -2731,7 +3197,7 @@ function histGo(d) {
   const o = JSON.parse(HIST.stack[j]);
   for (const k of SAVE_KEYS) S[k] = o.s[k];
   S.style = o.style; HIST.cur = HIST.stack[j]; HIST.sig = '';
-  HIST.lock = true; syncUI(); drawCrop(); invalidate('A'); HIST.lock = false;
+  HIST.lock = true; applyTimeline(TL.frame); syncUI(); renderKeyUI(); renderTimeline(); drawCrop(); invalidate('A'); HIST.lock = false;
   updHist(); toast(d < 0 ? 'Отменено.' : 'Повторено.');
 }
 $('#undoBtn').onclick = () => histGo(-1);
@@ -2786,7 +3252,7 @@ window.addEventListener('keydown', e => {
     if (k === 'z' && !typing) { e.preventDefault(); histGo(e.shiftKey ? 1 : -1); }
     else if (k === 'y' && !typing) { e.preventDefault(); histGo(1); }
     else if (k === 'o') { e.preventDefault(); $('#fileIn').click(); }
-    else if (k === 's') { e.preventDefault(); e.shiftKey ? exportGif() : exportPng(); }
+    else if (k === 's' || k === 'ы') { e.preventDefault(); e.altKey ? exportVideo() : e.shiftKey ? exportGif() : exportPng(); }
     return;
   }
   if (typing || e.altKey) return;
@@ -2802,7 +3268,8 @@ window.addEventListener('keydown', e => {
     l: () => { S.light.on = !S.light.on; S.style = ''; syncUI(); invalidate('C'); toast(S.light.on ? 'Лампа включена.' : 'Лампа выключена.'); },
     h: () => { S.shore.on = !S.shore.on; syncUI(); invalidate('D'); },
     '0': () => $('#zoomFit').click(), '=': () => zoomStep(1), '+': () => zoomStep(1), '-': () => zoomStep(-1), '_': () => zoomStep(-1),
-    '[': () => stepGrid(-1), ']': () => stepGrid(1), '?': () => toggleHelp($('#helpModal').hidden), '/': () => toggleHelp($('#helpModal').hidden)
+    '[': () => stepGrid(-1), ']': () => stepGrid(1), ',': () => setPlayhead(TL.frame - 1), '.': () => setPlayhead(TL.frame + 1), 'Home': () => setPlayhead(0), 'End': () => setPlayhead(nFrames() - 1),
+    'б': () => setPlayhead(TL.frame - 1), 'ю': () => setPlayhead(TL.frame + 1), '?': () => toggleHelp($('#helpModal').hidden), '/': () => toggleHelp($('#helpModal').hidden)
   }[e.key] || { 'с': () => $('#cmpBtn').click(), 'з': togglePreview, 'к': () => $('#reseedBtn').click(), 'д': () => act_l(), 'р': () => { S.shore.on = !S.shore.on; syncUI(); invalidate('D'); } }[k];
   if (act) { e.preventDefault(); act(); }
 });
@@ -2823,6 +3290,8 @@ new ResizeObserver(() => drawCrop()).observe($('#panel'));
 src = makeSamplePhoto();
 $('#planJson').value = fmtPlan(plan);
 syncUI();
+renderKeyUI();
+renderTimeline();
 applyCmp();
 updPlay();
 setTab('src');
