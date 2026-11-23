@@ -174,7 +174,9 @@ input:disabled,select:disabled{opacity:.5;cursor:default}
 details.sub{border:1px solid var(--line);border-radius:8px}
 details.sub>summary{cursor:pointer;padding:8px 10px;font-size:12.5px;color:var(--muted)}
 details.sub>div{padding:0 10px 10px;display:flex;flex-direction:column;gap:8px}
-.lbl{display:grid;grid-template-columns:18px minmax(0,1fr);gap:8px;align-items:center}
+.notes{display:flex;flex-direction:column;gap:6px}
+.noterow{display:grid;grid-template-columns:18px minmax(0,1fr) auto auto 30px;gap:6px;align-items:center}
+.noterow select{padding:6px 6px}
 .modal{position:fixed;inset:0;background:rgba(6,8,8,.86);z-index:20;display:grid;place-items:center;
   padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
 .modal .card{background:var(--surface);border:1px solid var(--line-2);border-radius:10px;padding:14px;max-width:min(560px,100%);max-height:100%;display:flex;flex-direction:column;gap:10px;overflow:auto}
@@ -602,12 +604,27 @@ input[type=color]::-moz-color-swatch{border:0;border-radius:4px}
               <label for="shNotif">Уведомл.</label><input type="number" id="shNotif" data-bind="shore.notif" data-stage="D" min="0" max="99" style="width:62px">
               <input type="checkbox" id="shRec" data-bind="shore.rec" data-stage="D"><label for="shRec">REC</label>
             </div>
+            <div class="line">
+              <input type="checkbox" id="shCorners" data-bind="shore.show.corners" data-stage="D"><label for="shCorners">Уголки</label>
+              <input type="checkbox" id="shShowTime" data-bind="shore.show.time" data-stage="D"><label for="shShowTime">Время</label>
+              <input type="checkbox" id="shBattery" data-bind="shore.show.battery" data-stage="D"><label for="shBattery">Батарея</label>
+              <input type="checkbox" id="shBlik" data-bind="shore.show.blik" data-stage="D"><label for="shBlik">Blik</label>
+            </div>
             <div class="row" data-r="shore.battery,Батарея,0,100,1,pct,D"></div>
             <div class="row" data-r="shore.opacity,Прозрачность,0.3,1,0.01,pct100,D"></div>
-            <div class="lbl"><input type="checkbox" id="l0on" data-bind="shore.labels.0.on" data-stage="D" aria-label="Подпись 1"><input type="text" data-bind="shore.labels.0.text" data-stage="D" maxlength="32" aria-label="Текст подписи 1"></div>
-            <div class="lbl"><input type="checkbox" id="l1on" data-bind="shore.labels.1.on" data-stage="D" aria-label="Подпись 2"><input type="text" data-bind="shore.labels.1.text" data-stage="D" maxlength="32" aria-label="Текст подписи 2"></div>
-            <div class="lbl"><input type="checkbox" id="l2on" data-bind="shore.labels.2.on" data-stage="D" aria-label="Подпись 3"><input type="text" data-bind="shore.labels.2.text" data-stage="D" maxlength="32" aria-label="Текст подписи 3" placeholder="третья подпись"></div>
-            <p class="hint">Подписи перетаскиваются мышью прямо по кадру. Шрифт пиксельный, рисуется после увеличения.</p>
+            <div class="line"><button class="btn small" id="shoreReset">Вернуть элементы на места</button></div>
+            <p class="hint">Время, REC, батарею, уведомление и точку Blik можно таскать мышью прямо по кадру. Шрифт пиксельный, рисуется после увеличения. Уведомление прячется при числе 0.</p>
+          </div>
+        </section>
+        <section class="sec">
+          <h2><span class="n o">✎</span>Аннотации</h2>
+          <div class="body">
+            <div class="line">
+              <input type="checkbox" id="notesCb" data-bind="shore.notesOn" data-stage="D"><label for="notesCb">Показывать аннотации</label>
+              <button class="btn small" id="noteAdd">+ Аннотация</button>
+            </div>
+            <div class="notes" id="notesList"></div>
+            <p class="hint">Аннотации тянутся мышью по кадру. Двойной щелчок по пустому месту кадра добавляет аннотацию туда, по аннотации — открывает её текст. У выноски точку на конце линии тоже можно тянуть. До 12 аннотаций.</p>
           </div>
         </section>
       </div>
@@ -729,10 +746,12 @@ const DEFAULTS = {
         vhs: 0, vhsPos: 0.72, dead: 0, grain: 0, grainColor: false, toPalette: false, seed: 3011 },
   shore: {
     on: true, time: '03:11', battery: 64, rec: true, notif: 3, opacity: 0.78,
-    labels: [
-      { text: 'КУХНЯ · 19°C', x: 0.07, y: 0.56, on: true },
-      { text: 'ПЫЛЬ: НОРМА', x: 0.52, y: 0.24, on: true },
-      { text: 'ЗАПИСЬ 07', x: 0.1, y: 0.8, on: false }
+    show: { corners: true, time: true, battery: true, blik: true },
+    pos: { time: null, rec: null, battery: null, notif: null, blik: null },
+    notesOn: true,
+    notes: [
+      { text: 'КУХНЯ · 19°C', kind: 'label', x: 0.07, y: 0.56, tx: 0.3, ty: 0.7, size: 1, on: true },
+      { text: 'ПЫЛЬ: НОРМА', kind: 'pointer', x: 0.5, y: 0.2, tx: 0.42, ty: 0.34, size: 1, on: true }
     ]
   }
 };
@@ -2034,62 +2053,102 @@ function pxCircle(ctx, cx, cy, r, u, ring) {
 
 /* ---------- интерфейс очков Shore ---------- */
 let shoreHits = [];
+const NOTE_KINDS = { label: 'подпись', box: 'рамка', plate: 'плашка', pointer: 'выноска' };
+// Линия из «пикселей интерфейса» (клетки u×u) — чтобы выноска была в том же пиксельном стиле, что и шрифт
+function pxLine(ctx, x0, y0, x1, y1, u) {
+  let a = Math.round(x0 / u), b = Math.round(y0 / u); const c = Math.round(x1 / u), d = Math.round(y1 / u);
+  const dx = Math.abs(c - a), dy = -Math.abs(d - b), sx = a < c ? 1 : -1, sy = b < d ? 1 : -1; let err = dx + dy;
+  for (let k = 0; k < 4000; k++) {
+    ctx.fillRect(a * u, b * u, u, u);
+    if (a === c && b === d) break;
+    const e2 = 2 * err; if (e2 >= dy) { err += dy; a += sx; } if (e2 <= dx) { err += dx; b += sy; }
+  }
+}
 function drawShore(ctx, cw, ch, hits) {
-  const sh = S.shore; if (!sh.on) return;
+  const sh = S.shore; if (!sh.on && !sh.notesOn) return;
   const u = Math.max(1, Math.round(cw / 270));
   const m = Math.round(cw * 0.035);
   const a = clamp(+sh.opacity || 0.8, 0.05, 1);
-  const col = `rgba(216,238,212,${a})`;
+  const col = `rgba(216,238,212,${a})`, red = `rgba(226,72,60,${Math.min(1, a + 0.15)})`, ink = 'rgba(14,20,18,.92)';
+  const show = sh.show || {}, P = sh.pos || {};
+  const at = (key, dx, dy) => P[key] ? [Math.round(P[key].x * cw), Math.round(P[key].y * ch)] : [dx, dy];
+  const hit = h => { if (hits) hits.push(h); };
   ctx.save();
   ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
   ctx.fillStyle = col;
-  const L = 12 * u;
-  ctx.fillRect(m, m, L, u); ctx.fillRect(m, m, u, L);
-  ctx.fillRect(cw - m - L, m, L, u); ctx.fillRect(cw - m - u, m, u, L);
-  ctx.fillRect(m, ch - m - u, L, u); ctx.fillRect(m, ch - m - L, u, L);
-  ctx.fillRect(cw - m - L, ch - m - u, L, u); ctx.fillRect(cw - m - u, ch - m - L, u, L);
-  // строка статуса
-  const ty = m + 4 * u;
-  drawText(ctx, (sh.time || '').slice(0, 8), m + 4 * u, ty, u);
-  if (sh.rec) {
-    const tw = textW('REC', u), total = 4 * u + 2 * u + tw;
-    const x = Math.round(cw / 2 - total / 2);
-    ctx.fillStyle = `rgba(226,72,60,${Math.min(1, a + 0.15)})`;
-    pxCircle(ctx, x + 2 * u, ty + 3 * u + Math.floor(u / 2), 2, u);
-    ctx.fillStyle = col;
-    drawText(ctx, 'REC', x + 6 * u, ty, u);
+  if (sh.on) {
+    const ty = m + 4 * u;
+    if (show.corners !== false) {
+      const L = 12 * u;
+      ctx.fillRect(m, m, L, u); ctx.fillRect(m, m, u, L);
+      ctx.fillRect(cw - m - L, m, L, u); ctx.fillRect(cw - m - u, m, u, L);
+      ctx.fillRect(m, ch - m - u, L, u); ctx.fillRect(m, ch - m - L, u, L);
+      ctx.fillRect(cw - m - L, ch - m - u, L, u); ctx.fillRect(cw - m - u, ch - m - L, u, L);
+    }
+    if (show.time !== false && String(sh.time || '').trim()) {
+      const t = String(sh.time).slice(0, 8), [x, y] = at('time', m + 4 * u, ty), w = textW(t, u);
+      drawText(ctx, t, x, y, u);
+      hit({ type: 'el', key: 'time', x: x - 2 * u, y: y - 2 * u, w: w + 4 * u, h: 11 * u, lx: x, ly: y });
+    }
+    if (sh.rec) {
+      const w = 6 * u + textW('REC', u), [x, y] = at('rec', Math.round(cw / 2 - w / 2), ty);
+      ctx.fillStyle = red; pxCircle(ctx, x + 2 * u, y + 3 * u + Math.floor(u / 2), 2, u);
+      ctx.fillStyle = col; drawText(ctx, 'REC', x + 6 * u, y, u);
+      hit({ type: 'el', key: 'rec', x: x - 2 * u, y: y - 2 * u, w: w + 4 * u, h: 11 * u, lx: x, ly: y });
+    }
+    if (show.battery !== false) {
+      const bw = 11 * u, [x, y] = at('battery', cw - m - 4 * u - u - bw, ty);
+      ctx.fillRect(x, y, bw, u); ctx.fillRect(x, y + 6 * u, bw, u); ctx.fillRect(x, y, u, 7 * u); ctx.fillRect(x + bw - u, y, u, 7 * u);
+      ctx.fillRect(x + bw, y + 2 * u, u, 3 * u);
+      const lvl = clamp(+sh.battery || 0, 0, 100), cells = Math.round(7 * lvl / 100);
+      if (lvl < 20) ctx.fillStyle = `rgba(226,72,60,${a})`;
+      if (cells) ctx.fillRect(x + 2 * u, y + 2 * u, cells * u, 3 * u);
+      ctx.fillStyle = col;
+      hit({ type: 'el', key: 'battery', x: x - 2 * u, y: y - 2 * u, w: bw + 5 * u, h: 11 * u, lx: x, ly: y });
+    }
+    const nn = clamp(Math.round(+sh.notif || 0), 0, 99);
+    if (nn > 0) {
+      const t = String(nn), r = t.length > 1 ? 7 : 5, [x, y] = at('notif', cw - m - 4 * u - 2 * r * u, ty + 9 * u);
+      const cx = x + r * u, cy = y + r * u;
+      pxCircle(ctx, cx, cy, r, u);
+      ctx.fillStyle = ink; drawText(ctx, t, cx - Math.floor(textW(t, u) / 2 / u) * u, cy - 3 * u - Math.floor(u / 2), u); ctx.fillStyle = col;
+      hit({ type: 'el', key: 'notif', x: x - u, y: y - u, w: 2 * r * u + 2 * u, h: 2 * r * u + 2 * u, lx: x, ly: y });
+    }
+    if (show.blik !== false) {
+      const [x, y] = at('blik', m + 3 * u, ch - m - 11 * u), cx = x + 4 * u, cy = y + 4 * u;
+      pxCircle(ctx, cx, cy, 2, u);
+      ctx.fillStyle = `rgba(216,238,212,${a * 0.45})`; pxCircle(ctx, cx, cy, 4, u, true); ctx.fillStyle = col;
+      hit({ type: 'el', key: 'blik', x: x - u, y: y - u, w: 10 * u, h: 10 * u, lx: x, ly: y });
+    }
   }
-  // батарея
-  const bw = 11 * u, bx = cw - m - 4 * u - u - bw;
-  ctx.fillRect(bx, ty, bw, u); ctx.fillRect(bx, ty + 6 * u, bw, u); ctx.fillRect(bx, ty, u, 7 * u); ctx.fillRect(bx + bw - u, ty, u, 7 * u);
-  ctx.fillRect(bx + bw, ty + 2 * u, u, 3 * u);
-  const lvl = clamp(+sh.battery || 0, 0, 100), cells = Math.round(7 * lvl / 100);
-  if (lvl < 20) ctx.fillStyle = `rgba(226,72,60,${a})`;
-  if (cells) ctx.fillRect(bx + 2 * u, ty + 2 * u, cells * u, 3 * u);
-  ctx.fillStyle = col;
-  // уведомление
-  const nn = clamp(Math.round(+sh.notif || 0), 0, 99);
-  if (nn > 0) {
-    const s = String(nn), r = s.length > 1 ? 7 : 5;
-    const ncx = cw - m - 4 * u - r * u, ncy = ty + 9 * u + r * u;
-    pxCircle(ctx, ncx, ncy, r, u);
-    ctx.fillStyle = 'rgba(14,20,18,.92)';
-    drawText(ctx, s, ncx - Math.floor(textW(s, u) / 2 / u) * u, ncy - 3 * u - Math.floor(u / 2), u);
+  // аннотации
+  if (sh.notesOn) (sh.notes || []).forEach((n, i) => {
+    const text = String(n.text || '').trim();
+    if (!n.on || !text) return;
+    const q = u * (n.size === 2 ? 2 : 1), x = Math.round(n.x * cw), y = Math.round(n.y * ch), tw = textW(text, q);
+    let bw, bh;
     ctx.fillStyle = col;
-  }
-  // точка Blik
-  const bcx = m + 7 * u, bcy = ch - m - 7 * u;
-  pxCircle(ctx, bcx, bcy, 2, u);
-  ctx.fillStyle = `rgba(216,238,212,${a * 0.45})`;
-  pxCircle(ctx, bcx, bcy, 4, u, true);
-  ctx.fillStyle = col;
-  // подписи
-  sh.labels.forEach((l, i) => {
-    if (!l.on || !String(l.text || '').trim()) return;
-    const x = Math.round(l.x * cw), y = Math.round(l.y * ch);
-    ctx.fillRect(x, y + 2 * u, 2 * u, 3 * u);
-    drawText(ctx, l.text, x + 4 * u, y, u);
-    if (hits) { const w = 4 * u + textW(l.text, u); hits.push({ i, x: x - 4 * u, y: y - 4 * u, w: w + 8 * u, h: 15 * u, lx: x, ly: y }); }
+    if (n.kind === 'box' || n.kind === 'plate') {
+      bw = tw + 6 * q; bh = 11 * q;
+      if (n.kind === 'plate') { ctx.fillRect(x, y, bw, bh); ctx.fillStyle = ink; }
+      else { ctx.fillRect(x, y, bw, u); ctx.fillRect(x, y + bh - u, bw, u); ctx.fillRect(x, y, u, bh); ctx.fillRect(x + bw - u, y, u, bh); }
+      drawText(ctx, text, x + 3 * q, y + 2 * q, q); ctx.fillStyle = col;
+    } else if (n.kind === 'pointer') {
+      bw = tw; bh = 9 * q + u;
+      drawText(ctx, text, x, y, q); ctx.fillRect(x, y + 9 * q, tw, u);
+      const tx = Math.round(n.tx * cw), ty2 = Math.round(n.ty * ch);
+      const ax = clamp(tx, x, x + bw), ay = ty2 > y + bh ? y + bh : ty2 < y ? y - u : clamp(ty2, y, y + bh);
+      const inside = tx >= x && tx <= x + bw && ty2 >= y && ty2 <= y + bh;
+      if (!inside) pxLine(ctx, ax, ay, tx, ty2, u);
+      pxCircle(ctx, tx, ty2, 3, u, true); ctx.fillRect(tx - u, ty2 - u, 2 * u, 2 * u);
+      hit({ type: 'note', i, part: 'text', x: x - 3 * u, y: y - 3 * u, w: bw + 6 * u, h: bh + 6 * u, lx: x, ly: y });
+      hit({ type: 'note', i, part: 'target', x: tx - 6 * u, y: ty2 - 6 * u, w: 12 * u, h: 12 * u, lx: tx, ly: ty2 });
+      return;
+    } else {
+      bw = 4 * q + tw; bh = 7 * q;
+      ctx.fillRect(x, y + 2 * q, 2 * q, 3 * q); drawText(ctx, text, x + 4 * q, y, q);
+    }
+    hit({ type: 'note', i, part: 'text', x: x - 3 * u, y: y - 3 * u, w: bw + 6 * u, h: bh + 6 * u, lx: x, ly: y });
   });
   ctx.restore();
 }
@@ -2291,7 +2350,8 @@ function syncUI() {
     ? `Ширина прыгает по значениям, которые делят 1080 нацело: <b>${L.join(', ')}</b>. Высота ${S.aspect === '1:1' ? 'равна ширине' : '= ширина × 16/9'}: ${gridW()}×${gridH()}.`
     : `Любая ширина от 64 до 512. Сейчас сетка ${gridW()}×${gridH()}.`;
   // точки на вкладках, где что-то включено
-  const on = { light: S.light.on || S.glow.bloom > 0 || S.fog.amount > 0, fx: fxActive() || S.fx.grain > 0, shore: S.shore.on };
+  const on = { light: S.light.on || S.glow.bloom > 0 || S.fog.amount > 0, fx: fxActive() || S.fx.grain > 0, shore: S.shore.on || (S.shore.notesOn && S.shore.notes.some(n => n.on && String(n.text).trim())) };
+  $('#noteAdd').disabled = S.shore.notes.length >= MAX_NOTES;
   document.querySelectorAll('.ptabs button').forEach(b => {
     const dot = b.querySelector('.dot'); const want = !!on[b.dataset.tab];
     if (want && !dot) b.insertAdjacentHTML('beforeend', '<span class="dot" aria-hidden="true"></span>');
@@ -2440,28 +2500,101 @@ $('#cmpBtn').onclick = () => { cmp.on = !cmp.on; cmp.p = 0.5; applyCmp(); invali
   });
 })();
 
-/* ---------- перетаскивание подписей Shore ---------- */
+/* ---------- перетаскивание элементов Shore и аннотаций ---------- */
 (() => {
   let drag = null;
   const pt = e => { const r = afterCv.getBoundingClientRect(); return { x: (e.clientX - r.left) * afterCv.width / r.width, y: (e.clientY - r.top) * afterCv.height / r.height }; };
-  const hitAt = p => shoreHits.find(h => p.x >= h.x && p.x <= h.x + h.w && p.y >= h.y && p.y <= h.y + h.h);
+  const hitAt = p => { for (let k = shoreHits.length - 1; k >= 0; k--) { const h = shoreHits[k]; if (p.x >= h.x && p.x <= h.x + h.w && p.y >= h.y && p.y <= h.y + h.h) return h; } return null; };
+  const put = (h, nx, ny) => {
+    nx = +clamp(nx, 0, 0.99).toFixed(4); ny = +clamp(ny, 0, 0.99).toFixed(4);
+    if (h.type === 'el') S.shore.pos[h.key] = { x: nx, y: ny };
+    else { const n = S.shore.notes[h.i]; if (!n) return; if (h.part === 'target') { n.tx = nx; n.ty = ny; } else { n.x = nx; n.y = ny; } }
+  };
   frameEl.addEventListener('pointerdown', e => {
-    if (e.target === handleEl || !S.shore.on || e.button !== 0) return;
+    if (e.target === handleEl || e.target === lampEl || e.button !== 0) return;
     const p = pt(e), h = hitAt(p); if (!h) return;
-    drag = { i: h.i, ox: p.x - h.lx, oy: p.y - h.ly };
+    drag = { h, ox: p.x - h.lx, oy: p.y - h.ly };
     frameEl.setPointerCapture(e.pointerId); e.preventDefault(); e.stopPropagation();
   });
   frameEl.addEventListener('pointermove', e => {
     const p = pt(e);
-    if (!drag) { frameEl.style.cursor = S.shore.on && hitAt(p) ? 'grab' : ''; return; }
-    const l = S.shore.labels[drag.i];
-    l.x = clamp((p.x - drag.ox) / afterCv.width, 0, 0.97); l.y = clamp((p.y - drag.oy) / afterCv.height, 0, 0.97);
+    if (!drag) { frameEl.style.cursor = hitAt(p) ? 'grab' : ''; return; }
+    put(drag.h, (p.x - drag.ox) / afterCv.width, (p.y - drag.oy) / afterCv.height);
     frameEl.style.cursor = 'grabbing';
     invalidate('D');
   });
   const end = () => { drag = null; frameEl.style.cursor = ''; };
   frameEl.addEventListener('pointerup', end); frameEl.addEventListener('pointercancel', end);
+  // двойной щелчок: по аннотации — правка текста, по пустому месту — новая аннотация в этой точке
+  frameEl.addEventListener('dblclick', e => {
+    if (e.target === handleEl || e.target === lampEl) return;
+    const p = pt(e), h = hitAt(p);
+    if (h && h.type === 'note') { editNote(h.i); return; }
+    if (h) return;
+    addNote(p.x / afterCv.width, p.y / afterCv.height);
+  });
 })();
+
+/* ---------- список аннотаций ---------- */
+const MAX_NOTES = 12;
+function renderNotes() {
+  const list = $('#notesList'), notes = S.shore.notes || [];
+  list.innerHTML = notes.length ? notes.map((n, i) => `<div class="noterow" data-i="${i}">
+    <input type="checkbox" class="n-on" ${n.on ? 'checked' : ''} aria-label="Показывать аннотацию ${i + 1}">
+    <input type="text" class="n-text" maxlength="40" value="${String(n.text || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')}" aria-label="Текст аннотации ${i + 1}" placeholder="текст">
+    <select class="n-kind" aria-label="Вид аннотации ${i + 1}">${Object.entries(NOTE_KINDS).map(([k, v]) => `<option value="${k}" ${n.kind === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
+    <select class="n-size" aria-label="Размер аннотации ${i + 1}"><option value="1" ${n.size !== 2 ? 'selected' : ''}>1×</option><option value="2" ${n.size === 2 ? 'selected' : ''}>2×</option></select>
+    <button class="tb icon n-del" title="Удалить аннотацию" aria-label="Удалить аннотацию ${i + 1}">×</button>
+  </div>`).join('') : '<p class="hint">Аннотаций нет. Нажмите «+ Аннотация» или дважды щёлкните по кадру.</p>';
+  $('#noteAdd').disabled = notes.length >= MAX_NOTES;
+}
+function addNote(x, y) {
+  const notes = S.shore.notes;
+  if (notes.length >= MAX_NOTES) { toast(`Аннотаций уже ${MAX_NOTES} — это максимум.`); return; }
+  x = clamp(x == null ? 0.3 : x, 0, 0.9); y = clamp(y == null ? 0.45 : y, 0, 0.95);
+  notes.push({ text: 'МЕТКА ' + (notes.length + 1), kind: 'label', x: +x.toFixed(4), y: +y.toFixed(4), tx: +clamp(x + 0.12, 0, 0.98).toFixed(4), ty: +clamp(y + 0.1, 0, 0.98).toFixed(4), size: 1, on: true });
+  S.shore.notesOn = true;
+  syncUI(); renderNotes(); invalidate('D');
+  editNote(notes.length - 1);
+}
+function editNote(i) {
+  setTab('shore');
+  const inp = document.querySelector(`.noterow[data-i="${i}"] .n-text`);
+  if (inp) { inp.scrollIntoView({ block: 'center' }); inp.focus(); inp.select(); }
+}
+function sanitizeNotes(arr) {
+  if (!Array.isArray(arr)) return null;
+  const num = (v, d) => isFinite(+v) ? clamp(+v, 0, 0.99) : d;
+  return arr.slice(0, MAX_NOTES).filter(n => n && typeof n === 'object').map(n => ({
+    text: String(n.text == null ? '' : n.text).slice(0, 40), kind: NOTE_KINDS[n.kind] ? n.kind : 'label',
+    x: num(n.x, 0.3), y: num(n.y, 0.45), tx: num(n.tx, 0.42), ty: num(n.ty, 0.55), size: +n.size === 2 ? 2 : 1, on: n.on !== false
+  }));
+}
+// старые пресеты: три подписи labels → аннотации
+function notesFromPreset(sh) {
+  if (!sh || typeof sh !== 'object') return null;
+  return sanitizeNotes(sh.notes) || (Array.isArray(sh.labels) ? sanitizeNotes(sh.labels.map(l => ({ ...l, kind: 'label' }))) : null);
+}
+$('#noteAdd').onclick = () => addNote();
+$('#shoreReset').onclick = () => { S.shore.pos = { time: null, rec: null, battery: null, notif: null, blik: null }; invalidate('D'); toast('Элементы Shore на своих местах.'); };
+$('#notesList').addEventListener('input', e => {
+  const row = e.target.closest('.noterow'); if (!row || !e.target.classList.contains('n-text')) return;
+  S.shore.notes[+row.dataset.i].text = e.target.value; invalidate('D');
+});
+$('#notesList').addEventListener('change', e => {
+  const row = e.target.closest('.noterow'); if (!row) return;
+  const n = S.shore.notes[+row.dataset.i], t = e.target;
+  if (t.classList.contains('n-on')) n.on = t.checked;
+  else if (t.classList.contains('n-kind')) n.kind = t.value;
+  else if (t.classList.contains('n-size')) n.size = +t.value === 2 ? 2 : 1;
+  else return;
+  invalidate('D');
+});
+$('#notesList').addEventListener('click', e => {
+  const del = e.target.closest('.n-del'); if (!del) return;
+  S.shore.notes.splice(+del.closest('.noterow').dataset.i, 1); renderNotes(); invalidate('D');
+});
+
 
 /* ---------- возможности просмотрщика (Claude, скачивание) ---------- */
 const hasRuntime = !!(window.claude && typeof window.claude.use === 'function');
@@ -2685,6 +2818,7 @@ $('#presetLoad').onclick = () => {
   if (snap.grid.snap) { S.aspect = snap.aspect; snap.grid.width = snapW(snap.grid.width); }
   for (const k of SAVE_KEYS) S[k] = snap[k];
   S.keys = sanitizeKeys(o.settings.keys);
+  { const nn = notesFromPreset(o.settings.shore); if (nn) S.shore.notes = nn; renderNotes(); }
   TL.frame = Math.min(TL.frame, nFrames() - 1); applyTimeline(TL.frame); renderKeyUI(); renderTimeline();
   S.style = '';
   if (typeof o.scene === 'string') $('#sceneText').value = o.scene;
@@ -3387,7 +3521,7 @@ function histGo(d) {
   const o = JSON.parse(HIST.stack[j]);
   for (const k of SAVE_KEYS) S[k] = o.s[k];
   S.style = o.style; HIST.cur = HIST.stack[j]; HIST.sig = '';
-  HIST.lock = true; applyTimeline(TL.frame); syncUI(); renderKeyUI(); renderTimeline(); drawCrop(); invalidate('A'); HIST.lock = false;
+  HIST.lock = true; applyTimeline(TL.frame); syncUI(); renderKeyUI(); renderTimeline(); renderNotes(); drawCrop(); invalidate('A'); HIST.lock = false;
   updHist(); toast(d < 0 ? 'Отменено.' : 'Повторено.');
 }
 $('#undoBtn').onclick = () => histGo(-1);
@@ -3491,6 +3625,7 @@ $('#planJson').value = fmtPlan(plan);
 syncUI();
 renderKeyUI();
 renderTimeline();
+renderNotes();
 applyCmp();
 updPlay();
 setTab('src');

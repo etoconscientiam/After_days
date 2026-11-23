@@ -95,6 +95,7 @@ async function slide(p, id, v) { await p.fill('#' + id, String(v)); await p.disp
 async function changes(p, fn, which = 'g') { const a = await hash(p); await fn(); await settle(p); const b = await hash(p); return a[which] !== b[which]; }
 const gridColors = p => p.evaluate(() => { const d = gridCv.getContext('2d').getImageData(0, 0, gridCv.width, gridCv.height).data, s = new Set(); for (let i = 0; i < d.length; i += 4) s.add((d[i] << 16) | (d[i + 1] << 8) | d[i + 2]); return [...s]; });
 const palKeys = p => p.evaluate(() => G.pal.map(c => (Math.round(c[0]) << 16) | (Math.round(c[1]) << 8) | Math.round(c[2])));
+const waitSaved = (p, n = 1) => p.waitForFunction(n => window.__saved.length >= n, n, { timeout: 15000 });
 const saved = async p => (await p.evaluate(() => window.__saved.splice(0))).map(([n, d]) => ({ name: n, buf: Buffer.from(d, 'base64') }));
 const noErrors = async p => { ok(!p.errors.length, p.errors.slice(0, 3).join(' | ')); };
 
@@ -329,7 +330,7 @@ async function makeFixtures(browser) {
     for (const l of ['grid', 'scan', 'led']) {
       await check(`подача «${l}» меняет экран, но не сетку`, async () => { const a = await hash(p); await p.click(`#lookSeg button[data-look="${l}"]`); await settle(p); const b2 = await hash(p); ok(a.a !== b2.a, 'экран не изменился'); eq(b2.g, a.g, 'сетка изменилась'); });
     }
-    await check('подача попадает в PNG 1080', async () => { await p.click('#lookSeg button[data-look="grid"]'); await settle(p); await p.click('#tbPng'); await p.waitForTimeout(500); const f = (await saved(p))[0]; ok(f && f.name.endsWith('.png')); await p.click('#lookSeg button[data-look="none"]'); await settle(p); });
+    await check('подача попадает в PNG 1080', async () => { await p.click('#lookSeg button[data-look="grid"]'); await settle(p); await p.click('#tbPng'); await waitSaved(p); const f = (await saved(p))[0]; ok(f && f.name.endsWith('.png')); await p.click('#lookSeg button[data-look="none"]'); await settle(p); });
   }
 
   if (want('свет')) {
@@ -378,10 +379,37 @@ async function makeFixtures(browser) {
     }
     await check('числовые поля держат пределы, пустое поле откатывается', async () => { for (const [v, e] of [['-5', 0], ['1000', 99], ['', 99]]) { await p.fill('#shNotif', v); await p.dispatchEvent('#shNotif', 'input'); await p.dispatchEvent('#shNotif', 'change'); eq(await p.evaluate(() => S.shore.notif), e, 'notif=' + v); } eq(await p.inputValue('#shNotif'), '99'); await p.fill('#shNotif', '3'); await p.dispatchEvent('#shNotif', 'change'); });
     await check('REC, батарея (в т. ч. красная при < 20%), прозрачность', async () => { ok(await changes(p, () => p.uncheck('#shRec'), 'a')); await p.check('#shRec'); ok(await changes(p, () => slide(p, 'r-shore-battery', 10), 'a')); ok(await changes(p, () => slide(p, 'r-shore-opacity', 0.35), 'a')); });
-    await check('третья подпись появляется при включении', async () => { ok(await changes(p, () => p.check('#l2on'), 'a')); });
+    await check('уголки, время, батарея и Blik выключаются по отдельности', async () => { for (const id of ['#shCorners', '#shShowTime', '#shBattery', '#shBlik']) { ok(await changes(p, () => p.uncheck(id), 'a'), id); await p.check(id); } await settle(p); });
+    await check('каждый элемент Shore тянется мышью, «Вернуть на места» возвращает', async () => {
+      const moved = [];
+      for (const key of ['time', 'rec', 'battery', 'notif', 'blik']) {
+        const pt = await p.evaluate(k => { const h = shoreHits.find(x => x.type === 'el' && x.key === k); if (!h) return null; const r = afterCv.getBoundingClientRect(); return { x: r.left + (h.x + h.w / 2) * r.width / afterCv.width, y: r.top + (h.y + h.h / 2) * r.height / afterCv.height }; }, key);
+        ok(pt, 'нет элемента ' + key);
+        await p.mouse.move(pt.x, pt.y); await p.mouse.down(); await p.mouse.move(pt.x - 40, pt.y + 60, { steps: 4 }); await p.mouse.up(); await settle(p);
+        if (await p.evaluate(k => !!S.shore.pos[k], key)) moved.push(key);
+      }
+      eq(moved, ['time', 'rec', 'battery', 'notif', 'blik']);
+      const a = await hash(p); await p.click('#shoreReset'); await settle(p); ok(a.a !== (await hash(p)).a); eq(await p.evaluate(() => Object.values(S.shore.pos).every(v => v === null)), true);
+    });
+    await check('аннотация: кнопка добавляет, поле текста в фокусе, текст меняет экран', async () => { const n0 = await p.evaluate(() => S.shore.notes.length); await p.click('#noteAdd'); await settle(p); eq(await p.evaluate(() => S.shore.notes.length), n0 + 1); ok(await p.evaluate(() => document.activeElement.classList.contains('n-text'))); ok(await changes(p, async () => { await p.keyboard.type('ПРИВЕТ, МИР'); }, 'a')); eq(await p.evaluate(() => S.shore.notes.at(-1).text), 'ПРИВЕТ, МИР'); });
+    await check('четыре вида аннотаций и размер 2× выглядят по-разному', async () => { const last = await p.evaluate(() => S.shore.notes.length - 1); const hs = new Set(); for (const k of ['label', 'box', 'plate', 'pointer']) { await p.selectOption(`.noterow[data-i="${last}"] .n-kind`, k); await settle(p); hs.add((await hash(p)).a); } await p.selectOption(`.noterow[data-i="${last}"] .n-size`, '2'); await settle(p); hs.add((await hash(p)).a); eq(hs.size, 5); });
+    await check('у выноски тянется и текст, и точка на конце', async () => {
+      const last = await p.evaluate(() => S.shore.notes.length - 1);
+      const get = part => p.evaluate(([i, part]) => { const h = shoreHits.find(x => x.type === 'note' && x.i === i && x.part === part); const r = afterCv.getBoundingClientRect(); return { x: r.left + (h.x + h.w / 2) * r.width / afterCv.width, y: r.top + (h.y + h.h / 2) * r.height / afterCv.height }; }, [last, part]);
+      const n0 = await p.evaluate(i => ({ ...S.shore.notes[i] }), last);
+      let pt = await get('target'); await p.mouse.move(pt.x, pt.y); await p.mouse.down(); await p.mouse.move(pt.x + 50, pt.y + 50, { steps: 4 }); await p.mouse.up(); await settle(p);
+      pt = await get('text'); await p.mouse.move(pt.x, pt.y); await p.mouse.down(); await p.mouse.move(pt.x - 30, pt.y - 30, { steps: 4 }); await p.mouse.up(); await settle(p);
+      const n1 = await p.evaluate(i => ({ ...S.shore.notes[i] }), last);
+      ok(n1.tx > n0.tx && n1.ty > n0.ty && n1.x < n0.x && n1.y < n0.y, JSON.stringify([n0, n1]));
+    });
+    await check('двойной щелчок по пустому месту кадра добавляет аннотацию в эту точку', async () => { const n0 = await p.evaluate(() => S.shore.notes.length); const a = await p.locator('#after').boundingBox(); await p.mouse.dblclick(a.x + a.width * 0.6, a.y + a.height * 0.85); await settle(p); const n = await p.evaluate(() => S.shore.notes.at(-1)); eq(await p.evaluate(() => S.shore.notes.length), n0 + 1); ok(Math.abs(n.x - 0.6) < 0.03 && Math.abs(n.y - 0.85) < 0.03, JSON.stringify(n)); });
+    await check('двойной щелчок по аннотации открывает её текст', async () => { await tab(p, 'pix'); const pt = await p.evaluate(() => { const h = shoreHits.find(x => x.type === 'note' && x.i === 0 && x.part === 'text'); const r = afterCv.getBoundingClientRect(); return { x: r.left + (h.x + h.w / 2) * r.width / afterCv.width, y: r.top + (h.y + h.h / 2) * r.height / afterCv.height }; }); await p.mouse.dblclick(pt.x, pt.y); await p.waitForTimeout(100); eq(await p.evaluate(() => [activeTab, document.activeElement.closest('.noterow') && document.activeElement.closest('.noterow').dataset.i]), ['shore', '0']); });
+    await check('удаление, выключение и предел в 12 аннотаций', async () => { while (await p.evaluate(() => S.shore.notes.length) < 12) { await p.click('#noteAdd'); } ok(await p.$eval('#noteAdd', e => e.disabled)); await p.evaluate(() => addNote(0.5, 0.5)); eq(await p.evaluate(() => S.shore.notes.length), 12); ok(/максимум/.test(await p.textContent('#toast'))); ok(await changes(p, () => p.uncheck('.noterow[data-i="0"] .n-on'), 'a')); while (await p.evaluate(() => S.shore.notes.length) > 2) { await p.click('.noterow:last-child .n-del'); } await settle(p); ok(!await p.$eval('#noteAdd', e => e.disabled)); });
+    await check('аннотации видны и без интерфейса очков, и выключаются своей галочкой', async () => { await p.check('.noterow[data-i="0"] .n-on'); await p.uncheck('#shoreCb'); await settle(p); ok(await p.evaluate(() => shoreHits.some(h => h.type === 'note') && !shoreHits.some(h => h.type === 'el'))); ok(await changes(p, () => p.uncheck('#notesCb'), 'a')); await p.check('#notesCb'); await p.check('#shoreCb'); await settle(p); });
+    await check('перемещение элемента и правка аннотации отменяются', async () => { await p.waitForTimeout(500); await p.evaluate(() => { S.shore.pos.time = { x: 0.5, y: 0.5 }; invalidate('D'); }); await settle(p); await p.waitForTimeout(500); await p.click('#undoBtn'); await settle(p); eq(await p.evaluate(() => S.shore.pos.time), null); });
     await check('пиксельный шрифт знает всю кириллицу, латиницу, цифры и знаки', async () => { const miss = await p.evaluate(() => [...'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .,:;!-+/%()"\'#_=°·*<>«»—–•№'].filter(c => glyph(c) === GLYPHS['?'])); eq(miss, []); });
-    await check('подпись перетаскивается мышью', async () => { const pt = await p.evaluate(() => { const h = shoreHits[0], r = afterCv.getBoundingClientRect(); return { x: r.left + (h.lx + 8) * r.width / afterCv.width, y: r.top + (h.ly + 3) * r.height / afterCv.height, x0: S.shore.labels[h.i].x }; }); await p.mouse.move(pt.x, pt.y); await p.mouse.down(); await p.mouse.move(pt.x + 50, pt.y + 30, { steps: 4 }); await p.mouse.up(); await settle(p); ok(await p.evaluate(() => S.shore.labels[0].x) !== pt.x0); });
-    await setS(p, s => { s.shore = JSON.parse(JSON.stringify(DEFAULTS.shore)); }, 'D');
+    await check('старый пресет с тремя подписями превращается в аннотации', async () => { await tab(p, 'file'); await p.fill('#presetText', JSON.stringify({ settings: { shore: { labels: [{ text: 'А', x: 0.1, y: 0.1, on: true }, { text: 'Б', x: 0.2, y: 0.2, on: false }, { text: 'В', x: 0.3, y: 0.3, on: true }] } } })); await p.click('#presetLoad'); await settle(p); eq(await p.evaluate(() => S.shore.notes.map(n => [n.text, n.kind, n.on])), [['А', 'label', true], ['Б', 'label', false], ['В', 'label', true]]); eq(await p.$$eval('.noterow', r => r.length), 3); await tab(p, 'shore'); });
+    await setS(p, s => { s.shore = JSON.parse(JSON.stringify(DEFAULTS.shore)); }, 'D'); await p.evaluate(() => renderNotes());
   }
 
   if (want('холст')) {
@@ -417,7 +445,7 @@ async function makeFixtures(browser) {
     await check('Ctrl+S — PNG, Ctrl+Shift+S — GIF, Ctrl+Alt+S — видео', async () => {
       await saved(p); await setS(p, s => { s.anim.frames = 4; s.anim.loops = 1; s.anim.size = 'small'; s.anim.vsize = 'small'; }, 'N');
       await p.locator('#info').click();
-      await p.keyboard.press('Control+s'); await p.waitForTimeout(500);
+      await p.keyboard.press('Control+s'); await waitSaved(p);
       await p.keyboard.press('Control+Shift+s'); await p.waitForFunction(() => $('#busy').hidden && $('#tbGif').textContent === 'GIF', null, { timeout: 60000 }); await p.waitForTimeout(200);
       if (HAVE_LIBS) { await p.keyboard.press('Control+Alt+s'); await p.waitForFunction(() => $('#busy').hidden && $('#tbMp4').textContent === 'MP4', null, { timeout: 60000 }); await p.waitForTimeout(200); }
       const names = (await saved(p)).map(f => f.name.split('.').pop()); eq(names, HAVE_LIBS ? ['png', 'gif', 'mp4'] : ['png', 'gif']);
@@ -445,7 +473,7 @@ async function makeFixtures(browser) {
     section('13. Пресеты');
     await tab(p, 'file');
     await check('сохранение и загрузка возвращают все настройки, ключи и план', async () => {
-      await setS(p, s => { s.fx.ca = 2.5; s.light.on = true; s.light.x = 0.2; s.anim.frames = 24; s.palette.method = 'fog'; s.shore.labels[1].text = 'ПРОВЕРКА'; }, 'A');
+      await setS(p, s => { s.fx.ca = 2.5; s.light.on = true; s.light.x = 0.2; s.anim.frames = 24; s.palette.method = 'fog'; s.shore.notes[1].text = 'ПРОВЕРКА'; s.shore.pos.rec = { x: 0.3, y: 0.6 }; }, 'A');
       await p.evaluate(() => { addTrack('fx.shift'); });
       await p.click('#presetMake'); const txt = await p.inputValue('#presetText'); const before = await p.evaluate(() => snapState());
       await p.click('#styles button[data-style="lens"]'); await p.evaluate(() => { removeTrack('fx.shift'); }); await settle(p);
@@ -540,11 +568,11 @@ async function makeFixtures(browser) {
     for (const asp of ['9:16', '1:1']) {
       await check(`PNG 1080 и PNG сетки (${asp}): верные размеры`, async () => {
         await setP(p, { aspect: asp, grid: { width: 108, snap: true } }, 'A');
-        await p.click('#tbPng'); await p.waitForTimeout(400); await tab(p, 'file'); await p.click('#expGrid'); await p.waitForTimeout(300);
+        await p.click('#tbPng'); await waitSaved(p); await tab(p, 'file'); await p.click('#expGrid'); await waitSaved(p, 2);
         const f = await saved(p); eq(f.map(x => pngSize(x.buf)), asp === '1:1' ? [[1080, 1080], [108, 108]] : [[1080, 1920], [108, 192]]);
       });
     }
-    await check('без привязки: PNG 1080 с полями и честной подсказкой', async () => { await setS(p, s => { s.aspect = '1:1'; s.grid = { width: 100, snap: false }; }, 'A'); ok(/поля/.test(await p.textContent('#expHint'))); await p.click('#tbPng'); await p.waitForTimeout(400); eq(pngSize((await saved(p))[0].buf), [1080, 1080]); });
+    await check('без привязки: PNG 1080 с полями и честной подсказкой', async () => { await setS(p, s => { s.aspect = '1:1'; s.grid = { width: 100, snap: false }; }, 'A'); ok(/поля/.test(await p.textContent('#expHint'))); await p.click('#tbPng'); await waitSaved(p); eq(pngSize((await saved(p))[0].buf), [1080, 1080]); });
     await setS(p, s => { s.aspect = '9:16'; s.grid = { width: 108, snap: true }; s.fx.shift = 0.4; s.anim.frames = 8; }, 'A');
     await check('GIF: каждый размер, 8 кадров, зациклен, задержка по к/с', async () => {
       await tab(p, 'fx'); const sizes = await p.$$eval('#gifSize option', o => o.map(x => x.value));
