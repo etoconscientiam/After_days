@@ -7,10 +7,10 @@ import { totalPop } from '../core/life';
 import { skin, preloadSkins } from './assets';
 import { tintedCanvas, drawTinted, tintInto } from './sprites';
 import { forecastParticle, conditionsAt, Forecast } from '../core/forecast';
-import { GW, KIND, K_MARKER, K_ROCK } from '../world/Grid';
+import { GW, KIND, K_MARKER, K_ROCK, K_NONE, K_SOLID } from '../world/Grid';
 import { hash2 } from '../core/rng';
 import { Layout, WW, WH, NOISE, GRAIN, lerp, lerp3, hex3, rgb, ACCENT } from './common';
-import { SectionRenderer, ERA_COLORS } from './section';
+import { SectionRenderer, ERA_COLORS, particlePx } from './section';
 import { drawFossil, fossilKind } from './skins';
 import { CREATURES, Pose, birdFlying, hominid } from './creatures';
 import { drawItem } from './items';
@@ -19,7 +19,6 @@ import { drawScene, pictogram, VW, VH } from './ritual';
 
 interface Particle { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string; size: number; kind?: 'mote' | 'firefly' | 'spark' | 'drop' }
 interface Flyer { x: number; y: number; vx: number; vy: number; tx: number; ty: number; t: number; color: string; done?: () => void }
-interface Ring { t: number; x: number }
 /** Sprites that do not stand on the strata: drawn as background life (drawBackdropLife, drawFlyingBirds). */
 const M_BONE = () => CFG.matIndex.bone;
 const BACKDROP = new Set(['fish', 'plankton', 'bird', 'herd', 'predator']);
@@ -106,7 +105,6 @@ export class Renderer {
   shake = 0;
   particles: Particle[] = [];
   flyers: Flyer[] = [];
-  rings: Ring[] = [];
   hover: { x: number; y: number } | null = null;
   targeting: { rx: number; ry: number; x: number; y: number; kind: string } | null = null;
   reveal = Infinity;
@@ -218,9 +216,8 @@ export class Renderer {
   }
 
   // ---------- events ----------
-  /** A click: a ring of light rises from the layer, sparks fly to the Energy counter, life nearby looks up. */
+  /** A click: the thing flashes, sparks fly to the Energy counter, life nearby looks up. */
   onClick(x: number = WW / 2): void {
-    this.rings.push({ t: 0, x });
     this.flash = Math.min(1, this.flash + 0.25);
     this.alarm = this.t;
     const ay = this.ayAt(x);
@@ -239,7 +236,7 @@ export class Renderer {
   /** The thing absorbed a line of the strata: it glows in the line's colour, a spark flies to the counter
    *  (a dearer line — brighter, more sparks), and the line goes in its own way by what it is made of
    *  (absorbFx: rock crumbles, coal smoulders, oil ripples dark, gas puffs, bone flashes white, amber glows…). */
-  onAbsorb(matId: string, value: number): void {
+  onAbsorb(matId: string, value: number, mats?: Uint8Array, looks?: Uint8Array): void {
     const m = CFG.materials[CFG.matIndex[matId]];
     const col = m ? m.palette[Math.min(4, m.palette.length - 1)] : ACCENT;
     const k = Math.min(1, value / 400);
@@ -254,6 +251,58 @@ export class Renderer {
       this.flyers.push({ x, y: ay, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, tx: target.x, ty: target.y, t: 0, color: col });
     }
     this.spawnAbsorbFx(fx, col, k);
+    if (mats && looks) this.startSuck(mats, looks);
+  }
+
+  /** The line the thing takes: its own pixels, drawn on the bottom of the squeeze and drawn in toward the thing —
+   *  the near ones first, the far ones later and faster, warming as they go, each gone into the thing. */
+  private sucks: { t: number; x0: Int16Array; c: Uint32Array; n: number }[] = [];
+  private startSuck(mats: Uint8Array, looks: Uint8Array): void {
+    if (this.sucks.length >= 3) this.sucks.shift();
+    const x0 = new Int16Array(WW), c = new Uint32Array(WW), px = [0, 0, 0, 0];
+    let n = 0;
+    for (let x = 0; x < mats.length; x++) {
+      const m = mats[x];
+      if (!m || KIND[m] === K_NONE || KIND[m] === K_SOLID) continue;
+      particlePx(m, looks[x], px);
+      for (let d = 0; d < 2; d++) { x0[n] = x * 2 + d; c[n] = px[d]; n++; }
+    }
+    if (n) this.sucks.push({ t: 0, x0, c, n });
+  }
+
+  private drawSucks(): void {
+    const c = this.ctx, dt = this.dt, y = this.bandBottom - 1;
+    const cx = (this.thingX0 + this.thingX1) / 2, half = (this.thingX1 - this.thingX0) / 2;
+    const far = Math.max(cx, WW - cx);
+    for (let k = this.sucks.length - 1; k >= 0; k--) {
+      const S = this.sucks[k];
+      S.t += dt;
+      let alive = false;
+      for (let j = 0; j < S.n; j++) {
+        const x0 = S.x0[j], dx = x0 - cx, dist = Math.abs(dx);
+        // reaching the thing's edge takes longer from farther off; it speeds up as it goes (drawn in)
+        const ta = 0.2 + 0.7 * Math.pow(dist / far, 0.7);
+        const p = Math.min(1, (S.t / ta) ** 2);
+        if (p >= 1) continue;
+        alive = true;
+        const edge = Math.sign(dx) * Math.min(dist, half * 0.6);
+        const x = cx + edge + (dx - edge) * (1 - p);
+        const col = S.c[j];
+        // it warms as soon as it is taken (a thread of light running into the thing), more so near the end
+        const w = 0.35 + 0.55 * p;
+        const r = (col & 255) + (255 - (col & 255)) * w, gg = ((col >> 8) & 255) + (206 - ((col >> 8) & 255)) * w, b = ((col >> 16) & 255) + (120 - ((col >> 16) & 255)) * w;
+        const X = Math.round(x), Y = Math.round(y + p * p * 2);
+        c.fillStyle = rgb(r, gg, b, 0.95 - p * 0.25);
+        c.fillRect(X, Y, 1, 1);
+        // its glow above and below, and a short streak behind a fast one
+        c.globalCompositeOperation = 'lighter';
+        c.fillStyle = rgb(255, 170, 80, 0.16 + 0.2 * p);
+        c.fillRect(X, Y - 1, 1, 1); c.fillRect(X, Y + 1, 1, 1);
+        if (p > 0.25) { c.fillStyle = rgb(255, 190, 100, 0.3 * (1 - p)); c.fillRect(X + Math.sign(dx) * (1 + Math.round(p * 3)), Y, 1, 1); }
+        c.globalCompositeOperation = 'source-over';
+      }
+      if (!alive) this.sucks.splice(k, 1);
+    }
   }
 
   /** Gas seeped out at the surface: a few bubbles (under water) or a shimmer of haze (in the air). Oil: a dark
@@ -1971,16 +2020,6 @@ export class Renderer {
       if (ph === 'temple') ay += Math.min(1, g.state.templeProgress * 3) * 3;
       drawItem(c, item, x, ay, 9, 'glow', true, g.mods.shards ? idx : -1);
     });
-    for (let i = this.rings.length - 1; i >= 0; i--) {
-      const rg = this.rings[i];
-      rg.t += dt;
-      const k = rg.t / 0.9;
-      if (k >= 1) { this.rings.splice(i, 1); continue; }
-      const ay = this.ayAt(rg.x);
-      const y = ay - k * (ay - lay.groundBase);
-      c.strokeStyle = rgb(242, 181, 74, (1 - k) * 0.7);
-      c.beginPath(); c.ellipse(rg.x, y, 14 + k * 34, 2 + k * 4, 0, 0, Math.PI * 2); c.stroke();
-    }
   }
 
   /** Ambient particles: dust in the Silence, pollen on the Land, fireflies at night. */
@@ -2098,6 +2137,7 @@ export class Renderer {
       const grid = g.grid;
       this.bandBottom = this.lay.sectionTop + this.section.yOfRow(grid.sinkRow + 1);
       if (grid.artifacts.length) { this.thingX0 = grid.artifacts[0] * 2; this.thingX1 = this.thingX0 + CFG.B.sand.artifactW * 2; }
+      this.drawSucks();
       this.drawAbsorbFx();
     }
     for (let x = 0; x < WW; x += 3) {

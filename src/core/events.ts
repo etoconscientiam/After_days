@@ -12,7 +12,8 @@ export interface GameEvents {
   temple: { ritual: string };
   click: { energy: number; boost: number };
   /** the thing absorbed a line of the strata (core/absorb.ts) */
-  absorb: { energy: number; mat: string; value: number };
+  /** the thing absorbed a line of the strata (its particles, for the animation) */
+  absorb: { energy: number; mat: string; value: number; mats: Uint8Array; looks: Uint8Array };
   /** gas or oil seeped out at the surface (particle column x, row y) */
   seep: { x: number; y: number; oil: boolean };
   /** a buried lens of water broke out: vent column x, the lens's top row y0 and the vent's row y1, n particles */

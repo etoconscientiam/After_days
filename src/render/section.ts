@@ -62,7 +62,7 @@ const HORIZON32: Uint32Array = (() => {
 })();
 
 /** The four pixels of a particle's 2×2 block. */
-function particlePx(m: number, look: number, out: number[]): void {
+export function particlePx(m: number, look: number, out: number[]): void {
   const k = KIND[m];
   const main = look & 1 ? MAIN1[m] : MAIN0[m];
   out[0] = out[1] = out[2] = out[3] = main;

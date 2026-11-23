@@ -59,5 +59,5 @@ function absorbLine(g: Game, line: BandLine): void {
   let best = 0, bm = 0;
   const w = new Float32Array(CFG.materials.length);
   for (let x = 0; x < GW; x++) { const m = line.mats[x]; w[m] += VALUE[m]; if (w[m] > best) { best = w[m]; bm = m; } }
-  if (!g.headless) g.bus.emit('absorb', { energy: e, mat: CFG.materials[bm].id, value: line.v });
+  if (!g.headless) g.bus.emit('absorb', { energy: e, mat: CFG.materials[bm].id, value: line.v, mats: line.mats, looks: line.looks });
 }

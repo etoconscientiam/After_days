@@ -167,7 +167,7 @@ function bind(g: Game): void {
   const bus = g.bus;
   bus.on('click', (e) => { audio.click(e.boost); });
   // the thing absorbed a line of the strata: a glow in its colour, a spark to the counter, a soft low «gulp»
-  bus.on('absorb', (e) => { renderer.onAbsorb(e.mat, e.value); audio.absorb(Math.min(1, e.value / 400)); });
+  bus.on('absorb', (e) => { renderer.onAbsorb(e.mat, e.value, e.mats, e.looks); audio.absorb(Math.min(1, e.value / 400)); });
   bus.on('seep', (e) => renderer.onSeep(e.x, e.y, e.oil));
   bus.on('geyser', (e) => { renderer.onGeyser(e.x, e.y0, e.y1, e.n); audio.geyser(Math.min(1, e.n / 50)); });
   bus.on('rockDiscovered', (e) => {
