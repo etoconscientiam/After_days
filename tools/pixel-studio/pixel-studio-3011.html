@@ -398,6 +398,7 @@ input[type=color]::-moz-color-swatch{border:0;border-radius:4px}
               <option value="fog">«Туман»</option>
               <option value="night">«Ночь»</option>
               <option value="custom">Ручная (список HEX)</option>
+              <option value="original">Цвета оригинала (без палитры)</option>
             </select>
             <div class="row" data-r="palette.colors,Цветов,8,64,1,int,C"></div>
             <textarea id="customHex" class="mono" rows="3" data-bind="palette.custom" data-stage="C" spellcheck="false" aria-label="Своя палитра HEX" hidden></textarea>
@@ -409,6 +410,7 @@ input[type=color]::-moz-color-swatch{border:0;border-radius:4px}
               </select>
             </div>
             <p class="hint" id="palHint"></p>
+            <div class="line" id="origFix" hidden><button class="btn small" id="origFixBtn">Выключить тонировку и цветокоррекцию</button></div>
           </div>
         </section>
         <section class="sec">
@@ -743,6 +745,9 @@ const STYLES = [
     palette: { method: 'fog', colors: 12 }, dither: { type: 'bayer8', strength: 0.45 }, tint: 0.15, vignette: 0.3,
     fog: { amount: 0.55, horizon: 0.5 }, glow: { bloom: 0.3, threshold: 0.65, radius: 5 },
     light: { on: true, x: 0.38, y: 0.18, z: 0.5, color: '#e9efe0', power: 0.6, radius: 1.1, ambient: 0.8, shadowTint: 0.25, relief: 0.2, rays: 0.5, rayLen: 0.7 } } },
+  { id: 'orig', name: 'Цвета оригинала', s: {
+    pre: { brightness: 0, contrast: 0, saturation: 100, gamma: 1 }, palette: { method: 'original' }, dither: { type: 'none', strength: 0 },
+    clean: 'off', pix: { method: 'avg', sharpen: 0.3 }, tint: 0, vignette: 0 } },
   { id: 'clean', name: 'Чистый пиксель', s: {
     palette: { method: 'kmeans', colors: 16 }, dither: { type: 'none', strength: 0 }, clean: 'strong', outline: { on: true, threshold: 48 },
     pix: { method: 'dominant', sharpen: 0.5, look: 'grid', lookStrength: 0.35 }, tint: 0, vignette: 0.15 } }
@@ -1718,11 +1723,40 @@ function applyTone(buf, W, H) {
 }
 
 // C: свет → тон → палитра → дизеринг → чистка → обводка
+// «Цвета оригинала»: каждый пиксель сетки получает свой цвет, палитры нет; обводка — по яркости
+function trueColor(buf, W, H) {
+  const N = W * H, rgb = new Uint8ClampedArray(N * 4);
+  for (let i = 0; i < N; i++) { rgb[i * 4] = buf[i * 3]; rgb[i * 4 + 1] = buf[i * 3 + 1]; rgb[i * 4 + 2] = buf[i * 3 + 2]; rgb[i * 4 + 3] = 255; }
+  if (S.outline.on) {
+    const lum = new Float32Array(N), thr = S.outline.threshold, src0 = new Uint8ClampedArray(rgb);
+    for (let i = 0; i < N; i++) lum[i] = 0.299 * src0[i * 4] + 0.587 * src0[i * 4 + 1] + 0.114 * src0[i * 4 + 2];
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = y * W + x, l = lum[i];
+      if ((x > 0 && lum[i - 1] - l > thr) || (x < W - 1 && lum[i + 1] - l > thr) || (y > 0 && lum[i - W] - l > thr) || (y < H - 1 && lum[i + W] - l > thr)) {
+        rgb[i * 4] = src0[i * 4] * 0.3; rgb[i * 4 + 1] = src0[i * 4 + 1] * 0.3; rgb[i * 4 + 2] = src0[i * 4 + 2] * 0.3;
+      }
+    }
+  }
+  // палитры нет; для образцов и тёмного фона полей берём 16 типичных цветов
+  const { sm, cnt } = samplesOf(buf, W, H);
+  const rep = medianCut(sm, cnt, 16).map(c => c.map(Math.round));
+  const lum = rep.map(c => 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]);
+  let darkest = 0; lum.forEach((l, i) => { if (l < lum[darkest]) darkest = i; });
+  G.pal = rep; G.idx = new Uint8Array(N); G.darkest = darkest; G.rgb = rgb; G.trueColor = true;
+  $('#swatches').innerHTML = rep.slice().sort((a, b) => (0.299 * a[0] + 0.587 * a[1] + 0.114 * a[2]) - (0.299 * b[0] + 0.587 * b[1] + 0.114 * b[2])).map(c => `<i style="background:${hexOf(c)}" title="${hexOf(c)}"></i>`).join('');
+  const colored = S.tint > 0 || S.tone.shadowsAmt > 0 || S.tone.highlightsAmt > 0 || S.fog.amount > 0 || S.light.on || S.glow.bloom > 0 ||
+    S.pre.brightness !== 0 || S.pre.contrast !== 0 || S.pre.saturation !== 100 || S.pre.gamma !== 1 || S.vignette > 0;
+  $('#palHint').textContent = 'Палитры нет: каждый пиксель берёт свой цвет из картинки. Дизеринг и чистка в этом режиме не нужны.' +
+    (colored ? ' Сейчас цвета ещё меняют тонировка, предобработка, свет или виньетка — кнопка ниже выключит их разом.' : ' Тонировка и цветокоррекция выключены — цвета как в оригинале.');
+  $('#origFix').hidden = !colored;
+}
 function quantize(fixedPal) {
+  G.trueColor = false;
   const { W, H } = G, N = W * H;
   const buf = new Float32Array(G.base);
   applyLight(buf, W, H);
   applyTone(buf, W, H);
+  if (S.palette.method === 'original') { trueColor(buf, W, H); return; }
   const pal = fixedPal || buildPalette(buf, W, H);
   const match = makeMatcher(pal, S.pix.space), n = pal.length;
   const idx = new Uint8Array(N);
@@ -1907,7 +1941,7 @@ function applyEffects() {
       for (let t = 0; t < run; t++) { const xx = vert ? x : x + t, yy = vert ? y + t : y; if (xx >= W || yy >= H) break; const o = (yy * W + xx) * 4; px[o] = c[0]; px[o + 1] = c[1]; px[o + 2] = c[2]; }
     }
   }
-  if (F.toPalette && fxActive()) {
+  if (F.toPalette && fxActive() && !G.trueColor) {
     const match = makeMatcher(G.pal, S.pix.space);
     for (let i = 0; i < px.length; i += 4) { const c = G.pal[match(px[i], px[i + 1], px[i + 2])]; px[i] = c[0]; px[i + 1] = c[1]; px[i + 2] = c[2]; }
   }
@@ -2120,7 +2154,7 @@ function renderDisplay() {
   fillGifSizes();
   const ex = exportScale();
   const extra = [S.light.on ? 'свет' : '', fxActive() ? 'глитч' : ''].filter(Boolean).join(' + ');
-  $('#info').textContent = `${W}×${H} · ${G.pal.length} цв. · ${G.ms} мс${extra ? ' · ' + extra : ''}${anim && anim.on ? ' · ▶ кадр ' + (anim.i + 1) + '/' + S.anim.frames : ''}`;
+  $('#info').textContent = `${W}×${H} · ${G.trueColor ? 'цвета оригинала' : G.pal.length + ' цв.'} · ${G.ms} мс${extra ? ' · ' + extra : ''}${anim && anim.on ? ' · ▶ кадр ' + (anim.i + 1) + '/' + S.anim.frames : ''}`;
   $('#expHint').textContent = ex.padX || ex.padY
     ? `Сетка ${W}×${H} ×${ex.k} = ${W * ex.k}×${H * ex.k}: остаток ${ex.padX}×${ex.padY} px уйдёт в тёмные поля. Включите «Ровно в 1080» на вкладке «Пиксели», чтобы полей не было.`
     : `Сетка ${W}×${H} увеличится ровно в ${ex.k} раз до ${ex.OW}×${ex.OH}, с подачей пикселя и интерфейсом Shore. Исходный размер — чистая сетка без них.`;
@@ -2195,7 +2229,10 @@ function syncUI() {
   document.querySelectorAll('#styles button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.style === S.style)));
   $('#customHex').hidden = S.palette.method !== 'custom';
   $('#r-outline-threshold').disabled = !S.outline.on;
-  $('#r-dither-strength').disabled = S.dither.type === 'none';
+  const orig = S.palette.method === 'original';
+  $('#r-dither-strength').disabled = S.dither.type === 'none' || orig;
+  $('#ditherSel').disabled = orig; $('#cleanSel').disabled = orig; $('#r-palette-colors').disabled = orig; $('#spaceSel').disabled = orig;
+  if (!orig) $('#origFix').hidden = true;
   $('#r-fx-sortThr').disabled = !(S.fx.sort > 0);
   $('#r-fx-vhsPos').disabled = !(S.fx.vhs > 0);
   $('#r-glow-threshold').disabled = $('#r-glow-radius').disabled = !(S.glow.bloom > 0);
@@ -2208,7 +2245,7 @@ function syncUI() {
   $('#toneH').disabled = !(S.tone.highlightsAmt > 0);
   $('#sortDir').disabled = !(S.fx.sort > 0);
   $('#grainCol').disabled = !(S.fx.grain > 0);
-  $('#toPal').disabled = !fxActive();
+  $('#toPal').disabled = !fxActive() || S.palette.method === 'original';
   document.querySelectorAll('#caSeg button').forEach(b => { b.disabled = !(S.fx.ca > 0); });
   $('#methodHint').textContent = METHOD_HINT[S.pix.method];
   $('#fishSel').disabled = !(S.fisheye > 0);
@@ -2283,6 +2320,11 @@ $('#aspectSeg').addEventListener('click', e => {
 });
 $('#lookSeg').addEventListener('click', e => { const b = e.target.closest('button[data-look]'); if (!b) return; S.pix.look = b.dataset.look; S.style = ''; syncUI(); invalidate('D'); });
 $('#caSeg').addEventListener('click', e => { const b = e.target.closest('button[data-ca]'); if (!b) return; S.fx.caMode = b.dataset.ca; S.style = ''; syncUI(); invalidate('E'); });
+$('#origFixBtn').onclick = () => {
+  S.tint = 0; S.vignette = 0; S.tone.shadowsAmt = 0; S.tone.highlightsAmt = 0; S.fog.amount = 0; S.light.on = false; S.glow.bloom = 0;
+  S.pre = { brightness: 0, contrast: 0, saturation: 100, gamma: 1 }; S.style = '';
+  syncUI(); invalidate('B'); toast('Тонировка, предобработка, свет и виньетка выключены — цвета как в оригинале.');
+};
 $('#reseedBtn').onclick = () => { S.fx.seed = 1 + Math.floor(Math.random() * 9998); syncUI(); invalidate('C'); };
 
 /* ---------- вкладки панели и стили ---------- */
@@ -3045,7 +3087,7 @@ function computeFrom(level, pal) {
 function frameLevel() { let st = tracksStage(); if (needCPerFrame() && ORDER[st] > 2) st = 'C'; if (ORDER[st] > 3) st = 'E'; return st; }
 function lockedPal() {
   const st = tracksStage();
-  if (!S.anim.lockPal || ORDER[st] > 2 || S.keys['palette.colors']) return null;
+  if (!S.anim.lockPal || ORDER[st] > 2 || S.keys['palette.colors'] || S.palette.method === 'original') return null;
   applyTimeline(0); computeFrom('A', null);
   return G.pal.map(c => c.slice());
 }
@@ -3284,7 +3326,7 @@ function pick(e) {
   if (x < 0 || y < 0 || x >= G.W || y >= G.H) { el.textContent = ''; return; }
   const o = (y * G.W + x) * 4, hex = hexOf([G.out[o], G.out[o + 1], G.out[o + 2]]);
   const pi = G.pal.findIndex(c => hexOf(c) === hex);
-  el.innerHTML = `<i style="background:${hex}"></i>x ${x} · y ${y} · ${hex}${pi >= 0 ? ' · цвет ' + (pi + 1) : ' · вне палитры'}`;
+  el.innerHTML = `<i style="background:${hex}"></i>x ${x} · y ${y} · ${hex}${G.trueColor ? '' : pi >= 0 ? ' · цвет ' + (pi + 1) : ' · вне палитры'}`;
 }
 
 /* ---------- отмена и повтор ---------- */
