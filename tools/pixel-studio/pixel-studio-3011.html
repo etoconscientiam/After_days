@@ -853,13 +853,16 @@ function shapePath(e) {
   else return null;
   return p;
 }
+// Границы, в которых рисуется план: сам кадр или кадр с полями за рамкой (для настоящего фишая)
+let PLAN_B = null;
 function bboxOf(e, pw, ph) {
+  const B = PLAN_B || { x0: 0, y0: 0, x1: pw, y1: ph };
   let x0, y0, x1, y1;
   if (e.type === 'ellipse') { x0 = e.cx - Math.abs(e.rx); x1 = +e.cx + Math.abs(e.rx); y0 = e.cy - Math.abs(e.ry); y1 = +e.cy + Math.abs(e.ry); }
   else if (e.type === 'polygon') { x0 = Infinity; y0 = Infinity; x1 = -Infinity; y1 = -Infinity; for (const [x, y] of e.points) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); } }
   else { x0 = +e.x; y0 = +e.y; x1 = +e.x + +e.w; y1 = +e.y + +e.h; }
-  x0 = Math.max(0, Math.floor(x0)); y0 = Math.max(0, Math.floor(y0));
-  x1 = Math.min(pw, Math.ceil(x1)); y1 = Math.min(ph, Math.ceil(y1));
+  x0 = Math.max(Math.floor(B.x0), Math.floor(x0)); y0 = Math.max(Math.floor(B.y0), Math.floor(y0));
+  x1 = Math.min(Math.ceil(B.x1), Math.ceil(x1)); y1 = Math.min(Math.ceil(B.y1), Math.ceil(y1));
   return { x: x0, y: y0, w: Math.max(0, x1 - x0), h: Math.max(0, y1 - y0) };
 }
 function fillShape(ctx, path, e, pw, ph) {
@@ -933,6 +936,20 @@ function inPoly(x, y, pts) {
   }
   return c;
 }
+function fillPlanArea(ctx, pw, ph) { const B = PLAN_B || { x0: 0, y0: 0, x1: pw, y1: ph }; ctx.fillRect(B.x0, B.y0, B.x1 - B.x0, B.y1 - B.y0); }
+// Фон, который касается края кадра (стены, пол, небо, градиенты, грязь), продолжается за рамку; предметы не трогаем
+function extendEl(e, pw, ph, B) {
+  const tol = 1.5, ex = (v, lo, hi, b0, b1) => v <= lo + tol ? b0 : v >= hi - tol ? b1 : v;
+  if (e.type === 'rect' || e.type === 'gradient' || e.type === 'noise-texture') {
+    let x0 = +e.x, y0 = +e.y, x1 = +e.x + +e.w, y1 = +e.y + +e.h;
+    if (x0 <= tol) x0 = B.x0; if (y0 <= tol) y0 = B.y0; if (x1 >= pw - tol) x1 = B.x1; if (y1 >= ph - tol) y1 = B.y1;
+    if (e.type === 'gradient') return { ...e, _fill: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 } };
+    return { ...e, x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+  }
+  if (e.type === 'polygon') return { ...e, points: e.points.map(([x, y]) => [ex(x, 0, pw, B.x0, B.x1), ex(y, 0, ph, B.y0, B.y1)]) };
+  if (e.type === 'line') return { ...e, x1: ex(+e.x1, 0, pw, B.x0, B.x1), x2: ex(+e.x2, 0, pw, B.x0, B.x1), y1: ex(+e.y1, 0, ph, B.y0, B.y1), y2: ex(+e.y2, 0, ph, B.y0, B.y1) };
+  return e;
+}
 function drawLight(ctx, plan, pw, ph, dir) {
   const L = plan.light || {};
   const lc = parseColor(L.color) || [232, 217, 160, 1];
@@ -940,11 +957,11 @@ function drawLight(ctx, plan, pw, ph, dir) {
   const cx = pw / 2, cy = ph / 2, R = Math.hypot(pw, ph) / 2;
   let g = ctx.createLinearGradient(cx - dir[0] * R, cy - dir[1] * R, cx + dir[0] * R, cy + dir[1] * R);
   g.addColorStop(0, rgba(lc, 0.16)); g.addColorStop(0.55, rgba(lc, 0));
-  ctx.save(); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'screen'; ctx.fillStyle = g; ctx.fillRect(0, 0, pw, ph); ctx.restore();
+  ctx.save(); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'screen'; ctx.fillStyle = g; fillPlanArea(ctx, pw, ph); ctx.restore();
   if (shadow > 0) {
     g = ctx.createLinearGradient(cx - dir[0] * R, cy - dir[1] * R, cx + dir[0] * R, cy + dir[1] * R);
     g.addColorStop(0.35, 'rgba(14,20,32,0)'); g.addColorStop(1, `rgba(14,20,32,${0.5 * shadow})`);
-    ctx.save(); ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = g; ctx.fillRect(0, 0, pw, ph); ctx.restore();
+    ctx.save(); ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = g; fillPlanArea(ctx, pw, ph); ctx.restore();
   }
   const fog = L.fog;
   if (fog && +fog.amount > 0) {
@@ -953,7 +970,7 @@ function drawLight(ctx, plan, pw, ph, dir) {
     const hz = plan.camera && isFinite(+plan.camera.horizon) ? clamp(+plan.camera.horizon / ph, 0.05, 0.95) : 0.55;
     g = ctx.createLinearGradient(0, 0, 0, ph);
     g.addColorStop(0, rgba(fc, a * 0.5)); g.addColorStop(hz, rgba(fc, a)); g.addColorStop(1, rgba(fc, a * 0.35));
-    ctx.save(); ctx.fillStyle = g; ctx.fillRect(0, 0, pw, ph); ctx.restore();
+    ctx.save(); ctx.fillStyle = g; fillPlanArea(ctx, pw, ph); ctx.restore();
   }
   const beam = L.beam && normPts(L.beam.points);
   if (beam && beam.length >= 3) {
@@ -980,19 +997,23 @@ function drawLight(ctx, plan, pw, ph, dir) {
     }
   }
 }
-function renderPlan(ctx, plan, ww, wh) {
-  const pw = plan.size.w, ph = plan.size.h;
+// ww×wh — размер кадра на холсте, (ox, oy) — где кадр лежит; всё, что вокруг, — поля, куда сцена продолжается
+function renderPlan(ctx, plan, ww, wh, ox = 0, oy = 0) {
+  const pw = plan.size.w, ph = plan.size.h, sx = ww / pw, sy = wh / ph;
+  const mx = ox / sx, my = oy / sy, over = mx > 0.01 || my > 0.01;
+  PLAN_B = { x0: -mx, y0: -my, x1: pw + (ctx.canvas.width - ox - ww) / sx, y1: ph + (ctx.canvas.height - oy - wh) / sy };
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
-  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, ww, wh);
-  ctx.setTransform(ww / pw, 0, 0, wh / ph, 0, 0);
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  ctx.setTransform(sx, 0, 0, sy, ox, oy);
   ctx.imageSmoothingEnabled = false;
   const L = plan.light || {}, dir = lightDir(L), shadowK = clamp01(L.shadow);
   let seed = 100;
   for (const ly of plan.layers) {
     const lo = ly.opacity == null ? 1 : clamp01(ly.opacity);
-    for (const e of ly.elements || []) {
+    for (const e0 of ly.elements || []) {
       seed++;
+      const e = over ? extendEl(e0, pw, ph, PLAN_B) : e0;
       const op = (e.opacity == null ? 1 : clamp01(e.opacity)) * lo;
       ctx.save();
       try {
@@ -1015,7 +1036,8 @@ function renderPlan(ctx, plan, ww, wh) {
             else if (e.direction === 'radial') g = ctx.createRadialGradient(x + w / 2, y + h / 2, 0, x + w / 2, y + h / 2, Math.max(w, h) / 2);
             else g = ctx.createLinearGradient(0, y, 0, y + h);
             g.addColorStop(0, cssColor(e.from, '#000')); g.addColorStop(1, cssColor(e.to, '#000'));
-            ctx.fillStyle = g; ctx.fillRect(x, y, w, h); break;
+            const fr = e._fill || { x, y, w, h };
+            ctx.fillStyle = g; ctx.fillRect(fr.x, fr.y, fr.w, fr.h); break;
           }
           case 'noise-texture': drawNoise(ctx, e, seed, pw, ph); break;
           case 'window-light': drawWindow(ctx, e); break;
@@ -1026,6 +1048,7 @@ function renderPlan(ctx, plan, ww, wh) {
   }
   drawLight(ctx, plan, pw, ph, dir);
   ctx.restore();
+  PLAN_B = null;
 }
 
 /* ---------- проверка JSON-плана ---------- */
@@ -1151,10 +1174,11 @@ function drawScaled(img, sx, sy, sw, sh, dctx, dw, dh) {
   dctx.imageSmoothingEnabled = true; dctx.imageSmoothingQuality = 'high';
   dctx.drawImage(cur, cx, cy, cw, ch, 0, 0, dw, dh);
 }
+const SAMPLE_ZOOM = 2.2; // пример нарисован с полями: кадр — середина картинки, вокруг продолжение сцены
 function makeSamplePhoto() {
-  const w = 720, h = 1280;
+  const fw = 600, fh = Math.round(fw * 16 / 9), w = Math.round(fw * SAMPLE_ZOOM), h = Math.round(fh * SAMPLE_ZOOM);
   const a = document.createElement('canvas'); a.width = w; a.height = h;
-  renderPlan(a.getContext('2d'), DEMO_PLAN, w, h);
+  renderPlan(a.getContext('2d'), DEMO_PLAN, fw, fh, (w - fw) / 2, (h - fh) / 2);
   const b = document.createElement('canvas'); b.width = w; b.height = h;
   const bx = b.getContext('2d');
   bx.filter = 'blur(3px)'; bx.drawImage(a, 0, 0); bx.filter = 'none';
@@ -1255,34 +1279,37 @@ function fishParams() {
 // Дорисовка за краями: у края — узкая зеркальная полоса, дальше растягивается её крайняя строка или колонка,
 // так стена продолжается стеной, пол полом, без повторов предметов. Потом всё размывается целиком
 // (без тёмного шва), а дальние поля уходят в местный тон сцены.
+// За краем фото: продолжаем фактуру квадратными кусочками, взятыми у самого края на той же высоте (по бокам)
+// или в том же столбце (сверху и снизу). Так горизонт, плинтус, пол и стены тянутся дальше, а не размываются.
 function extendEdges(e, A, Ww, Wh) {
   const ax0 = clamp(Math.floor(A.x), 0, Ww), ay0 = clamp(Math.floor(A.y), 0, Wh), ax1 = clamp(Math.ceil(A.x + A.w), 0, Ww), ay1 = clamp(Math.ceil(A.y + A.h), 0, Wh);
-  const cw = ax1 - ax0, ch = ay1 - ay0; if (cw < 2 || ch < 2) return;
-  const snap = () => { const t = document.createElement('canvas'); t.width = Ww; t.height = Wh; t.getContext('2d').drawImage(e.canvas, 0, 0); return t; };
-  let s1 = snap();
-  const bw = Math.max(1, Math.round(cw * 0.06));
-  if (ax0 > 0) {
-    const b = Math.min(bw, ax0);
-    e.save(); e.translate(ax0, 0); e.scale(-1, 1); e.drawImage(s1, ax0, ay0, b, ch, 0, ay0, b, ch); e.restore();
-    if (ax0 - b > 0) e.drawImage(s1, ax0 + b - 1, ay0, 1, ch, 0, ay0, ax0 - b, ch);
+  const cw = ax1 - ax0, ch = ay1 - ay0;
+  const P = clamp(Math.round(Math.min(cw, ch) * 0.045), 6, 40);
+  if (cw < P * 3 || ch < P * 3 || (ax0 === 0 && ay0 === 0 && ax1 === Ww && ay1 === Wh)) return;
+  const img = e.getImageData(0, 0, Ww, Wh), d = img.data, r = rng(3011);
+  const copy = (sx, sy, dx, dy, w, h) => {
+    for (let j = 0; j < h; j++) {
+      const yy = dy + j; if (yy < 0 || yy >= Wh) continue;
+      for (let i = 0; i < w; i++) {
+        const xx = dx + i; if (xx < 0 || xx >= Ww) continue;
+        const so = ((sy + j) * Ww + sx + i) * 4, o = (yy * Ww + xx) * 4;
+        d[o] = d[so]; d[o + 1] = d[so + 1]; d[o + 2] = d[so + 2]; d[o + 3] = 255;
+      }
+    }
+  };
+  const bw = Math.max(P + 1, Math.min(cw, Math.round(cw * 0.12))), bh = Math.max(P + 1, Math.min(ch, Math.round(ch * 0.12)));
+  const jit = () => Math.round((r() - 0.5) * P * 0.5);
+  for (let y = ay0; y < ay1; y += P) {
+    const h = Math.min(P, ay1 - y);
+    for (let x = ax0 - P; x > -P; x -= P) copy(ax0 + Math.floor(r() * (bw - P)), clamp(y + jit(), ay0, ay1 - h), x, y, P, h);
+    for (let x = ax1; x < Ww; x += P) copy(ax1 - P - Math.floor(r() * (bw - P)), clamp(y + jit(), ay0, ay1 - h), x, y, P, h);
   }
-  if (ax1 < Ww) {
-    const b = Math.min(bw, Ww - ax1);
-    e.save(); e.translate(ax1, 0); e.scale(-1, 1); e.drawImage(s1, ax1 - b, ay0, b, ch, -b, ay0, b, ch); e.restore();
-    if (Ww - ax1 - b > 0) e.drawImage(s1, ax1 - b, ay0, 1, ch, ax1 + b, ay0, Ww - ax1 - b, ch);
+  for (let x = 0; x < Ww; x += P) {
+    const w = Math.min(P, Ww - x);
+    for (let y = ay0 - P; y > -P; y -= P) copy(clamp(x + jit(), 0, Ww - w), ay0 + Math.floor(r() * (bh - P)), x, y, w, P);
+    for (let y = ay1; y < Wh; y += P) copy(clamp(x + jit(), 0, Ww - w), ay1 - P - Math.floor(r() * (bh - P)), x, y, w, P);
   }
-  s1 = snap();
-  const bh = Math.max(1, Math.round(ch * 0.06));
-  if (ay0 > 0) {
-    const b = Math.min(bh, ay0);
-    e.save(); e.translate(0, ay0); e.scale(1, -1); e.drawImage(s1, 0, ay0, Ww, b, 0, 0, Ww, b); e.restore();
-    if (ay0 - b > 0) e.drawImage(s1, 0, ay0 + b - 1, Ww, 1, 0, 0, Ww, ay0 - b);
-  }
-  if (ay1 < Wh) {
-    const b = Math.min(bh, Wh - ay1);
-    e.save(); e.translate(0, ay1); e.scale(1, -1); e.drawImage(s1, 0, ay1 - b, Ww, b, 0, -b, Ww, b); e.restore();
-    if (Wh - ay1 - b > 0) e.drawImage(s1, 0, ay1 - b, Ww, 1, 0, ay1 + b, Ww, Wh - ay1 - b);
-  }
+  e.putImageData(img, 0, 0);
 }
 function mirrorFill(ctx, A, Ww, Wh, draw) {
   const ext = document.createElement('canvas'); ext.width = Ww; ext.height = Wh;
@@ -1291,7 +1318,7 @@ function mirrorFill(ctx, A, Ww, Wh, draw) {
   extendEdges(e, A, Ww, Wh);
   const side = Math.min(A.w, A.h);
   ctx.save();
-  ctx.filter = `blur(${Math.max(2, Math.round(side * 0.022))}px)`;
+  ctx.filter = `blur(${Math.max(1, Math.round(side * 0.005))}px)`;
   ctx.drawImage(ext, 0, 0);
   ctx.restore();
   // уход в местный тон: сильно размытое продолжение с мягкой дырой на месте кадра
@@ -1301,10 +1328,10 @@ function mirrorFill(ctx, A, Ww, Wh, draw) {
   fc.drawImage(ext, 0, 0);
   fc.filter = 'none';
   fc.globalCompositeOperation = 'destination-out';
-  const pad = side * 0.12;
-  fc.filter = `blur(${Math.max(4, Math.round(side * 0.16))}px)`;
+  const pad = side * 0.3;
+  fc.filter = `blur(${Math.max(4, Math.round(side * 0.2))}px)`;
   fc.fillStyle = '#fff'; fc.fillRect(A.x - pad, A.y - pad, A.w + pad * 2, A.h + pad * 2);
-  ctx.save(); ctx.globalAlpha = 0.85; ctx.drawImage(fade, 0, 0); ctx.restore();
+  ctx.save(); ctx.globalAlpha = 0.45; ctx.drawImage(fade, 0, 0); ctx.restore();
 }
 function buildWork() {
   const W = gridW(), H = gridH();
@@ -1329,11 +1356,7 @@ function buildWork() {
     }
     ctx.save(); ctx.translate(ox, oy); drawScaled(src, r.x, r.y, r.w, r.h, ctx, ww, wh); ctx.restore();
   } else if (wide) {
-    const fc = document.createElement('canvas'); fc.width = ww; fc.height = wh;
-    renderPlan(fc.getContext('2d'), plan, ww, wh);
-    mirrorFill(ctx, { x: ox, y: oy, w: ww, h: wh }, Ww, Wh, (c, x, y, w, h) => c.drawImage(fc, x, y, w, h));
-    ctx.drawImage(fc, ox, oy);
-    outside = 1;
+    renderPlan(ctx, plan, ww, wh, ox, oy);
   } else {
     renderPlan(ctx, plan, ww, wh);
   }
@@ -2191,8 +2214,8 @@ function syncUI() {
   $('#fishSel').disabled = !(S.fisheye > 0);
   $('#fishHint').textContent = !(S.fisheye > 0) ? 'Фишай искажает кадр до уменьшения, поэтому пиксели остаются ровными квадратами.'
     : S.fishMode === 'barrel' ? 'Бочка: углы на месте, центр раздувается, края кадра срезаются.'
-    : S.mode === 'image' ? 'Угол обзора шире: в кадр входит то, что было за рамкой. Где картинка кончается, края дорисовываются зеркальным продолжением. Чтобы взять настоящие края, уменьшите кадр («Масштаб кадра» больше 1).'
-    : 'Угол обзора шире: края сцены за рамкой дорисовываются зеркальным продолжением.';
+    : S.mode === 'image' ? 'Угол обзора шире: в кадр входит то, что было за рамкой. Где картинка кончается, её фактура продолжается кусочками от края. Чтобы взять настоящие края, уменьшите кадр («Масштаб кадра» больше 1).'
+    : 'Угол обзора шире: сцена дорисовывается за рамкой — стены, пол и фон, касающиеся краёв, продолжаются со своими текстурами.';
   if (src && S.mode === 'image') {
     const cr = cropRect(), canX = cr.w < src.width - 0.5, canY = cr.h < src.height - 0.5;
     $('#r-crop-cx').disabled = !canX && !(KEYS_READY && S.keys['crop.cx']);
@@ -2445,6 +2468,7 @@ ${schemaText(W, H)}
 - Пол, стены и мебель — в одной перспективе к vanishingPoint; горизонт согласован с camera.horizon.
 - Используй текстуры там, где они уместны (паркет, плитка, дерево, ткань штор и обивки, штукатурка стен).
 - Цвета приглушённые и реалистичные; финальную палитру и дизеринг наложат потом.
+- Фон (стены, пол, потолок, небо, земля) делай на всю ширину и высоту кадра, от края до края: к кадру может быть применён фишай, и всё, что касается краёв, будет продолжено за рамку.
 - Свет, тени (castShadow) и луч согласованы с light.direction.
 
 Описание сцены:
@@ -3394,6 +3418,7 @@ window.addEventListener('paste', e => {
 }
 new ResizeObserver(() => drawCrop()).observe($('#panel'));
 src = makeSamplePhoto();
+S.crop.zoom = SAMPLE_ZOOM;
 $('#planJson').value = fmtPlan(plan);
 syncUI();
 renderKeyUI();
