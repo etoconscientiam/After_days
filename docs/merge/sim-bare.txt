@@ -1,0 +1,60 @@
+[0.1 min] era 1
+[0.2 min] rock rare
+[0.2 min] rock stromatolite
+[0.4 min] rock mudstone
+[0.8 min] rock sandstone
+[1.0 min] era 2
+[1.1 min] rock chalk
+[1.2 min] order stromatolite12
+[1.3 min] rock oil
+[1.5 min] rock limestone
+[1.5 min] rock shale
+[1.7 min] order limestone30
+[2.0 min] rock slate
+[2.0 min] era 3
+[2.1 min] rock peat
+[2.4 min] rock lignite
+[2.5 min] rock amber
+[2.8 min] rock coal
+[3.3 min] rock anthracite
+[3.5 min] era 4
+[3.7 min] rock gas
+[3.7 min] note n01
+[3.7 min] prestige gain=2 total=3 foundation=15.9
+[3.9 min] era 1
+[4.6 min] era 2
+[4.9 min] order stromatolite12
+[5.6 min] era 3
+[5.8 min] order shale60
+[7.0 min] era 4
+[7.1 min] order amberInsect
+[7.6 min] rock phosphorite
+[9.3 min] fossil herds
+[9.5 min] rock quartzite
+[9.6 min] rock marble
+[9.6 min] era 5
+[9.6 min] fossil herds
+[9.7 min] order coal20
+[9.7 min] fossil herds
+[9.7 min] order peat20
+[9.7 min] fossil herds
+[9.7 min] fossil herds
+  .. 10m era=5 year=86926 E=2.36e+6 inc=4.36e+5 yps=20.5 O2=21.0 particles=11143 archive=160 sunk=2597 gain=4 cond=0.50 fossils=15 mudstone:118 rare:92 stromatolite:92 sandstone:17 gas:5689 oil:467 chalk:410 limestone:1970 shale:6803 slate:10574 peat:592 lignite:13097 coal:2961 anthracite:711 amber:536 phosphorite:71 quartzite:682 marble:11
+[12.2 min] note n02
+[12.2 min] prestige gain=6 total=8 foundation=39.9
+[13.3 min] era 3
+[13.4 min] order limestone30
+[14.1 min] order mudstone40
+[14.7 min] era 4
+[14.9 min] order shale60
+[17.1 min] era 5
+[17.2 min] order predatorFossil
+  .. 20m era=5 year=94447 E=3.45e+6 inc=1.86e+6 yps=26.1 O2=21.0 particles=11126 archive=160 sunk=3253 gain=5 cond=1.00 fossils=223 mudstone:108 stromatolite:60 sandstone:23 chalk:238 gas:8483 limestone:1563 oil:361 shale:7386 rare:65 peat:896 slate:11357 lignite:17921 coal:2375 anthracite:5459 amber:730 phosphorite:240 quartzite:228 marble:141
+[21.4 min] era 6
+[21.6 min] order coal20
+[24.1 min] era 7
+[24.7 min] order predatorFossil
+[26.1 min] temple bury
+[26.1 min] done playthrough 1
+[26.1 min] end density=3 prestiges=2
+wrote sim/out/sim_1.csv

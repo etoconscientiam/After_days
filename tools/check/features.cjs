@@ -24,7 +24,7 @@ const { chromium, devices } = require('playwright');
     const wy = lay.sectionTop + sec.topD[wx] + (sec.strataH - sec.topD[wx]) * k;
     return { x: r.left + (wx / 180) * r.width, y: r.top + (wy / 320) * r.height };
   }, { wx, k });
-  await ev(() => { const s = window.__strata, g = s.game; if (g.state.phase === 'choose') g.chooseItem(g.availableItems()[0]); s.dev.jumpEra(2); g.run.oxygen = 21;
+  await ev(() => { const s = window.__strata, g = s.game; if (g.state.phase === 'choose') g.chooseItem(g.availableItems()[0]); s.dev.fillStrata(); s.dev.jumpEra(2); g.run.oxygen = 21;
     for (const id of ['mats', 'plankton', 'molluscs', 'fish']) for (let k = 0; k < 6; k++) { g.run.energy += 1e9; g.buySpecies(id); } });
   await p.waitForTimeout(800);
 
@@ -132,7 +132,8 @@ const { chromium, devices } = require('playwright');
       g.run.compactMass = Math.max(g.run.compactMass, 1e9);
       const ok = g.prestige();
       if (g.state.phase === 'choose') g.chooseItem(g.availableItems()[0]);
-      return ok && g.meta.prestiges === P + 1 && g.grid.particles() > 1000 ? `particles ${g.grid.particles()}` : false;
+      // a new world starts bare: the foundation and the thing, nothing on it
+      return ok && g.meta.prestiges === P + 1 && g.grid.particles() < 200 ? `bare world, particles ${g.grid.particles()}` : false;
     });
   });
   await p.waitForTimeout(1000);

@@ -49,6 +49,16 @@
    "growth": 1.35
   },
   {
+   "id": "drizzle",
+   "branch": "awakening",
+   "currency": "energy",
+   "base": 80,
+   "stat": "drizzle",
+   "kind": "add",
+   "value": 0.1,
+   "growth": 1.4
+  },
+  {
    "id": "sediment",
    "branch": "awakening",
    "currency": "energy",

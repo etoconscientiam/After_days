@@ -11,7 +11,7 @@ const { chromium, devices } = require('playwright');
   const b = await chromium.launch();
   const p = await (await b.newContext({ ...devices['iPhone 13'] })).newPage();
   await p.goto('http://127.0.0.1:5173/'); await p.evaluate(() => localStorage.clear()); await p.goto('http://127.0.0.1:5173/'); await p.waitForTimeout(1500);
-  await p.evaluate(() => { const s = window.__strata, g = s.game; g.chooseItem(g.availableItems()[0]); s.dev.timeScale = 20; });
+  await p.evaluate(() => { const s = window.__strata, g = s.game; g.chooseItem(g.availableItems()[0]); s.dev.fillStrata(); s.dev.timeScale = 20; });
   await p.waitForTimeout(1500);
   await p.evaluate(() => { const s = window.__strata, g = s.game; s.dev.jumpEra(1); g.run.oxygen = 21; for (let k = 0; k < 4; k++) { g.run.energy += 1e9; g.buySpecies('mats'); } s.dev.jumpEra(2); for (let k = 0; k < 6; k++) for (const id of ['plankton', 'fish', 'molluscs']) { g.run.energy += 1e9; g.buySpecies(id); } s.dev.timeScale = 3; });
   await p.waitForTimeout(3000);

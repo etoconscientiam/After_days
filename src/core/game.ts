@@ -100,7 +100,8 @@ export class Game {
     this.run.sink = { acc: 0, rows: 0 };
     this.run.beds = [];
     this.band = [];
-    this.prefill();
+    // a world starts bare: the foundation and the thing on it, nothing else — taps bury it (sand.startEmpty)
+    if (!SAND.startEmpty) this.prefill();
   }
 
   /** A world starts on the ground of the old one: the strata filled up to just under the line (the sea floor lower),

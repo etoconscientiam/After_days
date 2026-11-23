@@ -32,7 +32,7 @@ export function zoneSourcesBase(g: Game): number[] {
 }
 
 /** What each zone lays down now: total rate (cells per world column per year) and the material weights. */
-export function zoneSources(g: Game): ZoneSource[] {
+export function zoneSources(g: Game, natMul = 1): ZoneSource[] {
   const r = g.run;
   const out: ZoneSource[] = [];
   for (let zi = 0; zi < 3; zi++) {
@@ -42,12 +42,14 @@ export function zoneSources(g: Game): ZoneSource[] {
     const bg = CFG.B.zones.background[z];
     let base = bgMat[z];
     if (z === 'land' && r.era < CFG.B.zones.landAltBeforeEra) base = dustMat;
-    add(base, bg);
-    let rate = bg;
+    // the natural flow (the zone's background and what its life lays down) scaled by natMul — the drizzle
+    // upgrade; what an element adds is not
+    add(base, bg * natMul);
+    let rate = bg * natMul;
     for (const sp of CFG.species) {
       const n = r.pop[sp.id][zi];
-      if (n <= 0 || !sp.deposit.contrib) continue;
-      const sr = (sp.deposit.contrib * n) / 10;
+      if (n <= 0 || !sp.deposit.contrib || natMul <= 0) continue;
+      const sr = (sp.deposit.contrib * n * natMul) / 10;
       rate += sr;
       for (const [m, w] of Object.entries(sp.deposit.mats)) add(mat(m), sr * w);
     }
@@ -60,7 +62,8 @@ export function zoneSources(g: Game): ZoneSource[] {
     }
     const mats: number[] = [], w: number[] = [], cum: number[] = [];
     let c = 0;
-    for (const [m, v] of weights) { c += v; mats.push(m); w.push(v); cum.push(c); }
+    for (const [m, v] of weights) { if (v <= 0) continue; c += v; mats.push(m); w.push(v); cum.push(c); }
+    if (!mats.length) { mats.push(base); w.push(1); cum.push(1); c = 1; }
     out.push({ rate, bg, base, mats, w, cum: cum.map((v) => v / c) });
   }
   return out;
@@ -104,7 +107,8 @@ export function drizzle(g: Game, dy: number): void {
   const r = g.run;
   const surf = g.grid.surf;
   for (let x = 0; x < GW; x++) room[x] = surf[x] - reliefRow(g, x);
-  const src = zoneSources(g);
+  // at the start nothing falls on its own: the drizzle upgrade opens the natural flow (elements always lay theirs)
+  const src = zoneSources(g, g.stats.drizzle);
   const depMul = 1 + g.stats.deposition;
   const advFrom = r.startWaterEnd;
   const mix = g.zoneMix;
@@ -226,5 +230,7 @@ export function tapPile(g: Game, X: number, n: number): number {
     decorate: (i, m) => { if (m === M.resin && g.rng.next() < 0.06 * (insects > 0 ? 3 : 1)) g.grid.flags[i] |= P_INSECT; },
   }, g.headless);
   g.run.layers += placed;
+  // the carcass pools go down with the pile (with no drizzle the taps are the only burial)
+  if (placed > 0) for (let k = 0; k < Math.ceil(placed / 3); k++) buryFromPool(g, x, zi, 1, g.headless);
   return placed;
 }

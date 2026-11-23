@@ -241,6 +241,10 @@
       "name": "Striving",
       "desc": "+5% time speed"
     },
+    "drizzle": {
+      "name": "Drizzle",
+      "desc": "Particles settle on the surface by themselves: +10% of the natural flow per level"
+    },
     "sediment": {
       "name": "Sediment",
       "desc": "+5% deposition speed"

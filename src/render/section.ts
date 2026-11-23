@@ -219,7 +219,17 @@ export class SectionRenderer {
       if (r >= band0 && r <= grid.sinkRow) continue;
       for (let x = 0; x < GW; x++) {
         const i = r * GW + x, m = grid.mat[i];
-        if (!m || KIND[m] === K_NONE) continue;
+        if (!m || KIND[m] === K_NONE) {
+          // open water over a bare floor: the sea goes all the way down, darker with depth
+          if (g.water.col[x] === 1 && r >= g.water.level) {
+            const k = Math.min(1, (r - g.water.level) / Math.max(1, grid.floor - g.water.level));
+            const n = (hash2(x, r) - 0.5) * 6;
+            const c = pack32(40 - 28 * k + n, 88 - 54 * k + n, 116 - 60 * k + n);
+            const o = yPix * WW + x * 2;
+            buf[o] = c; buf[o + 1] = c; buf[o + WW] = c; buf[o + WW + 1] = c;
+          }
+          continue;
+        }
         if (KIND[m] === K_SOLID) {
           // the thing's cells: the horizon pattern (the renderer draws the thing itself on it)
           for (let d = 0; d < 4; d++) { const xx = x * 2 + (d & 1), yy = yPix + (d >> 1); buf[yy * WW + xx] = HORIZON32[xx * HR + ((yy - (grid.floor * 2 - HR)) % HR + HR) % HR]; }

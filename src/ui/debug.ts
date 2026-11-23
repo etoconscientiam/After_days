@@ -96,6 +96,13 @@ export class DevPanel {
     toggle(this.btn, 'fast', this.timeScale !== 1 || this.skyFrozen);
   }
 
+  /** Fill the bare world with old ground up to its relief (tests, a quick look at a filled section). */
+  fillStrata(): void {
+    const g = this.g();
+    g.prefill();
+    g.updateWater();
+  }
+
   jumpEra(era: number): void {
     const g = this.g();
     const r = g.run;

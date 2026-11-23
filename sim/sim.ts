@@ -52,14 +52,16 @@ function botBuy() {
       if (sp.id === 'tribe') score *= 6;
       if (cost <= g.run.energy && score > bestScore) { bestScore = score; best = () => g.buySpecies(sp.id); }
     }
-    for (const id of ['impulse', 'radiance', 'striving', 'sediment']) {
+    for (const id of ['impulse', 'radiance', 'striving', 'sediment', 'drizzle']) {
       const cost = g.upgradeCost(id);
       if (cost > g.run.energy) continue;
       let gain = 0;
       if (id === 'radiance') gain = 0.5 * g.stats.energyMul;
       if (id === 'impulse') gain = cps * g.stats.clickMul * 0.5;
       if (id === 'striving') gain = inc * 0.05 * 0.5;
-      if (id === 'sediment') gain = inc * 0.03 * 0.5;
+      if (id === 'sediment') gain = inc * 0.03 * 0.5 * Math.min(1, g.stats.drizzle);
+      // the natural flow: more matter to absorb and the life's deposits; worth most while it is small
+      if (id === 'drizzle') gain = (inc + 1) * 0.08 / (1 + g.stats.drizzle * 3);
       const score = gain / cost;
       if (score > bestScore) { bestScore = score; best = () => g.buyUpgrade(id); }
     }
