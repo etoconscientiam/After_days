@@ -354,8 +354,15 @@ input[type=color]::-moz-color-swatch{border:0;border-radius:4px}
             <div class="row" data-r="pre.contrast,Контраст,-100,100,1,signed,B"></div>
             <div class="row" data-r="pre.saturation,Насыщенность,0,200,1,pct,B"></div>
             <div class="row" data-r="pre.gamma,Гамма,0.4,2.5,0.01,x2,B"></div>
-            <div class="row" data-r="fisheye,Фишай,0,1,0.01,pct100,B"></div>
-            <p class="hint">Фишай искажает кадр до уменьшения, поэтому пиксели остаются ровными квадратами.</p>
+            <div class="row" data-r="fisheye,Фишай,0,1,0.01,pct100,A"></div>
+            <div class="line">
+              <label for="fishSel">Вид фишая</label>
+              <select id="fishSel" data-bind="fishMode" data-stage="A">
+                <option value="wide">настоящий: шире угол, края дорисовываются</option>
+                <option value="barrel">бочка: центр раздувается, края срезаются</option>
+              </select>
+            </div>
+            <p class="hint" id="fishHint">Фишай искажает кадр до уменьшения, поэтому пиксели остаются ровными квадратами.</p>
           </div>
         </section>
       </div>
@@ -688,6 +695,7 @@ const DEFAULTS = {
   crop: { cx: 0.5, cy: 0.5, zoom: 1 },
   pre: { brightness: 0, contrast: 8, saturation: 92, gamma: 1 },
   fisheye: 0,
+  fishMode: 'wide',
   grid: { width: 108, snap: true },
   pix: { method: 'avg', sharpen: 0.3, space: 'oklab', look: 'none', lookStrength: 0.5 },
   palette: { method: 'gnet', colors: 22, custom: '#0f1416 #1b2428 #263238 #3b4a4f #4a5a55 #5d6b60 #75806f #8e967f #a7ab8e #c2c3a0 #b8bb6a #9ea54c #d4c06a #b39a3a #a07c45 #7a5a33 #4e3a26 #e2dcb0' },
@@ -739,7 +747,7 @@ const STYLES = [
     palette: { method: 'kmeans', colors: 16 }, dither: { type: 'none', strength: 0 }, clean: 'strong', outline: { on: true, threshold: 48 },
     pix: { method: 'dominant', sharpen: 0.5, look: 'grid', lookStrength: 0.35 }, tint: 0, vignette: 0.15 } }
 ];
-const STYLE_KEYS = ['pre', 'fisheye', 'pix', 'palette', 'dither', 'clean', 'outline', 'light', 'glow', 'fog', 'tone', 'tint', 'vignette', 'fx'];
+const STYLE_KEYS = ['pre', 'fisheye', 'fishMode', 'pix', 'palette', 'dither', 'clean', 'outline', 'light', 'glow', 'fog', 'tone', 'tint', 'vignette', 'fx'];
 
 const PALETTES = {
   gnet: ['#0f1416','#1b2428','#263238','#2f3d45','#3b4a4f','#4a5a55','#5d6b60','#75806f','#8e967f','#a7ab8e','#c2c3a0','#b8bb6a','#9ea54c','#7d8a3c','#5c6a34','#d4c06a','#b39a3a','#a07c45','#7a5a33','#4e3a26','#c98f4a','#e2dcb0'],
@@ -1237,21 +1245,100 @@ const gridCv = document.createElement('canvas');
 const fishCv = document.createElement('canvas'); // «до» с тем же фишаем, чтобы шторка совпадала геометрически
 
 // A: источник → рабочий холст (W·f × H·f)
+/* Настоящий фишай (равноугольная проекция): в центре масштаб прежний, к краям в кадр входит то, что было за рамкой.
+   t = tg(α), где α растёт с силой фишая; точка на расстоянии ρ от центра (в долях полудиагонали)
+   берётся из исходника на расстоянии tg(ρ·t)/t. rc — насколько далеко за рамку уходят углы. */
+function fishParams() {
+  const k = clamp(+S.fisheye || 0, 0, 1), t = Math.tan(k * 0.87);
+  return { k, t, rc: t > 1e-4 ? Math.tan(t) / t : 1 };
+}
+// Дорисовка за краями: у края — узкая зеркальная полоса, дальше растягивается её крайняя строка или колонка,
+// так стена продолжается стеной, пол полом, без повторов предметов. Потом всё размывается целиком
+// (без тёмного шва), а дальние поля уходят в местный тон сцены.
+function extendEdges(e, A, Ww, Wh) {
+  const ax0 = clamp(Math.floor(A.x), 0, Ww), ay0 = clamp(Math.floor(A.y), 0, Wh), ax1 = clamp(Math.ceil(A.x + A.w), 0, Ww), ay1 = clamp(Math.ceil(A.y + A.h), 0, Wh);
+  const cw = ax1 - ax0, ch = ay1 - ay0; if (cw < 2 || ch < 2) return;
+  const snap = () => { const t = document.createElement('canvas'); t.width = Ww; t.height = Wh; t.getContext('2d').drawImage(e.canvas, 0, 0); return t; };
+  let s1 = snap();
+  const bw = Math.max(1, Math.round(cw * 0.06));
+  if (ax0 > 0) {
+    const b = Math.min(bw, ax0);
+    e.save(); e.translate(ax0, 0); e.scale(-1, 1); e.drawImage(s1, ax0, ay0, b, ch, 0, ay0, b, ch); e.restore();
+    if (ax0 - b > 0) e.drawImage(s1, ax0 + b - 1, ay0, 1, ch, 0, ay0, ax0 - b, ch);
+  }
+  if (ax1 < Ww) {
+    const b = Math.min(bw, Ww - ax1);
+    e.save(); e.translate(ax1, 0); e.scale(-1, 1); e.drawImage(s1, ax1 - b, ay0, b, ch, -b, ay0, b, ch); e.restore();
+    if (Ww - ax1 - b > 0) e.drawImage(s1, ax1 - b, ay0, 1, ch, ax1 + b, ay0, Ww - ax1 - b, ch);
+  }
+  s1 = snap();
+  const bh = Math.max(1, Math.round(ch * 0.06));
+  if (ay0 > 0) {
+    const b = Math.min(bh, ay0);
+    e.save(); e.translate(0, ay0); e.scale(1, -1); e.drawImage(s1, 0, ay0, Ww, b, 0, 0, Ww, b); e.restore();
+    if (ay0 - b > 0) e.drawImage(s1, 0, ay0 + b - 1, Ww, 1, 0, 0, Ww, ay0 - b);
+  }
+  if (ay1 < Wh) {
+    const b = Math.min(bh, Wh - ay1);
+    e.save(); e.translate(0, ay1); e.scale(1, -1); e.drawImage(s1, 0, ay1 - b, Ww, b, 0, -b, Ww, b); e.restore();
+    if (Wh - ay1 - b > 0) e.drawImage(s1, 0, ay1 - b, Ww, 1, 0, ay1 + b, Ww, Wh - ay1 - b);
+  }
+}
+function mirrorFill(ctx, A, Ww, Wh, draw) {
+  const ext = document.createElement('canvas'); ext.width = Ww; ext.height = Wh;
+  const e = ext.getContext('2d');
+  draw(e, A.x, A.y, A.w, A.h);
+  extendEdges(e, A, Ww, Wh);
+  const side = Math.min(A.w, A.h);
+  ctx.save();
+  ctx.filter = `blur(${Math.max(2, Math.round(side * 0.022))}px)`;
+  ctx.drawImage(ext, 0, 0);
+  ctx.restore();
+  // уход в местный тон: сильно размытое продолжение с мягкой дырой на месте кадра
+  const fade = document.createElement('canvas'); fade.width = Ww; fade.height = Wh;
+  const fc = fade.getContext('2d');
+  fc.filter = `blur(${Math.max(6, Math.round(side * 0.18))}px) brightness(0.82)`;
+  fc.drawImage(ext, 0, 0);
+  fc.filter = 'none';
+  fc.globalCompositeOperation = 'destination-out';
+  const pad = side * 0.12;
+  fc.filter = `blur(${Math.max(4, Math.round(side * 0.16))}px)`;
+  fc.fillStyle = '#fff'; fc.fillRect(A.x - pad, A.y - pad, A.w + pad * 2, A.h + pad * 2);
+  ctx.save(); ctx.globalAlpha = 0.85; ctx.drawImage(fade, 0, 0); ctx.restore();
+}
 function buildWork() {
   const W = gridW(), H = gridH();
   const f = clamp(Math.ceil(768 / W), 2, 4);
   const ww = W * f, wh = H * f;
-  workCv.width = ww; workCv.height = wh;
+  const fp = fishParams(), wide = S.fishMode !== 'barrel' && fp.k >= 0.001;
+  const E = wide ? Math.min(2.4, fp.rc * 1.02 + 0.02) : 1;
+  const Ww = wide ? Math.ceil(ww * E / 2) * 2 : ww, Wh = wide ? Math.ceil(wh * E / 2) * 2 : wh;
+  const ox = (Ww - ww) / 2, oy = (Wh - wh) / 2;
+  workCv.width = Ww; workCv.height = Wh;
   const ctx = workCv.getContext('2d', { willReadFrequently: true });
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, Ww, Wh);
+  let outside = 0;
   if (S.mode === 'image') {
-    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, ww, wh);
     const r = cropRect();
-    drawScaled(src, r.x, r.y, r.w, r.h, ctx, ww, wh);
+    if (wide) {
+      const sc = ww / r.w, A = { x: ox - r.x * sc, y: oy - r.y * sc, w: src.width * sc, h: src.height * sc };
+      mirrorFill(ctx, A, Ww, Wh, (c, x, y, w, h) => { c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high'; c.drawImage(src, x, y, w, h); });
+      ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(src, A.x, A.y, A.w, A.h);
+      outside = Math.max(0, A.x > 0 || A.y > 0 || A.x + A.w < Ww || A.y + A.h < Wh ? 1 : 0);
+    }
+    ctx.save(); ctx.translate(ox, oy); drawScaled(src, r.x, r.y, r.w, r.h, ctx, ww, wh); ctx.restore();
+  } else if (wide) {
+    const fc = document.createElement('canvas'); fc.width = ww; fc.height = wh;
+    renderPlan(fc.getContext('2d'), plan, ww, wh);
+    mirrorFill(ctx, { x: ox, y: oy, w: ww, h: wh }, Ww, Wh, (c, x, y, w, h) => c.drawImage(fc, x, y, w, h));
+    ctx.drawImage(fc, ox, oy);
+    outside = 1;
   } else {
     renderPlan(ctx, plan, ww, wh);
   }
-  G.work = ctx.getImageData(0, 0, ww, wh);
-  G.W = W; G.H = H; G.f = f;
+  G.work = ctx.getImageData(0, 0, Ww, Wh);
+  G.W = W; G.H = H; G.f = f; G.Ww = Ww; G.Wh = Wh; G.ox = ox; G.oy = oy; G.fishOutside = wide && outside;
 }
 
 // сведение блока f×f в один пиксель сетки
@@ -1289,13 +1376,14 @@ function buildBase() {
   const sat = S.pre.saturation / 100, method = S.pix.method;
   const out = new Float32Array(W * H * 3);
   const n = f * f, sr = new Float32Array(n), sg = new Float32Array(n), sb = new Float32Array(n);
-  const k = S.fisheye * 1.15;
+  const k = S.fisheye * 1.15, fp = fishParams(), wide = S.fishMode !== 'barrel';
+  const Ww = G.Ww || ww, Wh = G.Wh || wh, ox = G.ox || 0, oy = G.oy || 0;
   G.fish = k >= 0.001;
   if (!G.fish) {
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       let s = 0;
       for (let j = 0; j < f; j++) {
-        let o = ((y * f + j) * ww + x * f) * 4;
+        let o = ((y * f + j + oy) * Ww + x * f + ox) * 4;
         for (let i = 0; i < f; i++, o += 4, s++) { sr[s] = lut[d[o]]; sg[s] = lut[d[o + 1]]; sb[s] = lut[d[o + 2]]; }
       }
       reduceBlock(sr, sg, sb, n, method, out, (y * W + x) * 3, f);
@@ -1306,11 +1394,11 @@ function buildBase() {
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       let s = 0;
       for (let j = 0; j < f; j++) for (let i = 0; i < f; i++, s++) {
-        const dx = (x * f + i + 0.5 - cx) / R, dy = (y * f + j + 0.5 - cy) / R;
-        const sc = (1 + k * (dx * dx + dy * dy)) / kk;
-        const px = clamp(cx + dx * sc * R - 0.5, 0, ww - 1.001), py = clamp(cy + dy * sc * R - 0.5, 0, wh - 1.001);
+        const dx = (x * f + i + 0.5 - cx) / R, dy = (y * f + j + 0.5 - cy) / R, rho = Math.sqrt(dx * dx + dy * dy);
+        const sc = wide ? (rho > 1e-6 ? Math.tan(rho * fp.t) / (fp.t * rho) : 1) : (1 + k * rho * rho) / kk;
+        const px = clamp(ox + cx + dx * sc * R - 0.5, 0, Ww - 1.001), py = clamp(oy + cy + dy * sc * R - 0.5, 0, Wh - 1.001);
         const x0 = px | 0, y0 = py | 0, tx = px - x0, ty = py - y0;
-        const o00 = (y0 * ww + x0) * 4, o10 = o00 + 4, o01 = o00 + ww * 4, o11 = o01 + 4;
+        const o00 = (y0 * Ww + x0) * 4, o10 = o00 + 4, o01 = o00 + Ww * 4, o11 = o01 + 4;
         const w00 = (1 - tx) * (1 - ty), w10 = tx * (1 - ty), w01 = (1 - tx) * ty, w11 = tx * ty;
         const r0 = Math.round(d[o00] * w00 + d[o10] * w10 + d[o01] * w01 + d[o11] * w11);
         const g0 = Math.round(d[o00 + 1] * w00 + d[o10 + 1] * w10 + d[o01 + 1] * w01 + d[o11 + 1] * w11);
@@ -2100,6 +2188,11 @@ function syncUI() {
   $('#toPal').disabled = !fxActive();
   document.querySelectorAll('#caSeg button').forEach(b => { b.disabled = !(S.fx.ca > 0); });
   $('#methodHint').textContent = METHOD_HINT[S.pix.method];
+  $('#fishSel').disabled = !(S.fisheye > 0);
+  $('#fishHint').textContent = !(S.fisheye > 0) ? 'Фишай искажает кадр до уменьшения, поэтому пиксели остаются ровными квадратами.'
+    : S.fishMode === 'barrel' ? 'Бочка: углы на месте, центр раздувается, края кадра срезаются.'
+    : S.mode === 'image' ? 'Угол обзора шире: в кадр входит то, что было за рамкой. Где картинка кончается, края дорисовываются зеркальным продолжением. Чтобы взять настоящие края, уменьшите кадр («Масштаб кадра» больше 1).'
+    : 'Угол обзора шире: края сцены за рамкой дорисовываются зеркальным продолжением.';
   if (src && S.mode === 'image') {
     const cr = cropRect(), canX = cr.w < src.width - 0.5, canY = cr.h < src.height - 0.5;
     $('#r-crop-cx').disabled = !canX && !(KEYS_READY && S.keys['crop.cx']);
@@ -2475,7 +2568,7 @@ $('#tbPng').onclick = exportPng;
 $('#expGrid').onclick = () => { if (G.idx) gridCv.toBlob(b => saveBlob(b, `pixel3011_${G.W}x${G.H}.png`), 'image/png'); };
 
 /* ---------- пресеты (текст JSON, без localStorage) ---------- */
-const SAVE_KEYS = ['aspect', 'crop', 'pre', 'fisheye', 'grid', 'pix', 'palette', 'dither', 'clean', 'outline', 'light', 'glow', 'fog', 'tone', 'tint', 'vignette', 'fx', 'anim', 'keys', 'shore'];
+const SAVE_KEYS = ['aspect', 'crop', 'pre', 'fisheye', 'fishMode', 'grid', 'pix', 'palette', 'dither', 'clean', 'outline', 'light', 'glow', 'fog', 'tone', 'tint', 'vignette', 'fx', 'anim', 'keys', 'shore'];
 function presetText() {
   const settings = {}; for (const k of SAVE_KEYS) settings[k] = JSON.parse(JSON.stringify(S[k]));
   const o = { app: 'pixel-studio-3011', version: 2, settings, scene: $('#sceneText').value };
