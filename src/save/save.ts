@@ -214,6 +214,8 @@ export function saveLocal(g: Game): boolean {
 
 export function loadLocal(): Loaded | null {
   try {
+    // saves of the worlds that started on old ground are not carried over: the game starts anew, bare
+    for (const k of (CFG.B.save as { oldKeys?: string[] }).oldKeys ?? []) localStorage.removeItem(k);
     const s = localStorage.getItem(KEY);
     if (!s) return null;
     return deserialize(s);

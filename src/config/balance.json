@@ -138,7 +138,8 @@
   "diversityBonus": 0.1
  },
  "save": {
-  "key": "strata.save.v1",
+  "key": "strata.save.bare1",
+  "oldKeys": ["strata.save.v1"],
   "autosave": 30,
   "version": 3
  },
