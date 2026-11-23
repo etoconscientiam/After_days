@@ -26,9 +26,11 @@
 html,body{height:100%}
 body{background:var(--bg);color:var(--fg);font:14px/1.45 var(--f-body);margin:0}
 *{box-sizing:border-box}
-.app{display:flex;flex-direction:column;height:100%;gap:12px;padding-block:12px;
+.app{display:flex;flex-direction:column;height:100%;gap:8px;padding-block:8px;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
-header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+header{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap}
+header .toolbar{flex:1 1 auto;min-width:0}
+@media (max-width:1499px){.brand small{display:none}}
 .brand{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;min-width:0}
 h1{font-family:var(--f-disp);font-weight:500;font-size:17px;letter-spacing:.01em;margin:0;text-wrap:balance}
 h1 b{font-weight:500;color:var(--accent)}
@@ -38,7 +40,7 @@ h1 b{font-weight:500;color:var(--accent)}
 .tabs button[aria-selected="true"]{background:var(--raise);color:var(--fg);box-shadow:inset 0 0 0 1px var(--line-2)}
 .tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 
-.layout{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) clamp(360px,27vw,440px);gap:12px}
+.layout{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) clamp(320px,30vw,440px);gap:12px}
 .stage-col{min-width:0;min-height:0;display:flex;flex-direction:column;gap:8px}
 .stage{flex:1;min-height:0;position:relative;border:1px solid var(--line);border-radius:10px;overflow:hidden;
   background-color:var(--surface);
@@ -104,6 +106,9 @@ select{cursor:pointer}
 .seg button{all:unset;cursor:pointer;padding:5px 12px;border-radius:5px;color:var(--muted);font-size:12.5px;font-weight:500}
 .seg button[aria-pressed="true"]{background:var(--raise);color:var(--fg);box-shadow:inset 0 0 0 1px var(--line-2)}
 .seg button:focus-visible{outline:2px solid var(--accent)}
+.seg button:disabled{opacity:.4;cursor:default}
+.row:has(input:disabled) label,.row:has(input:disabled) output,.line:has(>:disabled)>label{opacity:.45}
+input:disabled,select:disabled{opacity:.5;cursor:default}
 .btn{appearance:none;border:1px solid var(--line-2);background:var(--raise);color:var(--fg);border-radius:7px;padding:7px 12px;font:500 13px var(--f-body);cursor:pointer}
 .btn:hover{border-color:var(--muted)}
 .btn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
@@ -149,13 +154,16 @@ input[type=color]::-moz-color-swatch{border:0;border-radius:4px}
 .lamp{position:absolute;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;border:2px solid #fff3c4;box-shadow:0 0 0 2px rgba(12,16,15,.6),0 0 18px 4px rgba(255,220,140,.45);cursor:move;touch-action:none;z-index:4}
 .lamp::after{content:"";position:absolute;inset:7px;border-radius:50%;background:#fff3c4}
 .lamp:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
-@media (max-width:900px){
+@media (max-width:719px){
   .tg.end{margin-left:0}
   html,body{height:auto}
   .app{height:auto}
   .layout{grid-template-columns:minmax(0,1fr)}
-  .stage{flex:none;height:min(64vh,720px)}
+  /* холст закреплён сверху: настройки прокручиваются под ним, картинку видно всегда */
+  .stage-col{position:sticky;top:env(safe-area-inset-top,0px);z-index:6;background:var(--bg);padding-block:6px;margin-block:-6px;box-shadow:0 10px 14px -10px rgba(0,0,0,.7)}
+  .stage{flex:none;height:clamp(220px,44vh,520px)}
   .panel{overflow:visible}
+  .phead{position:static}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -166,15 +174,7 @@ input[type=color]::-moz-color-swatch{border:0;border-radius:4px}
       <h1>Пиксельная студия <b>3011</b></h1>
       <small>картинка или описание → квадратные пиксели</small>
     </div>
-    <div class="tabs" role="tablist" aria-label="Режим">
-      <button role="tab" id="tabImage" aria-selected="true">Из картинки</button>
-      <button role="tab" id="tabText" aria-selected="false">Из текста</button>
-    </div>
-  </header>
-
-  <main class="layout">
-    <section class="stage-col" aria-label="Холст">
-      <div class="toolbar" role="toolbar" aria-label="Инструменты">
+    <div class="toolbar" role="toolbar" aria-label="Инструменты">
         <div class="tg">
           <label class="tb" for="fileIn" title="Открыть картинку (Ctrl+O). Можно вставить из буфера Ctrl+V или перетащить файл">Открыть…</label>
           <button class="tb icon" id="undoBtn" title="Отменить (Ctrl+Z)" aria-label="Отменить" disabled>↶</button>
@@ -195,6 +195,14 @@ input[type=color]::-moz-color-swatch{border:0;border-radius:4px}
           <button class="tb icon" id="helpBtn" title="Горячие клавиши (?)" aria-label="Горячие клавиши">?</button>
         </div>
       </div>
+    <div class="tabs" role="tablist" aria-label="Режим">
+      <button role="tab" id="tabImage" aria-selected="true">Из картинки</button>
+      <button role="tab" id="tabText" aria-selected="false">Из текста</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="stage-col" aria-label="Холст">
       <div class="stage" id="stage">
         <div class="frame" id="frame">
           <canvas id="after" aria-label="Результат в пиксель-арте"></canvas>
@@ -622,7 +630,7 @@ const DEFAULTS = {
     labels: [
       { text: 'КУХНЯ · 19°C', x: 0.07, y: 0.56, on: true },
       { text: 'ПЫЛЬ: НОРМА', x: 0.52, y: 0.24, on: true },
-      { text: '', x: 0.1, y: 0.8, on: false }
+      { text: 'ЗАПИСЬ 07', x: 0.1, y: 0.8, on: false }
     ]
   }
 };
@@ -1879,7 +1887,7 @@ function applyLook(ctx, ox, oy, w, h, k) {
 }
 const view = { fit: true, k: 1, px: 0, py: 0 };
 function fitK() {
-  const aw = Math.max(40, stageEl.clientWidth - 24), ah = Math.max(40, stageEl.clientHeight - 24), dpr = window.devicePixelRatio || 1;
+  const aw = Math.max(40, stageEl.clientWidth - 10), ah = Math.max(40, stageEl.clientHeight - 10), dpr = window.devicePixelRatio || 1;
   return Math.max(1, Math.floor(Math.min(aw * dpr / G.W, ah * dpr / G.H)));
 }
 function maxK(W, H) { let k = 48; while (k > 1 && (W * k > 12000 || H * k > 12000 || W * H * k * k > 32e6)) k--; return k; }
@@ -1894,7 +1902,7 @@ function positionFrame() {
 }
 function renderDisplay() {
   const { W, H } = G; if (!W) return;
-  const aw = Math.max(40, stageEl.clientWidth - 24), ah = Math.max(40, stageEl.clientHeight - 24);
+  const aw = Math.max(40, stageEl.clientWidth - 10), ah = Math.max(40, stageEl.clientHeight - 10);
   const dpr = window.devicePixelRatio || 1;
   const kf = fitK();
   const k = view.fit ? kf : (view.k = Math.min(view.k, maxK(W, H)));
@@ -1918,6 +1926,7 @@ function renderDisplay() {
     b.drawImage(G.fish ? fishCv : workCv, 0, 0, beforeCv.width, beforeCv.height);
   }
   placeLamp();
+  fillGifSizes();
   const ex = exportScale();
   const extra = [S.light.on ? 'свет' : '', fxActive() ? 'глитч' : ''].filter(Boolean).join(' + ');
   $('#info').textContent = `${W}×${H} · ${G.pal.length} цв. · ${G.ms} мс${extra ? ' · ' + extra : ''}${anim && anim.on ? ' · ▶ кадр ' + (anim.i + 1) + '/' + S.anim.frames : ''}`;
@@ -1928,10 +1937,14 @@ function renderDisplay() {
 
 /* ---------- планировщик перерисовки ---------- */
 const ORDER = { A: 0, B: 1, C: 2, E: 3, D: 4 };
-let dirty = null, raf = 0;
+let dirty = null, raf = 0, lastRunMs = 0, lastRunEnd = 0;
+// Тяжёлые настройки (большая сетка, всё включено) пересчитываются реже, чтобы ползунок не залипал.
 function invalidate(level) {
   if (dirty === null || ORDER[level] < ORDER[dirty]) dirty = level;
-  if (!raf) raf = requestAnimationFrame(run);
+  if (!raf) {
+    const wait = lastRunMs > 120 ? lastRunMs * 0.7 - (performance.now() - lastRunEnd) : 0;
+    raf = wait > 8 ? setTimeout(() => requestAnimationFrame(run), wait) : requestAnimationFrame(run);
+  }
   histSchedule();
 }
 function run() {
@@ -1944,6 +1957,7 @@ function run() {
     if (ORDER[lvl] <= 3) { applyEffects(); G.ms = Math.round(performance.now() - t0); }
     renderDisplay();
   } catch (e) { console.error(e); toast('Ошибка обработки: ' + e.message, true); }
+  lastRunEnd = performance.now(); lastRunMs = lastRunEnd - t0;
 }
 
 /* ---------- привязка контролов ---------- */
@@ -1969,8 +1983,10 @@ const METHOD_HINT = {
   center: 'Берётся точка из центра блока. Резко и шумно, как старые эмуляторы.'
 };
 function syncUI() {
+  const focused = document.activeElement;
   document.querySelectorAll('[data-bind]').forEach(el => {
     const v = getPath(S, el.dataset.bind);
+    if (el === focused && (el.tagName === 'TEXTAREA' || el.type === 'text' || el.type === 'number')) return;
     if (el.type === 'checkbox') el.checked = !!v; else el.value = v == null ? '' : v;
     updateOut(el);
   });
@@ -1987,14 +2003,17 @@ function syncUI() {
   $('#r-fog-horizon').disabled = !(S.fog.amount > 0);
   document.querySelectorAll('[data-tab="light"] [data-bind^="light."]').forEach(el => { if (el.id !== 'lightCb') el.disabled = !S.light.on; });
   $('#r-light-rayLen').disabled = $('#r-light-dust').disabled = !(S.light.on && S.light.rays > 0);
+  $('#r-pix-lookStrength').disabled = S.pix.look === 'none';
+  $('#fogColor').disabled = !(S.fog.amount > 0);
+  $('#toneS').disabled = !(S.tone.shadowsAmt > 0);
+  $('#toneH').disabled = !(S.tone.highlightsAmt > 0);
+  $('#sortDir').disabled = !(S.fx.sort > 0);
+  $('#grainCol').disabled = !(S.fx.grain > 0);
+  $('#toPal').disabled = !fxActive();
+  document.querySelectorAll('#caSeg button').forEach(b => { b.disabled = !(S.fx.ca > 0); });
   $('#methodHint').textContent = METHOD_HINT[S.pix.method];
   document.querySelectorAll('#animSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.anim === S.anim.mode)));
-  const sizes = gifSizes(), gs = $('#gifSize');
-  if (sizes.length) {
-    gs.innerHTML = sizes.map(o => `<option value="${o.id}">${o.label}</option>`).join('');
-    if (!sizes.some(o => o.id === S.anim.size)) S.anim.size = sizes[Math.min(1, sizes.length - 1)].id;
-    gs.value = S.anim.size;
-  }
+  fillGifSizes();
   const sec = S.anim.frames / S.anim.fps;
   $('#animHint').textContent = ({
     jitter: 'Каждый кадр — новый вариант глитча той же силы. Нервная дрожь записи.',
@@ -2299,6 +2318,8 @@ function applyPlan(p, takePost) {
     syncUI();
   }
   if (S.mode !== 'text') setMode('text'); else invalidate('A');
+  if (p.camera && p.camera.format && p.camera.format !== S.aspect)
+    setTimeout(() => setAi(`План рассчитан на ${p.camera.format}, а кадр сейчас ${S.aspect}, поэтому рисунок растянут. Нажмите «Нарисовать», чтобы получить план под ${S.aspect}.`), 0);
 }
 $('#drawBtn').onclick = () => runAI('draw');
 $('#refineBtn').onclick = () => runAI('refine');
@@ -2541,6 +2562,17 @@ function lzw(idx, minCode) {
   return out.subarray(0, op);
 }
 `;
+let gifSizesKey = '';
+function fillGifSizes() {
+  const sizes = gifSizes(), gs = $('#gifSize');
+  if (!sizes.length) return;
+  const key = sizes.map(o => o.id + o.label).join() + S.anim.size;
+  if (key === gifSizesKey) return;
+  gifSizesKey = key;
+  gs.innerHTML = sizes.map(o => `<option value="${o.id}">${o.label}</option>`).join('');
+  if (!sizes.some(o => o.id === S.anim.size)) S.anim.size = sizes[Math.min(1, sizes.length - 1)].id;
+  gs.value = S.anim.size;
+}
 function gifSizes() {
   if (!G.W) return [];
   const ex = exportScale(), list = [], seen = new Set();
@@ -2667,24 +2699,38 @@ function pick(e) {
 }
 
 /* ---------- отмена и повтор ---------- */
-var HIST = { stack: [], i: -1, t: 0, lock: false };
+var HIST = { stack: [], i: -1, t: 0, lock: false, cur: null, sig: '' };
 const snapState = () => JSON.stringify({ s: Object.fromEntries(SAVE_KEYS.map(k => [k, S[k]])), style: S.style });
-function histSchedule() { if (!HIST || HIST.lock) return; clearTimeout(HIST.t); HIST.t = setTimeout(histPush, 350); }
-function histPush() {
-  clearTimeout(HIST.t);
-  const s = snapState(); if (HIST.stack[HIST.i] === s) return;
-  HIST.stack.splice(HIST.i + 1); HIST.stack.push(s);
+function flat(o, pre, out) { out = out || {}; for (const k in o) { const v = o[k], p = pre ? pre + '.' + k : k; if (v && typeof v === 'object') flat(v, p, out); else out[p] = v; } return out; }
+function histCommit(st) {
+  if (HIST.stack[HIST.i] === st) return;
+  HIST.stack.splice(HIST.i + 1); HIST.stack.push(st);
   if (HIST.stack.length > 100) HIST.stack.shift();
   HIST.i = HIST.stack.length - 1; updHist();
 }
+// Подряд идущие изменения одного и того же (тянем ползунок, лампу, рамку) — один шаг; другое действие — новый шаг.
+function histSchedule() {
+  if (!HIST || HIST.lock) return;
+  const now = snapState();
+  if (HIST.cur === null) { HIST.cur = now; return; }
+  if (now === HIST.cur) return;
+  const a = flat(JSON.parse(HIST.cur).s), b = flat(JSON.parse(now).s);
+  const sig = Object.keys(b).filter(k => a[k] !== b[k]).sort().join('|');
+  if (HIST.t && sig !== HIST.sig) { clearTimeout(HIST.t); HIST.t = 0; histCommit(HIST.cur); }
+  if (!HIST.t && HIST.stack[HIST.i] !== HIST.cur) histCommit(HIST.cur);
+  HIST.sig = sig; HIST.cur = now;
+  clearTimeout(HIST.t);
+  HIST.t = setTimeout(() => { HIST.t = 0; histCommit(HIST.cur); }, 400);
+}
+function histPush() { if (HIST.t) { clearTimeout(HIST.t); HIST.t = 0; } HIST.cur = snapState(); histCommit(HIST.cur); }
 function updHist() { $('#undoBtn').disabled = HIST.i <= 0; $('#redoBtn').disabled = HIST.i >= HIST.stack.length - 1; }
 function histGo(d) {
-  histPush();
+  if (HIST.t) { clearTimeout(HIST.t); HIST.t = 0; histCommit(HIST.cur); }
   const j = HIST.i + d; if (j < 0 || j >= HIST.stack.length) return;
   HIST.i = j;
   const o = JSON.parse(HIST.stack[j]);
   for (const k of SAVE_KEYS) S[k] = o.s[k];
-  S.style = o.style;
+  S.style = o.style; HIST.cur = HIST.stack[j]; HIST.sig = '';
   HIST.lock = true; syncUI(); drawCrop(); invalidate('A'); HIST.lock = false;
   updHist(); toast(d < 0 ? 'Отменено.' : 'Повторено.');
 }
@@ -2744,7 +2790,7 @@ window.addEventListener('keydown', e => {
     return;
   }
   if (typing || e.altKey) return;
-  if (e.key === ' ' && tag !== 'button') {
+  if (e.key === ' ' && !['button', 'input', 'select', 'label', 'summary', 'a'].includes(tag)) {
     e.preventDefault();
     if (!e.repeat && !holdPrev) { holdPrev = { on: cmp.on, p: cmp.p }; cmp.on = true; cmp.p = 1; applyCmp(); renderDisplay(); }
     return;
