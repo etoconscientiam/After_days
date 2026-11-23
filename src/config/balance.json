@@ -175,6 +175,17 @@
   "rockYieldMul": 0.75,
   "archiveYieldMul": 0.65,
   "startBelowLine": 3,
+  "fluids": {
+   "_comment": "Oil and gas creep up through porous beds and stop under seals (core/fluids.ts). tickHz: migration ticks a second; oilChance / gasChance: the chance a particle tries to move in a tick; slopeChance: the chance it finds a way up past the edge of a seal in a tick; sideChance: the chance it slides along under a seal when it cannot rise; tight: materials a fluid passes only now and then (× tightMul); seals: materials nothing passes through.",
+   "tickHz": 14,
+   "oilChance": 0.45,
+   "gasChance": 0.85,
+   "sideChance": 0.25,
+   "slopeChance": 0.3,
+   "tight": ["mudstone", "biomat"],
+   "tightMul": 0.3,
+   "seals": ["clay", "shale", "slate", "bentonite", "ochre", "tephra", "marble", "quartzite", "granite", "gneiss", "basalt", "obsidian", "limeCrust", "stromatolite", "concrete", "plastic", "metal", "bedrock", "foundation", "artifact"]
+  },
   "absorb": {
    "_comment": "The thing absorbs the strata: the bottom squeezeRows rows of the visible strata and then the bandRows rows the conveyor took are drawn squeezed into the height of squeezeRows rows, each line thinner than the one above it by the same ratio (2 px at the top, a fraction of a pixel at the bottom: the lower, the denser); the lowest line touches the thing and is absorbed. Energy of a line = sum over its particles of value × (flat × energyMul + incomePerSec × incomeShare). value: by kind (loose, rock, marker), then by material (overrides); a fossil bone × fossilMul.",
    "squeezeRows": 16,
@@ -184,7 +195,7 @@
    "fossilMul": 3,
    "kind": { "loose": 1, "rock": 3, "marker": 8 },
    "mat": {
-    "orgLand": 2, "orgMarine": 2, "resin": 4, "bone": 6, "guano": 3, "dung": 2, "ash": 2, "meteor": 20, "hearth": 6, "shards": 10,
+    "orgLand": 2, "orgMarine": 2, "biomat": 3, "resin": 4, "bone": 6, "guano": 3, "dung": 2, "ash": 2, "meteor": 20, "hearth": 6, "shards": 10,
     "peat": 4, "lignite": 5, "coal": 7, "anthracite": 10, "diamond": 60, "oil": 8, "gas": 8,
     "chalk": 4, "limestone": 4, "marble": 9, "sandstone": 3, "quartzite": 7, "mudstone": 2, "shale": 3, "slate": 5,
     "tuff": 5, "amber": 14, "amberInsect": 40, "phosphorite": 6, "stromatolite": 5, "iridium": 40,

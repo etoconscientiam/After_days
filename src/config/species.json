@@ -4,7 +4,7 @@
   "spritesPerSpecies": 40,
   "species": [
     { "id": "mats",      "era": 1, "zone": "water", "cost": 10,      "eps": 0.2,  "lifespan": 50,  "groups": [],
-      "deposit": { "contrib": 0.002, "mats": { "limeCrust": 1 } }, "death": { }, "oxygen": 0.0005, "sprite": "mat" },
+      "deposit": { "contrib": 0.002, "mats": { "limeCrust": 0.55, "biomat": 0.45 } }, "death": { }, "oxygen": 0.0005, "sprite": "mat" },
     { "id": "plankton",  "era": 2, "zone": "water", "cost": 60,      "eps": 1,    "lifespan": 5,   "groups": ["marine"],
       "deposit": { "contrib": 0.004, "mats": { "shellOoze": 0.7, "orgMarine": 0.3 } }, "death": { "org": 0.4, "orgMat": "orgMarine" }, "sprite": "plankton" },
     { "id": "molluscs",  "era": 2, "zone": "water", "cost": 250,     "eps": 3,    "lifespan": 20,  "groups": ["marine", "animal"],

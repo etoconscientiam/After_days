@@ -3,8 +3,9 @@
 // else is either empty (sky, water) or a particle that keeps its look from birth: only an event — a transformation,
 // a marker bed — changes its material, so nothing on screen ever flickers.
 //
-// Particles move only in core/sand.ts, change material only in core/pressure.ts and core/beds.ts, and leave the
-// grid only through the conveyor (core/pressure.ts sinkStep → world/Archive.ts).
+// Particles move only in core/sand.ts (and oil and gas creep up in core/fluids.ts), change material only in
+// core/pressure.ts and core/beds.ts, and leave the grid only through the conveyor (core/pressure.ts sinkStep →
+// world/Archive.ts) — and a gas that seeps out at the surface (core/fluids.ts).
 import { CFG, M, NMAT } from '../config';
 
 const S = CFG.B.sand;
@@ -143,6 +144,20 @@ export class Grid {
     this.mat[a] = 0; this.prog[a] = 0; this.flags[a] = 0; this.spec[a] = 0; this.decay[a] = 0;
     this.wake(a % GW, (a / GW) | 0);
     this.wake(b % GW, (b / GW) | 0);
+  }
+
+  /** Swap two particles (oil and gas creeping up through a porous bed: core/fluids.ts). Both cells stay occupied,
+   *  so the tops, the surface and the sleeping blocks do not change. */
+  swap(a: number, b: number): void {
+    let t: number;
+    t = this.mat[a]; this.mat[a] = this.mat[b]; this.mat[b] = t;
+    t = this.look[a]; this.look[a] = this.look[b]; this.look[b] = t;
+    t = this.birth[a]; this.birth[a] = this.birth[b]; this.birth[b] = t;
+    t = this.flags[a]; this.flags[a] = this.flags[b]; this.flags[b] = t;
+    t = this.spec[a]; this.spec[a] = this.spec[b]; this.spec[b] = t;
+    t = this.decay[a]; this.decay[a] = this.decay[b]; this.decay[b] = t;
+    t = this.prog[a]; this.prog[a] = this.prog[b]; this.prog[b] = t;
+    this.version++;
   }
 
   /** Mark the block of (x, y) and its neighbours to be processed on the next physics step. */

@@ -218,8 +218,10 @@ export function rainOne(g: Grid, rng: Rng, water: Water | null, x: number, m: nu
   flags = 0, spec = 0, decay = 0): number {
   const look = (rng.next() * 256) | 0;
   if (fast) return settleFast(g, rng, water, x, m, look, birth, flags, spec, decay);
-  // full mode: it appears in the first free cell from the top and falls
-  for (let y = 0; y < g.tops[x]; y++) if (!g.mat[y * GW + x]) return g.put(x, y, m, look, birth, flags, spec, decay);
+  // full mode: it appears in the first free cell from the top and falls. Not only above the topmost particle:
+  // a bone or organic matter that follows a particle into the same column takes the cell under the one still
+  // falling (it used to be lost there)
+  for (let y = 0; y < g.surf[x]; y++) if (!g.mat[y * GW + x]) return g.put(x, y, m, look, birth, flags, spec, decay);
   return -1;
 }
 

@@ -928,6 +928,20 @@
       "grain": 3,
       "kind": "rock",
       "rock": "mudstone"
+    },
+    {
+      "id": "biomat",
+      "density": 1.2,
+      "palette": [
+        "#2c4430",
+        "#36523a",
+        "#415f40",
+        "#4f6c46",
+        "#5e4a66"
+      ],
+      "grain": 3,
+      "kind": "loose",
+      "slip": 0.2
     }
   ],
   "rocks": [

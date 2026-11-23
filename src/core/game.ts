@@ -5,6 +5,7 @@ import { Archive } from '../world/Archive';
 import { stepFull, Water } from './sand';
 import { sinkStep } from './pressure';
 import { BandLine, captureRow, pushBand } from './absorb';
+import { fluidStep } from './fluids';
 import { coat } from './beds';
 import { drizzle, reliefRow, tapPile, zoneSourcesBase } from './sources';
 import { geoTickGame } from './geology';
@@ -483,6 +484,8 @@ export class Game {
   transforms = 0;
   /** Milliseconds of physics a frame (eased), for the debug panel. */
   physMs = 0;
+  /** migration ticks owed (core/fluids.ts) */
+  fluidAcc = 0;
 
   strataStep(dt: number): void {
     const r = this.run;
@@ -497,6 +500,7 @@ export class Game {
       // for the debug panel: physics time a frame, eased
       this.physMs += (performance.now() - t0 - this.physMs) * 0.1;
     } else this.moving = 0;
+    fluidStep(this, dt);
     sinkStep(this.grid, r.sink, dt, (g, y) => { pushBand(this, captureRow(g, y)); this.archive.addRow(g, y); });
     this.layBeds(dt);
     r.bedT = Math.max(0, r.bedT - dt);

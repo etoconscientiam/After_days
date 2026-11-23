@@ -168,6 +168,7 @@ function bind(g: Game): void {
   bus.on('click', (e) => { audio.click(e.boost); });
   // the thing absorbed a line of the strata: a glow in its colour, a spark to the counter, a soft low «gulp»
   bus.on('absorb', (e) => { renderer.onAbsorb(e.mat, e.value); audio.absorb(Math.min(1, e.value / 400)); });
+  bus.on('seep', (e) => renderer.onSeep(e.x, e.y, e.oil));
   bus.on('rockDiscovered', (e) => {
     // the first rock that needs heat or depth: the Geologist's lens lights up
     if (rockNeedsHeatOrDepth(e.rock) && !g.legacy.firsts.geoHint) { g.legacy.firsts.geoHint = true; geo.hint(); hud.notify('geo', t('geo.hint'), '#F2B54A'); }

@@ -21,6 +21,7 @@ interface Particle { x: number; y: number; vx: number; vy: number; life: number;
 interface Flyer { x: number; y: number; vx: number; vy: number; tx: number; ty: number; t: number; color: string; done?: () => void }
 interface Ring { t: number; x: number }
 /** Sprites that do not stand on the strata: drawn as background life (drawBackdropLife, drawFlyingBirds). */
+const M_BONE = () => CFG.matIndex.bone;
 const BACKDROP = new Set(['fish', 'plankton', 'bird', 'herd', 'predator']);
 /** A swarm of insects: n specks circling a point, wings catching the light now and then. */
 function swarm(c: CanvasRenderingContext2D, x: number, y: number, t: number, n: number, col: string): void {
@@ -255,6 +256,27 @@ export class Renderer {
     this.spawnAbsorbFx(fx, col, k);
   }
 
+  /** Gas seeped out at the surface: a few bubbles (under water) or a shimmer of haze (in the air). Oil: a dark
+   *  slick that spreads on the ground, or rises and spreads into a sheen on the water. */
+  onSeep(x: number, y: number, oil = false): void {
+    if (this.afx.length > 140) return;
+    const X = x * 2 + 1, Y = this.lay.sectionTop + this.section.yOfRow(y);
+    const wet = Y > this.lay.waterLevel + 1;
+    if (oil) {
+      const sy = wet ? this.lay.waterLevel : Y - 1;
+      for (let i = 0; i < 3; i++) {
+        const sheen = wet && i === 2;
+        this.afx.push({ kind: 'dot', x: X + (i - 1), y: sy, vx: (i - 1) * (wet ? 5 : 2), vy: 0, g: 0, t: 0, max: wet ? 2.2 : 1.6,
+          color: sheen ? '#8a7ab8' : '#1a120c', a: sheen ? 0.5 : 0.8 });
+      }
+      return;
+    }
+    for (let i = 0; i < (this.quality === 'low' ? 2 : 4); i++) {
+      this.afx.push({ kind: 'bubble', x: X + (Math.random() - 0.5) * 3, y: Y - 1, vx: (Math.random() - 0.5) * 3, vy: wet ? -10 - Math.random() * 8 : -5 - Math.random() * 4,
+        g: 0, t: 0, max: wet ? Math.max(0.4, (Y - this.lay.waterLevel) / 14) : 0.9, color: wet ? '#d8f0f4' : '#c8ccd0', a: wet ? 0.7 : 0.35 });
+    }
+  }
+
   /** The pieces of an absorption effect, drawn over the night (they glow). */
   private afx: AbsorbBit[] = [];
   private absorbRing: { t: number; color: string; kind: 'oil' | 'marker'; k: number } | null = null;
@@ -341,9 +363,9 @@ export class Renderer {
       c.fillStyle = b.color;
       const X = Math.round(b.x), Y = Math.round(b.y);
       if (b.kind === 'bubble') {
-        const r = 1 + f * 2.5;
-        c.strokeStyle = b.color; c.lineWidth = 1;
-        c.beginPath(); c.arc(b.x, b.y, r, 0, Math.PI * 2); c.stroke();
+        // a small bubble: a pixel with a lit top, a little wider as it rises
+        c.fillRect(X, Y, 1, 1);
+        if (f > 0.4) { c.globalAlpha = Math.max(0, a * 0.5); c.fillRect(X - 1, Y, 1, 1); c.fillRect(X + 1, Y, 1, 1); }
       } else if (b.kind === 'star') {
         const s = f < 0.5 ? 1 : 0;
         c.fillRect(X, Y, 1, 1);
@@ -467,6 +489,7 @@ export class Renderer {
     this.drawSection(g);
     this.drawGround(g, sky);
     this.drawBackdropLife(g, sky);
+    this.drawSurfaceBones(g, sky);
     this.drawLife(g);
     this.drawFinaleWorld(g);
     this.drawShift(dt);
@@ -699,6 +722,51 @@ export class Renderer {
           c.fillStyle = 'rgba(42,38,46,0.6)';
           c.fillRect(Math.round(bx) - 1, Math.round(by) + (up ? -1 : 0), 1, 1); c.fillRect(Math.round(bx), Math.round(by), 1, 1); c.fillRect(Math.round(bx) + 1, Math.round(by) + (up ? -1 : 0), 1, 1);
         } else birdFlying(c, bx, by, { ...pose, i: i + f * 9, flip: dir < 0 });
+      }
+    }
+  }
+
+  /** Bones that lie on the surface now (bone particles in the top row of their column, or one row under it):
+   *  a bleached skeleton for a moment of geological time, until the next laminae bury it. */
+  private drawSurfaceBones(g: Game, sky: Sky): void {
+    const grid = g.grid, c = this.ctx, BONE = M_BONE();
+    const light = 0.55 + 0.45 * sky.light;
+    let n = 0;
+    for (let x = 0; x < GW && n < 10; x++) {
+      const top = grid.surf[x];
+      for (let k = 0; k < 2; k++) {
+        const y = top + k;
+        if (y >= grid.floor) break;
+        const i = y * GW + x;
+        if (grid.mat[i] !== BONE) continue;
+        const sp = CFG.species[grid.spec[i] - 1];
+        if (!sp || sp.sprite === 'mollusc') continue;
+        n++;
+        const X = x * 2, Y = this.gy[Math.min(WW - 1, X)] - 1;
+        const a = (k ? 0.55 : 1) * (1 - grid.decay[i] / 400);
+        const hi = rgb(248 * light, 244 * light, 230 * light, a), lo = rgb(196 * light, 188 * light, 168 * light, a);
+        const sh = rgb(30, 22, 18, 0.45 * a), eye = rgb(40, 30, 26, a);
+        const flip = (x * 7 + y) & 1 ? 1 : -1;
+        const skull = (sx: number, sy: number) => { c.fillStyle = hi; c.fillRect(sx, sy, 2, 2); c.fillStyle = eye; c.fillRect(sx + (flip > 0 ? 1 : 0), sy, 1, 1); };
+        if (sp.groups.includes('marine')) {
+          // a fish: spine, ribs above and below, the skull
+          c.fillStyle = sh; c.fillRect(X - 3, Y + 1, 7, 1);
+          c.fillStyle = hi; c.fillRect(X - 3, Y, 6, 1);
+          c.fillStyle = lo; c.fillRect(X - 1, Y - 1, 1, 1); c.fillRect(X + 1, Y - 1, 1, 1); c.fillRect(X - 2, Y - 1, 1, 1);
+          c.fillStyle = hi; c.fillRect(X - 4 * flip - (flip > 0 ? 0 : -1), Y - 1, 1, 1);
+          skull(X + 3 * flip - (flip < 0 ? 1 : 0), Y - 1);
+        } else if (sp.groups.includes('hominid') || sp.groups.includes('tribe')) {
+          c.fillStyle = sh; c.fillRect(X - 1, Y + 1, 4, 1);
+          c.fillStyle = hi; c.fillRect(X - 1, Y - 1, 3, 2);
+          c.fillStyle = eye; c.fillRect(X, Y, 1, 1);
+        } else {
+          // a carcass picked clean: spine, an arch of ribs, the skull
+          c.fillStyle = sh; c.fillRect(X - 4, Y + 1, 9, 1);
+          c.fillStyle = hi; c.fillRect(X - 4, Y, 8, 1);
+          c.fillStyle = lo; for (const r of [-2, 0, 2]) c.fillRect(X + r, Y - 2, 1, 2);
+          c.fillStyle = hi; c.fillRect(X - 2, Y - 3, 5, 1);
+          skull(X + 4 * flip - (flip < 0 ? 1 : 0), Y - 1);
+        }
       }
     }
   }

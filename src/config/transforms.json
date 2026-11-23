@@ -12,6 +12,8 @@
     { "from": "coal",       "to": "diamond",      "pMin": 60,  "tMin": 250, "years": 20000, "yield": 500, "chance": 0.02 },
     { "from": "coal",       "to": "anthracite",   "pMin": 60,  "years": 10000, "yield": 12 },
     { "from": "anthracite", "to": "diamond",      "pMin": 60,  "tMin": 250, "years": 20000, "yield": 500, "chance": 0.02 },
+    { "from": "biomat",     "to": "gas",          "tMax": 42,  "pMin": 2, "noOxygen": true, "years": 5000, "yield": 3, "chance": 0.5 },
+    { "from": "biomat",     "to": "oil",          "tMin": 42,  "tMax": 120, "noOxygen": true, "years": 4000, "yield": 4, "chance": 0.4 },
     { "from": "orgMarine",  "to": "oil",          "tMin": 60,  "tMax": 120, "noOxygen": true, "years": 4000, "yield": 10 },
     { "from": "oil",        "to": "gas",          "tMin": 150, "years": 3000, "yield": 8 },
     { "from": "shellOoze",  "to": "chalk",        "pMin": 0.5, "years": 1000, "yield": 1 },
