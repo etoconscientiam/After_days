@@ -55,7 +55,8 @@ h1 b{font-weight:500;color:var(--accent)}
 .tag{position:absolute;top:8px;font:500 11px/1 var(--f-mono);letter-spacing:.08em;padding:4px 6px;border-radius:4px;background:rgba(12,16,15,.75);color:var(--fg);z-index:2;pointer-events:none}
 .tag.l{left:8px}.tag.r{right:8px}
 .drop{position:absolute;inset:0;display:grid;place-items:center;background:rgba(12,16,15,.82);border:2px dashed var(--accent);border-radius:10px;color:var(--accent);font-weight:500;z-index:5;pointer-events:none}
-.stage-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-height:24px}
+/* строка состояния всегда одной высоты: всё, что меняется при наведении, не должно двигать холст */
+.stage-bar{flex:none;display:flex;align-items:center;gap:12px;flex-wrap:nowrap;height:24px;overflow:hidden}
 .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .tg{display:flex;gap:2px;padding:2px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
 .tg.end{margin-left:auto}
@@ -68,7 +69,7 @@ h1 b{font-weight:500;color:var(--accent)}
 .tb:disabled{opacity:.35;cursor:default;background:none}
 .tb:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .zoomv{font:500 12px/18px var(--f-mono);min-width:52px;text-align:center}
-#pick{display:inline-flex;align-items:center;gap:6px}
+#pick{flex:none;width:228px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden}
 #pick i{width:12px;height:12px;border-radius:2px;display:inline-block;box-shadow:inset 0 0 0 1px rgba(255,255,255,.15)}
 .row output{cursor:text;border-radius:4px;padding:1px 3px;margin:-1px -3px}
 .row output:hover{background:var(--raise)}
@@ -79,10 +80,15 @@ h1 b{font-weight:500;color:var(--accent)}
 .keys dd{margin:0;color:var(--fg)}
 kbd{font:500 11px var(--f-mono);padding:1px 5px;border:1px solid var(--line-2);border-radius:4px;background:var(--bg);color:var(--fg)}
 .info{font:12px/1.3 var(--f-mono);color:var(--muted);font-variant-numeric:tabular-nums;min-width:0}
-.swatches{display:flex;flex-wrap:wrap;gap:2px;flex:1;min-width:120px}
-.swatches i{width:12px;height:12px;display:block;border-radius:2px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
-.toast{font-size:12px;color:var(--accent)}
+.swatches{display:flex;flex-wrap:nowrap;gap:2px;flex:1 1 80px;min-width:40px;overflow:hidden}
+.swatches i{flex:0 1 12px;min-width:3px;height:12px;display:block;border-radius:2px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+.stage-bar #info{flex:0 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.toast{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);max-width:calc(100% - 24px);z-index:7;pointer-events:none;
+  font-size:12.5px;color:var(--accent);background:rgba(12,16,15,.9);border:1px solid var(--line-2);border-radius:8px;padding:6px 10px;text-align:center}
+.toast:empty{display:none}
 .toast.err{color:var(--err)}
+#tlTime{display:inline-block;min-width:25ch;white-space:nowrap}
+@media (max-width:719px){#pick{display:none}}
 
 .panel{min-height:0;min-width:0;overflow-y:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
 .n{font:500 11px/1 var(--f-mono);color:var(--bg);background:var(--accent);border-radius:4px;padding:3px 5px;min-width:20px;text-align:center}
@@ -257,6 +263,7 @@ input[type=color]::-moz-color-swatch{border:0;border-radius:4px}
           <div class="lamp" id="lamp" hidden tabindex="0" role="button" aria-label="Лампа: перетащите или двигайте стрелками"></div>
         </div>
         <div class="drop" id="dropHint" hidden>Отпустите картинку</div>
+        <div class="toast" id="toast" role="status" aria-live="polite"></div>
       </div>
       <div class="tl" id="tl" aria-label="Таймлайн">
         <div class="tlbar">
@@ -276,7 +283,6 @@ input[type=color]::-moz-color-swatch{border:0;border-radius:4px}
         <span class="info" id="info">—</span>
         <span class="info" id="pick" aria-live="off"></span>
         <div class="swatches" id="swatches" aria-label="Текущая палитра"></div>
-        <span class="toast" id="toast" role="status"></span>
       </div>
     </section>
 
@@ -3285,7 +3291,14 @@ window.addEventListener('paste', e => {
 });
 
 /* ---------- старт ---------- */
-new ResizeObserver(() => invalidate('D')).observe(stageEl);
+{
+  let lastW = 0, lastH = 0;
+  new ResizeObserver(() => {
+    const w = stageEl.clientWidth, h = stageEl.clientHeight;
+    if (Math.abs(w - lastW) < 1 && Math.abs(h - lastH) < 1) return;
+    lastW = w; lastH = h; invalidate('D');
+  }).observe(stageEl);
+}
 new ResizeObserver(() => drawCrop()).observe($('#panel'));
 src = makeSamplePhoto();
 $('#planJson').value = fmtPlan(plan);
