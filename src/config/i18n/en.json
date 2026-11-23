@@ -29,6 +29,7 @@
     "excavation": "Needed: dig down to the thing ({cur}/{v})"
   },
   "hud": {
+    "compactLine": "compaction level",
     "yps": "{v} yrs/s",
     "wps": "{v} wks/s",
     "dps": "{v} days/s",

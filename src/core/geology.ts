@@ -48,6 +48,7 @@ export function geoEnv(g: Game, dy: number): GeoEnv {
   return {
     rng: g.rng, dy,
     speed: (1 + st.transformSpeed) * (1 + g.diversityBonus()),
+    compactRow: CFG.B.sand.compactAtLine ? g.lineRow() : -1,
     P0: surfacePressure(g),
     pressMul: (1 + st.press) * (1 + st.layerWeight),
     T0: CFG.B.physics.surfaceT + st.geoHeat,

@@ -585,6 +585,7 @@ export class Renderer {
     this.drawSurfaceBones(g, sky);
     this.drawLife(g);
     this.drawGeysers();
+    this.drawCompactLine(g);
     this.drawFinaleWorld(g);
     this.drawShift(dt);
     this.drawHorizon(g);
@@ -863,6 +864,20 @@ export class Renderer {
         }
       }
     }
+  }
+
+  /** The compaction line (as in the prototype): a dashed amber line across the world; when a column of the strata
+   *  reaches it, its bottom starts to turn to rock and the thing starts to take the oldest rows. Clear while the
+   *  strata are still below it, faint after. */
+  compactLineY = 0;
+  private drawCompactLine(g: Game): void {
+    const c = this.ctx;
+    const y = Math.round(this.lay.sectionTop + this.section.yOfRow(g.lineRow()));
+    this.compactLineY = y;
+    const reached = g.run.sink.rows > 0;
+    c.fillStyle = rgb(242, 181, 74, reached ? 0.16 : 0.45 + 0.1 * Math.sin(this.t * 2));
+    for (let x = 0; x < WW; x += 4) c.fillRect(x, y, 2, 1);
+    if (!reached) { c.fillStyle = rgb(242, 181, 74, 0.9); c.fillRect(WW - 4, y, 4, 1); }
   }
 
   /** Life as the background of geological time: the sea blooms with plankton and flashes with shoals, mats

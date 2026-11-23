@@ -435,6 +435,13 @@ function frame(now: number): void {
   game.lowPhysics = renderer.quality === 'low';
   watchFps(dtReal);
   renderer.draw(game, dtReal, now);
+  // the compaction line's label, until the strata first reach it in this world
+  const pl = document.getElementById('pline');
+  if (pl) {
+    const show = game.state.phase === 'play' && game.run.sink.rows === 0;
+    if (pl.hidden === show) pl.hidden = !show;
+    if (show) { pl.style.top = (renderer.compactLineY / WH) * 100 + '%'; if (pl.textContent !== t('hud.compactLine')) pl.textContent = t('hud.compactLine'); }
+  }
   hud.update(game, dtReal);
   drawer.update(dtReal);
   input.update(dtReal);

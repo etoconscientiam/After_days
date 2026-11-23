@@ -221,12 +221,18 @@ export function pileMix(g: Game, zi: number): { m: number; w: number }[] {
 }
 
 /** Drop the pile of a tap into world column X. Returns the number of particles laid. */
+/** Where a tapped pile appears: pileDrop rows over the ground of its column, but always over the water — over a
+ *  bare sea floor it falls in from above the surface of the sea, not at the bottom — and never above pileSkyRow. */
+function pileTop(g: Game, x: number): number {
+  return Math.max(S.pileSkyRow, Math.min(g.grid.surf[x], g.water.level) - S.pileDrop);
+}
+
 export function tapPile(g: Game, X: number, n: number): number {
   const x = Math.max(2, Math.min(GW - 3, Math.floor(X / 2)));
   const zi = g.zoneMap[wx(x)];
   const insects = g.run.pop.insects ? g.run.pop.insects[1] + g.run.pop.insects[2] : 0;
   const placed = dropPile(g.grid, g.rng, g.water, {
-    cx: x, n, mix: pileMix(g, zi), birth: g.run.year, y0: Math.max(S.pileSkyRow, g.grid.surf[x] - S.pileDrop),
+    cx: x, n, mix: pileMix(g, zi), birth: g.run.year, y0: pileTop(g, x),
     decorate: (i, m) => { if (m === M.resin && g.rng.next() < 0.06 * (insects > 0 ? 3 : 1)) g.grid.flags[i] |= P_INSECT; },
   }, g.headless);
   g.run.layers += placed;
