@@ -125,7 +125,7 @@ export const M = {
   void: mat('void'), soil: mat('soil'), dust: mat('dust'), silt: mat('silt'), sand: mat('sand'), clay: mat('clay'),
   shellOoze: mat('shellOoze'), limeCrust: mat('limeCrust'), orgLand: mat('orgLand'), orgMarine: mat('orgMarine'),
   bone: mat('bone'), resin: mat('resin'), ash: mat('ash'), moraine: mat('moraine'), meteor: mat('meteor'),
-  magma: mat('magma'), glowstone: mat('glowstone'), iridium: mat('iridium'), oil: mat('oil'), gas: mat('gas'), biomat: mat('biomat'),
+  magma: mat('magma'), glowstone: mat('glowstone'), iridium: mat('iridium'), oil: mat('oil'), gas: mat('gas'), biomat: mat('biomat'), water: mat('water'), sinter: mat('sinter'),
   concrete: mat('concrete'), glassSand: mat('glassSand'), plastic: mat('plastic'), metal: mat('metal'),
   bedrock: mat('bedrock'), foundation: mat('foundation'), artifact: mat('artifact'),
   ochre: mat('ochre'), tephra: mat('tephra'), boundary: mat('boundary'), floodSilt: mat('floodSilt'),

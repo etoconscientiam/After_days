@@ -395,6 +395,8 @@
     "orgLand": "Land organics",
     "orgMarine": "Marine organics",
     "biomat": "Microbial mat",
+    "water": "Buried water",
+    "sinter": "Sinter",
     "bone": "Bones",
     "resin": "Resin",
     "guano": "Guano",

@@ -186,6 +186,20 @@
    "tightMul": 0.3,
    "seals": ["clay", "shale", "slate", "bentonite", "ochre", "tephra", "marble", "quartzite", "granite", "gneiss", "basalt", "obsidian", "limeCrust", "stromatolite", "concrete", "plastic", "metal", "bedrock", "foundation", "artifact"]
   },
+  "lenses": {
+   "_comment": "Buried water and geysers (core/fluids.ts). Every about every seconds (randomised ±50 %) a stretch of shallow water (1..shallowRows deep, wMin..wMax columns) leaves a lens of water particles on its floor (1 row at the edges, 2 in the middle) for the next laminae to bury; at most maxParticles water particles in the strata. A lens of at least minLens particles with a particle at least eruptDepth rows under the surface breaks out with the chance eruptChance a second (+ per extra row eruptPerRow): its whole lens goes up through the vent above its top as a geyser, the empty lens collapses, and sinterPer particles of sinter (one per sinterPer water particles, at most sinterMax) fall around the vent. Not in the headless run (no effect on the balance).",
+   "every": 14,
+   "shallowRows": 4,
+   "wMin": 4,
+   "wMax": 9,
+   "maxParticles": 160,
+   "eruptDepth": 26,
+   "eruptChance": 0.05,
+   "eruptPerRow": 0.02,
+   "minLens": 4,
+   "sinterPer": 3,
+   "sinterMax": 8
+  },
   "absorb": {
    "_comment": "The thing absorbs the strata: the bottom squeezeRows rows of the visible strata and then the bandRows rows the conveyor took are drawn squeezed into the height of squeezeRows rows, each line thinner than the one above it by the same ratio (2 px at the top, a fraction of a pixel at the bottom: the lower, the denser); the lowest line touches the thing and is absorbed. Energy of a line = sum over its particles of value × (flat × energyMul + incomePerSec × incomeShare). value: by kind (loose, rock, marker), then by material (overrides); a fossil bone × fossilMul.",
    "squeezeRows": 16,
@@ -195,7 +209,7 @@
    "fossilMul": 3,
    "kind": { "loose": 1, "rock": 3, "marker": 8 },
    "mat": {
-    "orgLand": 2, "orgMarine": 2, "biomat": 3, "resin": 4, "bone": 6, "guano": 3, "dung": 2, "ash": 2, "meteor": 20, "hearth": 6, "shards": 10,
+    "orgLand": 2, "orgMarine": 2, "biomat": 3, "water": 1, "sinter": 2, "resin": 4, "bone": 6, "guano": 3, "dung": 2, "ash": 2, "meteor": 20, "hearth": 6, "shards": 10,
     "peat": 4, "lignite": 5, "coal": 7, "anthracite": 10, "diamond": 60, "oil": 8, "gas": 8,
     "chalk": 4, "limestone": 4, "marble": 9, "sandstone": 3, "quartzite": 7, "mudstone": 2, "shale": 3, "slate": 5,
     "tuff": 5, "amber": 14, "amberInsect": 40, "phosphorite": 6, "stromatolite": 5, "iridium": 40,

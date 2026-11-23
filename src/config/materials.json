@@ -942,6 +942,33 @@
       "grain": 3,
       "kind": "loose",
       "slip": 0.2
+    },
+    {
+      "id": "water",
+      "density": 1.0,
+      "palette": [
+        "#1c4a6a",
+        "#235474",
+        "#2a5e80",
+        "#33688a",
+        "#4a82a4"
+      ],
+      "grain": 6,
+      "kind": "rock"
+    },
+    {
+      "id": "sinter",
+      "density": 1.6,
+      "palette": [
+        "#b8b4a8",
+        "#c4c0b2",
+        "#d0ccbe",
+        "#dcd8ca",
+        "#e8e4d8"
+      ],
+      "grain": 2,
+      "kind": "loose",
+      "slip": 0.25
     }
   ],
   "rocks": [

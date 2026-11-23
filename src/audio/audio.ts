@@ -151,6 +151,32 @@ export class Audio {
     n.start(t); n.stop(t + dur + 0.2);
   }
 
+  /** A geyser: a low thump and a hiss that rises and fades (level 0..1 by the size of the lens). */
+  geyser(level: number): void {
+    if (!this.ctx || !this.noiseBuf) return;
+    const c = this.ctx, t = c.currentTime, dur = 1.4 + level * 1.6;
+    const n = c.createBufferSource();
+    n.buffer = this.noiseBuf; n.loop = true;
+    const f = c.createBiquadFilter();
+    f.type = 'bandpass'; f.Q.value = 0.8;
+    f.frequency.setValueAtTime(900, t);
+    f.frequency.exponentialRampToValueAtTime(2600, t + 0.4);
+    f.frequency.exponentialRampToValueAtTime(1400, t + dur);
+    const g = c.createGain();
+    this.env(g, t, 0.08, 0.12 + 0.12 * level, dur);
+    n.connect(f).connect(g).connect(this.sfx);
+    n.start(t); n.stop(t + dur + 0.2);
+    // the thump under it: quieter than a quake's rumble
+    const m = c.createBufferSource();
+    m.buffer = this.noiseBuf;
+    const lp = c.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 110;
+    const mg = c.createGain();
+    this.env(mg, t, 0.03, 0.25 + 0.25 * level, 0.5);
+    m.connect(lp).connect(mg).connect(this.sfx);
+    m.start(t); m.stop(t + 0.7);
+  }
+
   whoosh(): void {
     if (!this.ctx || !this.noiseBuf) return;
     const c = this.ctx, t = c.currentTime;

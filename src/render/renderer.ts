@@ -17,7 +17,7 @@ import { drawItem } from './items';
 import { renderEcho, EW, EH } from './echoes';
 import { drawScene, pictogram, VW, VH } from './ritual';
 
-interface Particle { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string; size: number; kind?: 'mote' | 'firefly' | 'spark' }
+interface Particle { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string; size: number; kind?: 'mote' | 'firefly' | 'spark' | 'drop' }
 interface Flyer { x: number; y: number; vx: number; vy: number; tx: number; ty: number; t: number; color: string; done?: () => void }
 interface Ring { t: number; x: number }
 /** Sprites that do not stand on the strata: drawn as background life (drawBackdropLife, drawFlyingBirds). */
@@ -37,7 +37,7 @@ interface AbsorbBit { kind: 'dot' | 'ember' | 'bubble' | 'star'; x: number; y: n
 /** How a line goes into the thing, by its most valuable material (by kind when the material has no way of its own). */
 const FX_MAT: Record<string, AbsorbFx> = {
   peat: 'ember', lignite: 'ember', coal: 'ember', anthracite: 'ember', graphite: 'ember', hearth: 'ember', magma: 'ember',
-  oil: 'oil', gas: 'gas', bone: 'bone', phosphorite: 'bone', shards: 'bone',
+  oil: 'oil', gas: 'gas', water: 'steam', bone: 'bone', phosphorite: 'bone', shards: 'bone',
   amber: 'amber', amberInsect: 'amber', resin: 'amber',
   diamond: 'gem', ruby: 'gem', sapphire: 'gem', glowstone: 'gem', iridium: 'gem', meteor: 'gem', obsidian: 'gem',
 };
@@ -277,6 +277,50 @@ export class Renderer {
     }
   }
 
+  /** A buried lens broke out: a jet of water and steam from the vent, the channel it took lit for a moment. */
+  onGeyser(x: number, y0: number, y1: number, n: number): void {
+    this.geysers.push({ x: x * 2 + 1, y0: this.lay.sectionTop + this.section.yOfRow(y0), y1: this.lay.sectionTop + this.section.yOfRow(y1), n, t: 0 });
+    if (n > 20) this.shake = Math.max(this.shake, 1.5);
+  }
+  private geysers: { x: number; y0: number; y1: number; n: number; t: number }[] = [];
+
+  private drawGeysers(): void {
+    const c = this.ctx, dt = this.dt;
+    for (let k = this.geysers.length - 1; k >= 0; k--) {
+      const G = this.geysers[k];
+      G.t += dt;
+      const D = Math.min(3.5, 1.6 + G.n / 40);
+      if (G.t > D + 1) { this.geysers.splice(k, 1); continue; }
+      const gy = this.gy[Math.max(0, Math.min(WW - 1, G.x))];
+      // the channel through the strata, lit for a moment
+      if (G.t < 0.9 && G.y0 > gy) {
+        c.fillStyle = rgb(190, 225, 250, 0.55 * (1 - G.t / 0.9));
+        c.fillRect(G.x, gy, 1, G.y0 - gy);
+      }
+      if (G.t > D) continue;
+      const env = Math.min(1, G.t / 0.25) * Math.min(1, (D - G.t) / 0.6);
+      const H = (14 + Math.min(60, G.n) * 0.7) * env * (0.92 + 0.08 * Math.sin(G.t * 23));
+      // the jet: a white core, blue sides, a ragged crown
+      for (let py = 0; py < H; py++) {
+        const y = gy - 1 - py, f = py / Math.max(1, H);
+        const wob = Math.sin(G.t * 17 + py * 0.7) > 0.3 ? 1 : 0;
+        c.fillStyle = rgb(236, 246, 252, 0.9 - f * 0.4);
+        c.fillRect(G.x + (f > 0.7 ? wob - 1 + (py & 1) : 0), y, 1, 1);
+        c.fillStyle = rgb(150, 200, 235, 0.7 - f * 0.4);
+        if (f < 0.85) { c.fillRect(G.x - 1, y, 1, 1); c.fillRect(G.x + 1, y, 1, 1); }
+      }
+      // drops thrown from the crown, steam drifting off
+      const low = this.quality === 'low';
+      if (this.particles.length < (low ? 160 : 320)) {
+        const top = gy - H;
+        for (let q = 0; q < (low ? 1 : 3); q++) {
+          this.particles.push({ x: G.x + (Math.random() - 0.5) * 3, y: top + Math.random() * 4, vx: (Math.random() - 0.5) * 30, vy: -8 - Math.random() * 14, life: 0, max: 1.6, color: Math.random() < 0.5 ? '#e8f4fa' : '#9cc8e6', size: 1, kind: 'drop' });
+        }
+        if (Math.random() < (low ? 0.3 : 0.7)) this.particles.push({ x: G.x + (Math.random() - 0.5) * 6, y: top + Math.random() * H * 0.6, vx: (Math.random() - 0.5) * 6 + 3, vy: -4 - Math.random() * 4, life: 0, max: 2.2, color: 'rgba(240,244,248,0.5)', size: 2 });
+      }
+    }
+  }
+
   /** The pieces of an absorption effect, drawn over the night (they glow). */
   private afx: AbsorbBit[] = [];
   private absorbRing: { t: number; color: string; kind: 'oil' | 'marker'; k: number } | null = null;
@@ -491,6 +535,7 @@ export class Renderer {
     this.drawBackdropLife(g, sky);
     this.drawSurfaceBones(g, sky);
     this.drawLife(g);
+    this.drawGeysers();
     this.drawFinaleWorld(g);
     this.drawShift(dt);
     this.drawHorizon(g);
@@ -1965,6 +2010,12 @@ export class Renderer {
       p.x += p.vx * dt; p.y += p.vy * dt;
       if (!p.kind) p.vy -= 6 * dt;
       if (p.kind === 'mote') p.vy += Math.sin(this.t * 2 + i) * dt * 2;
+      if (p.kind === 'drop') {
+        // a drop of a geyser: falls back and is gone where it meets the ground or the water
+        p.vy += 80 * dt;
+        const gx = Math.max(0, Math.min(WW - 1, Math.round(p.x)));
+        if (p.vy > 0 && (p.y >= this.gy[gx] - 1 || p.y >= this.lay.waterLevel && this.gy[gx] > this.lay.waterLevel)) { this.particles.splice(i, 1); continue; }
+      }
       let a = 1 - p.life / p.max;
       if (p.kind === 'firefly') a = Math.max(0, Math.sin(p.life * 3 + i)) * (1 - p.life / p.max);
       c.globalAlpha = a;

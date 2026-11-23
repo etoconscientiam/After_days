@@ -486,6 +486,9 @@ export class Game {
   physMs = 0;
   /** migration ticks owed (core/fluids.ts) */
   fluidAcc = 0;
+  /** seconds to the next lens of buried water; seconds since the last eruption check (core/fluids.ts) */
+  lensT = 8;
+  eruptT = 0;
 
   strataStep(dt: number): void {
     const r = this.run;

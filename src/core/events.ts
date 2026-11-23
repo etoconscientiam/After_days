@@ -15,6 +15,8 @@ export interface GameEvents {
   absorb: { energy: number; mat: string; value: number };
   /** gas or oil seeped out at the surface (particle column x, row y) */
   seep: { x: number; y: number; oil: boolean };
+  /** a buried lens of water broke out: vent column x, the lens's top row y0 and the vent's row y1, n particles */
+  geyser: { x: number; y0: number; y1: number; n: number };
   element: { id: string; x?: number; depth?: number };
   echo: { id: string; alpha: number };
   relicFound: { id: string };
