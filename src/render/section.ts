@@ -219,15 +219,17 @@ export class SectionRenderer {
     for (let r = 0; r < grid.floor; r++) {
       const yPix = r * 2;
       if (yPix - BASE > revealY) break;
-      if (r >= band0 && r <= grid.sinkRow) continue;
+      const inBand = r >= band0 && r <= grid.sinkRow;
       for (let x = 0; x < GW; x++) {
         const i = r * GW + x, m = grid.mat[i];
+        // the squeeze above the thing draws its own particles (drawBand); its empty cells are open water too
+        if (inBand && m && KIND[m] !== K_NONE) continue;
         if (!m || KIND[m] === K_NONE) {
           // open water over a bare floor: the sea goes all the way down, darker with depth
           if (g.water.col[x] === 1 && r >= g.water.level) {
             const k = Math.min(1, (r - g.water.level) / Math.max(1, grid.floor - g.water.level));
             const n = (hash2(x, r) - 0.5) * 6;
-            const c = pack32(40 - 28 * k + n, 88 - 54 * k + n, 116 - 60 * k + n);
+            const c = pack32(40 - 16 * k + n, 88 - 30 * k + n, 116 - 32 * k + n);
             const o = yPix * WW + x * 2;
             buf[o] = c; buf[o + 1] = c; buf[o + WW] = c; buf[o + WW + 1] = c;
           }

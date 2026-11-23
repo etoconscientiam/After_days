@@ -1125,7 +1125,9 @@ export class Renderer {
           const k = (y - sea) / Math.max(1, bottom - sea);
           const shaft = Math.max(0, Math.sin(x * 0.12 + y * 0.25 - t * 0.6)) ** 6 * 0.25 * sky.light;
           const base = lerp3(lerp3(sky.hor, [46, 96, 124], 0.55), [12, 36, 58], k);
-          const a = Math.min(1, 0.55 + (y - sea) * 0.08);
+          // translucent: what sinks through the water (a tapped pile) shows through it, tinted; the section paints
+          // the open water itself, darker with depth
+          const a = Math.min(0.5, 0.3 + (y - sea) * 0.01);
           c.fillStyle = rgb(base[0] * nf(0.5) + shaft * 120, base[1] * nf(0.5) + shaft * 140, base[2] * nf(0.45) + shaft * 120, a);
           c.fillRect(x, y, 1, 1);
         }
