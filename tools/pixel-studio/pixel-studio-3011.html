@@ -178,6 +178,9 @@ details.sub>div{padding:0 10px 10px;display:flex;flex-direction:column;gap:8px}
 .modal{position:fixed;inset:0;background:rgba(6,8,8,.86);z-index:20;display:grid;place-items:center;
   padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
 .modal .card{background:var(--surface);border:1px solid var(--line-2);border-radius:10px;padding:14px;max-width:min(560px,100%);max-height:100%;display:flex;flex-direction:column;gap:10px;overflow:auto}
+.busy .card{width:min(360px,100%)}
+.bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--warm);transition:width .15s}
 .modal img{max-width:100%;max-height:60vh;image-rendering:pixelated;align-self:center;border-radius:4px}
 .phead{position:sticky;top:0;z-index:4;background:var(--surface);border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:8px;padding:10px 12px 0}
 .styles{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin}
@@ -639,6 +642,15 @@ input[type=color]::-moz-color-swatch{border:0;border-radius:4px}
       </div>
     </aside>
   </main>
+</div>
+
+<div class="modal busy" id="busy" hidden>
+  <div class="card" role="dialog" aria-live="polite" aria-label="Сборка файла">
+    <strong id="busyTitle">Собираю…</strong>
+    <div class="bar" aria-hidden="true"><i id="busyBar"></i></div>
+    <p class="hint">Пока файл собирается, настройки не меняются — иначе часть кадров ушла бы со старыми, часть с новыми.</p>
+    <button class="btn" id="busyCancel">Отменить (Esc)</button>
+  </div>
 </div>
 
 <div class="modal" id="helpModal" hidden>
@@ -2166,6 +2178,7 @@ let dirty = null, raf = 0, lastRunMs = 0, lastRunEnd = 0;
 // Тяжёлые настройки (большая сетка, всё включено) пересчитываются реже, чтобы ползунок не залипал.
 function invalidate(level) {
   if (dirty === null || ORDER[level] < ORDER[dirty]) dirty = level;
+  if (typeof anim !== 'undefined' && anim.on) anim.pal = undefined;
   if (!raf) {
     const wait = lastRunMs > 120 ? lastRunMs * 0.7 - (performance.now() - lastRunEnd) : 0;
     raf = wait > 8 ? setTimeout(() => requestAnimationFrame(run), wait) : requestAnimationFrame(run);
@@ -2289,7 +2302,11 @@ function onBind(ev) {
   const el = ev.target, path = el.dataset && el.dataset.bind; if (!path) return;
   let v;
   if (el.type === 'checkbox') v = el.checked;
-  else if (el.type === 'range' || el.type === 'number') { v = +el.value; if (!isFinite(v)) return; }
+  else if (el.type === 'range' || el.type === 'number') {
+    if (el.value === '') { if (ev.type === 'change') { el.value = getPath(S, path); updateOut(el); } return; }
+    v = +el.value; if (!isFinite(v)) return;
+    if (el.type === 'number') { if (el.min !== '') v = Math.max(+el.min, v); if (el.max !== '') v = Math.min(+el.max, v); if (ev.type === 'change' && String(v) !== el.value) el.value = v; }
+  }
   else v = el.value;
   if (path === 'grid.width' && S.grid.snap) { v = snapW(v); el.value = v; }
   if (path === 'anim.frames') v = clamp(Math.round(v), 2, 96);
@@ -3133,8 +3150,15 @@ $('#animSeg').addEventListener('click', e => { const b = e.target.closest('butto
 
 /* ---------- GIF ---------- */
 let gifJob = null;
+function showBusy(title, i, n) {
+  const el = $('#busy');
+  if (title == null) { el.hidden = true; return; }
+  el.hidden = false; $('#busyTitle').textContent = `${title}: ${i} из ${n}`; $('#busyBar').style.width = (n ? i / n * 100 : 0) + '%';
+}
+$('#busyCancel').onclick = () => { if (gifJob) gifJob.cancel = true; if (vidJob) vidJob.cancel = true; $('#busyTitle').textContent = 'Отменяю…'; };
 function setGifBusy(i, n) {
   const busy = i != null;
+  showBusy(busy ? 'Собираю GIF, кадр' : null, i, n);
   $('#tbGif').textContent = busy ? `GIF ${i}/${n} · отмена` : 'GIF';
   $('#gifBtn').textContent = busy ? `Собираю ${i}/${n} · отменить` : 'Скачать GIF';
   $('#expGif').textContent = busy ? `GIF ${i}/${n} · отменить` : 'GIF анимация';
@@ -3210,6 +3234,7 @@ async function pickCodec(w, h, fps, bitrate) {
 let vidJob = null;
 function setVidBusy(i, n) {
   const busy = i != null;
+  showBusy(busy ? 'Кодирую видео, кадр' : null, i, n);
   $('#tbMp4').textContent = busy ? `Видео ${i}/${n} · отмена` : 'MP4';
   $('#vidBtn').textContent = busy ? `Кодирую ${i}/${n} · отменить` : 'Скачать MP4';
   $('#expVid').textContent = busy ? `Видео ${i}/${n} · отменить` : 'MP4 видео';
@@ -3412,7 +3437,8 @@ window.addEventListener('keydown', e => {
   const t = e.target, tag = (t.tagName || '').toLowerCase();
   const typing = tag === 'textarea' || tag === 'select' || t.isContentEditable || (tag === 'input' && !['range', 'checkbox', 'color', 'button', 'file'].includes(t.type));
   const mod = e.ctrlKey || e.metaKey, k = e.key.toLowerCase();
-  if (e.key === 'Escape') { if (!$('#helpModal').hidden) toggleHelp(false); if (!$('#saveModal').hidden) $('#saveModal').hidden = true; if (anim.on) stopPreview(); return; }
+  if (e.key === 'Escape') { if (!$('#busy').hidden) { if (gifJob) gifJob.cancel = true; if (vidJob) vidJob.cancel = true; return; } if (!$('#helpModal').hidden) toggleHelp(false); if (!$('#saveModal').hidden) $('#saveModal').hidden = true; if (anim.on) stopPreview(); return; }
+  if (!$('#helpModal').hidden || !$('#saveModal').hidden || !$('#busy').hidden) return;
   if (mod) {
     if (k === 'z' && !typing) { e.preventDefault(); histGo(e.shiftKey ? 1 : -1); }
     else if (k === 'y' && !typing) { e.preventDefault(); histGo(1); }
