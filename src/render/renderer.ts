@@ -12,7 +12,7 @@ import { hash2 } from '../core/rng';
 import { Layout, WW, WH, NOISE, GRAIN, lerp, lerp3, hex3, rgb, ACCENT } from './common';
 import { SectionRenderer, ERA_COLORS, particlePx } from './section';
 import { drawFossil, fossilKind } from './skins';
-import { CREATURES, Pose, birdFlying, hominid } from './creatures';
+import { CREATURES, Pose, birdFlying, hominid, treeSmall, mossSmall, personSmall, matFilm } from './creatures';
 import { drawItem } from './items';
 import { renderEcho, EW, EH } from './echoes';
 import { drawScene, pictogram, VW, VH } from './ritual';
@@ -1131,17 +1131,8 @@ export class Renderer {
           c.fillStyle = rgb(base[0] * nf(0.5) + shaft * 120, base[1] * nf(0.5) + shaft * 140, base[2] * nf(0.45) + shaft * 120, a);
           c.fillRect(x, y, 1, 1);
         }
-      } else if (g.zoneMap[x] === 2 && green > 0.15 && !winter) {
-        for (let q = 0; q < 2; q++) {
-          if (hash2(x, 50 + q) > 0.18 + green * 0.25) continue;
-          const ty = Math.round(gy + 2 + hash2(x, 60 + q) * (bottom - gy - 4));
-          const hgt = 1 + Math.round(hash2(x, 70 + q) * 3 * green);
-          const sw = Math.sin(t * 2 + x * 0.3 + q) > 0.4 ? 1 : 0;
-          c.fillStyle = rgb(top[0] * 0.62 * nf(0.55), top[1] * 0.8 * nf(0.55), top[2] * 0.5);
-          c.fillRect(x + sw, ty - hgt, 1, hgt);
-          if (this.seasonPhase < 0.3 && hash2(x, 80 + q) > 0.8) { c.fillStyle = q ? '#f0e080' : '#e890b0'; c.fillRect(x + sw, ty - hgt - 1, 1, 1); }
-        }
       }
+      // (no grass blades scattered under the surface: below the ground line are the strata now)
     }
     // 2) painted top edges of the zones: barren (era 0, before land life) → grass with it; beach at the shore;
     //    the water surface strip. Zones blend over ~20 px, so no vertical walls.
@@ -1252,6 +1243,19 @@ export class Renderer {
     return segs;
   }
 
+  /** Each drawn plant or person: its generation (a new one after a burial), its ground, when it was born, until
+   *  when it lies buried. */
+  private lifeAt = new Map<string, { gen: number; y0: number; born: number; until: number }>();
+
+  /** A puff of dust where a pile buried something living. */
+  private burialPuff(x: number, y: number): void {
+    if (this.particles.length > 300) return;
+    for (let k = 0; k < 5; k++) {
+      const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.4, sp = 6 + Math.random() * 10;
+      this.particles.push({ x: x + (Math.random() - 0.5) * 3, y: y - 1, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0, max: 0.6 + Math.random() * 0.4, color: k % 2 ? '#8a7a64' : '#b8a888', size: 1 });
+    }
+  }
+
   /** Living surface: a sample of each species with idle behaviour; wolves stalk the herds; everyone looks up when startled. */
   private drawLife(g: Game): void {
     const c = this.ctx;
@@ -1259,7 +1263,7 @@ export class Renderer {
     const lay = this.lay;
     const segs = this.segments(g);
     const since = t - this.alarm;
-    const caps: Record<string, number> = { mat: 6, plankton: 14, mollusc: 6, fish: 7, moss: 12, tree: 9, insect: 8, bird: 5, herd: 6, predator: 4, hominid: 4, tribe: 7 };
+    const caps: Record<string, number> = { mat: 8, plankton: 14, mollusc: 6, fish: 7, moss: 18, tree: 24, insect: 8, bird: 5, herd: 6, predator: 4, hominid: 5, tribe: 8 };
     const queue: { y: number; draw: () => void }[] = [];
     const herdXs: number[] = [];
     // where there is water now (the sea and the flooded lowland) and how deep: piles can fill the sea, the sea
@@ -1293,11 +1297,15 @@ export class Renderer {
       for (let zi = 0; zi < 3; zi++) {
         if (p[zi] <= 0) continue;
         const cap = this.quality === 'high' ? caps[sp.sprite] ?? 5 : Math.ceil((caps[sp.sprite] ?? 5) / 2);
-        const n = Math.min(cap, Math.ceil(p[zi] / (sp.sprite === 'plankton' ? 1 : 3)));
+        // small plants stand thick (a forest reads as a forest); animals and people are a sample
+        const n = Math.min(cap, Math.ceil(p[zi] / (sp.sprite === 'plankton' || sp.sprite === 'moss' ? 1 : sp.sprite === 'tree' ? 1.3 : 3)));
         const zsegs = segs.filter((s) => s.zi === zi);
         const width = zsegs.reduce((a, s) => a + s.x1 - s.x0 + 1, 0);
         for (let i = 0; i < n; i++) {
-          let u = hash2(i * 13 + zi, sp.idx * 7 + 1) * width;
+          // each one drawn has its own place; when it is buried, the next one grows elsewhere (gen)
+          const key = sp.id + ':' + zi + ':' + i;
+          const gen = this.lifeAt.get(key)?.gen ?? 0;
+          let u = hash2(i * 13 + zi + gen * 101, sp.idx * 7 + 1 + gen) * width;
           let bx = 0;
           for (const s of zsegs) { const w = s.x1 - s.x0 + 1; if (u < w) { bx = s.x0 + u; break; } u -= w; }
           if (sp.id === 'mats' && zi === 0 && !g.mods.shards) bx = Math.max(1, Math.min(g.run.waterEnd - 3, CFG.story.horizon.lifeSeedX + (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 6));
@@ -1365,6 +1373,30 @@ export class Renderer {
             const sink = sp.sprite === 'tree' ? 1 + Math.round(hash2(i, sp.idx + 99) * 2) : Math.round(hash2(i, sp.idx + 99) * 2);
             y = this.gy[xi2] + sink;
           }
+          // rooted life and people keep their own ground: a pile (or the drizzle) that covers them buries them — a puff
+          // of dust, gone — and later a new one sprouts (plants grow up from nothing) or walks in elsewhere. When the
+          // ground goes down (the conveyor), they go down with it. They never ride a pile up.
+          let grow = 1;
+          const rooted = sp.sprite === 'tree' || sp.sprite === 'moss' || sp.sprite === 'mat';
+          const walker = sp.sprite === 'hominid' || sp.sprite === 'tribe';
+          if (rooted || walker) {
+            const ax = Math.max(0, Math.min(WW - 1, Math.round(rooted ? bx : x)));
+            const raw = lay.sectionTop + this.section.topD[ax];
+            let st = this.lifeAt.get(key);
+            if (!st) { st = { gen, y0: raw, born: t - 60, until: 0 }; this.lifeAt.set(key, st); }
+            if (st.until > 0) {
+              if (t < st.until) continue;
+              st.until = 0; st.born = t; st.y0 = raw;
+            } else if (raw < st.y0 - (walker ? 4 : 2)) {
+              st.until = t + (sp.sprite === 'tree' ? 5 + h * 6 : sp.sprite === 'moss' ? 2 + h * 3 : walker ? 1.5 + h * 2 : 2.5);
+              st.gen++;
+              this.burialPuff(ax, st.y0);
+              continue;
+            } else if (raw > st.y0 || walker) st.y0 = raw;
+            grow = Math.min(1, (t - st.born) / (sp.sprite === 'tree' ? 8 : sp.sprite === 'moss' ? 2.5 : 0.6));
+            y = st.y0;
+            if (walker && grow < 1) pose.alert = 1;
+          }
           if (sp.sprite === 'herd') herdXs.push(x);
           if (sp.sprite === 'bird' && since < 5) {
             const k = since / 5;
@@ -1382,6 +1414,17 @@ export class Renderer {
             // a swarm over the plants: a cloud of specks that drifts and hums
             const sx = x, sy = y - 9 - h * 6;
             queue.push({ y: 999, draw: () => swarm(c, sx, sy, t + h * 10, 6, '#2e3a40') });
+            continue;
+          }
+          // at the scale of the strata (creatures.ts): a tree is at most two piles tall
+          const small = sp.sprite === 'tree' ? (gx: number, gy2: number) => treeSmall(c, gx, gy2, pose, grow)
+            : sp.sprite === 'moss' ? (gx: number, gy2: number) => mossSmall(c, gx, gy2, pose, grow)
+            : sp.sprite === 'hominid' ? (gx: number, gy2: number) => personSmall(c, gx, gy2, pose)
+            : sp.sprite === 'tribe' ? (gx: number, gy2: number) => personSmall(c, gx, gy2, pose, i % 3 === 0)
+            : sp.sprite === 'mat' ? (gx: number, gy2: number) => matFilm(c, gx, gy2, pose) : null;
+          if (small) {
+            const fx2 = x, fy2 = y, glowIt = g.mods.living && i % 3 === 0;
+            queue.push({ y: fy2, draw: () => { small(fx2, fy2); if (glowIt) CREATURES.glow(c, fx2 + 1, fy2 - 3, pose); } });
             continue;
           }
           const fn = CREATURES[sp.sprite] ?? CREATURES.glow;
@@ -1464,7 +1507,9 @@ export class Renderer {
       }
     }
     this.drawSparks();
-    this.drawHot(g);
+    // the heat windows (where heat is making rock now: a glow and wandering cracks) belong to the Geologist's view:
+    // in the plain view they read as worms crawling in the strata
+    if (this.geologist) this.drawHot(g);
     let drawn = 0;
     for (const f of sec.fossils) {
       if (f.fragment) { c.fillStyle = 'rgba(240,230,200,0.9)'; c.fillRect(f.x, top + f.y, 1, 1); continue; }

@@ -248,3 +248,67 @@ function cropIcon(cv: HTMLCanvasElement, bg: string): HTMLCanvasElement {
   o.drawImage(cv, x0, y0, x1 - x0 + 1, y1 - y0 + 1, Math.floor((size - (x1 - x0 + 1)) / 2), Math.floor((size - (y1 - y0 + 1)) / 2), x1 - x0 + 1, y1 - y0 + 1);
   return out;
 }
+
+// ---------- life at the scale of the strata ----------
+// One particle is 2×2 px and a pile some 10 px across, so life on the surface is a detail: a tree is at most two
+// piles tall, a moss a tuft, a person a few pixels. No black outlines (they make things read big). `grow` 0..1:
+// a plant sprouting after it was buried.
+
+/** A tree, 6–10 px: a thin trunk and a crown of two or three blobs, by the season. */
+export function treeSmall(c: C, x: number, y: number, p: Pose, grow = 1): void {
+  const X = Math.round(x), Y = Math.round(y);
+  const h = Math.max(2, Math.round((6 + ((p.i * 7) % 5)) * grow));
+  const [d, l] = leaf(p.season);
+  const winter = p.season > 0.75;
+  c.fillStyle = 'rgba(0,0,0,0.22)'; c.fillRect(X - 1, Y, 3, 1);
+  c.fillStyle = '#4a3424'; c.fillRect(X, Y - h, 1, h);
+  if (grow < 0.35) { c.fillStyle = l; c.fillRect(X - 1, Y - h, 1, 1); c.fillRect(X + 1, Y - h + 1, 1, 1); return; }
+  if (winter) { c.fillStyle = '#4a3424'; c.fillRect(X - 1, Y - h + 2, 1, 1); c.fillRect(X + 1, Y - h + 1, 1, 1); c.fillStyle = 'rgba(236,240,248,0.85)'; c.fillRect(X - 1, Y - h, 3, 1); return; }
+  const sway = Math.sin(p.t * 0.9 + p.i) > 0.6 ? 1 : 0;
+  const r = Math.max(1, Math.round((2 + (p.i % 2)) * grow));
+  const blobs: [number, number, number][] = [[0, -h, r], [-r, -h + r, r - 1 || 1], [r, -h + r - 1, r - 1 || 1]];
+  for (const [bx, by, rad] of blobs) {
+    for (let yy = -rad; yy <= rad; yy++) {
+      const ww = Math.round(Math.sqrt(Math.max(0, rad * rad - yy * yy)));
+      c.fillStyle = yy < 0 ? l : d;
+      c.fillRect(X + bx - ww + sway, Y + by + yy, ww * 2 + 1, 1);
+    }
+  }
+}
+
+/** A tuft of moss or fern, 2–4 px. */
+export function mossSmall(c: C, x: number, y: number, p: Pose, grow = 1): void {
+  const X = Math.round(x), Y = Math.round(y);
+  const [d, l] = leaf(p.season * 0.7);
+  const h = Math.max(1, Math.round((2 + (p.i % 3)) * grow));
+  const sway = Math.sin(p.t * 1.5 + p.i) > 0.5 ? 1 : 0;
+  c.fillStyle = d; c.fillRect(X - 1, Y - 1, 3, 1);
+  c.fillStyle = l;
+  for (let k = 1; k < h; k++) c.fillRect(X + (k === h - 1 ? sway : 0), Y - 1 - k, 1, 1);
+  if (h > 2) { c.fillRect(X - 1, Y - 2, 1, 1); c.fillRect(X + 1, Y - 3, 1, 1); }
+}
+
+/** A person, 5 px tall; a torch for the tribe. */
+export function personSmall(c: C, x: number, y: number, p: Pose, torch = false): void {
+  const X = Math.round(x), Y = Math.round(y);
+  const skin = p.tint ?? '#c8a070', cloth = torch ? '#7a4a30' : '#5e4a38';
+  const step = p.walk > 0.3 && Math.sin(p.t * 6 + p.i) > 0 ? 1 : 0;
+  c.fillStyle = 'rgba(0,0,0,0.25)'; c.fillRect(X - 1, Y, 3, 1);
+  c.fillStyle = cloth; c.fillRect(X - step, Y - 2, 1, 2); c.fillRect(X + 1 - step, Y - 2, 1, 2);
+  c.fillRect(X, Y - 4, 2, 2);
+  c.fillStyle = skin; c.fillRect(X + (p.alert > 0.5 ? 0 : 1), Y - 5, 1, 1);
+  if (torch) {
+    const f = Math.sin(p.t * 12 + p.i * 3) > 0 ? '#ffb040' : '#ff7a2a';
+    c.fillStyle = '#5a3a20'; c.fillRect(X + 2, Y - 5, 1, 2);
+    c.fillStyle = f; c.fillRect(X + 2, Y - 6, 1, 1);
+  }
+}
+
+/** A microbial mat on the floor: a thin green film, its edge a little lighter. */
+export function matFilm(c: C, x: number, y: number, p: Pose): void {
+  const X = Math.round(x), Y = Math.round(y);
+  const w = 4 + (p.i % 3) * 2;
+  c.fillStyle = '#3e6a34'; c.fillRect(X - (w >> 1), Y - 1, w, 1);
+  c.fillStyle = '#6a9a48'; c.fillRect(X - (w >> 1) + 1, Y - 1, Math.max(1, w - 3), 1);
+  if (p.i % 2) { c.fillStyle = '#6a5478'; c.fillRect(X + (w >> 1) - 1, Y - 1, 1, 1); }
+}
