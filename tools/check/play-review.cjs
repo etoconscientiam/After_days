@@ -1,6 +1,8 @@
 // A plain player: taps ~2/s across the world, every 20 s buys the cheapest affordable thing (upgrade or species).
 const { chromium } = require('playwright');
 const FILE = process.argv[2], MIN = +process.argv[3] || 8;
+// screenshots go next to the build (never into the repository)
+const OUT = require("path").dirname(FILE);
 (async () => {
   const b = await chromium.launch();
   const p = await b.newPage({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 2 });
@@ -49,7 +51,7 @@ const FILE = process.argv[2], MIN = +process.argv[3] || 8;
     if (el > shot * 40000) {
       const st = await p.evaluate(() => { const g = window.__strata.game; return { t: Math.round(g.state.legacy.totalRealTime), era: g.run.era, E: Math.round(g.run.energy), inc: +g.incomePerSec().toFixed(1), click: +g.clickValue().toFixed(2), goal: (document.querySelector('#hud')?.innerText || '').replace(/\s+/g, ' ').slice(0, 160) }; });
       await p.evaluate((st) => window.__log.push('СОСТОЯНИЕ ' + JSON.stringify(st)), st);
-      await p.screenshot({ path: `shot-${String(shot).padStart(2, '0')}.png` });
+      await p.screenshot({ path: `${OUT}/shot-${String(shot).padStart(2, '0')}.png` });
       shot++;
     }
   }
