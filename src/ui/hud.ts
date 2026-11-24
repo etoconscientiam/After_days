@@ -174,6 +174,15 @@ export class Hud {
     const out: { text: string; k: number; sub?: boolean }[] = [];
     // the era's condition comes first while it is not met (it is the way on, and its lever is shown under it);
     // the orders follow (all of them in the list behind a tap on the goal)
+    // the very first goal: bury the thing up to the compaction line (until the first row goes into it)
+    if (g.state.phase === 'play' && g.run.sink.rows === 0) {
+      const grid = g.grid, line = g.lineRow();
+      let mean = 0;
+      for (let x = 0; x < grid.W; x++) mean += grid.surf[x];
+      mean /= grid.W;
+      const k = Math.max(0, Math.min(1, (grid.floor - mean) / Math.max(1, grid.floor - line)));
+      out.push({ text: t('goal.bury', { p: fmt(k * 100, 0) }), k });
+    }
     const eraOpen = g.state.phase === 'play' && g.run.era < 8 && g.eraConditionProgress() < 1;
     if (eraOpen) out.push({ text: this.condString(g), k: g.eraConditionProgress(), sub: true });
     for (const o of g.run.orders) {

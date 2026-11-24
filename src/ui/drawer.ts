@@ -173,6 +173,28 @@ export class Drawer {
     };
     if (this.open && this.open in map) this.markSeen(this.open);
     for (const id of TABS) toggle(this.tabButtons.get(id)!, 'has-new', map[id] && this.open !== id);
+    this.revealTabs(g);
+  }
+
+  /** The tabs open in circles, each when it first has something for the player, and stay (legacy.firsts):
+   *  Life — the first species; Upgrades — the first one affordable; Elements — from epoch II, the first affordable;
+   *  Epoch — a new world is possible; Book — the first rock, fossil or note. */
+  private revealTabs(g: Game): void {
+    const f = g.legacy.firsts;
+    const want: Record<TabId, () => boolean> = {
+      life: () => CFG.species.some((sp) => g.speciesUnlocked(sp)),
+      upgrades: () => CFG.upgrades.some((u) => u.currency === 'energy' && (!u.era || g.run.era >= u.era) && g.upgradeCost(u.id) <= g.run.energy) || Object.values(g.run.upgrades).some((v) => v > 0),
+      elements: () => g.run.era >= 2 && CFG.elements.some((el) => g.elementAvailable(el) && g.elementCost(el) <= g.run.energy),
+      epoch: () => g.meta.prestiges > 0 || g.prestigeGain() >= 1,
+      book: () => Object.values(g.run.rocks).some((v) => v > 0) || g.legacy.fossils > 0 || g.legacy.notes.length > 0,
+    };
+    for (const id of TABS) {
+      const key = 'tab_' + id;
+      if (!f[key] && g.state.phase === 'play' && want[id]()) { f[key] = true; this.tabButtons.get(id)!.classList.add('reveal'); }
+      const b = this.tabButtons.get(id)!;
+      const show = !!f[key] || this.open === id;
+      if (b.hidden === show) b.hidden = !show;
+    }
   }
 
   refresh(force: boolean): void {

@@ -29,6 +29,7 @@
     "excavation": "Needed: dig down to the thing ({cur}/{v})"
   },
   "hud": {
+    "pressHint": "hold a finger on the strata to press them",
     "compactLine": "compaction level",
     "yps": "{v} yrs/s",
     "wps": "{v} wks/s",
@@ -877,6 +878,7 @@
     "eraN": "Epoch {n}: {name}"
   },
   "goal": {
+    "bury": "Bury the thing up to the line",
     "leverNeeds": "{s}: {need} — {how}",
     "leverFit": "{s}: niche {v}% — strengthen it",
     "open": "Open: {s}",

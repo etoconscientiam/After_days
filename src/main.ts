@@ -13,7 +13,7 @@ import { Drawer } from './ui/drawer';
 import { Input } from './ui/input';
 import { Modals } from './ui/modals';
 import { DevPanel } from './ui/debug';
-import { $ } from './ui/dom';
+import { $, toggle } from './ui/dom';
 import { t, setLang, onLangChange } from './ui/i18n';
 import { rockIcon, energyIcon, exhibit } from './ui/icons';
 import { audio } from './audio/audio';
@@ -426,6 +426,7 @@ function watchFps(dt: number): void {
   hud.notify('quality', t('settings.autoLow'), '#B9A6E8');
 }
 
+let pressHintT = 0;
 function frame(now: number): void {
   const dtReal = Math.min(0.1, (now - last) / 1000);
   last = now;
@@ -439,12 +440,23 @@ function frame(now: number): void {
   game.lowPhysics = renderer.quality === 'low';
   watchFps(dtReal);
   renderer.draw(game, dtReal, now);
-  // the compaction line's label, until the strata first reach it in this world
+  // the compaction line's label, until the strata first reach it in this world; then, at the same place, the
+  // press is shown once: hold a finger on the strata to squeeze them (until the player presses, or 14 s)
   const pl = document.getElementById('pline');
   if (pl) {
-    const show = game.state.phase === 'play' && game.run.sink.rows === 0;
+    const f = game.legacy.firsts;
+    if (game.run.press && !f.pressTaught) f.pressTaught = true;
+    const below = game.state.phase === 'play' && game.run.sink.rows === 0;
+    if (!below && game.state.phase === 'play' && !f.pressTaught) { pressHintT += dtReal; if (pressHintT > 14) f.pressTaught = true; }
+    const hint = !below && game.state.phase === 'play' && !f.pressTaught;
+    const show = below || hint;
     if (pl.hidden === show) pl.hidden = !show;
-    if (show) { pl.style.top = (renderer.compactLineY / WH) * 100 + '%'; if (pl.textContent !== t('hud.compactLine')) pl.textContent = t('hud.compactLine'); }
+    toggle(pl, 'press-hint', hint);
+    if (show) {
+      pl.style.top = (renderer.compactLineY / WH) * 100 + '%';
+      const txt = hint ? t('hud.pressHint') : t('hud.compactLine');
+      if (pl.textContent !== txt) pl.textContent = txt;
+    }
   }
   hud.update(game, dtReal);
   drawer.update(dtReal);

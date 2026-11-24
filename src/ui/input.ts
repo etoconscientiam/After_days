@@ -47,6 +47,8 @@ export class Input {
     c.addEventListener('pointerleave', () => { this.mouse = null; this.ren.hover = null; this.tooltip.hidden = true; });
     c.addEventListener('pointerdown', (e) => {
       if (e.pointerType === 'mouse' && e.button !== 0) return;
+      this.lastDown = performance.now();
+      this.tooltip.hidden = true;
       this.finger = e.pointerType === 'touch';
       e.preventDefault();
       this.down(e);
@@ -86,8 +88,13 @@ export class Input {
     if (this.mouse && !this.finger && !this.hold) this.refreshHover();
   }
 
+  /** when the pointer last went down and last moved: the label waits for a still pointer, not over taps */
+  private lastDown = -1e9;
+  private lastMove = -1e9;
+
   private move(e: MouseEvent): void {
     this.mouse = this.world(e);
+    this.lastMove = performance.now();
     this.refreshHover();
   }
 
@@ -123,6 +130,9 @@ export class Input {
     if (sy === null || art >= 0 || g.state.phase !== 'play') { this.ren.hover = null; this.tooltip.hidden = true; return; }
     const x = this.col(m.x);
     this.ren.hover = { x, y: Math.floor(sy) };
+    // the museum label only for a pointer resting on the strata, not while tapping: it would cover the pile
+    const now = performance.now();
+    if (now - this.lastDown < 2000 || now - this.lastMove < 700) { this.tooltip.hidden = true; return; }
     this.showTooltip(g, x, sy, m);
   }
 

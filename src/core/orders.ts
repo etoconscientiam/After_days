@@ -31,7 +31,9 @@ export function drawOrders(g: Game): void {
   r.ordersEra = r.era;
   const done = new Set(r.orders.filter((o) => o.done).map((o) => o.id));
   r.orders = r.orders.filter((o) => !o.done && (orderDef(o.id)?.eras[1] ?? -1) >= r.era);   // unfinished ones carry over
-  const pool = CFG.orders.pool.filter((d) => r.era >= d.eras[0] && r.era <= d.eras[1] && !done.has(d.id) && !r.orders.some((o) => o.id === d.id));
+  // the press is asked for only once it has been shown (a hint at the compaction line, main.ts)
+  const press = !!g.legacy.firsts.pressTaught;
+  const pool = CFG.orders.pool.filter((d) => r.era >= d.eras[0] && r.era <= d.eras[1] && !done.has(d.id) && !r.orders.some((o) => o.id === d.id) && (press || d.type !== 'pressMoved'));
   const [a, b] = CFG.orders.perEra;
   let n = a + Math.floor(g.rng.next() * (b - a + 1)) - r.orders.length;
   while (n-- > 0 && pool.length) {

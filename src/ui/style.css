@@ -32,6 +32,8 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 #column { position: relative; width: 360px; height: 640px; box-shadow: 0 0 0 1px rgba(0,0,0,0.6), 0 30px 90px rgba(0,0,0,0.75); border-radius: 6px; overflow: hidden; }
 #world { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; display: block; touch-action: none; }
 #world.pointer { cursor: pointer; }
+#pline.press-hint { color: #ffe6a8; opacity: 1; animation: pressHint 1.6s ease-in-out infinite; }
+@keyframes pressHint { 50% { opacity: 0.55; } }
 #pline { position: absolute; left: 12px; color: #F2B54A; opacity: 0.8; pointer-events: none; transform: translateY(-20px); font-size: 14px; text-shadow: 0 1px 0 rgba(0,0,0,0.7); }
 #world.target { cursor: crosshair; }
 #ui { position: absolute; left: 0; top: 0; width: 360px; height: 640px; transform-origin: 0 0; pointer-events: none; font-size: 16px; line-height: 1.25; }
@@ -510,3 +512,8 @@ html[data-tremor] #ui { animation: letterTremor 0.14s steps(1) infinite; }
 #cond-pop .goal-open { margin-top: 6px; pointer-events: auto; }
 .life-item.flash, .life-row.flash { animation: lifeFlash 1.2s ease-out; }
 @keyframes lifeFlash { 0% { box-shadow: 0 0 0 2px #9cc060; } 100% { box-shadow: 0 0 0 0 rgba(156,192,96,0); } }
+
+/* a tab opens in its circle: it rises in with a glow */
+.tab[hidden] { display: none; }
+.tab.reveal { animation: tabReveal 1.4s ease-out; }
+@keyframes tabReveal { 0% { transform: translateY(14px); opacity: 0; box-shadow: 0 0 0 0 rgba(242,181,74,0); } 40% { transform: none; opacity: 1; box-shadow: 0 0 0 3px rgba(242,181,74,0.8); } 100% { box-shadow: 0 0 0 0 rgba(242,181,74,0); } }
