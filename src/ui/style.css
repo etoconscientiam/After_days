@@ -518,16 +518,14 @@ html[data-tremor] #ui { animation: letterTremor 0.14s steps(1) infinite; }
 .tab.reveal { animation: tabReveal 1.4s ease-out; }
 @keyframes tabReveal { 0% { transform: translateY(14px); opacity: 0; box-shadow: 0 0 0 0 rgba(242,181,74,0); } 40% { transform: none; opacity: 1; box-shadow: 0 0 0 3px rgba(242,181,74,0.8); } 100% { box-shadow: 0 0 0 0 rgba(242,181,74,0); } }
 
-/* the pile's extra material: one chosen of the opened ones — a column at the right, under the Geologist's buttons */
-#pile-chips { position: absolute; right: 6px; top: var(--side-top, 300px); z-index: 3; pointer-events: auto; }
-#pile-chips[hidden] { display: none; }
-#pile-chips .pc-row { display: flex; flex-direction: column; gap: 4px; }
-#pile-chips .pc-chip { width: 34px; height: 34px; border-radius: 8px; background: rgba(20,16,24,0.72); border: 1px solid rgba(237,227,208,0.18); display: grid; place-items: center; padding: 0; }
-#pile-chips .pc-chip.on { border-color: #F2B54A; box-shadow: 0 0 0 1px #F2B54A, 0 0 8px rgba(242,181,74,0.5); background: rgba(60,44,20,0.85); }
-#pile-chips .pc-own { color: var(--bone); font-size: 16px; }
-#pile-chips .pc-info { position: absolute; right: 42px; width: max-content; max-width: 200px; padding: 4px 8px; border-radius: 6px; background: rgba(20,16,24,0.82);
-  color: #ffe6a8; font-size: 12px; line-height: 14px; text-align: right; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
-#pile-chips .pc-info.show { opacity: 1; }
+/* the composition of the piles, as in the prototype: a thin bar over the tab bar, a segment per material */
+#pile-mix { position: absolute; left: 10px; right: 10px; bottom: 58px; z-index: 3; pointer-events: auto; }
+#pile-mix[hidden] { display: none; }
+#pile-mix .pm-lbl { display: flex; justify-content: space-between; font-size: 12px; line-height: 14px; color: rgba(237,227,208,0.75); text-shadow: 0 1px 2px #000; margin-bottom: 2px; }
+#pile-mix .pm-bar { display: flex; height: 8px; overflow: hidden; outline: 1px solid rgba(237,227,208,0.2); background: rgba(20,16,24,0.6); }
+#pile-mix .pm-bar i { display: block; height: 100%; transition: width 0.4s; }
+#ui.drawer-open #pile-mix, #ui.geo-on #pile-mix { display: none; }
+.rock-chip.bump { animation: chipBump 0.25s ease-out; }
 
 /* a forecast plate points left at its layer */
 .geo-plate::before { content: ''; position: absolute; left: -5px; top: 50%; margin-top: -4px; border: 4px solid transparent; border-right-color: inherit; border-left: 0; }
@@ -539,12 +537,7 @@ html[data-tremor] #ui { animation: letterTremor 0.14s steps(1) infinite; }
   font-size: 13px; line-height: 16px; box-shadow: 0 3px 10px rgba(0,0,0,0.5); pointer-events: none; }
 .side-tip[hidden] { display: none; }
 
-/* the stock on a pile extra's button */
-#pile-chips .pc-chip { position: relative; }
-#pile-chips .pc-n { position: absolute; right: -2px; bottom: -3px; min-width: 14px; padding: 0 2px; border-radius: 4px; background: rgba(14,12,16,0.85);
-  color: #ffe6a8; font-size: 10px; line-height: 11px; text-align: center; }
-#pile-chips .pc-chip.bump { animation: chipBump 0.25s ease-out; }
-@keyframes chipBump { 40% { transform: scale(1.14); box-shadow: 0 0 10px rgba(255,220,140,0.8); } }
+@keyframes chipBump { 40% { transform: scale(1.18); filter: drop-shadow(0 0 6px rgba(255,220,140,0.9)); } }
 
 /* «+N» over the thing when it absorbs: rises and fades */
 .float-gain { position: fixed; z-index: 20; transform: translate(-50%, 0); color: #ffd27a; font-size: 15px; font-weight: bold; pointer-events: none;

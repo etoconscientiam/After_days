@@ -57,7 +57,7 @@ export interface UpgradeDef {
 }
 export interface DensityNode { id: string; base: number; mult: number; max: number; stat: string; value: number; requires?: number }
 export interface RareDef { id: string; eras: [number, number]; place: 'sky' | 'shore' | 'land' | 'section' | 'strata' | 'horizon'; weight?: number; reward: Record<string, number | boolean> }
-export interface OrderDef { id: string; eras: [number, number]; type: 'rockEarned' | 'museum' | 'insectAmber' | 'pressMoved'; rock?: string; species?: string; n: number; reward: { density?: number; rock?: string; n?: number } }
+export interface OrderDef { id: string; eras: [number, number]; type: 'formed' | 'rockEarned' | 'museum' | 'insectAmber' | 'pressMoved'; rock?: string; species?: string; n: number; reward: { density?: number; rock?: string; n?: number } }
 export interface RitualDef { id: string; scene: string; world: string; mods: Record<string, any> }
 export interface EchoDef { id: string; picture: string; sound: string; group: 'common' | 'ring' | 'key' | 'wand'; trigger: string; eras?: [number, number] }
 export interface NoteDef { id: string; order: number; medium: 'metal_sheet' | 'memory_crystal' | 'ceramic_plate' | 'school_tablet'; type: string; reviewEn?: boolean; todo?: string; todoKey?: string }

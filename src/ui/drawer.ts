@@ -140,7 +140,7 @@ export class Drawer {
     return {
       life: CFG.species.filter((sp) => g.speciesUnlocked(sp)).map((sp) => sp.id),
       elements: CFG.elements.filter((el) => g.elementAvailable(el) && (el.world !== 'hot' || g.mods.hot)).map((el) => el.id),
-      upgrades: CFG.upgrades.filter((u) => u.currency === 'energy' || g.legacy.discovered.includes(u.currency)).map((u) => u.id),
+      upgrades: CFG.upgrades.filter((u) => u.currency === 'energy' || g.specialKnown(u.currency)).map((u) => u.id),
       density: CFG.density.filter((n) => (n.requires ?? 0) <= g.meta.prestiges).map((n) => n.id),
     };
   }
@@ -186,7 +186,7 @@ export class Drawer {
       upgrades: () => CFG.upgrades.some((u) => u.currency === 'energy' && (!u.era || g.run.era >= u.era) && g.upgradeCost(u.id) <= g.run.energy) || Object.values(g.run.upgrades).some((v) => v > 0),
       elements: () => g.run.era >= 2 && CFG.elements.some((el) => g.elementAvailable(el) && g.elementCost(el) <= g.run.energy),
       epoch: () => g.meta.prestiges > 0 || g.prestigeGain() >= 1,
-      book: () => Object.values(g.run.rocks).some((v) => v > 0) || g.legacy.fossils > 0 || g.legacy.notes.length > 0,
+      book: () => g.legacy.discovered.length > 0 || g.legacy.fossils > 0 || g.legacy.notes.length > 0,
     };
     for (const id of TABS) {
       const key = 'tab_' + id;
@@ -219,7 +219,7 @@ export class Drawer {
     switch (id) {
       case 'life': return CFG.species.map((s) => (g.speciesUnlocked(s) ? 1 : g.speciesGate(s) ? 2 : 0)).join('') + r.era + (r.mutationOffer ? 'm' + r.mutationEraOffered : '') + (this.expanded ?? '') + g.stats.buyBest + g.stats.shepherdSlots;
       case 'elements': return CFG.elements.map((e) => (g.elementAvailable(e) ? 1 : 0)).join('') + g.stats.autoSlots;
-      case 'upgrades': return g.legacy.discovered.join(',') + g.mods.living;
+      case 'upgrades': return CFG.B.sand.specials.order.filter((id) => g.specialKnown(id)).join(',') + g.mods.living;
       case 'epoch': return String(g.meta.prestiges);
       case 'book': return this.bookTab + g.legacy.notes.length + '|' + g.legacy.fossils + '|' + g.legacy.chronicle.length + '|' + Object.keys(g.legacy.relics).length;
       case 'rocks': return g.legacy.discovered.join(',');
@@ -467,12 +467,10 @@ export class Drawer {
     for (const u of CFG.upgrades.filter((x) => x.currency === 'energy' && x.branch !== 'pile')) this.body.append(this.upgradeRow(g, u));
     // branch «pile composition»: the size of a tapped pile and the shares of materials in it, opening by epochs
     const shareNow = h('small', {});
-    this.body.append(h('div', { class: 'group-title' }, pileIcon(18), t('upgrades.pile'), shareNow));
+    this.body.append(h('div', { class: 'group-title', 'data-rock': 'pile' }, pileIcon(18), t('upgrades.pile'), shareNow));
     this.refreshers.push(() => {
-      // the chosen extra and its share (one material goes into a pile, chosen over the tab bar)
-      const c = g.run.pileChoice;
-      const s = c && g.stats.pile[c] > 0 ? Math.min(CFG.B.sand.pileShareMax, CFG.B.sand.pileChoiceBase + g.stats.pile[c]) : 0;
-      setText(shareNow, t('upgrades.pileNow', { n: g.pileSize(), p: fmt(s * 100, 0) }));
+      // the composition of the piles: the zone's own share (the rest are the bought materials, see the bar over the tabs)
+      setText(shareNow, t('upgrades.pileNow', { n: g.pileSize(), p: fmt(g.pileShares().own * 100, 0) }));
     });
     for (const u of CFG.upgrades.filter((x) => x.branch === 'pile')) {
       if (u.era && g.run.era < u.era) {
@@ -486,7 +484,7 @@ export class Drawer {
     for (const u of CFG.upgrades.filter((x) => x.currency !== 'energy')) byRock.set(u.currency, [...(byRock.get(u.currency) ?? []), u]);
     const locked: [string, UpgradeDef[]][] = [];
     for (const [rock, list] of byRock) {
-      if (!g.legacy.discovered.includes(rock)) { locked.push([rock, list]); continue; }
+      if (!g.specialKnown(rock)) { locked.push([rock, list]); continue; }
       const stock = h('small', {});
       this.body.append(h('div', { class: 'group-title', 'data-rock': rock }, rockIcon(rock, 20), t('rocks.' + rock), stock));
       this.refreshers.push(() => setText(stock, fmt(g.run.rocks[rock] ?? 0, 0)));
@@ -500,7 +498,7 @@ export class Drawer {
     }
     if (g.mods.living) {
       this.body.append(h('div', { class: 'group-title' }, t('upgrades.ranks')));
-      for (const rk of g.legacy.discovered) {
+      for (const rk of CFG.B.sand.specials.order.filter((id) => g.specialKnown(id))) {
         const price = h('span', {});
         const btn = h('button', { class: 'buy', onclick: () => g.rankUp(rk) }, price) as HTMLButtonElement;
         const name = h('div', { class: 'r-name' });
@@ -668,7 +666,7 @@ export class Drawer {
     for (const rk of g.legacy.discovered) {
       const n = h('b', {});
       grid.append(h('div', { class: 'rock-tile' }, rockIcon(rk, 32), n, h('span', {}, t('rocks.' + rk))));
-      this.refreshers.push(() => setText(n, fmt(g.run.rocks[rk] ?? 0, 0)));
+      this.refreshers.push(() => setText(n, fmt(g.run.formed?.[rk] ?? 0, 0)));
     }
     this.body.append(grid);
   }

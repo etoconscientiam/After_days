@@ -47,8 +47,12 @@ export interface RunState {
   wild?: Record<string, number>;
   /** seconds toward the next wild birth or death of each species */
   wildT?: Record<string, number>;
+  /** the special materials in hand (coal, oil, amber, diamond: core/absorb.ts) — the currency of the rock branch */
   rocks: Record<string, number>;
+  /** the special materials got in this run (orders, the offline report) */
   rocksEarned: Record<string, number>;
+  /** how much of each rock the strata formed in this run (orders; not a currency). Absent in old saves. */
+  formed?: Record<string, number>;
   upgrades: Record<string, number>;
   waterEnd: number;               // x (360 px) where water ends
   shoreEnd: number;               // x where shore ends
@@ -94,10 +98,8 @@ export interface RunState {
   sink: SinkRun;                  // the conveyor into the archive
   beds: BedRun[];                 // marker beds waiting to be laid
   pileSec: number;                // the material that lies in the piles for a few piles in a row (bands and lenses)
-  /** the extra material the player chose for the piles (one of the bought ones), or none: the zone's life */
-  pileChoice?: string | null;
-  /** how much of each pile extra (by material id) the thing has absorbed: shown on its button, not spent */
-  pileStock?: Record<string, number>;
+  /** the bought pile material the piles carry now (sticky for a few piles), or '' for the zone's own */
+  pileSlot?: string;
   bedT: number;                   // real seconds until the «Bed» button is ready again
 }
 
@@ -184,6 +186,7 @@ export function newRun(era = 0): RunState {
     wildT: {},
     rocks: {},
     rocksEarned: {},
+    formed: {},
     upgrades: {},
     waterEnd,
     shoreEnd,

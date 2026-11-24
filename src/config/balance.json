@@ -183,7 +183,7 @@
   "archiveMaxRows": 12,
   "archiveMaxLayers": 160,
   "pileShareMax": 0.6,
-  "pileChoiceBase": 0.3,
+  "pileExtraShare": 0.6,
   "pile": {
    "base": 50,
    "perLevel": 5
@@ -210,16 +210,16 @@
    "tightMul": 0.3,
    "seals": ["clay", "shale", "slate", "bentonite", "ochre", "tephra", "marble", "quartzite", "granite", "gneiss", "basalt", "obsidian", "limeCrust", "stromatolite", "concrete", "plastic", "metal", "bedrock", "foundation", "artifact"]
   },
-  "pileStock": {
-   "_comment": "How much of each pile extra the thing has absorbed (core/absorb.ts), shown on its button: when the thing absorbs a line, every particle of a group adds to its count (× gain) — sand and sandstone to sand, clay and the shales to clay, shells, chalk and limestone to shells, organics, peat and the coals to peat, resin and amber to resin. Only a count: the piles do not spend it (the economy stays energy and rocks).",
-   "gain": 1,
-   "groups": {
-    "sand": ["sand", "sandstone", "quartzite", "glassSand"],
-    "clay": ["clay", "mudstone", "shale", "slate", "bentonite"],
-    "shellOoze": ["shellOoze", "limeCrust", "chalk", "limestone", "marble", "stromatolite"],
-    "orgLand": ["orgLand", "peat", "lignite", "coal", "anthracite", "graphite"],
-    "resin": ["resin", "amber", "amberInsect"]
-   }
+  "specials": {
+   "_comment": "The special materials (core/absorb.ts): the thing gets them only when it absorbs a line holding them, each particle of a listed material giving that many units (the young forms — peat, resin — a little: the thing squeezes them on the way); they fly from the thing to their counters at the top right. They are the currency of the rock branch of upgrades (and of the orders); the rocks of the strata are no currency any more (they are found and counted, not spent).",
+   "order": ["coal", "oil", "amber", "diamond"],
+   "mats": {
+    "coal": { "peat": 0.15, "lignite": 0.5, "coal": 1, "anthracite": 2, "graphite": 1 },
+    "oil": { "oil": 1, "gas": 0.6 },
+    "amber": { "resin": 0.3, "amber": 1, "amberInsect": 3 },
+    "diamond": { "diamond": 1 }
+   },
+   "unit": { "coal": 1, "oil": 1, "amber": 0.5, "diamond": 0.1 }
   },
   "lifeBurial": {
    "_comment": "A tapped pile that lands on rooted life buries some of it (core/sources.ts buryLife): of each species listed, units × (pile width / zone width) × share, at most maxPerPile, the wild ones first. Each unit leaves `per` particles of `mat` on the surface under the pile, sealed (fast burial: they do not rot): a buried forest becomes peat, lignite and coal, buried mats oil. People are never buried (they step aside); shells and bones already are remains.",

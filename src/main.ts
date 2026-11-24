@@ -8,13 +8,13 @@ import { newGameState } from './core/state';
 import { runOffline, OfflineReport } from './core/offline';
 import { Renderer } from './render/renderer';
 import { WW, WH } from './render/common';
+import { PileMix } from './ui/pileMix';
 import { Hud } from './ui/hud';
 import { Drawer } from './ui/drawer';
 import { Input } from './ui/input';
 import { Modals } from './ui/modals';
 import { DevPanel } from './ui/debug';
 import { $, toggle } from './ui/dom';
-import { PileChips } from './ui/pileChips';
 import { t, fmt, setLang, onLangChange } from './ui/i18n';
 import { rockIcon, energyIcon, exhibit } from './ui/icons';
 import { audio } from './audio/audio';
@@ -38,17 +38,18 @@ setLang(game.state.settings.lang);
 const canvas = $('#world') as HTMLCanvasElement;
 const renderer = new Renderer(canvas);
 const hud = new Hud(() => game);
+const pileMix = new PileMix(() => game);
 const drawer = new Drawer(() => game);
+pileMix.onOpen = () => drawer.openUpgradesAt('pile');
 const input = new Input(() => game, renderer);
 const modals = new Modals(() => game);
 const dev = new DevPanel(() => game, renderer, () => resetAll());
 const turmoil = new Turmoil();
 const geo = new Geologist(() => game, renderer, input, () => uiScale);
-const pileChips = new PileChips(() => game);
 // the matter the thing gives back flies to the pile extras' buttons and is counted as it arrives
-renderer.matTarget = (id) => pileChips.point(id, canvas.getBoundingClientRect());
-renderer.onMatSend = (id, n) => pileChips.send(id, n);
-renderer.onMatArrive = (id, n) => pileChips.arrive(id, n);
+renderer.matTarget = (id) => hud.specialPoint(id, canvas.getBoundingClientRect());
+renderer.onMatSend = (id, n) => hud.specialSend(id, n);
+renderer.onMatArrive = (id, n) => hud.specialArrive(id, n);
 
 // ---------- layout / scaling ----------
 const column = $('#column');
@@ -184,7 +185,9 @@ function bind(g: Game): void {
     audio.chime(e.rock);
     const y = renderer.lay.sectionTop + Math.max(10, renderer.section.strataH * 0.6);
     renderer.burst(WW / 2, y, '#fff2c0', 8);
-    flyDom(rockIcon(e.rock, 26), worldToUi(WW / 2, y), $('#rocks'), () => hud.captionRock(e.rock));
+    // a rock found goes to the Book's collection (it is no currency: the special materials come by absorption)
+    const book = document.querySelectorAll('#tabbar .tab')[4];
+    if (book) flyDom(rockIcon(e.rock, 26), worldToUi(WW / 2, y), book);
   });
   bus.on('fossilFound', (e) => {
     const s = t('species.' + e.species + '.name');
@@ -488,6 +491,7 @@ function frame(now: number): void {
     }
   }
   hud.update(game, dtReal);
+  pileMix.update(dtReal);
   drawer.update(dtReal);
   input.update(dtReal);
   modals.update(dtReal);
@@ -495,7 +499,6 @@ function frame(now: number): void {
   updateAmbi(dtReal);
   turmoil.update(dtReal);
   geo.update(dtReal);
-  pileChips.update(dtReal);
   absorbLabel(dtReal);
   renderer.skyTop = (hud.bottomUI / 640) * WH;
   // grains on the move hiss softly; a grain turning to rock ticks (a few a second at most)

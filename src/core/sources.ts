@@ -185,7 +185,7 @@ function buryFromPool(g: Game, x: number, zi: number, burialMul: number, fast: b
     const marine = pool.orgM >= pool.orgL || zi === 0;
     let om = marine ? M.orgMarine : M.orgLand;
     let fl = 0;
-    if (g.mods.living && g.rng.next() < 0.04) { om = M.glowstone; fl = P_GLOW; g.addRock('glowstone', CPP, wx(x)); }
+    if (g.mods.living && g.rng.next() < 0.04) { om = M.glowstone; fl = P_GLOW; g.formRock('glowstone', CPP, wx(x)); }
     rainOne(g.grid, g.rng, g.water, x, om, r.year, fast, fl);
     pool.orgCredit -= 1;
     extra++;
@@ -194,17 +194,24 @@ function buryFromPool(g: Game, x: number, zi: number, burialMul: number, fast: b
 
 /** The pile a tap drops: the zone's base and one of life's materials (sticky for a few piles). */
 export function pileMix(g: Game, zi: number): { m: number; w: number }[] {
-  // as in the prototype: a pile is the zone's base and ONE more material, so the strata lie in thick clean beds.
-  // That one is the player's choice (the «pile composition» branch opens materials; one of them goes in, its
-  // share pileChoiceBase + its levels) — or, with no choice, what life lays down here, sticky for a few piles
+  // as in the prototype: a pile is the zone's base and ONE more material, so the strata lie in thick clean beds,
+  // and that one stays for a few piles in a row. It is a bought material (the «pile composition» branch: each has
+  // its share p, bought with energy) or the zone's own — what life lays down here. A pile carrying a bought
+  // material holds pileExtraShare of it, and such piles come with the chance p / pileExtraShare: so over the piles
+  // each material makes exactly its share p, the percentage the composition bar shows.
   const src = zoneSources(g)[zi];
   const base = { m: src.base, w: Math.max(1e-6, src.bg) };
-  const choice = g.run.pileChoice;
-  const lvl = choice ? g.stats.pile[choice] ?? 0 : 0;
-  if (choice && lvl > 0 && mat(choice) !== src.base) {
-    const share = Math.min(S.pileShareMax, S.pileChoiceBase + lvl);
-    g.run.pileSec = mat(choice);
-    return [base, { m: mat(choice), w: (base.w * share) / (1 - share) }];
+  const r = g.run;
+  const sh = g.pileShares();
+  if (r.pileSlot === undefined || g.rng.next() < 0.25 || (r.pileSlot && !sh.mats.some((q) => q[0] === r.pileSlot))) {
+    let u = g.rng.next() * S.pileExtraShare;
+    r.pileSlot = '';
+    for (const [id, p] of sh.mats) { u -= p; if (u <= 0) { r.pileSlot = id; break; } }
+  }
+  if (r.pileSlot && mat(r.pileSlot) !== src.base) {
+    const x = S.pileExtraShare;
+    r.pileSec = mat(r.pileSlot);
+    return [base, { m: r.pileSec, w: (base.w * x) / (1 - x) }];
   }
   const extra = new Map<number, number>();
   for (let k = 0; k < src.mats.length; k++) if (src.mats[k] !== src.base) extra.set(src.mats[k], (extra.get(src.mats[k]) ?? 0) + src.w[k]);
@@ -212,7 +219,6 @@ export function pileMix(g: Game, zi: number): { m: number; w: number }[] {
   if (!extra.size) return [base];
   let et = 0;
   for (const w of extra.values()) et += w;
-  const r = g.run;
   if (!extra.has(r.pileSec) || g.rng.next() < 0.25) {
     let u = g.rng.next() * et;
     for (const [m, w] of extra) { r.pileSec = m; u -= w; if (u <= 0) break; }

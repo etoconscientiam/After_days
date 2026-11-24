@@ -9,11 +9,20 @@ import type { Game } from './game';
 import { Grid, GW, KIND, K_LOOSE, K_ROCK, K_MARKER, P_FOSSIL } from '../world/Grid';
 
 const A = CFG.B.sand.absorb;
-const PS = CFG.B.sand.pileStock;
-/** the pile extra (material id) each material comes back as, or -1 */
-const BACK = new Int16Array(CFG.materials.length).fill(-1);
-const EXTRAS = Object.keys(PS.groups);
-EXTRAS.forEach((ex, k) => { for (const id of (PS.groups as Record<string, string[]>)[ex]) { const i = CFG.matIndex[id]; if (i !== undefined) BACK[i] = k; } });
+const SP = CFG.B.sand.specials;
+/** the special material (its index in SP.order) each material gives when absorbed, or -1, and how much */
+const SPEC = new Int8Array(CFG.materials.length).fill(-1);
+const SPEC_N = new Float32Array(CFG.materials.length);
+SP.order.forEach((id, k) => {
+  const list = (SP.mats as Record<string, Record<string, number>>)[id];
+  for (const m in list) { const i = CFG.matIndex[m]; if (i !== undefined) { SPEC[i] = k; SPEC_N[i] = list[m]; } }
+});
+/** The special materials a row of materials holds (id → units). */
+export function specialsOf(mats: Uint8Array): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (let x = 0; x < mats.length; x++) { const k = SPEC[mats[x]]; if (k >= 0) out[SP.order[k]] = (out[SP.order[k]] ?? 0) + SPEC_N[mats[x]]; }
+  return out;
+}
 
 /** Energy value of one particle of each material (before the unit of the moment). */
 export const VALUE = new Float32Array(CFG.materials.length);
@@ -55,11 +64,9 @@ export function pushBand(g: Game, line: BandLine): void {
 
 function absorbLine(g: Game, line: BandLine): void {
   if (g.state.phase !== 'play' || line.v <= 0) return;
-  // the matter comes back: each particle of a group to the stock of its pile extra
-  const gains: Record<string, number> = {};
-  for (let x = 0; x < GW; x++) { const k = BACK[line.mats[x]]; if (k >= 0) gains[EXTRAS[k]] = (gains[EXTRAS[k]] ?? 0) + PS.gain; }
-  const st = (g.run.pileStock ??= {});
-  for (const id in gains) st[id] = (st[id] ?? 0) + gains[id];
+  // the special materials of the line go to their counters (the only way to get them)
+  const gains = specialsOf(line.mats);
+  for (const id in gains) g.addSpecial(id, gains[id]);
   const e = line.v * absorbUnit(g);
   const r = g.run;
   r.energy += e;

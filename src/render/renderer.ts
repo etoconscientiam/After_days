@@ -285,78 +285,84 @@ export class Renderer {
     }
   }
 
-  /** The line the thing takes, made plain: chunks of it (2×2, its own colours, up to 30 across) lift off the bottom of
-   *  the squeeze, then are drawn along an arc into the thing, the near ones first, faster and faster, warming as they
-   *  go; when the first one arrives the thing gulps — a ring closes in on it and it flashes — and then it gives back
-   *  (energy to the counter, matter to the buttons: sendGains). */
-  private sucks: { t: number; parts: { x0: number; c: number; ta: number }[]; gulped: boolean }[] = [];
-  private gulps: number[] = [];
+  /** The line the thing takes, made plain: chunks of it (2×2, its own colours, about 30 across, not evenly spaced)
+   *  stir and lift off the bottom of the squeeze in a wave rolling out from the thing — each at its own moment and
+   *  height — then drift along their own arcs into the thing, wavering a little, the near ones first, faster and
+   *  faster, warming as they go and melting into its light. The light grows with every chunk taken in and ebbs
+   *  slowly (this.fed): no ring, no snap. Then the thing gives back (energy to the counter, matter to its counters). */
+  private sucks: { t: number; parts: { x0: number; c: number; ta: number; d: number; lift: number; lh: number; arc: number; ph: number; amp: number; done?: boolean }[] }[] = [];
+  /** how much light the thing has taken in lately (each chunk adds, it ebbs away over about a second) */
+  private fed = 0;
   private startSuck(mats: Uint8Array, looks: Uint8Array): void {
     if (this.sucks.length >= 3) this.sucks.shift();
-    const px = [0, 0, 0, 0], parts: { x0: number; c: number; ta: number }[] = [];
+    const px = [0, 0, 0, 0], parts: { x0: number; c: number; ta: number; d: number; lift: number; lh: number; arc: number; ph: number; amp: number }[] = [];
     const cx = (this.thingX0 + this.thingX1) / 2, far = Math.max(cx, WW - cx);
     const step = Math.max(1, Math.round(mats.length / 30));
-    for (let x = 0; x < mats.length; x += step) {
+    // a gust along the line: a slow wave in how high and how soon the chunks lift, its phase new every time
+    const ph1 = Math.random() * 6.28, ph2 = Math.random() * 6.28, kw = 0.07 + Math.random() * 0.05;
+    for (let x0 = 0; x0 < mats.length; x0 += step) {
+      if (Math.random() < 0.18) continue;
+      const x = Math.min(mats.length - 1, x0 + Math.floor(Math.random() * step));
       const m = mats[x];
       if (!m || KIND[m] === K_NONE || KIND[m] === K_SOLID) continue;
       particlePx(m, looks[x], px);
-      const x0 = x * 2 + 1, d = Math.abs(x0 - cx) / far;
-      parts.push({ x0, c: px[0], ta: 0.25 + 0.5 * Math.pow(d, 0.8) });
+      const X = x * 2 + 1, d = Math.abs(X - cx) / far;
+      parts.push({
+        x0: X, c: px[Math.floor(Math.random() * 4)],
+        ta: (0.25 + 0.5 * Math.pow(d, 0.8)) * (0.8 + Math.random() * 0.4),
+        // the wave: the near chunks stir first, the far ones a moment later, each a little early or late
+        d: d * 0.2 + 0.05 * (1 + Math.sin(X * kw * 1.3 + ph2)) + Math.random() * 0.05,
+        lift: 0.1 + Math.random() * 0.14, lh: 2 + 2.6 * (1 + Math.sin(X * kw + ph1)) + Math.random() * 2.5,
+        arc: 2 + Math.random() * 10, ph: Math.random() * Math.PI * 2, amp: 0.8 + Math.random() * 2.2,
+      });
     }
-    if (parts.length) this.sucks.push({ t: 0, parts, gulped: false });
+    if (parts.length) this.sucks.push({ t: 0, parts });
   }
 
   private drawSucks(): void {
     const c = this.ctx, dt = this.dt, y0 = this.bandBottom - 1;
     const cx = (this.thingX0 + this.thingX1) / 2, cy = y0 + 3;
-    const LIFT = 0.16;
+    this.fed *= Math.exp(-dt / 0.75);
     for (let k = this.sucks.length - 1; k >= 0; k--) {
       const S = this.sucks[k];
       S.t += dt;
       let alive = false;
       for (const pt of S.parts) {
+        if (pt.done) continue;
+        alive = true;
         const r = (pt.c & 255), gg = (pt.c >> 8) & 255, b = (pt.c >> 16) & 255;
         let x: number, y: number, p = 0;
-        if (S.t < LIFT) {
-          // anticipation: the chunk lifts off its line
-          const u = S.t / LIFT;
-          x = pt.x0; y = y0 - u * 3;
+        const tl = S.t - pt.d;
+        if (tl < pt.lift) {
+          // anticipation: before its turn the chunk only stirs with the wave passing along the line, then lifts off
+          const ripple = Math.max(0, Math.sin(S.t * 13 - Math.abs(pt.x0 - cx) * 0.22 + pt.ph * 0.3));
+          const u = Math.max(0, tl) / pt.lift;
+          x = pt.x0 + Math.sin(S.t * 9 + pt.ph) * 0.4 * u;
+          y = y0 - (1 - (1 - u) * (1 - u)) * pt.lh - (tl < 0 ? ripple : 0);
         } else {
-          p = Math.min(1, ((S.t - LIFT) / pt.ta) ** 2);
-          if (p >= 1) { if (!S.gulped) { S.gulped = true; this.gulps.push(this.t); } continue; }
-          // along an arc into the thing (a quadratic curve that rises before it falls in)
-          const sx = pt.x0, sy = y0 - 3, mx = (sx + cx) / 2, my = Math.min(sy, cy) - 6 - Math.abs(sx - cx) * 0.08;
+          p = Math.min(1, ((tl - pt.lift) / pt.ta) ** 2);
+          if (p >= 1) { pt.done = true; this.fed = Math.min(1.4, this.fed + 0.06); continue; }
+          // along its own arc into the thing (a quadratic curve that rises before it falls in), wavering across it
+          const sx = pt.x0, sy = y0 - pt.lh, mx = (sx + cx) / 2, my = Math.min(sy, cy) - pt.arc - Math.abs(sx - cx) * 0.08;
           const q = 1 - p;
+          const w = Math.sin(p * Math.PI * 2.2 + pt.ph) * pt.amp * q;
           x = q * q * sx + 2 * q * p * mx + p * p * cx;
-          y = q * q * sy + 2 * q * p * my + p * p * cy;
+          y = q * q * sy + 2 * q * p * my + p * p * cy + w;
         }
-        alive = true;
         const w = 0.25 + 0.6 * p;
         const R = r + (255 - r) * w, G = gg + (214 - gg) * w, B = b + (130 - b) * w;
-        c.fillStyle = rgb(R, G, B, 1);
-        c.fillRect(Math.round(x), Math.round(y), 2, 2);
+        const X = Math.round(x), Y = Math.round(y);
+        // near the thing the chunk melts into its light: it fades and only glows
+        const melt = p > 0.7 ? (p - 0.7) / 0.3 : 0;
+        c.fillStyle = rgb(R, G, B, 1 - melt);
+        c.fillRect(X, Y, 2, 2);
         c.globalCompositeOperation = 'lighter';
-        c.fillStyle = rgb(255, 180, 90, 0.18 + 0.3 * p);
-        c.fillRect(Math.round(x) - 1, Math.round(y), 1, 2); c.fillRect(Math.round(x) + 2, Math.round(y), 1, 2);
+        c.fillStyle = rgb(255, 180, 90, (0.18 + 0.3 * p) * (1 - melt * 0.5));
+        c.fillRect(X - 1, Y, 1, 2); c.fillRect(X + 2, Y, 1, 2);
+        if (melt > 0) { c.fillStyle = rgb(255, 220, 150, 0.5 * melt); c.fillRect(X, Y, 2, 2); }
         c.globalCompositeOperation = 'source-over';
       }
       if (!alive) this.sucks.splice(k, 1);
-    }
-    // the gulp: a warm ring closing in on the thing, and a flash
-    for (let k = this.gulps.length - 1; k >= 0; k--) {
-      const u = (this.t - this.gulps[k]) / 0.45;
-      if (u >= 1) { this.gulps.splice(k, 1); continue; }
-      const rad = 3 + 16 * (1 - u);
-      c.strokeStyle = rgb(255, 214, 140, 0.75 * (1 - u * 0.6));
-      c.lineWidth = 1;
-      c.beginPath(); c.ellipse(cx, cy, rad, rad * 0.6, 0, 0, Math.PI * 2); c.stroke();
-      if (u < 0.3) {
-        c.globalCompositeOperation = 'lighter';
-        const g2 = c.createRadialGradient(cx, cy, 1, cx, cy, 10);
-        g2.addColorStop(0, rgb(255, 230, 160, 0.45 * (1 - u / 0.3))); g2.addColorStop(1, 'rgba(255,200,120,0)');
-        c.fillStyle = g2; c.fillRect(cx - 10, cy - 10, 20, 20);
-        c.globalCompositeOperation = 'source-over';
-      }
     }
     this.sendGains();
   }
@@ -2207,9 +2213,9 @@ export class Renderer {
     const boost = Math.min(1, g.run.boost / 3);
     for (const x of xs) {
       const a = this.ayAt(x);
-      const R = 30 + boost * 14 + Math.sin(this.t * 2.2) * 2;
+      const R = 30 + boost * 14 + Math.sin(this.t * 2.2) * 2 + Math.min(1, this.fed) * 5;
       const grd = c.createRadialGradient(x, a, 1, x, a, R);
-      grd.addColorStop(0, rgb(242, 181, 74, 0.5 + this.flash * 0.3));
+      grd.addColorStop(0, rgb(242, 181, 74, 0.5 + this.flash * 0.3 + Math.min(1, this.fed) * 0.22));
       grd.addColorStop(0.4, rgb(200, 120, 40, 0.15));
       grd.addColorStop(1, 'rgba(0,0,0,0)');
       c.fillStyle = grd; c.fillRect(x - R, a - R, R * 2, R * 2);
@@ -2218,8 +2224,9 @@ export class Renderer {
     if (this.absorb) {
       const ab = this.absorb;
       ab.t += this.dt;
-      const f = Math.max(0, 1 - ab.t / (ab.long ? 1.4 : 0.6)) * ab.k;
-      if (f <= 0) this.absorb = null;
+      // it rises with the chunks taken in and ebbs with them (this.fed), never cut off: no dip, no snap
+      const f = Math.min(1, this.fed * (ab.long ? 1.2 : 1)) * ab.k;
+      if (ab.t > 0.5 && f < 0.01) this.absorb = null;
       else {
         const a = this.ayAt(WW / 2) - 3, R = 12 + 10 * ab.k;
         const grd = c.createRadialGradient(WW / 2, a, 1, WW / 2, a, R);

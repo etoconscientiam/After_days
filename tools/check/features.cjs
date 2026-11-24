@@ -52,15 +52,19 @@ const { chromium, devices } = require('playwright');
     await p.click('#geo-btn'); await p.waitForTimeout(300);
     return on && lens ? `lens: ${lens.trim()}` : false;
   });
-  await check('pile extras: a column at the right, one chosen goes into the piles', async () => {
-    await ev(() => { const g = window.__strata.game; g.run.energy += 1e6; g.buyUpgrade('pileSand'); g.buyUpgrade('pileClay'); });
-    await p.waitForTimeout(600);
-    const n = await ev(() => document.querySelectorAll('#pile-chips:not([hidden]) .pc-chip').length);
-    await p.click('#pile-chips .pc-chip:nth-child(3)'); await p.waitForTimeout(300);
-    const c = await ev(() => window.__strata.game.run.pileChoice);
-    const ruler = await ev(() => !!document.querySelector('#ruler') && !document.querySelector('#ruler').hidden);
-    await ev(() => window.__strata.game.setPileChoice(null));
-    return n === 3 && c === 'clay' && !ruler ? `chips ${n}, chosen ${c}, ruler hidden` : false;
+  await check('pile composition bar: bought shares as in the prototype; specials fly to the header', async () => {
+    await ev(() => { const g = window.__strata.game; g.run.energy += 1e6; g.buyUpgrade('pileSand'); g.buyUpgrade('pileClay'); g.buyUpgrade('pileClay'); });
+    await p.waitForTimeout(700);
+    const segs = await ev(() => document.querySelectorAll('#pile-mix:not([hidden]) .pm-bar i').length);
+    const sh = await ev(() => window.__strata.game.pileShares());
+    // a special material arrives: its counter appears in the header and counts it once the matter has flown in
+    await ev(() => { const s = window.__strata, g = s.game, GW = g.grid.W, y = g.grid.sinkRow - 2;
+      g.addSpecial('coal', 7); s.renderer.onAbsorb('coal', 200, g.grid.mat.slice(y * GW, y * GW + GW), g.grid.look.slice(y * GW, y * GW + GW), { coal: 7 }); });
+    await p.waitForTimeout(2500);
+    const chip = await ev(() => { const c = document.querySelector('#rocks .rock-chip[data-rock="coal"]'); return c ? c.textContent : ''; });
+    const chips = await ev(() => document.querySelectorAll('#pile-chips').length);
+    const ok = segs === 3 && Math.abs(sh.own - 0.85) < 1e-6 && chip.trim() !== '' && Number(chip.replace(/\D/g, '')) >= 7 && chips === 0;
+    return ok ? `bar ${segs} segments, own ${Math.round(sh.own * 100)}%, coal counter ${chip.trim()}` : false;
   });
   await check('chronicle: an entry from a particle', async () => {
     const e = await ev(async () => {

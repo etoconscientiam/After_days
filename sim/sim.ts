@@ -52,12 +52,15 @@ function botBuy() {
       if (sp.id === 'tribe') score *= 6;
       if (cost <= g.run.energy && score > bestScore) { bestScore = score; best = () => g.buySpecies(sp.id); }
     }
-    for (const id of ['impulse', 'radiance', 'striving', 'sediment', 'drizzle']) {
+    for (const id of ['impulse', 'radiance', 'striving', 'sediment', 'drizzle', 'impulsePower', 'resonance', 'fertility']) {
       const cost = g.upgradeCost(id);
       if (cost > g.run.energy) continue;
       let gain = 0;
       if (id === 'radiance') gain = 0.5 * g.stats.energyMul;
       if (id === 'impulse') gain = cps * g.stats.clickMul * 0.5;
+      if (id === 'impulsePower') gain = cps * g.stats.clickMul * 0.1 * 0.5;
+      if (id === 'resonance') gain = inc * 0.04;
+      if (id === 'fertility') gain = g.run.era >= 3 ? inc * 0.05 : 0;
       if (id === 'striving') gain = inc * 0.05 * 0.5;
       if (id === 'sediment') gain = inc * 0.03 * 0.5 * Math.min(1, g.stats.drizzle);
       // the natural flow: more matter to absorb and the life's deposits; worth most while it is small
@@ -69,9 +72,6 @@ function botBuy() {
   }
   // branch «pile composition»: a player spends spare energy on it (a few percent of the stock at a time)
   for (const u of CFG.upgrades) if (u.branch === 'pile') while (g.upgradeCost(u.id) < g.run.energy * 0.03 && g.buyUpgrade(u.id)) {}
-  // the pile's extra: shells for the sea's molluscs, peat for coal, resin for amber, else clay
-  const want = g.run.era === 2 ? 'shellOoze' : g.run.era === 3 ? 'orgLand' : g.run.era >= 4 ? 'resin' : 'clay';
-  if (!g.setPileChoice(want)) g.setPileChoice(g.stats.pile.clay > 0 ? 'clay' : null);
 }
 
 /** Make room for a species the era condition needs by releasing the weakest earners in its habitat. */
@@ -121,9 +121,9 @@ while (g.state.legacy.totalRealTime < end) {
     for (const id of densityPriority) while (g.buyDensity(id)) {}
     stuck = 0;
   }
-  if (Math.floor(g.state.legacy.totalRealTime) % 600 === 0 && g.state.legacy.totalRealTime % 1 === 0) {
-    const rocks = Object.entries(g.run.rocks).filter(([, v]) => v > 0).map(([k, v]) => `${k}:${v.toFixed(0)}`).join(' ');
-    console.log(`  .. ${(g.state.legacy.totalRealTime / 60).toFixed(0)}m era=${g.run.era} year=${Math.round(g.run.year)} E=${g.run.energy.toExponential(2)} inc=${g.incomePerSec(false).toExponential(2)} yps=${g.yps(false).toFixed(1)} O2=${g.run.oxygen.toFixed(1)} particles=${g.grid.particles()} archive=${g.archive.layers.length} sunk=${g.run.sink.rows} gain=${gain} cond=${g.eraConditionProgress().toFixed(2)} fossils=${g.legacy.fossils} ${rocks}`);
+  if (Math.floor(g.state.legacy.totalRealTime) % Number(process.env.SIM_EVERY ?? 600) === 0 && g.state.legacy.totalRealTime % 1 === 0) {
+    const rocks = Object.entries(g.run.rocksEarned).filter(([, v]) => v > 0).map(([k, v]) => `${k}:${v.toFixed(0)}`).join(' ');
+    console.log(`  .. ${(g.state.legacy.totalRealTime / 60).toFixed(0)}m era=${g.run.era} year=${Math.round(g.run.year)} E=${g.run.energy.toExponential(2)} inc=${g.incomePerSec(false).toExponential(2)} yps=${g.yps(false).toFixed(1)} O2=${g.run.oxygen.toFixed(1)} particles=${g.grid.particles()} archive=${g.archive.layers.length} sunk=${g.run.sink.rows} gain=${gain} cond=${g.eraConditionProgress().toFixed(2)} fossils=${g.legacy.fossils} ${rocks} | st life=${g.stats.lifeEnergy.toFixed(2)} eMul=${g.stats.energyMul.toFixed(2)} click=${g.stats.clickMul.toFixed(2)} time=${g.stats.timeSpeed.toFixed(2)} press=${g.stats.press.toFixed(2)} land=${g.stats.landCapacity.toFixed(2)} dep=${g.stats.deposition.toFixed(2)}`);
   }
 }
 log('end', `density=${g.meta.density} prestiges=${g.meta.prestiges}`);

@@ -211,7 +211,7 @@ export function castElement(g: Game, el: ElementDef, target?: { x: number; v: nu
       // an iridium bed over the whole world
       g.queueBed(M.meteor);
       for (const L of g.archive.layers) L.k = Math.min(CFG.B.physics.kMax + g.stats.kMax, L.k + p.kDelta);
-      g.addRock('rare', p.rare, wx(cx));
+      g.formRock('rare', p.rare, wx(cx));
       g.kill([p.kill, p.kill, p.kill], 'meteor');
       r.active.push({ id: 'meteorFx', until: r.clock + 60, x: wx(cx) });
       grid.version++;

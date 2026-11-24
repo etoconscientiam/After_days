@@ -10,6 +10,7 @@ export function orderDef(id: string): OrderDef | undefined { return CFG.orders.p
 function measure(g: Game, d: OrderDef): number {
   const r = g.run;
   switch (d.type) {
+    case 'formed': return r.formed?.[d.rock!] ?? 0;
     case 'rockEarned': return r.rocksEarned[d.rock!] ?? 0;
     case 'museum': { const m = g.legacy.museum[d.species!]; return m ? m.common + m.rare : 0; }
     case 'insectAmber': return r.insectAmber;
@@ -53,12 +54,10 @@ export function checkOrders(g: Game): void {
     const rw = d.reward;
     if (rw.density) { g.meta.density += rw.density; }
     if (rw.rock) {
-      let rock = rw.rock;
-      if (rock === 'least') {
-        const have = g.legacy.discovered;
-        rock = have.length ? have.reduce((m, id) => ((g.run.rocks[id] ?? 0) < (g.run.rocks[m] ?? 0) ? id : m), have[0]) : 'mudstone';
-      }
-      g.addRock(rock, rw.n ?? 5);
+      // a special material: the named one, or the one the player has least of (none known yet: density)
+      const rock = rw.rock === 'least' ? g.leastSpecial() : rw.rock;
+      if (rock) g.addSpecial(rock, (rw.n ?? 5) * g.specialUnit(rock));
+      else g.meta.density += 1;
     }
     g.bus.emit('orderDone', { id: o.id });
   }

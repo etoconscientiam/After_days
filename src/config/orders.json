@@ -1,18 +1,166 @@
 {
-  "_comment": "Epoch orders (brief 5, В3): each era draws 1-2 from the pool whose eras include it. type: rockEarned (rock, n produced since the order began), museum (species, n fossils), insectAmber (n pieces of amber with an insect), pressMoved (n metres squeezed out by pressing). reward: density (n) or rock (id or 'least', n). Picked to need the Geologist and the press.",
-  "perEra": [1, 2],
-  "pool": [
-    { "id": "press30", "eras": [0, 1], "type": "pressMoved", "n": 30, "reward": { "density": 1 } },
-    { "id": "stromatolite12", "eras": [1, 2], "type": "rockEarned", "rock": "stromatolite", "n": 40, "reward": { "rock": "least", "n": 10 } },
-    { "id": "mudstone40", "eras": [1, 3], "type": "rockEarned", "rock": "mudstone", "n": 600, "reward": { "density": 1 } },
-    { "id": "shale60", "eras": [2, 4], "type": "rockEarned", "rock": "shale", "n": 120, "reward": { "rock": "least", "n": 12 } },
-    { "id": "limestone30", "eras": [2, 5], "type": "rockEarned", "rock": "limestone", "n": 60, "reward": { "density": 1 } },
-    { "id": "press100", "eras": [2, 6], "type": "pressMoved", "n": 100, "reward": { "density": 1 } },
-    { "id": "peat20", "eras": [3, 5], "type": "rockEarned", "rock": "peat", "n": 40, "reward": { "rock": "least", "n": 15 } },
-    { "id": "coal20", "eras": [4, 7], "type": "rockEarned", "rock": "coal", "n": 40, "reward": { "density": 1 } },
-    { "id": "oil1", "eras": [4, 7], "type": "rockEarned", "rock": "oil", "n": 1, "reward": { "density": 1 } },
-    { "id": "amberInsect", "eras": [3, 6], "type": "insectAmber", "n": 1, "reward": { "density": 1 } },
-    { "id": "predatorFossil", "eras": [4, 7], "type": "museum", "species": "predators", "n": 1, "reward": { "rock": "amber", "n": 10 } },
-    { "id": "fishFossil", "eras": [2, 4], "type": "museum", "species": "fish", "n": 1, "reward": { "density": 1 } }
-  ]
+ "_comment": "Epoch orders (brief 5, В3): each era draws 1-2 from the pool whose eras include it. type: formed (rock, n of it formed in the strata since the order began), rockEarned (a special material: n got by absorption), museum (species, n fossils), insectAmber (n pieces of amber with an insect), pressMoved (n metres squeezed out by pressing). reward: density (n) or a special material (id or 'least', n units × its specials.unit). Picked to need the Geologist and the press.",
+ "perEra": [
+  1,
+  2
+ ],
+ "pool": [
+  {
+   "id": "press30",
+   "eras": [
+    0,
+    1
+   ],
+   "type": "pressMoved",
+   "n": 30,
+   "reward": {
+    "density": 1
+   }
+  },
+  {
+   "id": "stromatolite12",
+   "eras": [
+    1,
+    2
+   ],
+   "type": "formed",
+   "rock": "stromatolite",
+   "n": 40,
+   "reward": {
+    "rock": "least",
+    "n": 10
+   }
+  },
+  {
+   "id": "mudstone40",
+   "eras": [
+    1,
+    3
+   ],
+   "type": "formed",
+   "rock": "mudstone",
+   "n": 600,
+   "reward": {
+    "density": 1
+   }
+  },
+  {
+   "id": "shale60",
+   "eras": [
+    2,
+    4
+   ],
+   "type": "formed",
+   "rock": "shale",
+   "n": 120,
+   "reward": {
+    "rock": "least",
+    "n": 12
+   }
+  },
+  {
+   "id": "limestone30",
+   "eras": [
+    2,
+    5
+   ],
+   "type": "formed",
+   "rock": "limestone",
+   "n": 60,
+   "reward": {
+    "density": 1
+   }
+  },
+  {
+   "id": "press100",
+   "eras": [
+    2,
+    6
+   ],
+   "type": "pressMoved",
+   "n": 100,
+   "reward": {
+    "density": 1
+   }
+  },
+  {
+   "id": "peat20",
+   "eras": [
+    3,
+    5
+   ],
+   "type": "formed",
+   "rock": "peat",
+   "n": 40,
+   "reward": {
+    "rock": "least",
+    "n": 15
+   }
+  },
+  {
+   "id": "coal20",
+   "eras": [
+    4,
+    7
+   ],
+   "type": "rockEarned",
+   "rock": "coal",
+   "n": 40,
+   "reward": {
+    "density": 1
+   }
+  },
+  {
+   "id": "oil1",
+   "eras": [
+    4,
+    7
+   ],
+   "type": "rockEarned",
+   "rock": "oil",
+   "n": 1,
+   "reward": {
+    "density": 1
+   }
+  },
+  {
+   "id": "amberInsect",
+   "eras": [
+    3,
+    6
+   ],
+   "type": "insectAmber",
+   "n": 1,
+   "reward": {
+    "density": 1
+   }
+  },
+  {
+   "id": "predatorFossil",
+   "eras": [
+    4,
+    7
+   ],
+   "type": "museum",
+   "species": "predators",
+   "n": 1,
+   "reward": {
+    "rock": "amber",
+    "n": 10
+   }
+  },
+  {
+   "id": "fishFossil",
+   "eras": [
+    2,
+    4
+   ],
+   "type": "museum",
+   "species": "fish",
+   "n": 1,
+   "reward": {
+    "density": 1
+   }
+  }
+ ]
 }

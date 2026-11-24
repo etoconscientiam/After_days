@@ -110,14 +110,7 @@ export class Hud {
     this.sym.style.animationDuration = r.boost > 0 ? '1.2s' : '4s';
     setText(this.energyVal, fmt(r.energy));
     setText(this.energyRate, t('hud.perSec', { v: fmt(g.incomePerSec() + g.absorbRate) }));
-    // the three rocks needed for the nearest upgrades (closest to buying first)
-    const last = this.neededRocks(g);
-    const sig = last.join(',') + g.state.settings.lang;
-    if (sig !== this.rockSig) {
-      this.rockSig = sig;
-      this.rocks.replaceChildren(...last.map((rk) => h('span', { class: 'rock-chip fly-in', 'data-rock': rk }, rockIcon(rk, 18), h('span', {}))));
-    }
-    this.rocks.querySelectorAll<HTMLElement>('.rock-chip').forEach((chip) => setText(chip.lastChild as HTMLElement, fmt(r.rocks[chip.dataset.rock!] ?? 0, 0)));
+    this.drawSpecials(g);
     this.density.hidden = g.meta.density <= 0 && g.meta.prestiges === 0;
     setText(this.density, '◆ ' + fmt(g.meta.density, 0));
     if (this.condTimer > 0) { this.condTimer -= dt; if (this.condTimer <= 0) this.condPop.hidden = true; }
@@ -142,31 +135,44 @@ export class Hud {
   /** Lowest point of the header text, in UI units (the open sky starts below it). */
   bottomUI = 132;
 
-  /** A rock found for the first time: its name under the header for 2 s. */
-  captionRock(rk: string): void {
-    const g = this.g();
-    this.rockPop.replaceChildren(h('div', { class: 'l-head' }, rockIcon(rk, 18), h('span', {}, t('rocks.' + rk))), h('div', { class: 'l-sub' }, fmt(g.run.rocks[rk] ?? 0, 0)));
-    const r = this.rocks.getBoundingClientRect(), u = $('#ui').getBoundingClientRect();
-    const k = u.width / 360;
-    this.rockPop.style.left = Math.max(6, Math.min(360 - 150, (r.right - u.left) / k - 140)) + 'px';
-    this.rockPop.style.top = (r.bottom - u.top) / k + 4 + 'px';
-    this.rockPop.hidden = false;
-    this.rockPopFor = ''; this.rockPopT = 2;
+  /** The counters of the special materials the thing has got (or whose rocks have formed), in a fixed order;
+   *  each counts what arrived — the matter still flying from the thing is not counted yet. */
+  private drawSpecials(g: Game, also = ''): void {
+    const r = g.run;
+    const known = CFG.B.sand.specials.order.filter((id) => id === also || g.specialKnown(id) || (this.pending[id] ?? 0) > 0);
+    const sig = known.join(',') + g.state.settings.lang;
+    if (sig !== this.rockSig) {
+      this.rockSig = sig;
+      this.rocks.replaceChildren(...known.map((rk) => h('span', { class: 'rock-chip fly-in', 'data-rock': rk }, rockIcon(rk, 18), h('span', {}))));
+    }
+    this.rocks.querySelectorAll<HTMLElement>('.rock-chip').forEach((chip) => {
+      const id = chip.dataset.rock!;
+      setText(chip.lastChild as HTMLElement, fmt(Math.max(0, Math.floor((r.rocks[id] ?? 0) - (this.pending[id] ?? 0))), 0));
+    });
   }
 
-  /** Rocks the player needs now: for each discovered rock, how close its cheapest next upgrade is. */
-  neededRocks(g: Game): string[] {
-    const scored: [string, number][] = [];
-    for (const rk of g.legacy.discovered) {
-      const ups = CFG.upgrades.filter((u) => u.currency === rk);
-      if (!ups.length) continue;
-      const cost = Math.min(...ups.map((u) => g.upgradeCost(u.id)));
-      scored.push([rk, Math.min(1, (g.run.rocks[rk] ?? 0) / Math.max(1, cost))]);
-    }
-    scored.sort((a, b) => b[1] - a[1]);
-    const out = scored.slice(0, 3).map((x) => x[0]);
-    for (const rk of g.legacy.discovered.slice().reverse()) if (out.length < 3 && !out.includes(rk)) out.push(rk);
-    return out;
+  /** special materials on their way from the thing to their counters (not shown yet) */
+  private pending: Record<string, number> = {};
+
+  /** Where the counter of special material id is, in world pixels (for the matter flying to it), or null. */
+  specialPoint(id: string, canvas: DOMRect): { x: number; y: number } | null {
+    if (!CFG.B.sand.specials.order.includes(id)) return null;
+    // the counter appears the moment the first of it is got; place it now so the matter has somewhere to fly
+    this.pending[id] ??= 0;
+    this.drawSpecials(this.g(), id);
+    const chip = this.rocks.querySelector<HTMLElement>(`.rock-chip[data-rock="${id}"]`);
+    if (!chip || !chip.offsetParent) return null;
+    const r = (chip.firstChild as HTMLElement).getBoundingClientRect();
+    return { x: ((r.left + r.width / 2 - canvas.left) / canvas.width) * 180, y: ((r.top + r.height / 2 - canvas.top) / canvas.height) * 320 };
+  }
+
+  /** Matter of a special material set off from the thing to its counter: it is counted when it arrives. */
+  specialSend(id: string, n: number): void { this.pending[id] = (this.pending[id] ?? 0) + n; }
+
+  specialArrive(id: string, n: number): void {
+    this.pending[id] = Math.max(0, (this.pending[id] ?? 0) - n);
+    const chip = this.rocks.querySelector<HTMLElement>(`.rock-chip[data-rock="${id}"]`);
+    if (chip) { chip.classList.remove('bump'); void chip.offsetWidth; chip.classList.add('bump'); }
   }
 
   /** The active order (if any) and the era condition. */

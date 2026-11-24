@@ -270,7 +270,7 @@
     },
     "resonance": {
       "name": "Life resonance",
-      "desc": "+5% Energy from life, +2% sea room"
+      "desc": "+6% Energy from life, +2% sea room"
     },
     "timeFlow": {
       "name": "Flow of time",
@@ -330,7 +330,8 @@
       "desc": "+6 to the press radius"
     },
     "pile": "Pile composition",
-    "pileNow": "{n} grains · extra {p}%",
+    "pileNow": "{n} grains · the zone's own {p}%",
+    "pileN": "{n} grains",
     "opensEra": "Opens in epoch {n} · {name}",
     "pileSize": {
       "name": "Bigger pile",
@@ -338,23 +339,23 @@
     },
     "pileSand": {
       "name": "Sand in the pile",
-      "desc": "Sand as the pile's extra: choose it above the tab bar. A level: +4% of its share (from 30%)"
+      "desc": "Share in the piles: +5% a level (sandstone, quartzite). All extras together up to 60%"
     },
     "pileClay": {
       "name": "Clay in the pile",
-      "desc": "Clay as the pile's extra: choose it above the tab bar. A level: +4% of its share (from 30%)"
+      "desc": "Share in the piles: +5% a level (mudstone, shale; holds oil). All extras together up to 60%"
     },
     "pileShell": {
       "name": "Shells in the pile",
-      "desc": "Shells as the pile's extra: choose it above the tab bar. A level: +4% of its share (from 30%)"
+      "desc": "Share in the piles: +5% a level (lime, chalk, limestone). All extras together up to 60%"
     },
     "pilePeat": {
       "name": "Peat in the pile",
-      "desc": "Peat as the pile's extra: choose it above the tab bar. A level: +4% of its share (from 30%)"
+      "desc": "Share in the piles: +5% a level (peat → lignite → coal). All extras together up to 60%"
     },
     "pileResin": {
       "name": "Resin in the pile",
-      "desc": "Resin as the pile's extra: choose it above the tab bar. A level: +4% of its share (from 30%)"
+      "desc": "Share in the piles: +4% a level (amber). All extras together up to 60%"
     }
   },
   "rockHow": {
@@ -364,19 +365,19 @@
     "mudstone": "silt or clay under ~200 rows",
     "peat": "land plants buried below the oxygen zone",
     "lignite": "peat under ~200 rows",
-    "coal": "lignite under strong pressure (compaction helps)",
+    "coal": "bury a forest or peat — pressed, it turns to coal; when the seam reaches the thing, the coal flies here",
     "sandstone": "sand + groundwater + pressure",
     "tuff": "volcanic ash, lightly buried",
     "phosphorite": "guano or dung, lightly buried",
-    "amber": "tree resin buried for 3,000 years",
-    "oil": "marine organics at 60–120 °C — use Deep heat",
+    "amber": "tree resin (or a pile with resin) buried for 3,000 years; when it reaches the thing, the amber is yours",
+    "oil": "marine organics and mats at 60–120 °C (Deep heat), held under clay; when it reaches the thing, the oil is yours",
     "gas": "oil above 150 °C",
     "shale": "mudstone under very strong pressure",
     "slate": "shale under extreme pressure",
     "marble": "limestone at 200 °C",
     "quartzite": "sandstone under pressure at 200 °C",
     "anthracite": "coal under extreme pressure",
-    "diamond": "coal at extreme pressure and 250 °C, rarely",
+    "diamond": "coal at extreme pressure and 250 °C, rarely; an absorbed diamond is a rich prize",
     "rare": "meteorites",
     "basalt": "lava near the surface",
     "obsidian": "lava cooling fast at the surface",
@@ -768,7 +769,7 @@
   "mutation": {
     "title": "Mutation",
     "choose": "Life changes. Choose one:",
-    "reroll": "Reroll (5 glowstone)",
+    "reroll": "Reroll (5 amber)",
     "shell": "Shell — bones fossilise ×2",
     "swarm": "Swarm — room ×1.5, life −30%",
     "glow": "Glow — remains give glowstone",
@@ -861,15 +862,15 @@
     "limestone30": "Make {n} limestone",
     "press100": "Press down {n} m of rock",
     "peat20": "Make {n} peat",
-    "coal20": "Make {n} coal",
-    "oil1": "Make oil",
+    "coal20": "Absorb {n} coal",
+    "oil1": "Absorb oil",
     "amberInsect": "Make amber with an insect",
     "predatorFossil": "Keep a predator fossil",
     "fishFossil": "Keep a fish fossil",
     "reward": "Reward: {what}",
     "rewardDensity": "Density +{n}",
     "rewardRock": "{rock} +{n}",
-    "rewardLeast": "scarcest rock +{n}"
+    "rewardLeast": "the scarcest special material"
   },
   "geo": {
     "button": "Geologist: heat, water and transformations",

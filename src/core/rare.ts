@@ -65,12 +65,11 @@ export function claimRare(g: Game, ev: RareEvent): string {
     r.energy += e; r.energyEarned += e;
   }
   if (rw.rockLeast !== undefined) {
-    const have = g.legacy.discovered.filter((id) => CFG.rocks.some((rk) => rk.id === id));
-    if (have.length) {
-      let least = have[0];
-      for (const id of have) if ((r.rocks[id] ?? 0) < (r.rocks[least] ?? 0)) least = id;
-      const avg = have.reduce((a, id) => a + (r.rocks[id] ?? 0), 0) / have.length;
-      g.addRock(least, Math.max(rw.min ?? 5, Math.ceil(avg * rw.rockLeast)));
+    // the special material the player has least of (by its worth)
+    const least = g.leastSpecial();
+    if (least) {
+      const u = g.specialUnit(least);
+      g.addSpecial(least, Math.max((rw.min ?? 5) * u, Math.ceil((r.rocks[least] ?? 0) * rw.rockLeast)));
     } else {
       const e = g.incomePerSec(false) * 45 + g.clickValue() * 10;
       r.energy += e; r.energyEarned += e;

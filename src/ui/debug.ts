@@ -58,7 +58,7 @@ export class DevPanel {
         row(btn(t('dev.energy10m'), () => { const g = this.g(); g.run.energy += Math.max(1000, g.incomePerSec(false) * 600); }),
           btn('+1e9 ✦', () => { this.g().run.energy += 1e9; })),
         row(flag(t('dev.infEnergy'), () => this.g().cheats.infiniteEnergy, (v) => (this.g().cheats.infiniteEnergy = v))),
-        row(btn(t('dev.rocks'), () => { const g = this.g(); for (const r of CFG.rocks) g.addRock(r.id, 200); }),
+        row(btn(t('dev.rocks'), () => { const g = this.g(); for (const id of CFG.B.sand.specials.order) g.addSpecial(id, 200 * g.specialUnit(id)); }),
           btn(t('dev.density'), () => { this.g().meta.density += 10; }))),
       sec(t('dev.life'),
         row(btn(t('dev.oxygen'), () => { this.g().run.oxygen = CFG.B.oxygen.max; }),

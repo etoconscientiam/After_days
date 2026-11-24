@@ -783,11 +783,19 @@ export class Game {
     return true;
   }
 
-  /** The extra material of the piles: one of the opened ones (the «pile composition» branch), or null. */
-  setPileChoice(id: string | null): boolean {
-    if (id && !(this.stats.pile[id] > 0)) return false;
-    this.run.pileChoice = id;
-    return true;
+  /** The composition of the piles, as in the prototype: the share of each bought material (the «pile composition»
+   *  branch, energy) and of the zone's own matter. All bought shares together are at most sand.pileShareMax. */
+  pileShares(): { own: number; mats: [string, number][] } {
+    const mats: [string, number][] = [];
+    let tot = 0;
+    for (const u of CFG.upgrades) {
+      if (!u.pileMat) continue;
+      const p = this.stats.pile[u.pileMat] ?? 0;
+      if (p > 0) { mats.push([u.pileMat, p]); tot += p; }
+    }
+    const k = tot > SAND.pileShareMax ? SAND.pileShareMax / tot : 1;
+    for (const m of mats) m[1] *= k;
+    return { own: 1 - tot * k, mats };
   }
 
   upgradeLevel(id: string): number { return this.run.upgrades[id] ?? 0; }
@@ -942,24 +950,47 @@ export class Game {
     return true;
   }
 
-  // ---------- rocks ----------
-  addRock(rock: string, amount: number, x = -1): void {
+  // ---------- rocks and the special materials ----------
+  /** A rock formed in the strata: it is found (the Book, a note) and counted for the orders — not a currency. */
+  formRock(rock: string, amount: number, x = -1): void {
     if (!rock || amount <= 0) return;
     const r = this.run;
-    let mul = 1;
-    if (this.mods.living) mul *= 1 + 0.25 * (r.rockRanks[rock] ?? 0);
-    const v = amount * mul;
-    r.rocks[rock] = (r.rocks[rock] ?? 0) + v;
-    r.rocksEarned[rock] = (r.rocksEarned[rock] ?? 0) + v;
+    const f = (r.formed ??= {});
+    f[rock] = (f[rock] ?? 0) + amount;
     if (this.mods.shards && x >= 0) {
       const b = this.basinMap[x];
-      r.basinRocks[b][rock] = (r.basinRocks[b][rock] ?? 0) + v;
+      r.basinRocks[b][rock] = (r.basinRocks[b][rock] ?? 0) + amount;
     }
     if (!this.legacy.discovered.includes(rock)) {
       this.legacy.discovered.push(rock);
       this.bus.emit('rockDiscovered', { rock });
-
     }
+  }
+
+  /** A special material got (absorbed by the thing, or a reward): into the hand. */
+  addSpecial(id: string, amount: number): void {
+    if (!id || amount <= 0) return;
+    const r = this.run;
+    const v = amount * (this.mods.living ? 1 + 0.25 * (r.rockRanks[id] ?? 0) : 1);
+    r.rocks[id] = (r.rocks[id] ?? 0) + v;
+    r.rocksEarned[id] = (r.rocksEarned[id] ?? 0) + v;
+  }
+
+  /** The known special material with the least in hand (rewards fill the gap), or null if none is known yet. */
+  leastSpecial(): string | null {
+    let best: string | null = null;
+    for (const id of CFG.B.sand.specials.order) if (this.specialKnown(id) && (best === null || (this.run.rocks[id] ?? 0) / this.specialUnit(id) < (this.run.rocks[best] ?? 0) / this.specialUnit(best))) best = id;
+    return best;
+  }
+
+  /** How much one «unit» of a reward is in a special material (a diamond is worth many coals). */
+  specialUnit(id: string): number { return (CFG.B.sand.specials.unit as Record<string, number>)[id] ?? 1; }
+
+  /** A special material is known: got once, or one of its rocks has formed in the strata. */
+  specialKnown(id: string): boolean {
+    if ((this.run.rocksEarned[id] ?? 0) > 0 || (this.run.rocks[id] ?? 0) > 0) return true;
+    const mats = (CFG.B.sand.specials.mats as Record<string, Record<string, number>>)[id] ?? {};
+    return Object.keys(mats).some((m) => { const rk = CFG.materials[CFG.matIndex[m]]?.rock; return !!rk && this.legacy.discovered.includes(rk); });
   }
 
   rankCost(rock: string): number {
@@ -1016,8 +1047,8 @@ export class Game {
 
   rerollMutations(): boolean {
     const r = this.run;
-    if ((r.rocks.glowstone ?? 0) < 5 || !r.mutationOffer) return false;
-    r.rocks.glowstone -= 5;
+    if ((r.rocks.amber ?? 0) < 5 || !r.mutationOffer) return false;
+    r.rocks.amber -= 5;
     r.mutationEraOffered = -1;
     this.offerMutations();
     return true;

@@ -1,5 +1,5 @@
 {
- "_comment": "In-run upgrades. Branch pile (energy): pileSize adds sand.pile.perLevel particles to a tapped pile; the others (pileMat, opens in epoch era) add a share of that material to every pile, value per level, all shares together at most sand.pileShareMax. price = base * growth^level (per-upgrade growth overrides). Effect doubles at each milestone level when milestones=true. effect.kind: add (value*level) or mul (value^level).",
+ "_comment": "In-run upgrades. Branch pile (energy): pileSize adds sand.pile.perLevel particles to a tapped pile; the others (pileMat, opens in epoch era) are the composition of the piles as in the prototype: value per level is the share that material makes of the piles, all shares together at most sand.pileShareMax (Game.pileShares, sources.ts pileMix). price = base * growth^level (per-upgrade growth overrides). Effect doubles at each milestone level when milestones=true. effect.kind: add (value*level) or mul (value^level).",
  "growth": 1.15,
  "milestones": [
   10,
@@ -87,7 +87,7 @@
    "pileMat": "sand",
    "era": 1,
    "kind": "add",
-   "value": 0.04,
+   "value": 0.05,
    "growth": 1.3
   },
   {
@@ -99,7 +99,7 @@
    "pileMat": "clay",
    "era": 1,
    "kind": "add",
-   "value": 0.04,
+   "value": 0.05,
    "growth": 1.3
   },
   {
@@ -111,7 +111,7 @@
    "pileMat": "shellOoze",
    "era": 2,
    "kind": "add",
-   "value": 0.04,
+   "value": 0.05,
    "growth": 1.3
   },
   {
@@ -123,7 +123,7 @@
    "pileMat": "orgLand",
    "era": 3,
    "kind": "add",
-   "value": 0.04,
+   "value": 0.05,
    "growth": 1.3
   },
   {
@@ -135,14 +135,14 @@
    "pileMat": "resin",
    "era": 4,
    "kind": "add",
-   "value": 0.03,
+   "value": 0.04,
    "growth": 1.3
   },
   {
    "id": "impulsePower",
-   "branch": "rock",
-   "currency": "stromatolite",
-   "base": 10,
+   "branch": "awakening",
+   "currency": "energy",
+   "base": 40,
    "stat": "clickMul",
    "kind": "mul",
    "value": 1.1,
@@ -150,27 +150,29 @@
    "extra": {
     "stat": "boostMax",
     "value": 0.2
-   }
+   },
+   "growth": 1.5
   },
   {
    "id": "resonance",
-   "branch": "rock",
-   "currency": "limestone",
-   "base": 10,
+   "branch": "awakening",
+   "currency": "energy",
+   "base": 50,
    "stat": "lifeEnergy",
    "kind": "add",
-   "value": 0.05,
+   "value": 0.06,
    "milestones": true,
    "extra": {
     "stat": "seaCapacity",
     "value": 0.02
-   }
+   },
+   "growth": 1.42
   },
   {
    "id": "timeFlow",
-   "branch": "rock",
+   "branch": "special",
    "currency": "oil",
-   "base": 20,
+   "base": 3,
    "stat": "timeSpeed",
    "kind": "add",
    "value": 0.03,
@@ -178,55 +180,61 @@
   },
   {
    "id": "press",
-   "branch": "rock",
+   "branch": "special",
    "currency": "coal",
-   "base": 10,
+   "base": 4,
    "stat": "press",
    "kind": "add",
-   "value": 0.1
+   "value": 0.1,
+   "growth": 1.3
   },
   {
    "id": "boneSense",
-   "branch": "rock",
+   "branch": "special",
    "currency": "amber",
-   "base": 5,
+   "base": 2,
    "stat": "fossilChance",
    "kind": "add",
-   "value": 0.05
+   "value": 0.05,
+   "growth": 1.35
   },
   {
    "id": "depthPull",
-   "branch": "rock",
-   "currency": "sandstone",
-   "base": 15,
+   "branch": "special",
+   "currency": "oil",
+   "base": 6,
    "stat": "layerWeight",
    "kind": "add",
-   "value": 0.05
+   "value": 0.05,
+   "growth": 1.35
   },
   {
    "id": "fertility",
-   "branch": "rock",
-   "currency": "phosphorite",
-   "base": 15,
+   "branch": "awakening",
+   "currency": "energy",
+   "base": 1500,
    "stat": "landCapacity",
    "kind": "add",
-   "value": 0.05
+   "value": 0.05,
+   "growth": 1.5,
+   "era": 3
   },
   {
    "id": "coreHeat",
-   "branch": "rock",
-   "currency": "tuff",
-   "base": 20,
+   "branch": "special",
+   "currency": "oil",
+   "base": 10,
    "stat": "geoHeat",
    "kind": "add",
-   "value": 2
+   "value": 2,
+   "growth": 1.4
   },
   {
    "id": "voice",
-   "branch": "rock",
-   "currency": "marble",
-   "base": 40,
-   "growth": 1.35,
+   "branch": "special",
+   "currency": "amber",
+   "base": 8,
+   "growth": 1.4,
    "stat": "excavation",
    "kind": "add",
    "value": 0.1,
@@ -237,57 +245,23 @@
   },
   {
    "id": "deepPress",
-   "branch": "rock",
-   "currency": "anthracite",
-   "base": 10,
+   "branch": "special",
+   "currency": "coal",
+   "base": 30,
    "stat": "kMax",
    "kind": "add",
-   "value": 0.5
+   "value": 0.5,
+   "growth": 1.45
   },
   {
    "id": "earthLight",
-   "branch": "rock",
+   "branch": "special",
    "currency": "diamond",
    "base": 1,
    "stat": "energyMul",
    "kind": "mul",
-   "value": 1.25
-  },
-  {
-   "id": "peatPress",
-   "branch": "rock",
-   "currency": "peat",
-   "base": 20,
-   "stat": "press",
-   "kind": "add",
-   "value": 0.04
-  },
-  {
-   "id": "chalkLife",
-   "branch": "rock",
-   "currency": "chalk",
-   "base": 20,
-   "stat": "lifeEnergy",
-   "kind": "add",
-   "value": 0.02
-  },
-  {
-   "id": "mudSettle",
-   "branch": "rock",
-   "currency": "mudstone",
-   "base": 20,
-   "stat": "deposition",
-   "kind": "add",
-   "value": 0.03
-  },
-  {
-   "id": "rareSpark",
-   "branch": "rock",
-   "currency": "rare",
-   "base": 100,
-   "stat": "energyMul",
-   "kind": "mul",
-   "value": 1.1
+   "value": 1.25,
+   "growth": 1.6
   }
  ],
  "density": {
