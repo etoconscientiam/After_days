@@ -1,4 +1,7 @@
-/** Weld one seam at fixed speed/arc length and print what the bead looks like. npm run probe */
+/**
+ * Weld one seam at a fixed speed multiple and arc length and print what comes out.
+ *   npm run probe -- bars        (I=0.8 also: I=0.8 npm run probe -- axle)
+ */
 import { Bench, emptyTorch, stepBench, WeldCtx } from '../src/sim/weld';
 import { DATA } from '../src/data';
 import { BALANCE } from '../src/data/balance';
@@ -43,7 +46,3 @@ for (const I of Is)
   for (const L of [2.5, 4.2, 1.3])
     for (const vm of [0.4, 0.6, 0.8, 1, 1.25, 1.5, 2])
       console.log(`I=${I} L=${L} v×${vm}`.padEnd(20), JSON.stringify(probe(part, vm, L, I)));
-if (process.argv[3] === 'gaps') {
-  const { Bench: B } = await import('../src/sim/weld');
-  void B;
-}

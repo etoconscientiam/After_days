@@ -88,6 +88,11 @@ export function computeGuide(g: Game, out: Guide): Guide {
       return out;
     }
     case 'chip':
+      if (g.mask.down && g.mask.pos > 0.9) {
+        out.target = 'mask';
+        out.hint = learning ? 'maskUp' : '';
+        return out;
+      }
       out.target = 'bead';
       out.hint = early ? 'chip' : '';
       for (let i = 0; i < b.seams.length; i++) {
@@ -104,6 +109,11 @@ export function computeGuide(g: Game, out: Guide): Guide {
       return out;
     case 'ready':
       if (b.order?.urgent) return out;
+      if (g.mask.down && learning) {
+        out.target = 'mask';
+        out.hint = 'maskUp';
+        return out;
+      }
       out.target = 'door';
       out.hint = early ? 'handOver' : '';
       return out;

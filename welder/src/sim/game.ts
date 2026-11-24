@@ -350,11 +350,8 @@ export class Game {
     this.log.qualities.push(b.quality);
     this.log.best = Math.max(this.log.best, b.quality);
     this.log.holes += b.holes;
-    this.bus.emit('handedOver', { bench: 'player', uid: o.uid, pay, grade: b.grade, reqMet: met, part: o.part });
-    this.bus.emit('money', { money: this.money, delta: pay });
-    this.bus.emit('shopChanged', {});
-    this.milestone('firstCoin');
     if (o.urgent) {
+      // The gate: keep its seams for the end card, then let the night calm down.
       this.finaleSeams = b.seams;
       this.finalePart = o.part;
       this.finaleQuality = b.quality;
@@ -362,6 +359,12 @@ export class Game {
       this.flags.finaleDone = true;
       this.flags.calm = true;
       this.showEnd = true;
+    }
+    this.bus.emit('handedOver', { bench: 'player', uid: o.uid, pay, grade: b.grade, reqMet: met, part: o.part });
+    this.bus.emit('money', { money: this.money, delta: pay });
+    this.bus.emit('shopChanged', {});
+    this.milestone('firstCoin');
+    if (o.urgent) {
       this.milestone('finaleEnd');
       this.bus.emit('finaleEnd', { quality: b.quality, grade: b.grade });
       b.order = null;

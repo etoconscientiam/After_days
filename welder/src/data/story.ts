@@ -10,7 +10,7 @@ export const STORY: StoryBeat[] = [
       all: [
         { flag: 'board' },
         { ordersDone: 7 },
-        { any: [{ all: [{ owns: ['wheel2'] }, { time: 300 }] }, { time: 370 }] },
+        { any: [{ all: [{ owns: ['wheel2'] }, { time: 300 }] }, { time: 355 }] },
       ],
     },
   },

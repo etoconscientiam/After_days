@@ -105,6 +105,7 @@ export class LowRes {
     this.renderer.setSize(this.w, this.h, false);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.BasicShadowMap;
+    this.renderer.info.autoReset = false;
     this.rt = new THREE.WebGLRenderTarget(this.w, this.h, {
       type: THREE.HalfFloatType,
       minFilter: THREE.NearestFilter,
@@ -152,6 +153,7 @@ export class LowRes {
   }
 
   render(scene: THREE.Scene, camera: THREE.Camera): void {
+    this.renderer.info.reset();
     this.renderer.setRenderTarget(this.rt);
     this.renderer.render(scene, camera);
     this.renderer.setRenderTarget(null);

@@ -116,13 +116,13 @@ export class Tools {
   }
 
   /** Jagged arc between rod tip (top) and pool (bottom); `jit` is random -1..1 values. */
-  setBolt(top: THREE.Vector3, bottom: THREE.Vector3, amp: number, jit: (k: number) => number): void {
+  setBolt(top: THREE.Vector3, bottom: THREE.Vector3, amp: number, rng: { signed(): number }): void {
     for (let i = 0; i < 6; i++) {
       const t = i / 5;
       const e = Math.sin(t * Math.PI) * amp;
-      this.boltPos[i * 3] = bottom.x + (top.x - bottom.x) * t + jit(i * 2) * e;
+      this.boltPos[i * 3] = bottom.x + (top.x - bottom.x) * t + rng.signed() * e;
       this.boltPos[i * 3 + 1] = bottom.y + (top.y - bottom.y) * t;
-      this.boltPos[i * 3 + 2] = bottom.z + (top.z - bottom.z) * t + jit(i * 2 + 1) * e;
+      this.boltPos[i * 3 + 2] = bottom.z + (top.z - bottom.z) * t + rng.signed() * e;
     }
     (this.bolt.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
   }

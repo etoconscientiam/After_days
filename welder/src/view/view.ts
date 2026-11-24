@@ -60,6 +60,18 @@ export class View {
   private endSrc: BeadSource | null = null;
   private time = 0;
   private lastMode = '';
+  private pickList: THREE.Object3D[] = [];
+  private hits: THREE.Intersection[] = [];
+  private plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  private mouseMoved = true;
+  /** Where particles land: the part, the bench top, or the floor. */
+  private floorAt = (x: number, z: number): number => {
+    const part = this.part;
+    const lx = (x - BENCH.x) / MM, lz = (z - BENCH.z) / MM;
+    if (part && Math.abs(lx) < part.half[0] && Math.abs(lz) < part.half[1]) return TABLE + part.heightAt(lx, lz) * MM;
+    if (Math.abs(x) < 0.7 && Math.abs(z - BENCH.z) < 0.35) return TABLE;
+    return 0;
+  };
   started = false;
 
   constructor(private game: Game, private canvas: HTMLCanvasElement, uiRoot: HTMLElement, private stage: HTMLElement) {
@@ -91,7 +103,7 @@ export class View {
     this.cssH = Math.round(this.lr.h * s);
     this.stage.style.width = this.cssW + 'px';
     this.stage.style.height = this.cssH + 'px';
-    this.ui.setScale(Math.max(1, s * 0.5));
+    this.ui.setScale(Math.max(1, s * 0.62));
   }
 
   // ------------------------------------------------------------------ input
@@ -103,6 +115,7 @@ export class View {
       this.mouse.x = e.clientX - r.left;
       this.mouse.y = e.clientY - r.top;
       this.mouse.in = this.mouse.x >= 0 && this.mouse.y >= 0 && this.mouse.x <= r.width && this.mouse.y <= r.height;
+      this.mouseMoved = true;
     };
     c.addEventListener('pointermove', pos);
     c.addEventListener('pointerleave', () => (this.mouse.in = false));
@@ -211,10 +224,13 @@ export class View {
   private pick(): string {
     if (!this.mouse.in) return '';
     this.setRay();
-    const objs = this.ws.pickables.filter((o) => o.visible);
+    const objs = this.pickList;
+    objs.length = 0;
+    for (const o of this.ws.pickables) if (o.visible) objs.push(o);
     if (this.part) objs.push(this.partRoot);
     if (this.pileMesh) objs.push(this.pileMesh);
-    const hits = this.ray.intersectObjects(objs, true);
+    this.hits.length = 0;
+    const hits = this.ray.intersectObjects(objs, true, this.hits);
     for (const h of hits) {
       let o: THREE.Object3D | null = h.object;
       while (o && !o.userData.pick) o = o.parent;
@@ -228,11 +244,12 @@ export class View {
     out.has = false;
     if (!this.part || !this.mouse.in) return;
     this.setRay();
-    const hits = this.ray.intersectObject(this.part.group, true);
+    this.hits.length = 0;
+    const hits = this.ray.intersectObject(this.part.group, true, this.hits);
     let p: THREE.Vector3 | null = hits.length ? hits[0].point : null;
     if (!p) {
-      const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -(TABLE + this.part.top * 0.6 * MM));
-      p = this.ray.ray.intersectPlane(plane, this.v3) ?? null;
+      this.plane.constant = -(TABLE + this.part.top * 0.6 * MM);
+      p = this.ray.ray.intersectPlane(this.plane, this.v3) ?? null;
     }
     if (!p) return;
     out.has = true;
@@ -295,10 +312,11 @@ export class View {
     b.on('handedOver', (e) => {
       if (e.bench === 'player') {
         this.ui.toast(`+${e.pay} ◆  ${t('part.' + e.part)}` + (e.reqMet ? '' : ' · ' + t('pay.reqFail')));
-        if (!g.player.order && !g.finaleSeams?.length) this.clearPart();
-        else if (!g.showEnd) this.clearPart();
         this.ws.customer.visible = false;
-        if (!g.showEnd) this.rig.room();
+        if (!g.showEnd) {
+          this.clearPart();
+          this.rig.room();
+        }
       } else this.ui.toast(`+${e.pay} ◆  ${t('app.done', { grade: t('grade.' + e.grade) })}`);
     });
     b.on('revealed', (e) => {
@@ -344,7 +362,7 @@ export class View {
       // Keep the gate on the bench and show it with the player's seams.
       this.endSrc = { seams: g.finaleSeams ?? [], rev: 1, stage: 'ready' };
       this.bead.attach(this.endSrc, this.part?.heightAt ?? (() => 0));
-      this.rig.end(this.v3.copy(BENCH).add(this.v3b.set(0.0, 0, 0.01)), 300);
+      this.rig.end(this.v3.copy(BENCH).add(this.v3b.set(0.09, 0, 0.0)), (g.data.parts[g.finalePart]?.frame ?? 430) * 1.15);
       const L = g.log;
       const avg = L.qualities.length ? L.qualities.reduce((a, q) => a + q, 0) / L.qualities.length : 0;
       const pct = (q: number) => Math.round(q * 100) + '%';
@@ -474,7 +492,8 @@ export class View {
     }
 
     // Hover in the room: highlight + shelf tooltip.
-    if (this.started && this.rig.mode === 'room' && !this.ui.boardOpen) {
+    if (this.started && this.rig.mode === 'room' && !this.ui.boardOpen && (this.mouseMoved || !this.rig.settled())) {
+      this.mouseMoved = false;
       const id = this.pick();
       if (id !== this.hover) {
         this.hover = id;
@@ -552,7 +571,7 @@ export class View {
       const sz = (3 + a.L * 1.2) * MM * (0.8 + 0.4 * r.next());
       this.tools.arcGlow.scale.set(sz, sz, sz);
       this.v3b.set(tip.x, surfY, tip.z);
-      this.tools.setBolt(tip, this.v3b, (0.4 + a.L * 0.35) * MM, () => r.signed());
+      this.tools.setBolt(tip, this.v3b, (0.4 + a.L * 0.35) * MM, r);
       if (this.tools.pool.visible) {
         const ps = (2 + Math.min(4, a.pool * 2)) * MM;
         this.tools.pool.position.set(tip.x, surfY + 0.0002, tip.z);
@@ -587,13 +606,7 @@ export class View {
     } else ap.intensity = 0;
 
     // Particles: land on the part, the bench or the floor.
-    const part = this.part;
-    this.fx.update(dt, (x, z) => {
-      const lx = (x - BENCH.x) / MM, lz = (z - BENCH.z) / MM;
-      if (part && Math.abs(lx) < part.half[0] && Math.abs(lz) < part.half[1]) return TABLE + part.heightAt(lx, lz) * MM;
-      if (Math.abs(x) < 0.7 && Math.abs(z - BENCH.z) < 0.35) return TABLE;
-      return 0;
-    });
+    this.fx.update(dt, this.floorAt);
 
     // Post: mask, glare, afterimage, shake.
     const u = this.lr.u;

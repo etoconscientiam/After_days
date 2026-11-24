@@ -42,7 +42,7 @@ export interface Workshop {
   hiMats: Record<string, THREE.MeshLambertMaterial[]>;
 }
 
-function mesh(g: THREE.BufferGeometry, m: THREE.Material, x = 0, y = 0, z = 0, shadow = true): THREE.Mesh {
+function mesh(g: THREE.BufferGeometry, m: THREE.Material, x = 0, y = 0, z = 0, shadow = false): THREE.Mesh {
   const o = new THREE.Mesh(g, m);
   o.position.set(x, y, z);
   o.castShadow = shadow;
@@ -50,7 +50,7 @@ function mesh(g: THREE.BufferGeometry, m: THREE.Material, x = 0, y = 0, z = 0, s
   return o;
 }
 
-function boxAt(w: number, h: number, d: number, m: THREE.Material, x: number, y: number, z: number, shadow = true): THREE.Mesh {
+function boxAt(w: number, h: number, d: number, m: THREE.Material, x: number, y: number, z: number, shadow = false): THREE.Mesh {
   return mesh(new THREE.BoxGeometry(w, h, d), m, x, y, z, shadow);
 }
 
@@ -259,15 +259,18 @@ export function buildWorkshop(tx: Textures, data: GameData): Workshop {
   for (const x of [-0.68, 0.68]) for (const z of [BENCH.z - 0.3, BENCH.z + 0.3]) bench.add(boxAt(0.08, TABLE - 0.07, 0.08, woodD, x, (TABLE - 0.07) / 2, z));
   bench.add(boxAt(1.4, 0.04, 0.6, woodD, 0, 0.2, BENCH.z));
   // Clutter: clamp, old stubs, chalk.
-  bench.add(boxAt(0.05, 0.06, 0.12, iron, -0.52, TABLE + 0.03, BENCH.z - 0.2));
-  bench.add(boxAt(0.18, 0.02, 0.03, dark, -0.45, TABLE + 0.01, BENCH.z + 0.22));
+  bench.add(boxAt(0.05, 0.06, 0.12, iron, -0.52, TABLE + 0.03, BENCH.z - 0.2, true));
+  bench.add(boxAt(0.18, 0.02, 0.03, dark, -0.45, TABLE + 0.01, BENCH.z + 0.22, true));
+  // A clamp near the work: its shadow jumps with the arc.
+  bench.add(boxAt(0.03, 0.09, 0.03, iron, -0.2, TABLE + 0.045, BENCH.z - 0.16, true));
+  bench.add(boxAt(0.1, 0.02, 0.03, iron, -0.16, TABLE + 0.09, BENCH.z - 0.16, true));
   tag(bench, 'bench');
   scene.add(bench);
   pick.push(bench);
 
   // Electrode box on the right of the bench.
   const ebox = new THREE.Group();
-  ebox.add(boxAt(0.16, 0.06, 0.1, wood, 0, 0.03, 0));
+  ebox.add(boxAt(0.16, 0.06, 0.1, wood, 0, 0.03, 0, true));
   for (let i = 0; i < 9; i++) {
     const rod = boxAt(0.3, 0.005, 0.005, i % 3 ? lambert({ color: '#6a6458' }) : iron, 0.02, 0.065, -0.035 + i * 0.009);
     ebox.add(rod);
@@ -375,6 +378,10 @@ export function buildWorkshop(tx: Textures, data: GameData): Workshop {
     const make = models[u.model] ?? models.rods;
     const o = make();
     o.position.set(-1.17 + u.slot * 0.168, 1.515, WALL_Z + 0.1);
+    o.scale.setScalar(1.5);
+    const price = mesh(new THREE.PlaneGeometry(0.035, 0.025), paper, 0, -0.03, 0.075);
+    price.scale.setScalar(1 / 1.5);
+    o.add(price);
     tag(o, 'shelf:' + u.id);
     // A wider invisible box makes small items easy to point at.
     const hit = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.17, 0.17), new THREE.MeshBasicMaterial({ visible: false }));
@@ -453,12 +460,13 @@ export function buildWorkshop(tx: Textures, data: GameData): Workshop {
   appBench.add(boxAt(0.7, 0.04, 0.5, wood, 0, 0.8, 0));
   for (const x of [-0.3, 0.3]) appBench.add(boxAt(0.06, 0.78, 0.4, woodD, x, 0.39, 0));
   appBench.add(boxAt(0.2, 0.02, 0.14, iron, 0.05, 0.83, 0));
-  appBench.position.set(-1.6, 0, -0.78);
+  appBench.position.set(-2.02, 0, -0.15);
+  appBench.rotation.y = Math.PI / 2;
   scene.add(appBench);
   const apprentice = figure({ cloak: '#3a3028', hood: '#4a3a2c', hat: 'cap', height: 1.5 }, { skin: skinM });
   apprentice.add(boxAt(0.2, 0.16, 0.06, glassM, 0, 1.3, -0.1));
-  apprentice.position.set(-1.6, 0, -0.38);
-  apprentice.rotation.y = Math.PI;
+  apprentice.position.set(-1.62, 0, -0.15);
+  apprentice.rotation.y = Math.PI / 2;
   apprentice.visible = false;
   scene.add(apprentice);
 
@@ -494,12 +502,12 @@ export function buildWorkshop(tx: Textures, data: GameData): Workshop {
   arc.castShadow = true;
   arc.shadow.mapSize.set(256, 256);
   arc.shadow.camera.near = 0.004;
-  arc.shadow.camera.far = 4;
+  arc.shadow.camera.far = 1.2;
   arc.shadow.bias = -0.002;
   arc.position.copy(BENCH).add(new THREE.Vector3(0, 0.01, 0));
   scene.add(arc);
   const appArc = new THREE.PointLight(L.appArc.color, 0, 0, 2);
-  appArc.position.set(-1.55, 0.88, -0.78);
+  appArc.position.set(-1.98, 0.88, -0.15);
   scene.add(appArc);
 
   const anchors: Record<string, THREE.Vector3> = {
@@ -508,7 +516,7 @@ export function buildWorkshop(tx: Textures, data: GameData): Workshop {
     shelf: new THREE.Vector3(-0.75, 1.72, WALL_Z),
     electrodes: new THREE.Vector3(0.5, TABLE + 0.08, BENCH.z - 0.2),
     door: new THREE.Vector3(1.62, 1.85, -0.95),
-    apprentice: new THREE.Vector3(-1.6, 1.62, -0.6),
+    apprentice: new THREE.Vector3(-1.62, 1.62, -0.15),
   };
 
   return {
