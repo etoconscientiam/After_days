@@ -11,16 +11,18 @@ function smooth(a: number, b: number, x: number): number {
  * Score of one seam, 0..1. Everything that lowers it is visible on the bead after the slag is gone:
  * holes, gaps, cold lumps, pores, wandering off the joint, spatter, an uneven ripple rhythm.
  */
-export function seamQuality(sr: SeamRun): number {
+export function seamQuality(sr: SeamRun, thick = 1): number {
   const W = BALANCE.weld;
+  // Filler a good pass leaves on this part; thicker parts take a fatter bead.
+  const mI = (W.deposit * W.vIdeal) / idealSpeed(thick, 1);
   let sum = 0;
   let cnt = 0;
   for (let c = SeamRun.EDGE; c < sr.n - SeamRun.EDGE; c++) {
     cnt++;
     if (sr.hole[c]) continue;
     const m = sr.metal[c];
-    let fill = m < 1 ? smooth(0.3, 1.0, m) : 1;
-    if (m > 1.9) fill *= Math.max(0.5, 1 - (m - 1.9) * 0.35);
+    let fill = m < 0.8 * mI ? smooth(0.25 * mI, 0.8 * mI, m) : 1;
+    if (m > 1.45 * mI) fill *= Math.max(0.45, 1 - (m / mI - 1.45) * 0.45);
     const fuse = smooth(W.fuseLow, W.fuseHigh, sr.peak[c]);
     const off = smooth(4, 8, sr.dev[c]);
     let sc = fill * (0.3 + 0.7 * fuse) * (1 - 0.5 * off);
@@ -52,10 +54,10 @@ export function seamQuality(sr: SeamRun): number {
   return Math.max(0, Math.min(1, q));
 }
 
-export function partQuality(seams: SeamRun[]): number {
+export function partQuality(seams: SeamRun[], thick = 1): number {
   let s = 0, l = 0;
   for (const sr of seams) {
-    sr.quality = seamQuality(sr);
+    sr.quality = seamQuality(sr, thick);
     s += sr.quality * sr.len;
     l += sr.len;
   }

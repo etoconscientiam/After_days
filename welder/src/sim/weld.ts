@@ -415,7 +415,7 @@ function stepWeld(b: Bench, inp: TorchIn, ctx: WeldCtx): void {
 function checkDone(b: Bench, ctx: WeldCtx): void {
   if (b.stage !== 'weld') return;
   for (const sr of b.seams) if (sr.gaps(W.fillMin) > 0) return;
-  b.quality = partQuality(b.seams);
+  b.quality = partQuality(b.seams, b.part!.thick);
   b.grade = gradeOf(b.quality);
   b.holes = countHoles(b.seams);
   b.pores = countPores(b.seams);

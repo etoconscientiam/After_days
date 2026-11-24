@@ -46,7 +46,7 @@ export const BALANCE = {
     stickL: 0.75,
     breakL: 6.5,
     /** The electrode burns off, so the arc slowly grows unless fed down (mm/s at I=1). */
-    drift: 0.32,
+    drift: 0.25,
     /** Mouse wheel: mm per notch. Keys: mm per second. */
     wheelStep: 0.45,
     keyRate: 3.5,
@@ -95,7 +95,7 @@ export const BALANCE = {
   mask: {
     animTime: 0.16,
     glareRise: 0.06,
-    glareFall: 0.9,
+    glareFall: 0.3,
     afterRise: 1.6,
     afterFall: 2.4,
   },

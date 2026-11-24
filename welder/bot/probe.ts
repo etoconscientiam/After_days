@@ -32,7 +32,7 @@ export function probe(partId: string, vMul: number, L: number, I = 1, lat = 0) {
   let m = 0, f = 0, holes = 0;
   for (let i = 1; i < sr.n - 1; i++) { m += sr.metal[i]; f += sr.peak[i]; holes += sr.hole[i]; }
   m /= sr.n - 2; f /= sr.n - 2;
-  const q = partQuality(b.seams);
+  const q = partQuality(b.seams, part.thick);
   if (process.env.GAPS) { const g: string[] = []; for (let i = 1; i < sr.n - 1; i++) if (sr.metal[i] < BALANCE.weld.fillMin) g.push(i + ":" + sr.metal[i].toFixed(2)); console.log("n=" + sr.n, g.join(" ")); }
   return { v: v.toFixed(1), pool: b.arc.pool.toFixed(2), maxH: maxH.toFixed(2), metal: m.toFixed(2), fuse: f.toFixed(2), holes, gaps: sr.gaps(BALANCE.weld.fillMin), ripples: sr.count, q: q.toFixed(2) };
 }
