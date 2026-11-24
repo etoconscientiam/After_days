@@ -872,7 +872,9 @@ export class Renderer {
     const y = Math.round(this.lay.sectionTop + this.section.yOfRow(g.lineRow()));
     this.compactLineY = y;
     const reached = g.run.sink.rows > 0;
-    c.fillStyle = rgb(242, 181, 74, reached ? 0.16 : 0.45 + 0.1 * Math.sin(this.t * 2));
+    // once the strata have reached it, it has done its job: no faint dashes over the world after that
+    if (reached) return;
+    c.fillStyle = rgb(242, 181, 74, 0.45 + 0.1 * Math.sin(this.t * 2));
     for (let x = 0; x < WW; x += 4) c.fillRect(x, y, 2, 1);
     if (!reached) { c.fillStyle = rgb(242, 181, 74, 0.9); c.fillRect(WW - 4, y, 4, 1); }
   }

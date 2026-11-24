@@ -48,7 +48,9 @@ export function geoEnv(g: Game, dy: number): GeoEnv {
   return {
     rng: g.rng, dy,
     speed: (1 + st.transformSpeed) * (1 + g.diversityBonus()),
-    compactRow: CFG.B.sand.compactAtLine ? g.lineRow() : -1,
+    // until the strata first reach the line (the thing has taken a row), a particle compacts only under enough load —
+    // the front follows the pile's shape, as in the prototype; after that by pressure everywhere, as the economy needs
+    compactDepth: CFG.B.sand.compactAtLine && g.run.sink.rows === 0 ? Math.round((g.grid.sinkRow + 1 - g.lineRow()) * CFG.B.sand.compactDepthShare) : -1,
     P0: surfacePressure(g),
     pressMul: (1 + st.press) * (1 + st.layerWeight),
     T0: CFG.B.physics.surfaceT + st.geoHeat,

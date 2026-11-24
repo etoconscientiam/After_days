@@ -55,8 +55,9 @@ export interface GeoEnv {
   waterAt(x: number, b: number): boolean;
   /** sea column */
   marine(x: number): boolean;
-  /** the row a column must reach before anything in it compacts (the compaction line); -1: no such gate */
-  compactRow: number;
+  /** how many particles must lie above a particle before it compacts (as in the prototype: a load threshold, so the
+   *  compaction front follows the shape of the pile); -1: no such gate */
+  compactDepth: number;
   /** the finger pressing the strata (grid coordinates), power after paying */
   finger: { x: number; y: number; r: number; power: number } | null;
   /** a transformation finished (the material is already changed) */
@@ -96,9 +97,7 @@ export function geoTick(g: Grid, env: GeoEnv, rep: GeoReport = newReport()): Geo
     let depth = -1;
     const marine = env.marine(x);
     let hot = 0, hotY = 0;
-    // nothing turns to rock until the column has reached the compaction line (as in the prototype: a pile on the
-    // floor stays loose; when the strata rise to the line, the bottom starts to compact)
-    const compacting = env.compactRow < 0 || g.surf[x] <= env.compactRow;
+
     for (let y = g.surf[x]; y < g.floor; y++) {
       const i = y * GW + x, m = mat[i];
       const kind = KIND[m];
@@ -128,7 +127,8 @@ export function geoTick(g: Grid, env: GeoEnv, rep: GeoReport = newReport()): Geo
         env.onFossilRoll(i, x, y, gw ? CFG.B.taphonomy.groundwaterMineral : 1);
       }
       const rules = RULES_BY_MAT[m];
-      if (!rules.length || dy <= 0 || !compacting) continue;
+      // nothing turns to rock under too thin a load (a fresh pile on the floor stays loose)
+      if (!rules.length || dy <= 0 || (env.compactDepth >= 0 && depth < env.compactDepth)) continue;
       const T = env.T0 + grad * depth + env.heatAt(x, b);
       const c: Cond = { Peff, T, water: gw || marine, depth, oxygen };
       for (const rule of rules) {

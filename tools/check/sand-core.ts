@@ -27,7 +27,7 @@ function env(r: Rng, dy: number, counter: { n: number }): GeoEnv {
   return {
     rng: r, dy, speed: 1, P0: 0, pressMul: 1, T0: 15, gradMul: 1,
     ruleAllowed: (rule: TransformRule) => !rule.world && !rule.rankReq,
-    heatAt: () => 0, waterAt: () => false, marine: (x) => x < 30, finger: null, compactRow: -1,
+    heatAt: () => 0, waterAt: () => false, marine: (x) => x < 30, finger: null, compactDepth: -1,
     onTransform: () => { counter.n++; }, onFossilRoll: () => {},
   };
 }

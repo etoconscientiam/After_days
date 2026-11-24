@@ -297,6 +297,10 @@ export class SectionRenderer {
     const acc = this.bandAcc.length === H * WW * 4 ? this.bandAcc : (this.bandAcc = new Float32Array(H * WW * 4));
     acc.fill(0);
     const top = new Uint32Array(WW), bot = new Uint32Array(WW);
+    // columns with strata right above the squeeze (where a taken row may show)
+    const above = new Uint8Array(GW);
+    const rowAbove = (grid.sinkRow - n) * GW;
+    for (let x = 0; x < GW; x++) { const m = grid.mat[rowAbove + x]; above[x] = m && KIND[m] !== K_NONE ? 1 : 0; }
     let y = 0, h = 2;
     for (let k = 0; k < L; k++, h *= r) {
       let mats: ArrayLike<number>, looks: ArrayLike<number>, off = 0;
@@ -315,8 +319,9 @@ export class SectionRenderer {
       }
       if (cnt) {
         const mean = pack32(sr / cnt, sg / cnt, sb / cnt);
-        const even = Math.min(0.92, 0.2 + 0.8 * depth);
-        const lit = (k & 1 ? 0.94 : 1.03) * (1 - 0.25 * depth);
+        // no alternate bright/dark lines and only a mild evening-out: on a peaked pile they read as stripes across it
+        const even = Math.min(0.55, 0.1 + 0.45 * depth);
+        const lit = 1 - 0.18 * depth;
         // the two halves of the line, each over its span of pixels
         for (let half = 0; half < 2; half++) {
           const a = y + half * h / 2, b = a + h / 2;
@@ -328,6 +333,8 @@ export class SectionRenderer {
             for (let xx = 0; xx < WW; xx++) {
               const c0 = src[xx];
               if (!c0) continue;
+              // a row the conveyor took spans the whole width; draw it only under strata (not sticking out of a slope)
+              if (k >= n && !above[xx >> 1]) continue;
               const warm = Math.max(0, 1 - Math.abs(xx - ax0 - 4) / 40) * depth * depth * 0.55;
               const c = tint(shade(mix(c0, mean, even), lit), warm);
               const q = o + xx * 4;

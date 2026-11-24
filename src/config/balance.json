@@ -198,6 +198,7 @@
   "startBelowLine": 3,
   "startEmpty": true,
   "compactAtLine": true,
+  "compactDepthShare": 0.7,
   "fluids": {
    "_comment": "Oil and gas creep up through porous beds and stop under seals (core/fluids.ts). tickHz: migration ticks a second; oilChance / gasChance: the chance a particle tries to move in a tick; slopeChance: the chance it finds a way up past the edge of a seal in a tick; sideChance: the chance it slides along under a seal when it cannot rise; tight: materials a fluid passes only now and then (× tightMul); seals: materials nothing passes through.",
    "tickHz": 14,
