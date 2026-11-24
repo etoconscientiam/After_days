@@ -538,3 +538,15 @@ html[data-tremor] #ui { animation: letterTremor 0.14s steps(1) infinite; }
 .side-tip { position: absolute; z-index: 4; max-width: 210px; padding: 6px 9px; border-radius: 8px; background: rgba(237,227,208,0.95); color: var(--stone-900);
   font-size: 13px; line-height: 16px; box-shadow: 0 3px 10px rgba(0,0,0,0.5); pointer-events: none; }
 .side-tip[hidden] { display: none; }
+
+/* the stock on a pile extra's button */
+#pile-chips .pc-chip { position: relative; }
+#pile-chips .pc-n { position: absolute; right: -2px; bottom: -3px; min-width: 14px; padding: 0 2px; border-radius: 4px; background: rgba(14,12,16,0.85);
+  color: #ffe6a8; font-size: 10px; line-height: 11px; text-align: center; }
+#pile-chips .pc-chip.bump { animation: chipBump 0.25s ease-out; }
+@keyframes chipBump { 40% { transform: scale(1.14); box-shadow: 0 0 10px rgba(255,220,140,0.8); } }
+
+/* «+N» over the thing when it absorbs: rises and fades */
+.float-gain { position: fixed; z-index: 20; transform: translate(-50%, 0); color: #ffd27a; font-size: 15px; font-weight: bold; pointer-events: none;
+  text-shadow: 0 0 2px #000, 0 1px 0 #000, 1px 0 0 #000, -1px 0 0 #000, 0 -1px 0 #000; animation: floatGain 1.3s ease-out forwards; white-space: nowrap; }
+@keyframes floatGain { 0% { opacity: 0; transform: translate(-50%, 4px) scale(0.8); } 15% { opacity: 1; transform: translate(-50%, 0) scale(1.1); } 100% { opacity: 0; transform: translate(-50%, -34px) scale(1); } }

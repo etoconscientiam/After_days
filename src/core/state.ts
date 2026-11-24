@@ -96,6 +96,8 @@ export interface RunState {
   pileSec: number;                // the material that lies in the piles for a few piles in a row (bands and lenses)
   /** the extra material the player chose for the piles (one of the bought ones), or none: the zone's life */
   pileChoice?: string | null;
+  /** how much of each pile extra (by material id) the thing has absorbed: shown on its button, not spent */
+  pileStock?: Record<string, number>;
   bedT: number;                   // real seconds until the «Bed» button is ready again
 }
 

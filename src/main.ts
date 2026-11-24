@@ -15,7 +15,7 @@ import { Modals } from './ui/modals';
 import { DevPanel } from './ui/debug';
 import { $, toggle } from './ui/dom';
 import { PileChips } from './ui/pileChips';
-import { t, setLang, onLangChange } from './ui/i18n';
+import { t, fmt, setLang, onLangChange } from './ui/i18n';
 import { rockIcon, energyIcon, exhibit } from './ui/icons';
 import { audio } from './audio/audio';
 import { setWear, wearFrom } from './ui/wear';
@@ -45,6 +45,10 @@ const dev = new DevPanel(() => game, renderer, () => resetAll());
 const turmoil = new Turmoil();
 const geo = new Geologist(() => game, renderer, input, () => uiScale);
 const pileChips = new PileChips(() => game);
+// the matter the thing gives back flies to the pile extras' buttons and is counted as it arrives
+renderer.matTarget = (id) => pileChips.point(id, canvas.getBoundingClientRect());
+renderer.onMatSend = (id, n) => pileChips.send(id, n);
+renderer.onMatArrive = (id, n) => pileChips.arrive(id, n);
 
 // ---------- layout / scaling ----------
 const column = $('#column');
@@ -170,7 +174,7 @@ function bind(g: Game): void {
   const bus = g.bus;
   bus.on('click', (e) => { audio.click(e.boost); });
   // the thing absorbed a line of the strata: a glow in its colour, a spark to the counter, a soft low «gulp»
-  bus.on('absorb', (e) => { renderer.onAbsorb(e.mat, e.value, e.mats, e.looks); audio.absorb(Math.min(1, e.value / 400)); });
+  bus.on('absorb', (e) => { renderer.onAbsorb(e.mat, e.value, e.mats, e.looks, e.gains); absorbGain += e.energy; audio.absorb(Math.min(1, e.value / 400)); });
   bus.on('seep', (e) => renderer.onSeep(e.x, e.y, e.oil));
   bus.on('geyser', (e) => { renderer.onGeyser(e.x, e.y0, e.y1, e.n); audio.geyser(Math.min(1, e.n / 50)); });
   bus.on('rockDiscovered', (e) => {
@@ -436,6 +440,22 @@ function watchFps(dt: number): void {
 }
 
 let pressHintT = 0;
+/** energy absorbed since the last «+N» over the thing (one label for a few lines: the lines come in bursts) */
+let absorbGain = 0, absorbLabelT = 0;
+function absorbLabel(dt: number): void {
+  absorbLabelT += dt;
+  if (absorbLabelT < 0.8 || absorbGain <= 0 || game.state.phase !== 'play') return;
+  absorbLabelT = 0;
+  const r = canvas.getBoundingClientRect();
+  const x = r.left + (WW / 2 / WW) * r.width, y = r.top + ((renderer.lay.artifactY - 30) / WH) * r.height;
+  const el = document.createElement('div');
+  el.className = 'float-gain';
+  el.textContent = '+' + fmt(absorbGain) + ' ✦';
+  el.style.left = x + 'px'; el.style.top = y + 'px';
+  document.body.append(el);
+  setTimeout(() => el.remove(), 1400);
+  absorbGain = 0;
+}
 function frame(now: number): void {
   const dtReal = Math.min(0.1, (now - last) / 1000);
   last = now;
@@ -476,6 +496,7 @@ function frame(now: number): void {
   turmoil.update(dtReal);
   geo.update(dtReal);
   pileChips.update(dtReal);
+  absorbLabel(dtReal);
   renderer.skyTop = (hud.bottomUI / 640) * WH;
   // grains on the move hiss softly; a grain turning to rock ticks (a few a second at most)
   audio.sand(game.state.phase === 'play' ? Math.min(1, game.moving / 350) : 0);

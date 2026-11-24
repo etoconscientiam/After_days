@@ -213,15 +213,15 @@ export function dropPile(g: Grid, rng: Rng, water: Water | null, spec: PileSpec,
   return placed;
 }
 
-/** One particle from the sky above column x (the drizzle of sediment from life, bones from the carcass pools). */
+/** One particle laid on the surface of column x (the drizzle of sediment from life, bones from the carcass pools). */
 export function rainOne(g: Grid, rng: Rng, water: Water | null, x: number, m: number, birth: number, fast: boolean,
   flags = 0, spec = 0, decay = 0): number {
   const look = (rng.next() * 256) | 0;
   if (fast) return settleFast(g, rng, water, x, m, look, birth, flags, spec, decay);
-  // full mode: it appears in the first free cell from the top and falls. Not only above the topmost particle:
-  // a bone or organic matter that follows a particle into the same column takes the cell under the one still
-  // falling (it used to be lost there)
-  for (let y = 0; y < g.surf[x]; y++) if (!g.mat[y * GW + x]) return g.put(x, y, m, look, birth, flags, spec, decay);
+  // full mode: it settles on the surface of its column — the drizzle builds the ground up from below, it does not
+  // rain from the sky (a tapped pile still falls: dropPile). If the cell right over the surface is taken (a grain
+  // laid a moment ago), the first free cell above it
+  for (let y = g.surf[x] - 1; y >= 0; y--) if (!g.mat[y * GW + x]) return g.put(x, y, m, look, birth, flags, spec, decay);
   return -1;
 }
 

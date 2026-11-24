@@ -9,6 +9,11 @@ import type { Game } from './game';
 import { Grid, GW, KIND, K_LOOSE, K_ROCK, K_MARKER, P_FOSSIL } from '../world/Grid';
 
 const A = CFG.B.sand.absorb;
+const PS = CFG.B.sand.pileStock;
+/** the pile extra (material id) each material comes back as, or -1 */
+const BACK = new Int16Array(CFG.materials.length).fill(-1);
+const EXTRAS = Object.keys(PS.groups);
+EXTRAS.forEach((ex, k) => { for (const id of (PS.groups as Record<string, string[]>)[ex]) { const i = CFG.matIndex[id]; if (i !== undefined) BACK[i] = k; } });
 
 /** Energy value of one particle of each material (before the unit of the moment). */
 export const VALUE = new Float32Array(CFG.materials.length);
@@ -50,6 +55,11 @@ export function pushBand(g: Game, line: BandLine): void {
 
 function absorbLine(g: Game, line: BandLine): void {
   if (g.state.phase !== 'play' || line.v <= 0) return;
+  // the matter comes back: each particle of a group to the stock of its pile extra
+  const gains: Record<string, number> = {};
+  for (let x = 0; x < GW; x++) { const k = BACK[line.mats[x]]; if (k >= 0) gains[EXTRAS[k]] = (gains[EXTRAS[k]] ?? 0) + PS.gain; }
+  const st = (g.run.pileStock ??= {});
+  for (const id in gains) st[id] = (st[id] ?? 0) + gains[id];
   const e = line.v * absorbUnit(g);
   const r = g.run;
   r.energy += e;
@@ -59,5 +69,5 @@ function absorbLine(g: Game, line: BandLine): void {
   let best = 0, bm = 0;
   const w = new Float32Array(CFG.materials.length);
   for (let x = 0; x < GW; x++) { const m = line.mats[x]; w[m] += VALUE[m]; if (w[m] > best) { best = w[m]; bm = m; } }
-  if (!g.headless) g.bus.emit('absorb', { energy: e, mat: CFG.materials[bm].id, value: line.v, mats: line.mats, looks: line.looks });
+  if (!g.headless) g.bus.emit('absorb', { energy: e, mat: CFG.materials[bm].id, value: line.v, mats: line.mats, looks: line.looks, gains });
 }

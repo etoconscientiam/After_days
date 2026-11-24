@@ -18,7 +18,7 @@ import { renderEcho, EW, EH } from './echoes';
 import { drawScene, pictogram, VW, VH } from './ritual';
 
 interface Particle { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string; size: number; kind?: 'mote' | 'firefly' | 'spark' | 'drop' }
-interface Flyer { x: number; y: number; vx: number; vy: number; tx: number; ty: number; t: number; color: string; done?: () => void }
+interface Flyer { x: number; y: number; vx: number; vy: number; tx: number; ty: number; t: number; color: string; done?: () => void; size?: number }
 /** Sprites that do not stand on the strata: drawn as background life (drawBackdropLife, drawFlyingBirds). */
 const M_BONE = () => CFG.matIndex.bone;
 const BACKDROP = new Set(['fish', 'plankton', 'bird', 'herd', 'predator']);
@@ -113,6 +113,10 @@ export class Renderer {
   /** canvas point the click sparks fly to (the Energy counter), set by the UI */
   sparkTarget: () => { x: number; y: number } | null = () => null;
   onSparkArrive: () => void = () => {};
+  /** where the button of a pile extra is (world px), and the matter set off to it / arrived (ui/pileChips.ts) */
+  matTarget: (id: string) => { x: number; y: number } | null = () => null;
+  onMatSend: (id: string, n: number) => void = () => {};
+  onMatArrive: (id: string, n: number) => void = () => {};
   private t = 0;
   private dt = 1 / 60;
   private alarm = -99;
@@ -236,7 +240,7 @@ export class Renderer {
   /** The thing absorbed a line of the strata: it glows in the line's colour, a spark flies to the counter
    *  (a dearer line — brighter, more sparks), and the line goes in its own way by what it is made of
    *  (absorbFx: rock crumbles, coal smoulders, oil ripples dark, gas puffs, bone flashes white, amber glows…). */
-  onAbsorb(matId: string, value: number, mats?: Uint8Array, looks?: Uint8Array): void {
+  onAbsorb(matId: string, value: number, mats?: Uint8Array, looks?: Uint8Array, gains?: Record<string, number>): void {
     const m = CFG.materials[CFG.matIndex[matId]];
     const col = m ? m.palette[Math.min(4, m.palette.length - 1)] : ACCENT;
     const k = Math.min(1, value / 400);
@@ -252,57 +256,109 @@ export class Renderer {
     }
     this.spawnAbsorbFx(fx, col, k);
     if (mats && looks) this.startSuck(mats, looks);
+    if (gains) this.pendingGains.push({ at: this.t + 0.55, gains });
   }
 
-  /** The line the thing takes: its own pixels, drawn on the bottom of the squeeze and drawn in toward the thing —
-   *  the near ones first, the far ones later and faster, warming as they go, each gone into the thing. */
-  private sucks: { t: number; x0: Int16Array; c: Uint32Array; n: number }[] = [];
+  /** matter the thing gives back, sent once the line has gone in (the reward after the gulp) */
+  private pendingGains: { at: number; gains: Record<string, number> }[] = [];
+  private sendGains(): void {
+    const cx = (this.thingX0 + this.thingX1) / 2, cy = this.bandBottom + 2;
+    for (let q = this.pendingGains.length - 1; q >= 0; q--) {
+      const pg = this.pendingGains[q];
+      if (this.t < pg.at) continue;
+      this.pendingGains.splice(q, 1);
+      for (const [id, n] of Object.entries(pg.gains)) {
+        const tgt = this.matTarget(id);
+        if (!tgt || n <= 0) continue;
+        const m = CFG.materials[CFG.matIndex[id]];
+        const col = m?.px?.[3] ?? m?.palette[3] ?? '#fff';
+        const k = Math.min(4, Math.max(1, Math.round(n / 10)));
+        let left = n;
+        for (let j = 0; j < k; j++) {
+          const carry = j === k - 1 ? left : Math.round(n / k);
+          left -= carry;
+          this.onMatSend(id, carry);
+          const a = -Math.PI / 2 + (Math.random() - 0.5) * 1.8, sp = 35 + Math.random() * 25;
+          this.flyers.push({ x: cx + (Math.random() - 0.5) * 4, y: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, tx: tgt.x, ty: tgt.y, t: 0, color: col, size: 2, done: () => this.onMatArrive(id, carry) });
+        }
+      }
+    }
+  }
+
+  /** The line the thing takes, made plain: chunks of it (2×2, its own colours, up to 30 across) lift off the bottom of
+   *  the squeeze, then are drawn along an arc into the thing, the near ones first, faster and faster, warming as they
+   *  go; when the first one arrives the thing gulps — a ring closes in on it and it flashes — and then it gives back
+   *  (energy to the counter, matter to the buttons: sendGains). */
+  private sucks: { t: number; parts: { x0: number; c: number; ta: number }[]; gulped: boolean }[] = [];
+  private gulps: number[] = [];
   private startSuck(mats: Uint8Array, looks: Uint8Array): void {
     if (this.sucks.length >= 3) this.sucks.shift();
-    const x0 = new Int16Array(WW), c = new Uint32Array(WW), px = [0, 0, 0, 0];
-    let n = 0;
-    for (let x = 0; x < mats.length; x++) {
+    const px = [0, 0, 0, 0], parts: { x0: number; c: number; ta: number }[] = [];
+    const cx = (this.thingX0 + this.thingX1) / 2, far = Math.max(cx, WW - cx);
+    const step = Math.max(1, Math.round(mats.length / 30));
+    for (let x = 0; x < mats.length; x += step) {
       const m = mats[x];
       if (!m || KIND[m] === K_NONE || KIND[m] === K_SOLID) continue;
       particlePx(m, looks[x], px);
-      for (let d = 0; d < 2; d++) { x0[n] = x * 2 + d; c[n] = px[d]; n++; }
+      const x0 = x * 2 + 1, d = Math.abs(x0 - cx) / far;
+      parts.push({ x0, c: px[0], ta: 0.25 + 0.5 * Math.pow(d, 0.8) });
     }
-    if (n) this.sucks.push({ t: 0, x0, c, n });
+    if (parts.length) this.sucks.push({ t: 0, parts, gulped: false });
   }
 
   private drawSucks(): void {
-    const c = this.ctx, dt = this.dt, y = this.bandBottom - 1;
-    const cx = (this.thingX0 + this.thingX1) / 2, half = (this.thingX1 - this.thingX0) / 2;
-    const far = Math.max(cx, WW - cx);
+    const c = this.ctx, dt = this.dt, y0 = this.bandBottom - 1;
+    const cx = (this.thingX0 + this.thingX1) / 2, cy = y0 + 3;
+    const LIFT = 0.16;
     for (let k = this.sucks.length - 1; k >= 0; k--) {
       const S = this.sucks[k];
       S.t += dt;
       let alive = false;
-      for (let j = 0; j < S.n; j++) {
-        const x0 = S.x0[j], dx = x0 - cx, dist = Math.abs(dx);
-        // reaching the thing's edge takes longer from farther off; it speeds up as it goes (drawn in)
-        const ta = 0.2 + 0.7 * Math.pow(dist / far, 0.7);
-        const p = Math.min(1, (S.t / ta) ** 2);
-        if (p >= 1) continue;
+      for (const pt of S.parts) {
+        const r = (pt.c & 255), gg = (pt.c >> 8) & 255, b = (pt.c >> 16) & 255;
+        let x: number, y: number, p = 0;
+        if (S.t < LIFT) {
+          // anticipation: the chunk lifts off its line
+          const u = S.t / LIFT;
+          x = pt.x0; y = y0 - u * 3;
+        } else {
+          p = Math.min(1, ((S.t - LIFT) / pt.ta) ** 2);
+          if (p >= 1) { if (!S.gulped) { S.gulped = true; this.gulps.push(this.t); } continue; }
+          // along an arc into the thing (a quadratic curve that rises before it falls in)
+          const sx = pt.x0, sy = y0 - 3, mx = (sx + cx) / 2, my = Math.min(sy, cy) - 6 - Math.abs(sx - cx) * 0.08;
+          const q = 1 - p;
+          x = q * q * sx + 2 * q * p * mx + p * p * cx;
+          y = q * q * sy + 2 * q * p * my + p * p * cy;
+        }
         alive = true;
-        const edge = Math.sign(dx) * Math.min(dist, half * 0.6);
-        const x = cx + edge + (dx - edge) * (1 - p);
-        const col = S.c[j];
-        // it warms as soon as it is taken (a thread of light running into the thing), more so near the end
-        const w = 0.35 + 0.55 * p;
-        const r = (col & 255) + (255 - (col & 255)) * w, gg = ((col >> 8) & 255) + (206 - ((col >> 8) & 255)) * w, b = ((col >> 16) & 255) + (120 - ((col >> 16) & 255)) * w;
-        const X = Math.round(x), Y = Math.round(y + p * p * 2);
-        c.fillStyle = rgb(r, gg, b, 0.95 - p * 0.25);
-        c.fillRect(X, Y, 1, 1);
-        // its glow above and below, and a short streak behind a fast one
+        const w = 0.25 + 0.6 * p;
+        const R = r + (255 - r) * w, G = gg + (214 - gg) * w, B = b + (130 - b) * w;
+        c.fillStyle = rgb(R, G, B, 1);
+        c.fillRect(Math.round(x), Math.round(y), 2, 2);
         c.globalCompositeOperation = 'lighter';
-        c.fillStyle = rgb(255, 170, 80, 0.16 + 0.2 * p);
-        c.fillRect(X, Y - 1, 1, 1); c.fillRect(X, Y + 1, 1, 1);
-        if (p > 0.25) { c.fillStyle = rgb(255, 190, 100, 0.3 * (1 - p)); c.fillRect(X + Math.sign(dx) * (1 + Math.round(p * 3)), Y, 1, 1); }
+        c.fillStyle = rgb(255, 180, 90, 0.18 + 0.3 * p);
+        c.fillRect(Math.round(x) - 1, Math.round(y), 1, 2); c.fillRect(Math.round(x) + 2, Math.round(y), 1, 2);
         c.globalCompositeOperation = 'source-over';
       }
       if (!alive) this.sucks.splice(k, 1);
     }
+    // the gulp: a warm ring closing in on the thing, and a flash
+    for (let k = this.gulps.length - 1; k >= 0; k--) {
+      const u = (this.t - this.gulps[k]) / 0.45;
+      if (u >= 1) { this.gulps.splice(k, 1); continue; }
+      const rad = 3 + 16 * (1 - u);
+      c.strokeStyle = rgb(255, 214, 140, 0.75 * (1 - u * 0.6));
+      c.lineWidth = 1;
+      c.beginPath(); c.ellipse(cx, cy, rad, rad * 0.6, 0, 0, Math.PI * 2); c.stroke();
+      if (u < 0.3) {
+        c.globalCompositeOperation = 'lighter';
+        const g2 = c.createRadialGradient(cx, cy, 1, cx, cy, 10);
+        g2.addColorStop(0, rgb(255, 230, 160, 0.45 * (1 - u / 0.3))); g2.addColorStop(1, 'rgba(255,200,120,0)');
+        c.fillStyle = g2; c.fillRect(cx - 10, cy - 10, 20, 20);
+        c.globalCompositeOperation = 'source-over';
+      }
+    }
+    this.sendGains();
   }
 
   /** Gas seeped out at the surface: a few bubbles (under water) or a shimmer of haze (in the air). Oil: a dark
@@ -2527,10 +2583,11 @@ export class Renderer {
       f.vy = (f.vy + ay * dt) * (1 - dt * 3.5);
       f.x += f.vx * dt; f.y += f.vy * dt;
       if (Math.hypot(f.tx - f.x, f.ty - f.y) < 3 || f.t > 1.6) { this.flyers.splice(i, 1); f.done?.(); continue; }
+      const sz = f.size ?? 1;
       c.fillStyle = f.color;
-      c.fillRect(Math.round(f.x), Math.round(f.y), 1, 1);
+      c.fillRect(Math.round(f.x), Math.round(f.y), sz, sz);
       c.fillStyle = 'rgba(255,220,140,0.35)';
-      c.fillRect(Math.round(f.x - f.vx * 0.02), Math.round(f.y - f.vy * 0.02), 1, 1);
+      c.fillRect(Math.round(f.x - f.vx * 0.02), Math.round(f.y - f.vy * 0.02), sz, sz);
     }
   }
 
