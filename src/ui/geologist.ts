@@ -53,7 +53,6 @@ export class Geologist {
     // the era ruler
     this.ruler = h('div', { id: 'ruler', 'aria-label': t('geo.ruler') });
     $('#stage-ui').append(this.sideTip);
-    this.sideTip.addEventListener('click', () => { this.sideTip.hidden = true; });
     this.btn.after(this.ruler);
     // the lens
     this.lensCv = document.createElement('canvas');

@@ -536,5 +536,5 @@ html[data-tremor] #ui { animation: letterTremor 0.14s steps(1) infinite; }
 
 /* a short note beside the side column */
 .side-tip { position: absolute; z-index: 4; max-width: 210px; padding: 6px 9px; border-radius: 8px; background: rgba(237,227,208,0.95); color: var(--stone-900);
-  font-size: 13px; line-height: 16px; box-shadow: 0 3px 10px rgba(0,0,0,0.5); pointer-events: auto; }
+  font-size: 13px; line-height: 16px; box-shadow: 0 3px 10px rgba(0,0,0,0.5); pointer-events: none; }
 .side-tip[hidden] { display: none; }
