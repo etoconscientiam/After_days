@@ -1895,17 +1895,21 @@ export class Renderer {
         break;
       }
       case 'migration': {
-        // a small herd running across, raising dust
+        // a small herd running across, raising dust — at the scale of the strata (as the far herds: 4×3 px), with a
+        // glint over the leader: it is a find, tap it
         const run = (this.t * 6) % 40;
         for (let k = 0; k < 5; k++) {
-          const hx = Math.round(x - 14 + k * 7 + run * 0.15 + Math.sin(this.t * 3 + k)), hy = y + (k % 2);
-          c.fillStyle = k % 2 ? '#7a5434' : '#6a4a30';
-          c.fillRect(hx, hy - 3, 5, 3); c.fillRect(hx + 4, hy - 5, 2, 2); c.fillRect(hx + 5, hy - 6, 1, 1);
+          const hx = Math.round(x - 10 + k * 5 + run * 0.15 + Math.sin(this.t * 3 + k)), hy = Math.round(this.groundY(hx + 2));
+          c.fillStyle = k % 2 ? '#3a2818' : '#2e2014';
+          c.fillRect(hx, hy - 3, 4, 2); c.fillRect(hx + 4, hy - 4, 1, 2);
           const leg = Math.floor(this.t * 12 + k) % 2;
-          c.fillRect(hx + leg, hy, 1, 2); c.fillRect(hx + 4 - leg, hy, 1, 2);
-          c.fillStyle = '#e0c8a0'; c.fillRect(hx + 1, hy - 3, 2, 1);
-          c.fillStyle = 'rgba(220,200,160,0.55)'; c.fillRect(hx - 2, hy + 1, 2, 1); c.fillRect(hx - 4, hy, 1, 1);
+          c.fillRect(hx + leg, hy - 1, 1, 1); c.fillRect(hx + 3 - leg, hy - 1, 1, 1);
+          c.fillStyle = '#c8a070'; c.fillRect(hx, hy - 3, 3, 1);   // a light back: it reads on the brown ground
+          c.fillStyle = 'rgba(220,200,160,0.55)'; c.fillRect(hx - 2, hy, 1, 1);
         }
+        const lx = Math.round(x + 10 + run * 0.15), ly = Math.round(this.groundY(lx)) - 7, tw2 = Math.sin(this.t * 5) > 0;
+        c.fillStyle = 'rgba(255,240,190,0.95)'; c.fillRect(lx, ly, 1, 1);
+        if (tw2) { c.fillRect(lx - 1, ly, 3, 1); c.fillRect(lx, ly - 1, 1, 3); }
         break;
       }
       case 'bloom': {

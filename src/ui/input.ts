@@ -132,7 +132,7 @@ export class Input {
     this.ren.hover = { x, y: Math.floor(sy) };
     // the museum label only for a pointer resting on the strata, not while tapping: it would cover the pile
     const now = performance.now();
-    if (now - this.lastDown < 2000 || now - this.lastMove < 700) { this.tooltip.hidden = true; return; }
+    if (now - this.lastDown < 2000 || now - this.lastMove < 700 || this.ren.geologist) { this.tooltip.hidden = true; return; }
     this.showTooltip(g, x, sy, m);
   }
 

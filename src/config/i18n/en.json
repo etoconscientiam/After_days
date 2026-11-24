@@ -915,6 +915,7 @@
     "requires": "Opens after shift no. {n}"
   },
   "bed": {
+    "tip": "Bed: a thin ochre layer over the whole surface. In the strata a mark of time and jasper — and a seal: oil gathers under it",
     "button": "Bed: an ochre bed over all the land (jasper in the depth)"
   }
 }

@@ -24,6 +24,9 @@ export class Geologist {
   bedBtn: HTMLButtonElement;
   private bedRing: HTMLElement;
   plates = $('#geo-plates');
+  /** a short note beside the side column (the first time «Bed» is there) */
+  private sideTip = h('div', { class: 'side-tip', hidden: '' });
+  private sideTipT = 0;
   private age = 9;
   private hintT = 0;
   private ruler: HTMLElement;
@@ -49,6 +52,8 @@ export class Geologist {
     this.btn.before(this.bedBtn);
     // the era ruler
     this.ruler = h('div', { id: 'ruler', 'aria-label': t('geo.ruler') });
+    $('#stage-ui').append(this.sideTip);
+    this.sideTip.addEventListener('click', () => { this.sideTip.hidden = true; });
     this.btn.after(this.ruler);
     // the lens
     this.lensCv = document.createElement('canvas');
@@ -67,6 +72,7 @@ export class Geologist {
     this.ren.geologist = on;
     this.input.geologist = on;
     toggle(this.btn, 'on', on);
+    toggle($('#ui'), 'geo-on', on);
     this.btn.classList.remove('hint');
     this.hintT = 0;
     $('#fieldnote').hidden = true;
@@ -149,6 +155,18 @@ export class Geologist {
       const wait = g.run.bedT / CFG.B.sand.bedCooldown;
       this.bedRing.style.setProperty('--wait', String(Math.max(0, Math.min(1, wait))));
       toggle(this.bedBtn, 'ready', wait <= 0);
+      // the first time the button is there: what it does, beside it (no hover on a phone)
+      if (!g.legacy.firsts.bedTaught) {
+        g.legacy.firsts.bedTaught = true;
+        this.sideTip.textContent = t('bed.tip');
+        this.sideTip.hidden = false;
+        this.sideTipT = 8;
+      }
+      if (!this.sideTip.hidden) {
+        this.sideTip.style.top = this.bedBtn.style.top;
+        this.sideTip.style.right = (parseFloat(getComputedStyle($('#ui')).width) - parseFloat(this.bedBtn.style.left) + 6) + 'px';
+        if ((this.sideTipT -= dt) <= 0) this.sideTip.hidden = true;
+      }
       this.bedBtn.disabled = wait > 0;
     }
     this.updateRuler(g, F, stripL, stripW, F.toUiY(top) + bs + 6, play, dt);
@@ -175,15 +193,22 @@ export class Geologist {
     for (const gl of this.ren.geoLayers) {
       if (!gl.f || gl.h < 3) continue;
       const y = F.toUiY(top + gl.y);
-      if (y < firstY || y - lastY < 15 || out.length >= 9) continue;
+      if (y < firstY || y - lastY < 20 || out.length >= 8) continue;
       const f = gl.f;
       const text = f.ok ? t('geo.years', { v: fmt(Math.max(1, f.years), 0) }) : t('geo.' + f.reason);
       if (!f.ok && text === lastText) continue;          // the same reason again below: one plate is enough
       lastText = text;
       lastY = y;
-      const el = h('div', { class: 'geo-plate ' + (f.ok ? 'ok' : 'no') }, rockIcon(f.rock, 14), h('span', {}, text));
-      el.style.top = y - 9 + 'px';
-      el.style.right = Math.max(4, (F.ur.right - F.cr.right) / F.k + stripW + 4) + 'px';
+      // not over the round lens when it is open
+      if (!this.lens.hidden) {
+        const lt = parseFloat(this.lens.style.top) || 0, lh = parseFloat(this.lensCv.style.height) || 0;
+        if (y > lt - 12 && y < lt + lh + 12) continue;
+      }
+      // in the side column at the right edge (the pile's extras step aside while the lens is on), a corner pointing
+      // left at its layer
+      const el = h('div', { class: 'geo-plate ' + (f.ok ? 'ok' : 'no') }, rockIcon(f.rock, 12), h('span', {}, text));
+      el.style.top = y - 8 + 'px';
+      el.style.right = Math.max(4, (F.ur.right - F.cr.right) / F.k + 6) + 'px';
       out.push(el);
     }
     this.plates.replaceChildren(...out);

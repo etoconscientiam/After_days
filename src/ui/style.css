@@ -402,7 +402,7 @@ html[data-tremor] #ui { animation: letterTremor 0.14s steps(1) infinite; }
 .geo-btn.hint { animation: geoHint 0.9s ease-in-out infinite; }
 @keyframes geoHint { 50% { transform: scale(1.12); box-shadow: 0 0 0 2px var(--amber), 0 0 18px var(--amber); } }
 #geo-plates { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
-.geo-plate { position: absolute; display: flex; align-items: center; gap: 4px; padding: 1px 6px 1px 3px; border-radius: 6px; font-size: 16px; line-height: 1;
+.geo-plate { position: absolute; display: flex; align-items: center; gap: 3px; padding: 1px 5px 1px 3px; border-radius: 5px; font-size: 12px; line-height: 1;
   background: rgba(237,227,208,0.92); color: var(--stone-900); box-shadow: 0 2px 6px rgba(0,0,0,0.5); white-space: nowrap; }
 .geo-plate.no { background: rgba(120,110,100,0.85); color: #f0e8dc; }
 .geo-plate.no canvas { filter: grayscale(1) brightness(0.8); }
@@ -528,3 +528,13 @@ html[data-tremor] #ui { animation: letterTremor 0.14s steps(1) infinite; }
 #pile-chips .pc-info { position: absolute; right: 42px; width: max-content; max-width: 200px; padding: 4px 8px; border-radius: 6px; background: rgba(20,16,24,0.82);
   color: #ffe6a8; font-size: 12px; line-height: 14px; text-align: right; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
 #pile-chips .pc-info.show { opacity: 1; }
+
+/* a forecast plate points left at its layer */
+.geo-plate::before { content: ''; position: absolute; left: -5px; top: 50%; margin-top: -4px; border: 4px solid transparent; border-right-color: inherit; border-left: 0; }
+.geo-plate.ok::before { border-right-color: rgba(237,227,208,0.92); }
+.geo-plate.no::before { border-right-color: rgba(120,110,100,0.85); }
+
+/* a short note beside the side column */
+.side-tip { position: absolute; z-index: 4; max-width: 210px; padding: 6px 9px; border-radius: 8px; background: rgba(237,227,208,0.95); color: var(--stone-900);
+  font-size: 13px; line-height: 16px; box-shadow: 0 3px 10px rgba(0,0,0,0.5); pointer-events: auto; }
+.side-tip[hidden] { display: none; }

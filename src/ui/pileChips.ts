@@ -35,9 +35,11 @@ export class PileChips {
     const g = this.g();
     const mats = this.opened(g);
     const drawer = $('#ui').classList.contains('drawer-open');
-    const show = g.state.phase === 'play' && mats.length > 0 && !drawer;
+    // the Geologist's view takes the side column for its plates
+    const geo = $('#ui').classList.contains('geo-on');
+    const show = g.state.phase === 'play' && mats.length > 0 && !drawer && !geo;
     if (this.el.hidden === show) this.el.hidden = !show;
-    if (!show) return;
+    if (!show) { this.acc = 0.2; return; }
     const cur = g.run.pileChoice ?? null;
     const sig = mats.join(',') + '|' + cur + '|' + g.state.settings.lang;
     if (sig !== this.sig) { this.sig = sig; this.build(g, mats, cur); }
@@ -56,6 +58,8 @@ export class PileChips {
     setText(this.info, what);
     toggle(this.el, 'chosen', !!cur);
     // the plate on what the extra gives shows for a while after a choice, by the chosen button
+    // (not when the column first appears: only after the player's own choice)
+    if (this.lastCur === undefined) this.lastCur = cur;
     if (this.lastCur !== cur) {
       this.lastCur = cur;
       const i = cur ? mats.indexOf(cur) + 1 : 0;
