@@ -205,6 +205,13 @@ function bind(g: Game): void {
     renderer.spawnFlash(e.zi, game);
     if (e.first) hud.notify('wildBorn', t('toast.wildBorn', { s: t('species.' + e.id + '.name') }), '#9cc060', plural('wildBorn'));
   });
+  // the first time a pile buries a forest (or mats): what it will become
+  bus.on('lifeBuried', (e) => {
+    const key = 'buried_' + e.id;
+    if (game.legacy.firsts[key]) return;
+    game.legacy.firsts[key] = true;
+    hud.notify('lifeBuried', t('toast.buried.' + e.id), '#c8a060');
+  });
   bus.on('wildDied', (e) => {
     if (e.last) hud.notify('wildDied', t('toast.wildDied', { s: t('species.' + e.id + '.name') }), '#B5523B', plural('wildDied'));
   });

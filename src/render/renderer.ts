@@ -842,25 +842,22 @@ export class Renderer {
         const hi = rgb(248 * light, 244 * light, 230 * light, a), lo = rgb(196 * light, 188 * light, 168 * light, a);
         const sh = rgb(30, 22, 18, 0.45 * a), eye = rgb(40, 30, 26, a);
         const flip = (x * 7 + y) & 1 ? 1 : -1;
-        const skull = (sx: number, sy: number) => { c.fillStyle = hi; c.fillRect(sx, sy, 2, 2); c.fillStyle = eye; c.fillRect(sx + (flip > 0 ? 1 : 0), sy, 1, 1); };
+        // at the scale of the strata (a tree is 6–10 px): a carcass a few pixels, a fish 4, a skull 2
         if (sp.groups.includes('marine')) {
-          // a fish: spine, ribs above and below, the skull
-          c.fillStyle = sh; c.fillRect(X - 3, Y + 1, 7, 1);
-          c.fillStyle = hi; c.fillRect(X - 3, Y, 6, 1);
-          c.fillStyle = lo; c.fillRect(X - 1, Y - 1, 1, 1); c.fillRect(X + 1, Y - 1, 1, 1); c.fillRect(X - 2, Y - 1, 1, 1);
-          c.fillStyle = hi; c.fillRect(X - 4 * flip - (flip > 0 ? 0 : -1), Y - 1, 1, 1);
-          skull(X + 3 * flip - (flip < 0 ? 1 : 0), Y - 1);
+          c.fillStyle = sh; c.fillRect(X - 2, Y + 1, 4, 1);
+          c.fillStyle = hi; c.fillRect(X - 2, Y, 3, 1);
+          c.fillStyle = lo; c.fillRect(X - 1, Y - 1, 1, 1);
+          c.fillStyle = hi; c.fillRect(X + (flip > 0 ? 1 : -2), Y - 1, 1, 1);
         } else if (sp.groups.includes('hominid') || sp.groups.includes('tribe')) {
-          c.fillStyle = sh; c.fillRect(X - 1, Y + 1, 4, 1);
-          c.fillStyle = hi; c.fillRect(X - 1, Y - 1, 3, 2);
-          c.fillStyle = eye; c.fillRect(X, Y, 1, 1);
+          c.fillStyle = sh; c.fillRect(X - 1, Y + 1, 2, 1);
+          c.fillStyle = hi; c.fillRect(X - 1, Y, 2, 1);
+          c.fillStyle = eye; c.fillRect(X + (flip > 0 ? 0 : -1), Y, 1, 1);
         } else {
-          // a carcass picked clean: spine, an arch of ribs, the skull
-          c.fillStyle = sh; c.fillRect(X - 4, Y + 1, 9, 1);
-          c.fillStyle = hi; c.fillRect(X - 4, Y, 8, 1);
-          c.fillStyle = lo; for (const r of [-2, 0, 2]) c.fillRect(X + r, Y - 2, 1, 2);
-          c.fillStyle = hi; c.fillRect(X - 2, Y - 3, 5, 1);
-          skull(X + 4 * flip - (flip < 0 ? 1 : 0), Y - 1);
+          // ribs over a spine, the skull at one end
+          c.fillStyle = sh; c.fillRect(X - 2, Y + 1, 5, 1);
+          c.fillStyle = hi; c.fillRect(X - 2, Y, 4, 1);
+          c.fillStyle = lo; c.fillRect(X - 1, Y - 1, 1, 1); c.fillRect(X + 1, Y - 1, 1, 1);
+          c.fillStyle = hi; c.fillRect(X + (flip > 0 ? 2 : -3), Y - 1, 1, 1);
         }
       }
     }
@@ -1245,7 +1242,7 @@ export class Renderer {
 
   /** Each drawn plant or person: its generation (a new one after a burial), its ground, when it was born, until
    *  when it lies buried. */
-  private lifeAt = new Map<string, { gen: number; y0: number; born: number; until: number }>();
+  private lifeAt = new Map<string, { gen: number; y0: number; born: number; until: number; scare?: number }>();
 
   /** A puff of dust where a pile buried something living. */
   private burialPuff(x: number, y: number): void {
@@ -1387,15 +1384,20 @@ export class Renderer {
             if (st.until > 0) {
               if (t < st.until) continue;
               st.until = 0; st.born = t; st.y0 = raw;
-            } else if (raw < st.y0 - (walker ? 4 : 2)) {
-              st.until = t + (sp.sprite === 'tree' ? 5 + h * 6 : sp.sprite === 'moss' ? 2 + h * 3 : walker ? 1.5 + h * 2 : 2.5);
+            } else if (rooted && raw < st.y0 - 2) {
+              // buried where it stood (core/sources.ts buryLife turns a share of them into sealed organics)
+              st.until = t + (sp.sprite === 'tree' ? 5 + h * 6 : sp.sprite === 'moss' ? 2 + h * 3 : 2.5);
               st.gen++;
               this.burialPuff(ax, st.y0);
               continue;
+            } else if (walker && raw < st.y0 - 4) {
+              // a pile came down by a person: they jump aside and climb onto it — people are never buried
+              st.scare = t;
+              st.y0 = raw;
             } else if (raw > st.y0 || walker) st.y0 = raw;
             grow = Math.min(1, (t - st.born) / (sp.sprite === 'tree' ? 8 : sp.sprite === 'moss' ? 2.5 : 0.6));
             y = st.y0;
-            if (walker && grow < 1) pose.alert = 1;
+            if (walker && t - (st.scare ?? -9) < 1.6) { pose.alert = 1; pose.walk = 1; x += (h > 0.5 ? 1 : -1) * Math.min(6, (t - st.scare!) * 10); if (t - st.scare! < 0.3) y -= 2; }
           }
           if (sp.sprite === 'herd') herdXs.push(x);
           if (sp.sprite === 'bird' && since < 5) {

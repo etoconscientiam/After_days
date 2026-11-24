@@ -227,10 +227,42 @@ function pileTop(g: Game, x: number): number {
   return Math.max(S.pileSkyRow, Math.min(g.grid.surf[x], g.water.level) - S.pileDrop);
 }
 
+/** Rooted life under a pile is buried: a share of the units of each listed species (by how much of its zone the
+ *  pile covers), the wild ones first, each leaving its organics sealed on the surface under the pile. */
+function buryLife(g: Game, x: number, zi: number, n: number): void {
+  const B = CFG.B.sand.lifeBurial;
+  const r = g.run, grid = g.grid;
+  const half = Math.max(2, Math.round(Math.sqrt(n / Math.PI) * 1.5));
+  const zoneCols = Math.max(1, g.zoneWidth[zi] / 2);
+  for (const [id, d] of Object.entries(B.species) as [string, { mat: string; per: number }][]) {
+    const sp = CFG.speciesById[id];
+    const p = r.pop[id];
+    if (!sp || !p || p[zi] <= 0 || !g.habitatZones(sp).includes(zi)) continue;
+    const expect = (p[zi] * Math.min(1, (half * 2) / zoneCols)) * B.share;
+    let k = Math.floor(expect) + (g.rng.next() < expect - Math.floor(expect) ? 1 : 0);
+    k = Math.min(k, B.maxPerPile, p[zi]);
+    if (k <= 0) continue;
+    const W = (r.wild ??= {});
+    for (let q = 0; q < k; q++) {
+      p[zi]--;
+      if ((W[id] ?? 0) > 0) W[id]--;
+      // its organics, on the surface under the pile, sealed
+      for (let s = 0; s < d.per; s++) {
+        const xx = Math.max(0, Math.min(GW - 1, x + Math.round((g.rng.next() * 2 - 1) * half)));
+        grid.put(xx, grid.surf[xx] - 1, mat(d.mat), (g.rng.next() * 256) | 0, r.year, P_FAST);
+      }
+    }
+    g.statsDirty = true;
+    if (!g.headless) g.bus.emit('lifeBuried', { id, n: k, x });
+  }
+}
+
 export function tapPile(g: Game, X: number, n: number): number {
   const x = Math.max(2, Math.min(GW - 3, Math.floor(X / 2)));
   const zi = g.zoneMap[wx(x)];
   const insects = g.run.pop.insects ? g.run.pop.insects[1] + g.run.pop.insects[2] : 0;
+  const n0 = n;
+  buryLife(g, x, zi, n0);
   const placed = dropPile(g.grid, g.rng, g.water, {
     cx: x, n, mix: pileMix(g, zi), birth: g.run.year, y0: pileTop(g, x),
     decorate: (i, m) => { if (m === M.resin && g.rng.next() < 0.06 * (insects > 0 ? 3 : 1)) g.grid.flags[i] |= P_INSECT; },

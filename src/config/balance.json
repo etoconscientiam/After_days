@@ -18,7 +18,8 @@
   "groundDepth": 30,
   "waterDepth": 22,
   "sectionMin": 60,
-  "rulerW": 14,
+  "rulerW": 0,
+  "showRuler": false,
   "skyMin": 58,
   "_comment_drawer": "An open drawer re-lays the world: the surface rises (not above skyMin) so that at least sectionMin rows of section stay above the drawer; the section is cropped there (top layers at full scale + a history ribbon), rulerW world px at the right are the era ruler."
  },
@@ -207,6 +208,16 @@
    "tight": ["mudstone", "biomat"],
    "tightMul": 0.3,
    "seals": ["clay", "shale", "slate", "bentonite", "ochre", "tephra", "marble", "quartzite", "granite", "gneiss", "basalt", "obsidian", "limeCrust", "stromatolite", "concrete", "plastic", "metal", "bedrock", "foundation", "artifact"]
+  },
+  "lifeBurial": {
+   "_comment": "A tapped pile that lands on rooted life buries some of it (core/sources.ts buryLife): of each species listed, units × (pile width / zone width) × share, at most maxPerPile, the wild ones first. Each unit leaves `per` particles of `mat` on the surface under the pile, sealed (fast burial: they do not rot): a buried forest becomes peat, lignite and coal, buried mats oil. People are never buried (they step aside); shells and bones already are remains.",
+   "share": 0.12,
+   "maxPerPile": 3,
+   "species": {
+    "trees": { "mat": "orgLand", "per": 4 },
+    "mosses": { "mat": "orgLand", "per": 1 },
+    "mats": { "mat": "biomat", "per": 2 }
+   }
   },
   "lenses": {
    "_comment": "Buried water and geysers (core/fluids.ts). Every about every seconds (randomised ±50 %) a stretch of shallow water (1..shallowRows deep, wMin..wMax columns) leaves a lens of water particles on its floor (1 row at the edges, 2 in the middle) for the next laminae to bury; at most maxParticles water particles in the strata. A lens of at least minLens particles with a particle at least eruptDepth rows under the surface breaks out with the chance eruptChance a second (+ per extra row eruptPerRow): its whole lens goes up through the vent above its top as a geyser, the empty lens collapses, and sinterPer particles of sinter (one per sinterPer water particles, at most sinterMax) fall around the vent. Not in the headless run (no effect on the balance).",

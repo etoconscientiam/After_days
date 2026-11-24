@@ -1,4 +1,5 @@
-// The pile's extra material, chosen by the player: a row of small buttons over the tab bar, one for each
+// The pile's extra material, chosen by the player: a column of small buttons at the right, under the Geologist's
+// buttons, one for each
 // material the «pile composition» branch has opened, plus «the zone's own» (what life lays down there). Only one
 // extra goes into a pile, so each choice gives one thing and not another — soil for a forest or lime for the
 // shells, sandstone, a seal for oil, amber — and what it turns into deep down is not shown until it is found.
@@ -13,6 +14,8 @@ export class PileChips {
   private row = h('div', { class: 'pc-row' });
   private info = h('div', { class: 'pc-info' });
   private sig = '';
+  private lastCur: string | null | undefined = undefined;
+  private infoTimer: ReturnType<typeof setTimeout> | undefined;
   private acc = 0;
 
   constructor(private g: () => Game) {
@@ -52,5 +55,14 @@ export class PileChips {
     const what = cur ? t('materials.' + cur) + ': ' + t('pile.feeds.' + cur) : t('pile.own') + ': ' + t('pile.feeds.own');
     setText(this.info, what);
     toggle(this.el, 'chosen', !!cur);
+    // the plate on what the extra gives shows for a while after a choice, by the chosen button
+    if (this.lastCur !== cur) {
+      this.lastCur = cur;
+      const i = cur ? mats.indexOf(cur) + 1 : 0;
+      this.info.style.top = i * 38 + 'px';
+      this.info.classList.add('show');
+      clearTimeout(this.infoTimer);
+      this.infoTimer = setTimeout(() => this.info.classList.remove('show'), 3500);
+    }
   }
 }

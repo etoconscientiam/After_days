@@ -14,6 +14,8 @@ export interface GameEvents {
   /** the thing absorbed a line of the strata (core/absorb.ts) */
   /** the thing absorbed a line of the strata (its particles, for the animation) */
   absorb: { energy: number; mat: string; value: number; mats: Uint8Array; looks: Uint8Array };
+  /** a tapped pile buried rooted life (n units of species id), its organics sealed under it */
+  lifeBuried: { id: string; n: number; x: number };
   /** a unit of a species arose on its own (first: the species was not there before) */
   wildBorn: { id: string; zi: number; first: boolean };
   /** a wild unit died as its niche shrank (last: the species is gone) */

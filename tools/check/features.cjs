@@ -52,12 +52,15 @@ const { chromium, devices } = require('playwright');
     await p.click('#geo-btn'); await p.waitForTimeout(300);
     return on && lens ? `lens: ${lens.trim()}` : false;
   });
-  await check('era ruler: epochs of the section and the archive, focus', async () => {
-    const n = await ev(() => document.querySelectorAll('#ruler .r-seg').length);
-    await ev(() => window.__strata.renderer.section.focus(0)); await p.waitForTimeout(300);
-    const f = await ev(() => window.__strata.renderer.section.focusEra);
-    await ev(() => window.__strata.renderer.section.focus(-1));
-    return n > 0 && f === 0 ? `${n} segments` : false;
+  await check('pile extras: a column at the right, one chosen goes into the piles', async () => {
+    await ev(() => { const g = window.__strata.game; g.run.energy += 1e6; g.buyUpgrade('pileSand'); g.buyUpgrade('pileClay'); });
+    await p.waitForTimeout(600);
+    const n = await ev(() => document.querySelectorAll('#pile-chips:not([hidden]) .pc-chip').length);
+    await p.click('#pile-chips .pc-chip:nth-child(3)'); await p.waitForTimeout(300);
+    const c = await ev(() => window.__strata.game.run.pileChoice);
+    const ruler = await ev(() => !!document.querySelector('#ruler') && !document.querySelector('#ruler').hidden);
+    await ev(() => window.__strata.game.setPileChoice(null));
+    return n === 3 && c === 'clay' && !ruler ? `chips ${n}, chosen ${c}, ruler hidden` : false;
   });
   await check('chronicle: an entry from a particle', async () => {
     const e = await ev(async () => {

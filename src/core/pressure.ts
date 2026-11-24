@@ -10,7 +10,7 @@
 // into the archive and everything above moves down one row at the same moment (faster when that row is already rock).
 // This is the only way the strata lose volume: particles never vanish one by one.
 import { CFG, RULES_BY_MAT, TransformRule } from '../config';
-import { Grid, GW, KIND, DENS, K_NONE, K_SOLID, K_ROCK, K_MARKER, P_ROLLED, P_INSECT } from '../world/Grid';
+import { Grid, GW, KIND, DENS, K_NONE, K_SOLID, K_ROCK, K_MARKER, P_ROLLED, P_INSECT, P_FAST } from '../world/Grid';
 import type { Rng } from './sand';
 
 const S = CFG.B.sand;
@@ -118,7 +118,8 @@ export function geoTick(g: Grid, env: GeoEnv, rep: GeoReport = newReport()): Geo
       const oxygen = depth < S.oxygenRows;
       const b = birth[i];
       // organic matter rots near the air: one particle turns into soil, nothing around it changes
-      if (oxygen && ORGANIC[m] && dy > 0 && env.rng.next() < rotP) { mat[i] = SOIL; prog[i] = 0; g.version++; continue; }
+      // organic matter rots near the air — unless a pile sealed it at once (a buried forest: P_FAST)
+      if (oxygen && ORGANIC[m] && dy > 0 && !(flags[i] & P_FAST) && env.rng.next() < rotP) { mat[i] = SOIL; prog[i] = 0; g.version++; continue; }
       if (oxygen && FERTILE[m] && !marine) rep.fertile++;
       const gw = env.waterAt(x, b);
       // fossilisation: once per bone, when the pressure is enough

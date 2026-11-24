@@ -130,8 +130,11 @@ export class Geologist {
     const F = this.frame();
     const sec = this.ren.section;
     const top = this.ren.lay.sectionTop;
-    // the button sits at the top of the strip right of the section
-    const stripL = F.toUiX(sec.SW), stripW = F.toUiX(WW) - stripL;
+    // the side column at the right edge (over the strata now that the era ruler is off): the Geologist's buttons on
+    // top, the pile's extras under them (ui/pileChips.ts, at --side-top)
+    const SIDE = 34;
+    const stripL = sec.SW < WW ? F.toUiX(sec.SW) : F.toUiX(WW) - SIDE - 6;
+    const stripW = sec.SW < WW ? F.toUiX(WW) - stripL : SIDE;
     const bs = Math.max(24, Math.min(30, stripW - 2));
     this.btn.style.width = this.btn.style.height = bs + 'px';
     this.btn.style.left = stripL + (stripW - bs) / 2 + 'px';
@@ -190,7 +193,10 @@ export class Geologist {
   private updateRuler(g: Game, F: ReturnType<Geologist['frame']>, left: number, width: number, top: number, play: boolean, dt: number): void {
     const sec = this.ren.section;
     const drawerOpen = sec.cut !== Infinity;
-    const show = play && !drawerOpen && sec.eras.length > 0;
+    // the side column under the Geologist's buttons: the pile's extras sit there now (ui/pileChips.ts); the era ruler
+    // is off (layout.showRuler)
+    $('#ui').style.setProperty('--side-top', top + 'px');
+    const show = !!CFG.B.layout.showRuler && play && !drawerOpen && sec.eras.length > 0;
     this.ruler.hidden = !show;
     if (!show) return;
     const bottom = F.toUiY(this.ren.lay.sectionTop + Math.max(...Array.from(sec.horizonTop.subarray(0, sec.SW))) + sec.hr);

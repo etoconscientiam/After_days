@@ -641,6 +641,7 @@
     "horizon": "Technogenic horizon"
   },
   "toast": {
+    "buried": {"trees": "A buried forest becomes coal", "mosses": "Buried moss becomes peat", "mats": "Buried mats become oil"},
     "wildBorn": "Arose on its own: {s}",
     "wildDied": "Niche gone, died out: {s}",
     "rock": "New rock: {rock}",
