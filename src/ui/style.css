@@ -517,3 +517,13 @@ html[data-tremor] #ui { animation: letterTremor 0.14s steps(1) infinite; }
 .tab[hidden] { display: none; }
 .tab.reveal { animation: tabReveal 1.4s ease-out; }
 @keyframes tabReveal { 0% { transform: translateY(14px); opacity: 0; box-shadow: 0 0 0 0 rgba(242,181,74,0); } 40% { transform: none; opacity: 1; box-shadow: 0 0 0 3px rgba(242,181,74,0.8); } 100% { box-shadow: 0 0 0 0 rgba(242,181,74,0); } }
+
+/* the pile's extra material: one chosen of the opened ones */
+#pile-chips { position: absolute; left: 8px; bottom: 60px; z-index: 3; display: flex; flex-direction: column; gap: 3px; pointer-events: auto; max-width: 70%; }
+#pile-chips[hidden] { display: none; }
+#pile-chips .pc-row { display: flex; gap: 4px; }
+#pile-chips .pc-chip { width: 34px; height: 34px; border-radius: 8px; background: rgba(20,16,24,0.72); border: 1px solid rgba(237,227,208,0.18); display: grid; place-items: center; padding: 0; }
+#pile-chips .pc-chip.on { border-color: #F2B54A; box-shadow: 0 0 0 1px #F2B54A, 0 0 8px rgba(242,181,74,0.5); background: rgba(60,44,20,0.85); }
+#pile-chips .pc-own { color: var(--bone); font-size: 16px; }
+#pile-chips .pc-info { color: var(--bone); font-size: 12px; line-height: 14px; text-shadow: 0 1px 2px #000; }
+#pile-chips.chosen .pc-info { color: #ffe6a8; }

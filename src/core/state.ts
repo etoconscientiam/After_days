@@ -94,6 +94,8 @@ export interface RunState {
   sink: SinkRun;                  // the conveyor into the archive
   beds: BedRun[];                 // marker beds waiting to be laid
   pileSec: number;                // the material that lies in the piles for a few piles in a row (bands and lenses)
+  /** the extra material the player chose for the piles (one of the bought ones), or none: the zone's life */
+  pileChoice?: string | null;
   bedT: number;                   // real seconds until the «Bed» button is ready again
 }
 

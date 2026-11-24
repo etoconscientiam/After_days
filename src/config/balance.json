@@ -182,6 +182,7 @@
   "archiveMaxRows": 12,
   "archiveMaxLayers": 160,
   "pileShareMax": 0.6,
+  "pileChoiceBase": 0.3,
   "pile": {
    "base": 50,
    "perLevel": 5

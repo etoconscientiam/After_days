@@ -82,9 +82,20 @@
     "more": "More",
     "sec": "s"
   },
+  "pile": {
+    "own": "Zone's own",
+    "feeds": {
+      "own": "what life lays down here",
+      "sand": "sandstone, quartzite",
+      "clay": "mudstone, shale; holds oil",
+      "shellOoze": "lime for molluscs; chalk, limestone",
+      "orgLand": "peat → lignite → coal",
+      "resin": "amber — dear when absorbed"
+    }
+  },
   "niche": {
     "strengthenShort": "strengthen",
-    "how": {"mud": "pile into the sea", "carbonate": "shells in the pile, strengthen plankton", "soil": "pile onto the land", "wet": "pile by the water", "sand": "sand in the pile", "barren": "ash and dust"},
+    "how": {"mud": "pile into the sea", "carbonate": "extra: shells, strengthen plankton", "soil": "pile onto the land", "wet": "pile by the water", "sand": "sand in the pile", "barren": "ash and dust"},
     "strengthen": "Strengthen: +1 unit over what the niche keeps",
     "wild": "{n} wild",
     "waiting": "waiting for its niche",
@@ -319,7 +330,7 @@
       "desc": "+6 to the press radius"
     },
     "pile": "Pile composition",
-    "pileNow": "{n} grains · yours {p}%",
+    "pileNow": "{n} grains · extra {p}%",
     "opensEra": "Opens in epoch {n} · {name}",
     "pileSize": {
       "name": "Bigger pile",
@@ -327,23 +338,23 @@
     },
     "pileSand": {
       "name": "Sand in the pile",
-      "desc": "A share of sand in every pile: sandstone in the depth"
+      "desc": "Sand as the pile's extra: choose it above the tab bar. A level: +4% of its share (from 30%)"
     },
     "pileClay": {
       "name": "Clay in the pile",
-      "desc": "A share of clay: shale in the depth"
+      "desc": "Clay as the pile's extra: choose it above the tab bar. A level: +4% of its share (from 30%)"
     },
     "pileShell": {
       "name": "Shells in the pile",
-      "desc": "A share of shell ooze: limestone and chalk in the depth"
+      "desc": "Shells as the pile's extra: choose it above the tab bar. A level: +4% of its share (from 30%)"
     },
     "pilePeat": {
       "name": "Peat in the pile",
-      "desc": "A share of organic matter: peat, lignite, coal"
+      "desc": "Peat as the pile's extra: choose it above the tab bar. A level: +4% of its share (from 30%)"
     },
     "pileResin": {
       "name": "Resin in the pile",
-      "desc": "A share of resin: amber, now and then with an insect"
+      "desc": "Resin as the pile's extra: choose it above the tab bar. A level: +4% of its share (from 30%)"
     }
   },
   "rockHow": {

@@ -469,9 +469,10 @@ export class Drawer {
     const shareNow = h('small', {});
     this.body.append(h('div', { class: 'group-title' }, pileIcon(18), t('upgrades.pile'), shareNow));
     this.refreshers.push(() => {
-      let s = 0;
-      for (const id in g.stats.pile) s += g.stats.pile[id];
-      setText(shareNow, t('upgrades.pileNow', { n: g.pileSize(), p: fmt(Math.min(CFG.B.sand.pileShareMax, s) * 100, 0) }));
+      // the chosen extra and its share (one material goes into a pile, chosen over the tab bar)
+      const c = g.run.pileChoice;
+      const s = c && g.stats.pile[c] > 0 ? Math.min(CFG.B.sand.pileShareMax, CFG.B.sand.pileChoiceBase + g.stats.pile[c]) : 0;
+      setText(shareNow, t('upgrades.pileNow', { n: g.pileSize(), p: fmt(s * 100, 0) }));
     });
     for (const u of CFG.upgrades.filter((x) => x.branch === 'pile')) {
       if (u.era && g.run.era < u.era) {

@@ -14,6 +14,7 @@ import { Input } from './ui/input';
 import { Modals } from './ui/modals';
 import { DevPanel } from './ui/debug';
 import { $, toggle } from './ui/dom';
+import { PileChips } from './ui/pileChips';
 import { t, setLang, onLangChange } from './ui/i18n';
 import { rockIcon, energyIcon, exhibit } from './ui/icons';
 import { audio } from './audio/audio';
@@ -43,6 +44,7 @@ const modals = new Modals(() => game);
 const dev = new DevPanel(() => game, renderer, () => resetAll());
 const turmoil = new Turmoil();
 const geo = new Geologist(() => game, renderer, input, () => uiScale);
+const pileChips = new PileChips(() => game);
 
 // ---------- layout / scaling ----------
 const column = $('#column');
@@ -466,6 +468,7 @@ function frame(now: number): void {
   updateAmbi(dtReal);
   turmoil.update(dtReal);
   geo.update(dtReal);
+  pileChips.update(dtReal);
   renderer.skyTop = (hud.bottomUI / 640) * WH;
   // grains on the move hiss softly; a grain turning to rock ticks (a few a second at most)
   audio.sand(game.state.phase === 'play' ? Math.min(1, game.moving / 350) : 0);

@@ -783,6 +783,13 @@ export class Game {
     return true;
   }
 
+  /** The extra material of the piles: one of the opened ones (the «pile composition» branch), or null. */
+  setPileChoice(id: string | null): boolean {
+    if (id && !(this.stats.pile[id] > 0)) return false;
+    this.run.pileChoice = id;
+    return true;
+  }
+
   upgradeLevel(id: string): number { return this.run.upgrades[id] ?? 0; }
 
   upgradeCost(id: string): number {

@@ -69,6 +69,9 @@ function botBuy() {
   }
   // branch «pile composition»: a player spends spare energy on it (a few percent of the stock at a time)
   for (const u of CFG.upgrades) if (u.branch === 'pile') while (g.upgradeCost(u.id) < g.run.energy * 0.03 && g.buyUpgrade(u.id)) {}
+  // the pile's extra: shells for the sea's molluscs, peat for coal, resin for amber, else clay
+  const want = g.run.era === 2 ? 'shellOoze' : g.run.era === 3 ? 'orgLand' : g.run.era >= 4 ? 'resin' : 'clay';
+  if (!g.setPileChoice(want)) g.setPileChoice(g.stats.pile.clay > 0 ? 'clay' : null);
 }
 
 /** Make room for a species the era condition needs by releasing the weakest earners in its habitat. */
