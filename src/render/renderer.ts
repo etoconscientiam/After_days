@@ -1457,17 +1457,22 @@ export class Renderer {
   private drawCamp(g: Game): void {
     const c = this.ctx;
     const x = WW / 2;
-    const gy = this.gy[x] + 1;
     if (!(g.run.era >= 7 || g.settlePop() > 0)) return;
+    // every tent and the fire stand on the ground right under them (the real top of the strata, not one height for
+    // the whole camp: on a peaked pile they floated), at the strata's scale: a tent 7 px, a person 5
+    const ground = (gx: number) => Math.round(this.lay.sectionTop + this.section.topD[Math.max(0, Math.min(WW - 1, Math.round(gx)))]);
+    const fx = x + 6, fy = ground(fx);
     const f = 0.6 + 0.4 * Math.sin(this.t * 9) * Math.sin(this.t * 13);
-    c.fillStyle = rgb(255, 180, 60, f); c.fillRect(x + 9, gy - 3, 3, 2);
-    c.fillStyle = '#ffe080'; c.fillRect(x + 10, gy - 4, 1, 1);
-    for (const dx of [-16, 22]) {
-      c.fillStyle = '#16121a'; c.beginPath(); c.moveTo(x + dx - 6, gy + 1); c.lineTo(x + dx, gy - 10); c.lineTo(x + dx + 6, gy + 1); c.fill();
-      c.fillStyle = '#7a5a3c'; c.beginPath(); c.moveTo(x + dx - 5, gy); c.lineTo(x + dx, gy - 9); c.lineTo(x + dx + 5, gy); c.fill();
-      c.fillStyle = '#2a1e14'; c.fillRect(x + dx - 1, gy - 3, 2, 3);
+    c.fillStyle = '#3a2a1e'; c.fillRect(fx - 1, fy - 1, 3, 1);
+    c.fillStyle = rgb(255, 180, 60, f); c.fillRect(fx, fy - 2, 1, 1);
+    c.fillStyle = '#ffe080'; c.fillRect(fx, fy - 3, 1, 1);
+    for (const dx of [-8, 13]) {
+      const tx = x + dx, ty = ground(tx);
+      c.fillStyle = '#16121a'; c.beginPath(); c.moveTo(tx - 4, ty); c.lineTo(tx, ty - 7); c.lineTo(tx + 4, ty); c.fill();
+      c.fillStyle = '#7a5a3c'; c.beginPath(); c.moveTo(tx - 3, ty - 1); c.lineTo(tx, ty - 6); c.lineTo(tx + 3, ty - 1); c.fill();
+      c.fillStyle = '#2a1e14'; c.fillRect(tx, ty - 2, 1, 2);
     }
-    if (Math.random() < this.dt * 8) this.particles.push({ x: x + 10, y: gy - 4, vx: (Math.random() - 0.5) * 4, vy: -10 - Math.random() * 8, life: 0, max: 0.8 + Math.random() * 0.6, color: Math.random() < 0.5 ? '#ffb040' : '#ff7020', size: 1, kind: 'spark' });
+    if (Math.random() < this.dt * 6) this.particles.push({ x: fx, y: fy - 3, vx: (Math.random() - 0.5) * 3, vy: -8 - Math.random() * 6, life: 0, max: 0.7 + Math.random() * 0.5, color: Math.random() < 0.5 ? '#ffb040' : '#ff7020', size: 1, kind: 'spark' });
     if (g.run.era >= 7) this.drawShaft(g, Math.min(1, g.run.excavation / Math.max(1, g.run.excavationNeed)));
   }
 
@@ -1475,7 +1480,7 @@ export class Renderer {
     const c = this.ctx;
     const xs = g.mods.shards ? g.shardXs() : [WW / 2];
     xs.forEach((x, idx) => {
-      const gy = this.gy[x];
+      const gy = Math.round(this.lay.sectionTop + this.section.topD[Math.max(0, Math.min(WW - 1, Math.round(x)))]);
       const prog = g.mods.shards ? Math.min(1, g.run.excavationShards[idx] / Math.max(1, g.run.excavationNeed)) : k;
       const depth = (this.ayAt(x) - 4 - gy) * prog;
       c.fillStyle = 'rgba(10,8,8,0.92)'; c.fillRect(x - 3, gy, 7, depth);
