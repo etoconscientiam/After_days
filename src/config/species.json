@@ -19,7 +19,7 @@
       "wild": 4, "niche": { "mix": { "wet": 0.15 } },
       "deposit": { "contrib": 0.003, "mats": { "orgLand": 0.8, "soil": 0.2 } }, "death": { "org": 1, "orgMat": "orgLand" }, "oxygen": 0.0003, "sprite": "moss" },
     { "id": "trees",     "era": 3, "zone": "land",  "cost": 15000,   "eps": 50,   "lifespan": 300, "groups": ["plant"], "needsOxygen": 15,
-      "wild": 3, "niche": { "mix": { "soil": 0.3 }, "food": ["mosses"] },
+      "wild": 3, "wildShare": 0.36, "niche": { "mix": { "soil": 0.5 }, "food": ["mosses"] },
       "deposit": { "contrib": 0.004, "mats": { "orgLand": 0.8, "resin": 0.05, "soil": 0.15 } }, "death": { "org": 8, "orgMat": "orgLand" }, "oxygen": 0.0003, "sprite": "tree" },
     { "id": "insects",   "era": 3, "zone": "shoreLand", "cost": 40000, "eps": 90, "lifespan": 5,  "groups": ["animal"], "needsOxygen": 15,
       "wild": 3, "niche": { "food": ["mosses", "trees"] },

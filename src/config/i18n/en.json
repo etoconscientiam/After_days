@@ -82,6 +82,8 @@
     "sec": "s"
   },
   "niche": {
+    "strengthenShort": "strengthen",
+    "how": {"mud": "pile into the sea", "carbonate": "shells in the pile, strengthen plankton", "soil": "pile onto the land", "wet": "pile by the water", "sand": "sand in the pile", "barren": "ash and dust"},
     "strengthen": "Strengthen: +1 unit over what the niche keeps",
     "wild": "{n} wild",
     "waiting": "waiting for its niche",
@@ -875,6 +877,9 @@
     "eraN": "Epoch {n}: {name}"
   },
   "goal": {
+    "leverNeeds": "{s}: {need} — {how}",
+    "leverFit": "{s}: niche {v}% — strengthen it",
+    "open": "Open: {s}",
     "era": "Needed",
     "all": "Goals",
     "eraCond": "Era condition",

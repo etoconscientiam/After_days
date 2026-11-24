@@ -106,7 +106,15 @@ export function nicheOpen(g: Game, sp: SpeciesDef, at: number = N.openAt): boole
 /** How many units of sp the niche brings forth (grow) or keeps (hold) on its own now. */
 export function wildCap(g: Game, sp: SpeciesDef, hold = false): number {
   if (!sp.wild || !nicheOpen(g, sp, hold ? N.closeAt : N.openAt)) return 0;
-  return Math.max(1, Math.round(sp.wild * suitability(g, sp)));
+  return Math.max(1, Math.round(wildMax(g, sp) * suitability(g, sp)));
+}
+
+/** The most wild units of sp a perfect niche holds: `wild`, or `wildShare` of the capacity of its zones. */
+export function wildMax(g: Game, sp: SpeciesDef): number {
+  if (!sp.wildShare) return sp.wild ?? 0;
+  let cap = 0;
+  for (const zi of g.habitatZones(sp)) cap += g.capacity(zi);
+  return sp.wildShare * cap;
 }
 
 /** Wild units of sp (never more than the species has: catastrophes and displacement take the wild first). */
@@ -128,7 +136,8 @@ export function wildStep(g: Game, dt: number): void {
     if (w >= grow && w <= hold) { T[sp.id] = 0; continue; }
     T[sp.id] = (T[sp.id] ?? 0) + dt;
     if (w < grow) {
-      if (T[sp.id] < N.growSec) continue;
+      // a big niche (a forest) fills faster than a few units: one every growSec / (cap / 8)
+      if (T[sp.id] < N.growSec / Math.max(1, grow / 8)) continue;
       T[sp.id] = 0;
       const zi = g.freeZoneFor(sp);
       if (zi < 0) continue;
@@ -154,4 +163,40 @@ export function wildStep(g: Game, dt: number): void {
       if (!g.headless) g.bus.emit('wildDied', { id: sp.id, zi, last: totalPop(g, sp.id) === 0 });
     }
   }
+}
+
+/** The species that moves the era's condition now (the lever the goal line points at), or null. */
+export function leverSpecies(g: Game): SpeciesDef | null {
+  const c = g.eraDef().cond;
+  const alive = (id: string) => totalPop(g, id) > 0;
+  const pick = (ids: string[]) => {
+    for (const id of ids) { const sp = CFG.speciesById[id]; if (sp && g.speciesGate(sp) && !alive(id)) return sp; }
+    for (const id of ids) { const sp = CFG.speciesById[id]; if (sp && g.speciesGate(sp)) return sp; }
+    return null;
+  };
+  switch (c.type) {
+    case 'oxygen': return pick(['mats']);
+    case 'speciesCount': return pick(CFG.species.filter((s) => s.groups.includes(c.group!)).map((s) => s.id));
+    case 'forest': return pick(['trees']);
+    case 'animals': return alive('predators') ? pick(['herds', 'insects', 'birds']) : pick(['herds', 'predators']);
+    case 'settled': return pick(['tribe']);
+  }
+  return null;
+}
+
+/** Did the last pile, dropped at world x, feed a group of materials the lever of the era goal still lacks
+ *  (its zone is the lever's habitat and the pile's base or its extra belongs to that group)? */
+export function pileFeedsLever(g: Game, X: number): boolean {
+  const sp = leverSpecies(g);
+  if (!sp) return false;
+  const zi = g.zoneMap[Math.max(0, Math.min(g.zoneMap.length - 1, Math.round(X)))];
+  if (!g.habitatZones(sp).includes(zi)) return false;
+  const lack = needs(g, sp).filter((n) => n.kind === 'mix' && n.ok < 1);
+  if (!lack.length) return false;
+  const mats = [g.run.pileSec];
+  for (const n of lack) {
+    const q = GROUPS.indexOf(n.key);
+    if (q >= 0 && mats.some((m) => GROUP_BITS[m] & (1 << q))) return true;
+  }
+  return false;
 }

@@ -5,6 +5,7 @@ import { CFG, SpeciesDef, ElementDef, UpgradeDef, DensityNode, eraOfYear } from 
 import type { Game } from '../core/game';
 import { totalPop, lifespan } from '../core/life';
 import { needs, suitability, wildOf } from '../core/niche';
+import { needText } from './nicheText';
 import { upgradeEffect } from '../core/stats';
 import { foundationPreview, prestigeRaw } from '../core/prestige';
 import { $, h, setText, toggle } from './dom';
@@ -87,6 +88,19 @@ export class Drawer {
     this.sig = '';
     this.refresh(true);
     this.body.scrollTop = 0;
+  }
+
+  /** Open the Life tab with this species' card open (from the lever of the era goal). */
+  openLifeAt(id: string): void {
+    this.expanded = id;
+    if (this.open !== 'life') this.toggleView('life');
+    else { this.sig = ''; this.refresh(true); }
+    const el = this.body.querySelector(`[data-sp="${id}"]`) as HTMLElement | null;
+    if (el) {
+      const top = el.getBoundingClientRect().top - this.body.getBoundingClientRect().top + this.body.scrollTop;
+      this.body.scrollTo({ top: Math.max(0, top - 8), behavior: 'smooth' });
+      el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1200);
+    }
   }
 
   /** Open the Upgrades on the group of this rock (from the header). */
@@ -281,7 +295,7 @@ export class Drawer {
       h('div', { class: 'lr-mid' }, h('div', { class: 'lr-name' }, name, count),
         h('div', { class: 'lr-sub' }, h('span', { class: 'icon-inline habitat', title: t('zones.' + sp.zone), 'data-tip': t('zones.' + sp.zone) }, habitatPixel(sp.zone, 16)), lives)),
       eps, btn);
-    const wrap = h('div', { class: 'life-item' }, row);
+    const wrap = h('div', { class: 'life-item', 'data-sp': sp.id }, row);
     const buyOnce = () => {
       const { n } = this.qtyFor(g, sp);
       let bought = 0;
@@ -319,7 +333,7 @@ export class Drawer {
   /** A species whose epoch has come but whose niche is not open yet: its silhouette and what is missing. */
   private waitingRow(g: Game, sp: SpeciesDef): HTMLElement {
     const what = h('div', { class: 'lr-sub niche-needs' });
-    const row = h('div', { class: 'life-row locked waiting' }, h('div', { class: 'lr-pic' }, portrait(sp.id, 40, true)),
+    const row = h('div', { class: 'life-row locked waiting', 'data-sp': sp.id }, h('div', { class: 'lr-pic' }, portrait(sp.id, 40, true)),
       h('div', { class: 'lr-mid' }, h('div', { class: 'lr-name' }, short(t('species.' + sp.id + '.name')), h('span', { class: 'lr-count' }, ' · ' + t('niche.waiting'))), what));
     this.refreshers.push(() => setText(what, needText(g, sp, true)));
     return row;
@@ -739,17 +753,4 @@ function drawColumn(cv: HTMLCanvasElement, g: Game, frac: number): void {
   for (let i = 0; i < g.meta.foundationLines.length && i < 5; i++) x.fillRect(4, H - 17 + i, W - 8, 1);
   x.fillStyle = '#3a3e4c'; x.fillRect(4, H - 12, W - 8, 8);
   x.fillStyle = '#F2B54A'; x.beginPath(); x.arc(W / 2, H - 15, 2.2, 0, 7); x.fill();
-}
-
-/** What a species needs from the surface, as one line: every need with what there is now (missing only: the
- *  needs not met at least halfway). */
-function needText(g: Game, sp: SpeciesDef, missingOnly: boolean): string {
-  const parts: string[] = [];
-  for (const n of needs(g, sp)) {
-    if (missingOnly && n.ok >= CFG.B.niche.openAt) continue;
-    if (n.kind === 'mix') parts.push(t('niche.mixItem', { g: t('niche.g.' + n.key), have: fmt(n.have * 100, 0), need: fmt(n.need * 100, 0) }));
-    else if (n.kind === 'deep') parts.push(t('niche.deepItem', { have: fmt(n.have, 1), need: fmt(n.need, 0) }));
-    else parts.push(t('niche.foodItem', { list: (n.foods ?? []).map((f) => short(t('species.' + f + '.name'))).join(t('niche.or')) }));
-  }
-  return parts.length ? t('niche.need', { list: parts.join('; ') }) : '';
 }

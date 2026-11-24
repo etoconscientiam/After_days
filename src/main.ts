@@ -1,6 +1,7 @@
 // Entry: loads the save, runs offline progress, wires core <-> render/ui/audio through the event bus, runs the frame loop.
 import './ui/style.css';
 import { CFG } from './config';
+import { pileFeedsLever } from './core/niche';
 import THEME from './config/theme.json';
 import { Game } from './core/game';
 import { newGameState } from './core/state';
@@ -297,6 +298,7 @@ drawer.onImport = (s) => {
 };
 drawer.onReset = () => resetAll();
 drawer.onDebug = () => { drawer.close(); dev.toggle(true); };
+hud.onLever = (id) => drawer.openLifeAt(id);
 drawer.onToast = (s) => hud.notify('sys', s, '#EDE3D0');
 input.onArtifact = (shard) => { audio.unlock(); game.click(shard); renderer.onClick(game.mods.shards ? game.shardXs()[shard] : WW / 2); };
 input.onCast = (x, y) => renderer.burst(x, y, '#9fd0ff', 8);
@@ -311,6 +313,8 @@ input.onImpulse = (x, y) => {
   }
   // the thing answers with an impulse, and a pile falls into the column that was tapped
   game.tap(x, shard);
+  // the pile fed what the era goal needs (its lever's niche): a green flash over it
+  if (pileFeedsLever(game, x)) renderer.burst(x, y, '#9cc060', 10);
   renderer.onClick(ax);
   renderer.tapAt(x, y);
 };

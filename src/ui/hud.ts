@@ -6,6 +6,8 @@ import { $, h, setText, toggle } from './dom';
 import { t, fmt } from './i18n';
 import { energyIcon, rockIcon, tabIcon } from './icons';
 import { orderDef, orderProgress } from '../core/orders';
+import { leverSpecies, suitability, needs } from '../core/niche';
+import { needText, shortName } from './nicheText';
 
 /** 97 844 — a thin space between thousands, in every language. */
 export function fmtCountdown(n: number): string {
@@ -170,13 +172,31 @@ export class Hud {
   /** The active order (if any) and the era condition. */
   private goals(g: Game): { text: string; k: number; sub?: boolean }[] {
     const out: { text: string; k: number; sub?: boolean }[] = [];
+    // the era's condition comes first while it is not met (it is the way on, and its lever is shown under it);
+    // the orders follow (all of them in the list behind a tap on the goal)
+    const eraOpen = g.state.phase === 'play' && g.run.era < 8 && g.eraConditionProgress() < 1;
+    if (eraOpen) out.push({ text: this.condString(g), k: g.eraConditionProgress(), sub: true });
     for (const o of g.run.orders) {
       if (o.done) continue;
       const pr = orderProgress(g, o);
       out.push({ text: `${t('orders.' + o.id, { n: CFG.orders.pool.find((d) => d.id === o.id)?.n ?? 0 })} — ${fmt(pr.have, 0)}/${fmt(pr.need, 0)}`, k: pr.have / Math.max(1, pr.need) });
     }
-    if (g.state.phase === 'play' && g.run.era < 8) out.push({ text: this.condString(g), k: g.eraConditionProgress(), sub: true });
+    if (!eraOpen && g.state.phase === 'play' && g.run.era < 8) out.push({ text: this.condString(g), k: g.eraConditionProgress(), sub: true });
     return out;
+  }
+
+  /** Open the Life tab on a species (main wires it to the drawer). */
+  onLever: ((id: string) => void) | null = null;
+
+  /** The lever of the era goal in words: the species that moves it and what its niche lacks now. */
+  leverText(g: Game): string {
+    const sp = leverSpecies(g);
+    if (!sp) return '';
+    const name = shortName(t('species.' + sp.id + '.name'));
+    const lack = needText(g, sp, true, true);
+    const miss = needs(g, sp).find((n) => n.kind === 'mix' && n.ok < CFG.B.niche.openAt) ?? needs(g, sp).find((n) => n.kind === 'mix' && n.ok < 1);
+    if (lack) return t('goal.leverNeeds', { s: name, need: lack, how: miss ? t('niche.how.' + miss.key) : t('niche.strengthenShort') });
+    return t('goal.leverFit', { s: name, v: fmt(suitability(g, sp) * 100, 0) });
   }
 
   private updateGoal(g: Game): void {
@@ -187,9 +207,11 @@ export class Hud {
     setText(this.goalMain, '◆ ' + main.text);
     const seg = 8, on = Math.round(main.k * seg);
     this.goalBar.textContent = '▰'.repeat(on) + '▱'.repeat(seg - on);
-    const sub = gs.length > 1 ? gs[gs.length - 1] : null;
-    this.goalSub.hidden = !sub || sub === main;
-    if (sub && sub !== main) setText(this.goalSub, sub.text);
+    // under the era goal: its lever (what to strengthen or pile, and what the niche lacks)
+    const lever = main.sub ? this.leverText(g) : '';
+    this.goalSub.hidden = !lever;
+    toggle(this.goalSub, 'lever', !!lever);
+    if (lever) setText(this.goalSub, '→ ' + lever);
   }
 
   /** Tap on the goal line: all current goals with their progress. */
@@ -207,9 +229,13 @@ export class Hud {
       const what = rw.density ? t('orders.rewardDensity', { n: rw.density }) : rw.rock === 'least' ? t('orders.rewardLeast', { n: rw.n ?? 0 }) : t('orders.rewardRock', { rock: t('rocks.' + rw.rock), n: rw.n ?? 0 });
       return h('div', { class: 'l-sub' }, t('orders.title') + ': ' + t('orders.reward', { what }));
     });
-    this.condPop.replaceChildren(h('div', { class: 'label' }, h('div', { class: 'l-head' }, t('goal.all')), ...rows, ...rewards));
+    // the lever: the species that moves the era goal, what it lacks, and a way to it
+    const sp = leverSpecies(g);
+    const lever = sp ? [h('div', { class: 'l-sub goal-lever' }, '→ ' + this.leverText(g)),
+      h('button', { class: 'stone-btn goal-open', onclick: () => { this.condPop.hidden = true; this.onLever?.(sp.id); } }, t('goal.open', { s: shortName(t('species.' + sp.id + '.name')) }))] : [];
+    this.condPop.replaceChildren(h('div', { class: 'label' }, h('div', { class: 'l-head' }, t('goal.all')), ...rows, ...lever, ...rewards));
     this.condPop.hidden = false;
-    this.condTimer = 6;
+    this.condTimer = sp ? 10 : 6;
   }
 
   condString(g: Game): string {
