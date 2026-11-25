@@ -103,7 +103,9 @@ void main() {
     vec3 s = uSpots[i];
     if (s.z <= 0.002) continue;
     float d = length((vUv - s.xy) * vec2(aspect, 1.0));
-    float core = s.z * smoothstep(0.04, 0.01, d);
+    // A stain shows where the arc WAS: over the burning arc itself the arc outshines it.
+    float over = uArcOn > 0.0 ? 1.0 - smoothstep(0.1, 0.03, length((vUv - uArcUv) * vec2(aspect, 1.0))) : 1.0;
+    float core = s.z * over * smoothstep(0.04, 0.01, d);
     float rim = s.z * 0.5 * smoothstep(0.05, 0.03, d) * (1.0 - smoothstep(0.03, 0.02, d));
     c = mix(c, uAfterColor * 0.55 + c * 0.15, min(1.0, core * 1.1));
     c += vec3(0.3, 0.42, 0.18) * rim;

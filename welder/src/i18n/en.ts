@@ -7,7 +7,7 @@ export const en = {
   lang: 'Русский',
   controls: 'At the bench: LMB strike & weld · wheel or ↑/↓ arc length · A/D, W/S or right-drag turn the work · TAB next seam · SPACE mask · R new rod · E step back. In the room: WASD walk · mouse look · E act',
 
-  'sign.shelf': 'UPGRADES',
+  'sign.shelf': 'CRAFT',
   'hint.toBench': 'E · back to the bench',
   'act.bench': 'E · step up to the bench',
   'act.craft': 'E · craft book',

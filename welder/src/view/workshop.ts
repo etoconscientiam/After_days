@@ -35,8 +35,8 @@ const BACK_Z = -1.15;
 const CELL = 0.3;
 const P = SKIN.palette;
 /** Share of the bench lamp's intensity in the shadowed spot on the bench and in the room-filling glow. */
-export const KEY_K = 1.15;
-export const LAMP_K = 0.6;
+export const KEY_K = 2.5;
+export const LAMP_K = 0.35;
 
 export interface Workshop {
   scene: THREE.Scene;
@@ -48,6 +48,7 @@ export interface Workshop {
     key: THREE.SpotLight;
     lampBulb: THREE.MeshBasicMaterial;
     stove: THREE.PointLight;
+    fire: THREE.MeshBasicMaterial;
     arc: THREE.PointLight;
     appArc: THREE.PointLight;
   };
@@ -80,6 +81,8 @@ export interface Workshop {
   setPiles: (waiting: number, done: number) => void;
   /** Would a body of radius r standing at (x, z) be inside a wall or a piece of furniture? */
   blocked: (x: number, z: number, r: number) => boolean;
+  /** Drift the dust in the light beams (t = seconds). */
+  tickAir: (t: number) => void;
 }
 
 function mesh(g: THREE.BufferGeometry, m: THREE.Material | THREE.Material[], x = 0, y = 0, z = 0, shadow = false): THREE.Mesh {
@@ -132,21 +135,72 @@ function faceEye(o: THREE.Object3D): void {
 }
 
 /** A hooded figure: low poly, faceless, the way people look against the snow. */
+/**
+ * A townsperson in low poly: boots, legs, a cloak that flares to the knee over a tunic, arms with hands, a head
+ * under a hood, a cap or a guard's kettle helmet (the guard carries a spear). Everyone stands a little
+ * differently.
+ */
 export function figure(look: CustomerLook, mats: { skin: THREE.Material }): THREE.Group {
   const g = new THREE.Group();
   const cloak = lambert({ color: look.cloak });
   const hood = lambert({ color: look.hood });
+  const tunic = lambert({ color: '#3a3430' });
+  const boot = lambert({ color: '#1e1a16' });
+  const belt = lambert({ color: '#4a3424' });
   const h = look.height;
-  g.add(mesh(new THREE.CylinderGeometry(0.13, 0.25, h * 0.82, 6), cloak, 0, h * 0.41, 0));
-  g.add(mesh(new THREE.SphereGeometry(0.1, 6, 4), mats.skin, 0, h * 0.88, 0.0));
-  if (look.hat === 'hood') g.add(mesh(new THREE.ConeGeometry(0.15, 0.32, 6), hood, 0, h * 0.92, -0.02));
-  else if (look.hat === 'helmet') {
-    g.add(mesh(new THREE.SphereGeometry(0.115, 6, 3, 0, Math.PI * 2, 0, Math.PI / 2), hood, 0, h * 0.9, 0));
-    g.add(mesh(new THREE.ConeGeometry(0.02, 0.08, 4), hood, 0, h * 0.97, 0));
-    g.add(mesh(new THREE.CylinderGeometry(0.015, 0.015, h * 1.1, 4), lambert({ color: '#2a2622' }), 0.22, h * 0.55, 0));
-  } else g.add(mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.05, 6), hood, 0, h * 0.95, 0));
-  g.add(mesh(new THREE.BoxGeometry(0.44, 0.12, 0.2), hood, 0, h * 0.74, 0));
-  g.add(mesh(new THREE.BoxGeometry(0.16, 0.12, 0.14), lambert({ color: '#2e2c2a' }), 0.2, h * 0.45, 0.06));
+  const hip = h * 0.48, shoulder = h * 0.8, head = h * 0.9;
+  // Legs and boots.
+  for (const sx of [-0.07, 0.07]) {
+    g.add(mesh(new THREE.BoxGeometry(0.085, hip - 0.1, 0.1), tunic, sx, 0.1 + (hip - 0.1) / 2, 0));
+    g.add(mesh(new THREE.BoxGeometry(0.1, 0.12, 0.16), boot, sx, 0.06, 0.02));
+  }
+  // Torso: tunic, then the cloak as an open bell from shoulders to knee.
+  g.add(mesh(new THREE.CylinderGeometry(0.13, 0.15, shoulder - hip + 0.04, 7), tunic, 0, (shoulder + hip) / 2, 0));
+  const bell = new THREE.LatheGeometry(
+    [[0.27, h * 0.3], [0.22, h * 0.5], [0.18, h * 0.68], [0.17, shoulder], [0.09, shoulder + 0.03]].map(([rr, yy]) => new THREE.Vector2(rr, yy)),
+    9,
+    Math.PI * 0.85,
+    Math.PI * 1.3,
+  );
+  const cl = new THREE.Mesh(bell, cloak);
+  (cloak as THREE.MeshLambertMaterial).side = THREE.DoubleSide;
+  cl.castShadow = true;
+  g.add(cl);
+  g.add(mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.03, 7), belt, 0, hip + 0.02, 0));
+  // Arms hanging a little forward, hands.
+  for (const sx of [-1, 1]) {
+    const arm = mesh(new THREE.BoxGeometry(0.075, shoulder - hip - 0.02, 0.08), cloak, sx * 0.19, (shoulder + hip) / 2 + 0.02, 0.02);
+    arm.rotation.z = sx * 0.08;
+    arm.rotation.x = -0.12;
+    g.add(arm);
+    g.add(mesh(new THREE.BoxGeometry(0.06, 0.07, 0.06), mats.skin, sx * 0.21, hip - 0.02, 0.06));
+  }
+  // Shoulders, neck, head.
+  g.add(mesh(new THREE.BoxGeometry(0.4, 0.08, 0.2), hood, 0, shoulder, 0));
+  g.add(mesh(new THREE.CylinderGeometry(0.04, 0.045, 0.06, 6), mats.skin, 0, shoulder + 0.05, 0));
+  g.add(mesh(new THREE.SphereGeometry(0.085, 8, 6), mats.skin, 0, head, 0.01));
+  if (look.hat === 'hood') {
+    const hd = mesh(new THREE.SphereGeometry(0.115, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.62), hood, 0, head + 0.02, -0.015);
+    g.add(hd);
+    g.add(mesh(new THREE.ConeGeometry(0.06, 0.12, 6), hood, 0, head + 0.08, -0.09));
+    // The face lies in the hood's shadow.
+    g.add(mesh(new THREE.BoxGeometry(0.11, 0.05, 0.01), lambert({ color: '#120e0c' }), 0, head + 0.035, 0.085));
+  } else if (look.hat === 'helmet') {
+    const steelH = lambert({ color: '#5a5c60' });
+    g.add(mesh(new THREE.SphereGeometry(0.1, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2), steelH, 0, head + 0.02, 0));
+    const brim = mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.012, 10), steelH, 0, head + 0.02, 0);
+    g.add(brim);
+    g.add(boxAt(0.016, 0.07, 0.01, steelH, 0, head - 0.03, 0.09));
+    // The spear.
+    g.add(mesh(new THREE.CylinderGeometry(0.012, 0.012, h * 1.15, 5), lambert({ color: '#4a3424' }), 0.24, h * 0.57, 0.08));
+    g.add(mesh(new THREE.ConeGeometry(0.025, 0.12, 4), steelH, 0.24, h * 1.17, 0.08));
+  } else {
+    g.add(mesh(new THREE.CylinderGeometry(0.1, 0.095, 0.05, 8), hood, 0, head + 0.06, 0));
+    g.add(boxAt(0.12, 0.012, 0.06, hood, 0, head + 0.035, 0.08));
+  }
+  // A satchel on one hip.
+  g.add(mesh(new THREE.BoxGeometry(0.13, 0.12, 0.06), belt, -0.17, hip - 0.04, 0.05));
+  g.userData.skin = mats.skin;
   return g;
 }
 
@@ -156,6 +210,17 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
   const pick: THREE.Object3D[] = [];
 
   const stone = lambert({ map: tx.stone, color: '#dcd8d0' });
+  // Grime by height in the world: dirt and damp along the floor, soot under the ceiling.
+  stone.onBeforeCompile = (sh) => {
+    sh.vertexShader = 'varying float vGrimeY;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvGrimeY = (modelMatrix * vec4(transformed, 1.0)).y;');
+    sh.fragmentShader =
+      'varying float vGrimeY;\n' +
+      sh.fragmentShader.replace(
+        '#include <map_fragment>',
+        '#include <map_fragment>\ndiffuseColor.rgb *= mix(0.42, 1.0, smoothstep(0.0, 0.6, vGrimeY)) * mix(1.0, 0.5, smoothstep(1.6, 2.5, vGrimeY));',
+      );
+  };
+  stone.customProgramCacheKey = () => 'stone-grime';
   const paintM = lambert({ map: tx.paint, color: '#ffffff' });
   const pegM = lambert({ map: tx.peg, color: '#ffffff' });
   const floorM = lambert({ map: tx.floor, color: '#8a8682' });
@@ -175,20 +240,20 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
   const RX = 2.2; // inner faces of the side walls at x = ±RX
   const FZ = 2.4; // inner face of the wall behind the bench
   const FW = 2 * RX + 0.5, FD = FZ - BACK_Z + 0.5;
-  const floor = mesh(tileUV(new THREE.PlaneGeometry(FW, FD, Math.ceil(FW / CELL), Math.ceil(FD / CELL)), FW, FD, 1.2), floorM, 0, 0, (FZ + BACK_Z) / 2);
+  const floor = mesh(tileUV(new THREE.PlaneGeometry(FW, FD, Math.ceil(FW / CELL), Math.ceil(FD / CELL)), FW, FD, 2.4), floorM, 0, 0, (FZ + BACK_Z) / 2);
   floor.rotation.x = -Math.PI / 2;
   scene.add(floor);
-  const ceil = mesh(tileUV(new THREE.PlaneGeometry(FW, FD, Math.ceil(FW / CELL), Math.ceil(FD / CELL)), FW, FD, 0.6), woodD, 0, 2.5, (FZ + BACK_Z) / 2);
+  const ceil = mesh(tileUV(new THREE.PlaneGeometry(FW, FD, Math.ceil(FW / CELL), Math.ceil(FD / CELL)), FW, FD, 1.2), woodD, 0, 2.5, (FZ + BACK_Z) / 2);
   ceil.rotation.x = Math.PI / 2;
   scene.add(ceil);
   // North wall (in front of the bench) with a window hole (x -1.02..-0.48, y 1.0..1.75).
-  const wall = (x0: number, x1: number, y0: number, y1: number) => scene.add(texBox(x1 - x0, y1 - y0, 0.24, stone, (x0 + x1) / 2, (y0 + y1) / 2, BACK_Z - 0.12, 0.9));
+  const wall = (x0: number, x1: number, y0: number, y1: number) => scene.add(texBox(x1 - x0, y1 - y0, 0.24, stone, (x0 + x1) / 2, (y0 + y1) / 2, BACK_Z - 0.12, 1.8));
   wall(-RX - 0.24, -1.02, 0, 2.5);
   wall(-1.02, -0.48, 0, 1.0);
   wall(-1.02, -0.48, 1.75, 2.5);
   wall(-0.48, RX + 0.24, 0, 2.5);
   // West wall with a window onto the river (z -0.62..0.02, y 1.0..1.7).
-  const wwall = (z0: number, z1: number, y0: number, y1: number) => scene.add(texBox(0.24, y1 - y0, z1 - z0, stone, -RX - 0.12, (y0 + y1) / 2, (z0 + z1) / 2, 0.9));
+  const wwall = (z0: number, z1: number, y0: number, y1: number) => scene.add(texBox(0.24, y1 - y0, z1 - z0, stone, -RX - 0.12, (y0 + y1) / 2, (z0 + z1) / 2, 1.8));
   wwall(BACK_Z, -0.62, 0, 2.5);
   wwall(-0.62, 0.02, 0, 1.0);
   wwall(-0.62, 0.02, 1.7, 2.5);
@@ -197,7 +262,7 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
   scene.add(boxAt(0.05, 0.7, 0.035, woodD, -RX - 0.1, 1.35, -0.3));
   scene.add(boxAt(0.05, 0.035, 0.64, woodD, -RX - 0.1, 1.35, -0.3));
   // East wall with the door (z 0.25..1.1).
-  const ewall = (z0: number, z1: number, y0: number, y1: number) => scene.add(texBox(0.24, y1 - y0, z1 - z0, stone, RX + 0.12, (y0 + y1) / 2, (z0 + z1) / 2, 0.9));
+  const ewall = (z0: number, z1: number, y0: number, y1: number) => scene.add(texBox(0.24, y1 - y0, z1 - z0, stone, RX + 0.12, (y0 + y1) / 2, (z0 + z1) / 2, 1.8));
   ewall(BACK_Z, 0.25, 0, 2.5);
   ewall(0.25, 1.1, 1.95, 2.5);
   ewall(1.1, FZ, 0, 2.5);
@@ -205,7 +270,7 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
   scene.add(texBox(0.3, 1.95, 0.08, woodD, RX, 0.975, 1.1, 0.4));
   scene.add(texBox(0.3, 0.1, 0.93, woodD, RX, 1.98, 0.675, 0.4));
   // South wall behind you.
-  scene.add(texBox(2 * RX + 0.48, 2.5, 0.24, stone, 0, 1.25, FZ + 0.12, 0.9));
+  scene.add(texBox(2 * RX + 0.48, 2.5, 0.24, stone, 0, 1.25, FZ + 0.12, 1.8));
   for (const x of [-RX + 0.06, RX - 0.06]) for (const z of [BACK_Z + 0.06, FZ - 0.06]) scene.add(texBox(0.14, 2.5, 0.14, woodD, x, 1.25, z, 0.5));
   // Timber: posts and a beam across the wall, ceiling joists.
   for (const x of [-1.1, -0.48, 1.3]) scene.add(texBox(0.12, 2.5, 0.12, woodD, x, 1.25, BACK_Z + 0.04, 0.5));
@@ -261,7 +326,7 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
   pick.push(doorLeaf);
 
   // --- Outside ------------------------------------------------------------------------
-  const skyM = new THREE.MeshBasicMaterial({ map: tx.sky, depthWrite: false });
+  const skyM = new THREE.MeshBasicMaterial({ map: tx.sky, depthWrite: false, fog: false });
   const sky = new THREE.Mesh(new THREE.PlaneGeometry(90, 40), skyM);
   sky.position.set(0, 12, -40);
   scene.add(sky);
@@ -275,7 +340,7 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
   scene.add(skyL);
   const far: THREE.MeshBasicMaterial[] = [];
   const silo = (color: string) => {
-    const m = new THREE.MeshBasicMaterial({ color });
+    const m = new THREE.MeshBasicMaterial({ color, fog: false });
     m.userData.base = m.color.clone();
     far.push(m);
     return m;
@@ -374,7 +439,7 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
   bench.add(texBox(2.3, 0.012, 0.045, rustM, 0, TABLE + 0.002, -0.305, 0.25, true));
   bench.add(texBox(2.3, 0.14, 0.05, woodD, 0, TABLE - 0.12, -0.3, 0.4));
   for (const x of [-1.05, 1.05]) bench.add(texBox(0.1, TABLE - 0.07, 0.1, woodD, x, (TABLE - 0.07) / 2, -0.4, 0.5));
-  bench.add(texBox(0.8, 0.008, 0.54, lambert({ map: tx.steel, color: '#7c7872' }), 0, TABLE + 0.002, -0.68, 0.25));
+  bench.add(texBox(0.8, 0.008, 0.54, lambert({ map: tx.plate, color: '#8a8682' }), 0, TABLE + 0.002, -0.68, 0.5));
   tag(bench, 'bench');
   scene.add(bench);
   pick.push(bench);
@@ -679,8 +744,8 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
   const SHELF_Y = 1.03;
   scene.add(texBox(0.5, 0.03, 0.2, wood, 0.58, SHELF_Y, BACK_Z + 0.1, 0.3));
   for (const x of [0.35, 0.81]) scene.add(texBox(0.03, 0.1, 0.16, woodD, x, SHELF_Y - 0.06, BACK_Z + 0.08, 0.3));
-  const signMat = new THREE.MeshLambertMaterial({ map: signTex(signText), color: '#d0c8b8' });
-  const sign = mesh(new THREE.PlaneGeometry(0.3, 0.066), signMat, 0.58, 1.24, BACK_Z + 0.03);
+  const signMat = new THREE.MeshLambertMaterial({ map: signTex(signText), color: '#ffffff', emissive: '#2a2016' });
+  const sign = mesh(new THREE.PlaneGeometry(0.38, 0.1), signMat, 0.6, 1.25, BACK_Z + 0.03);
   scene.add(sign);
   // The sign opens the craft book.
   tag(sign, 'craft');
@@ -800,15 +865,39 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
 
   // --- Behind you: stove, coal, a cot, the switchboard; jars and the river window to the west -----
   const coal = lambert({ color: '#141414' });
+  // A pot-bellied cast-iron stove: legs, ribbed belly, a door whose grille glows, the pipe into the wall.
   const stoveG = new THREE.Group();
-  stoveG.add(texBox(0.62, 0.66, 0.5, iron, 0, 0.33, 0, 0.3, true));
-  stoveG.add(texBox(0.66, 0.04, 0.54, iron, 0, 0.68, 0, 0.3));
-  stoveG.add(boxAt(0.3, 0.06, 0.02, new THREE.MeshBasicMaterial({ color: '#ff6a20' }), 0, 0.3, -0.26));
-  stoveG.add(boxAt(0.36, 0.2, 0.02, dark, 0, 0.42, -0.255));
-  stoveG.add(mesh(new THREE.CylinderGeometry(0.07, 0.07, 1.85, 7), iron, 0.15, 1.6, 0.1));
-  stoveG.add(mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.03, 7), iron, -0.15, 0.71, 0));
+  const castM = lambert({ map: tx.iron, color: '#7a726c' });
+  for (const [lx, lz] of [[-0.17, -0.13], [0.17, -0.13], [-0.17, 0.13], [0.17, 0.13]] as [number, number][]) stoveG.add(mesh(new THREE.CylinderGeometry(0.022, 0.04, 0.14, 6), castM, lx, 0.07, lz, true));
+  stoveG.add(mesh(new THREE.CylinderGeometry(0.26, 0.28, 0.05, 14), castM, 0, 0.16, 0, true));
+  const bellyProf = [[0.24, 0.18], [0.3, 0.29], [0.325, 0.44], [0.31, 0.6], [0.25, 0.7], [0.21, 0.74]].map(([rr, yy]) => new THREE.Vector2(rr, yy));
+  stoveG.add(mesh(new THREE.LatheGeometry(bellyProf, 16), castM, 0, 0, 0, true));
+  for (const ry of [0.32, 0.56]) {
+    const rib = mesh(new THREE.TorusGeometry(ry === 0.32 ? 0.31 : 0.315, 0.012, 4, 18), castM, 0, ry, 0);
+    rib.rotation.x = Math.PI / 2;
+    stoveG.add(rib);
+  }
+  stoveG.add(mesh(new THREE.CylinderGeometry(0.24, 0.22, 0.04, 14), castM, 0, 0.76, 0, true));
+  // The fire door: frame, glowing slits, and the fire seen through them.
+  const fireMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ff6a18').multiplyScalar(3) });
+  stoveG.add(boxAt(0.2, 0.16, 0.03, dark, 0, 0.36, -0.31));
+  for (let i = 0; i < 4; i++) stoveG.add(boxAt(0.022, 0.1, 0.01, fireMat, -0.06 + i * 0.04, 0.39, -0.328));
+  stoveG.add(boxAt(0.14, 0.018, 0.01, fireMat, 0, 0.31, -0.328));
+  stoveG.add(boxAt(0.03, 0.03, 0.03, copper, 0.11, 0.39, -0.33));
+  // Glow spilling on the floor in front.
+  const glowFloor = new THREE.Mesh(new THREE.CircleGeometry(0.45, 16), new THREE.MeshBasicMaterial({ color: '#ff6a20', transparent: true, opacity: 0.16, depthWrite: false, blending: THREE.AdditiveBlending }));
+  glowFloor.rotation.x = -Math.PI / 2;
+  glowFloor.position.set(0, 0.004, -0.55);
+  stoveG.add(glowFloor);
+  // Pipe up and into the wall.
+  stoveG.add(mesh(new THREE.CylinderGeometry(0.065, 0.065, 1.35, 9), castM, 0, 1.44, 0.04, true));
+  const elbow = mesh(new THREE.CylinderGeometry(0.065, 0.065, 0.32, 9), castM, 0, 2.12, 0.2, true);
+  elbow.rotation.x = Math.PI / 2;
+  stoveG.add(elbow);
+  stoveG.add(mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.04, 9), castM, 0, 1.0, 0.04));
   // A kettle keeps warm on top.
-  stoveG.add(mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.1, 8), lambert({ color: '#3a3430' }), -0.15, 0.78, 0, true));
+  stoveG.add(mesh(new THREE.CylinderGeometry(0.07, 0.085, 0.11, 10), lambert({ color: '#3a3430' }), -0.1, 0.835, 0, true));
+  stoveG.add(mesh(new THREE.TorusGeometry(0.06, 0.006, 3, 10, Math.PI), dark, -0.1, 0.9, 0));
   stoveG.position.set(-1.3, 0, 2.08);
   scene.add(stoveG);
   const bin = new THREE.Group();
@@ -860,12 +949,25 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
   const cellLive = lambert({ color: P.acid, emissive: '#0c140a' });
   const cellDead = lambert({ color: '#4a5444' });
   for (const y of [0.55, 1.0]) scene.add(texBox(0.24, 0.03, 0.9, wood, -RX + 0.12, y, 1.55, 0.3));
+  // Each jar its own: size, glass tint, how much acid is left, which ones still hold a charge (they glow).
+  const glassJar = new THREE.MeshLambertMaterial({ color: '#4a7a5a', transparent: true, opacity: 0.45, depthWrite: false });
+  const acidLive = new THREE.MeshBasicMaterial({ color: new THREE.Color('#7adf6a').multiplyScalar(1.6) });
+  const acidDead = lambert({ color: '#3a5a34' });
+  const lidM = lambert({ color: '#5a4a38' });
+  void cellLive;
+  void cellDead;
   for (let row = 0; row < 2; row++)
     for (let i = 0; i < 5; i++) {
       const j = new THREE.Group();
-      j.add(mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.16, 7), (i + row) % 3 ? cellDead : cellLive, 0, 0.08, 0, true));
-      j.add(mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.03, 7), lambert({ color: '#6a5a44' }), 0, 0.175, 0));
-      j.add(boxAt(0.008, 0.04, 0.008, copper, 0, 0.21, 0));
+      const rr = 0.045 + ((i * 7 + row * 3) % 4) * 0.008, hh = 0.13 + ((i * 5 + row) % 3) * 0.03;
+      const live = (i + row) % 3 === 0;
+      const level = 0.4 + ((i * 3 + row * 2) % 5) * 0.12;
+      j.add(mesh(new THREE.CylinderGeometry(rr * 0.85, rr * 0.85, hh * level, 9), live ? acidLive : acidDead, 0, (hh * level) / 2 + 0.004, 0));
+      j.add(mesh(new THREE.CylinderGeometry(rr, rr * 1.02, hh, 9), glassJar, 0, hh / 2, 0));
+      j.add(mesh(new THREE.CylinderGeometry(rr * 0.75, rr * 0.8, 0.025, 9), lidM, 0, hh + 0.012, 0));
+      j.add(boxAt(0.008, 0.035, 0.008, copper, -rr * 0.4, hh + 0.04, 0));
+      j.add(boxAt(0.008, 0.035, 0.008, copper, rr * 0.4, hh + 0.04, 0));
+      if (i % 2 === 0) j.add(boxAt(0.002, hh * 0.35, rr * 1.1, paper, rr * 1.0, hh * 0.45, 0));
       j.position.set(-RX + 0.12, [0.565, 1.015][row], 1.2 + i * 0.17);
       scene.add(j);
     }
@@ -931,6 +1033,98 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
   // Sacks of coal dust and rags under the bench.
   for (const [x, z] of [[-0.75, -0.75], [-0.45, -0.85]] as [number, number][]) scene.add(mesh(new THREE.SphereGeometry(0.17, 7, 5), lambert({ map: tx.wool, color: '#b8a888' }), x, 0.13, z, true));
 
+  // --- The street beyond the east door: mud, the houses across the way, a lantern, mist -------
+  {
+    // Moonlit: the street keeps a faint cold glow of its own (a moon light would shine through the walls).
+    const mud = lambert({ map: tx.floor, color: '#5a5650', emissive: '#141a26' });
+    const street = mesh(tileUV(new THREE.PlaneGeometry(10, 14, 8, 10), 10, 14, 2.4), mud, RX + 5.2, 0.005, 0.5);
+    street.rotation.x = -Math.PI / 2;
+    street.receiveShadow = true;
+    scene.add(street);
+    const wallC = lambert({ map: tx.stone, color: '#7a7470', emissive: '#1a2232' });
+    const roofC = lambert({ map: tx.woodDark, color: '#6a6058', emissive: '#121826' });
+    const winLit = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffb060').multiplyScalar(1.6) });
+    const shutter = lambert({ color: '#3a2a1e' });
+    const houses: [number, number, number][] = [[-3.4, 2.6, 3.4], [0.4, 3.2, 3.0], [4.0, 2.4, 3.6]];
+    for (const [hz, hh, hw] of houses) {
+      const hx = RX + 6.4;
+      scene.add(texBox(2.2, hh, hw, wallC, hx, hh / 2, hz, 1.8));
+      const roof = mesh(new THREE.ConeGeometry(hw * 0.78, 1.2, 4), roofC, hx, hh + 0.6, hz);
+      roof.rotation.y = Math.PI / 4;
+      roof.scale.set(1, 1, 0.75);
+      scene.add(roof);
+      // Two windows facing the street, one lit.
+      for (const [wz, lit] of [[hz - hw * 0.25, (Math.round(hz * 10) % 2) === 0], [hz + hw * 0.25, true]] as [number, boolean][]) {
+        scene.add(boxAt(0.02, 0.36, 0.28, lit ? winLit : shutter, hx - 1.11, 1.3, wz));
+        scene.add(boxAt(0.03, 0.04, 0.36, roofC, hx - 1.12, 1.1, wz));
+      }
+      scene.add(boxAt(0.03, 1.0, 0.5, shutter, hx - 1.11, 0.5, hz));
+    }
+    // A lantern on a post across the street: warm light on wet mud.
+    const postM = lambert({ color: '#2a2420' });
+    scene.add(boxAt(0.06, 2.2, 0.06, postM, RX + 3.6, 1.1, -0.9));
+    scene.add(boxAt(0.4, 0.04, 0.04, postM, RX + 3.45, 2.15, -0.9));
+    scene.add(boxAt(0.1, 0.14, 0.1, new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffc070').multiplyScalar(2.2) }), RX + 3.3, 2.02, -0.9));
+    const streetLamp = new THREE.PointLight('#ffb060', 3.5, 6, 1.8);
+    streetLamp.position.set(RX + 3.3, 1.95, -0.9);
+    scene.add(streetLamp);
+    // Barrels and a cart wheel by the wall outside.
+    const barrelM = lambert({ map: tx.woodDark, color: '#8a7a6a' });
+    scene.add(mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.6, 9), barrelM, RX + 0.6, 0.3, 1.9, true));
+    scene.add(mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.55, 9), barrelM, RX + 1.0, 0.28, 2.3, true));
+  }
+
+  // --- Accents: red rags, one on the bench edge, one hung on the vise -------------------------
+  {
+    const rag = lambert({ color: '#9a2a1e' });
+    const r1 = mesh(new THREE.BoxGeometry(0.16, 0.012, 0.11, 3, 1, 2), rag, -0.92, TABLE + 0.006, -0.42, true);
+    r1.rotation.y = 0.35;
+    scene.add(r1);
+    const r2 = mesh(new THREE.BoxGeometry(0.1, 0.16, 0.01), rag, 0.98, TABLE - 0.06, -0.3, true);
+    r2.rotation.y = 0.2;
+    scene.add(r2);
+  }
+
+  // --- Air: mist in the depth, dust hanging in the beams of the lamp, the door and the stove -----
+  scene.fog = new THREE.FogExp2('#0d0b09', 0.075);
+  const dustZones: { box: [number, number, number, number, number, number]; color: string; n: number }[] = [
+    { box: [-0.5, 0.95, -1.05, 0.55, 1.5, -0.3], color: '#ffe0b0', n: 120 },
+    { box: [1.5, 0.4, 0.2, 2.2, 1.8, 1.1], color: '#8ca8e0', n: 45 },
+    { box: [-1.8, 0.2, 1.2, -0.8, 1.2, 2.0], color: '#ffb070', n: 70 },
+  ];
+  const dustSets: { pts: THREE.Points; base: Float32Array }[] = [];
+  {
+    let seed = 99;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (const z of dustZones) {
+      const base = new Float32Array(z.n * 3);
+      for (let i = 0; i < z.n; i++) {
+        base[i * 3] = z.box[0] + rnd() * (z.box[3] - z.box[0]);
+        base[i * 3 + 1] = z.box[1] + rnd() * (z.box[4] - z.box[1]);
+        base[i * 3 + 2] = z.box[2] + rnd() * (z.box[5] - z.box[2]);
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(base.slice(), 3).setUsage(THREE.DynamicDrawUsage));
+      const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: z.color, size: 1, sizeAttenuation: false, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
+      pts.frustumCulled = false;
+      scene.add(pts);
+      dustSets.push({ pts, base });
+    }
+  }
+  const tickAir = (t: number) => {
+    for (const d of dustSets) {
+      const a = d.pts.geometry.attributes.position as THREE.BufferAttribute;
+      const arr = a.array as Float32Array;
+      for (let i = 0; i < arr.length; i += 3) {
+        const k = i * 0.37;
+        arr[i] = d.base[i] + Math.sin(t * 0.21 + k) * 0.05;
+        arr[i + 1] = d.base[i + 1] + Math.sin(t * 0.13 + k * 1.7) * 0.06;
+        arr[i + 2] = d.base[i + 2] + Math.cos(t * 0.17 + k * 0.9) * 0.05;
+      }
+      a.needsUpdate = true;
+    }
+  };
+
   // --- Lights: cold moonlight from the window and the door; warmth only from behind you ---------
   const L = SKIN.light;
   const hemi = new THREE.HemisphereLight(L.ambient.sky, L.ambient.ground, L.ambient.intensity);
@@ -945,7 +1139,7 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
   scene.add(door, door.target);
   const bulbM0 = new THREE.MeshBasicMaterial({ color: '#ffb070' });
   // Key light: the lamp over the bench throws soft shadows of everything on it.
-  const key = new THREE.SpotLight(L.lamp.color, L.lamp.intensity * KEY_K, 0, 0.95, 0.65, 1.6);
+  const key = new THREE.SpotLight(L.lamp.color, L.lamp.intensity * KEY_K, 0, 0.78, 0.55, 1.6);
   key.position.set(0.05, 1.52, -0.6);
   key.target.position.set(0.0, TABLE, -0.72);
   key.castShadow = true;
@@ -962,16 +1156,17 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
   scene.add(lamp);
   const bulbM = bulbM0;
   // A lantern on a hook in the middle of the room, so the far half isn't black.
-  const lantern = new THREE.PointLight('#ffb878', 1.4, 0, 1.6);
+  const lantern = new THREE.PointLight('#ffb070', 0.9, 0, 1.8);
   lantern.position.set(0.3, 1.95, 1.2);
   scene.add(lantern);
   scene.add(mesh(new THREE.BoxGeometry(0.1, 0.14, 0.1), lambert({ color: '#2a2622', emissive: '#3a2008' }), 0.3, 2.02, 1.2));
   scene.add(mesh(new THREE.BoxGeometry(0.06, 0.08, 0.06), new THREE.MeshBasicMaterial({ color: '#ffc080' }), 0.3, 2.0, 1.2));
   scene.add(boxAt(0.006, 0.4, 0.006, dark, 0.3, 2.3, 1.2));
-  const stove = new THREE.PointLight(L.stove.color, L.stove.intensity * 1.6, 0, 1.6);
-  stove.position.set(-1.3, 0.4, 1.85);
+  // The stove's fire: a strong, low, flickering light that paints the walls around it orange.
+  const stove = new THREE.PointLight(L.stove.color, L.stove.intensity, 4.5, 1.7);
+  stove.position.set(-1.3, 0.35, 1.7);
   scene.add(stove);
-  const arc = new THREE.PointLight(L.arc.color, 0, 0, 2);
+  const arc = new THREE.PointLight(L.arc.color, 0, 3.5, 2);
   arc.castShadow = true;
   arc.shadow.mapSize.set(256, 256);
   arc.shadow.camera.near = 0.004;
@@ -1001,7 +1196,7 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
 
   return {
     scene,
-    lights: { hemi, window: win, door, lamp, key, lampBulb: bulbM, stove, arc, appArc },
+    lights: { hemi, window: win, door, lamp, key, lampBulb: bulbM, stove, fire: fireMat, arc, appArc },
     wheels: [w1, w2],
     wheel2: w2,
     sky: skyM,
@@ -1033,5 +1228,6 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
     setGauge,
     setPiles,
     blocked,
+    tickAir,
   };
 }

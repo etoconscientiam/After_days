@@ -29,7 +29,7 @@ export function partMaterials(tx: Textures): Mats {
     return m;
   };
   shared = {
-    iron: mk(tx.part, '#c4beb6'),
+    iron: mk(tx.part, '#a8a6a4'),
     dark: mk(tx.iron, '#8a8682'),
     steel: mk(tx.steel, '#d4d4d8'),
     rust: mk(tx.plate, '#d8ccc0'),

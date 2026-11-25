@@ -32,7 +32,7 @@ export const SKIN = {
     iron: '#4a4a48',
     steel: '#7a7a76',
     steelDark: '#4a4844',
-    copper: '#a06a42',
+    copper: '#c07838',
     rust: '#8a4a22',
     slag: '#3a3029',
     bead: '#55575d',
@@ -50,11 +50,13 @@ export const SKIN = {
   },
   /** Warm, soft and fairly bright: a lived-in workshop, not a cave. */
   light: {
-    ambient: { sky: '#aca69a', ground: '#38332c', intensity: 1.5 },
-    window: { color: '#d8d8d0', intensity: 9, night: 3 },
-    lamp: { color: '#ffe0b8', intensity: 2.2 },
-    stove: { color: '#ff8a4a', intensity: 2.0 },
-    arc: { color: '#c8dcff', intensity: 2.6, jitterMM: 1.6 },
+    // Low fill: corners go properly dark; light comes from the sources and pools around them.
+    ambient: { sky: '#7a8296', ground: '#2a2018', intensity: 0.38 },
+    window: { color: '#9cb8e8', intensity: 14, night: 5 },
+    lamp: { color: '#ffd29a', intensity: 2.2 },
+    stove: { color: '#ff7a30', intensity: 7 },
+    /** The arc is the brightest thing in the game: it floods the part and the hands with flickering blue-white. */
+    arc: { color: '#d6e6ff', intensity: 26, jitterMM: 1.6 },
     appArc: { color: '#c8dcff', intensity: 1.2 },
   },
   glow: {
@@ -68,18 +70,18 @@ export const SKIN = {
   /** Falling snow outside the window. */
   snow: false,
   post: {
-    exposure: 1.25,
-    vignette: 0.4,
+    exposure: 1.45,
+    vignette: 0.55,
     /** Ambient occlusion strength 0..1 and its reach in metres. */
     ao: 0.75,
     aoRadius: 0.12,
-    saturation: 0.76,
-    lift: [0.05, 0.04, 0.03] as [number, number, number],
+    saturation: 0.9,
+    lift: [0.02, 0.018, 0.022] as [number, number, number],
     gain: [1.03, 1.0, 0.95] as [number, number, number],
     glare: 0.3,
     afterColor: [0.55, 0.35, 0.8] as [number, number, number],
-    bloomThreshold: 1.1,
-    bloom: 0.9,
+    bloomThreshold: 0.95,
+    bloom: 1.1,
   },
 };
 

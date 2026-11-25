@@ -354,6 +354,16 @@ export class Effects {
     }
   }
 
+  /** Steam off a kettle (its own clock, so it never steals the arc's puffs). */
+  private steamAcc = 0;
+  steam(x: number, y: number, z: number, dt: number, rate: number): void {
+    this.steamAcc += dt * rate;
+    while (this.steamAcc >= 1) {
+      this.steamAcc -= 1;
+      this.smoke.spawn(x + this.rng.signed() * 0.01, y, z + this.rng.signed() * 0.01, this.rng);
+    }
+  }
+
   /** Slag breaks off in flakes; the bigger the piece, the more crumbs. */
   slag(x: number, y: number, z: number, amount: number): void {
     const r = this.rng;

@@ -942,7 +942,7 @@ export class View {
     const look = this.game.data.customers[id]?.look;
     if (!look) return;
     const old = this.ws.customer;
-    const f = figure(look, { skin: (old.children[1] as THREE.Mesh).material as THREE.Material });
+    const f = figure(look, { skin: old.userData.skin as THREE.Material });
     f.position.copy(old.position);
     f.rotation.copy(old.rotation);
     f.traverse((o) => (o.userData.pick = 'door'));
@@ -1075,6 +1075,16 @@ export class View {
     // Lights and the world outside.
     const I = g.power.I;
     const dark = g.clock.dark;
+    // Air: dust drifting in the beams, steam off the kettle on the stove.
+    this.ws.tickAir(g.t);
+    this.fx.steam(-1.4, 0.96, 2.08, dt, 1.2);
+    // The stove's fire breathes.
+    {
+      const tt = g.t;
+      const fl = 0.82 + 0.12 * Math.sin(tt * 7.3) * Math.sin(tt * 3.1 + 1) + 0.08 * r.next();
+      this.ws.lights.stove.intensity = L.stove.intensity * fl;
+      this.ws.lights.fire.color.setRGB(3 * fl, 1.15 * fl * fl, 0.25 * fl);
+    }
     const lampK = L.lamp.intensity * Math.min(1.6, I * I);
     this.ws.lights.lamp.intensity = lampK * LAMP_K;
     this.ws.lights.key.intensity = lampK * KEY_K;
@@ -1145,16 +1155,17 @@ export class View {
       if (a.unstable > 0 && r.chance(a.unstable * 0.5)) k *= 0.2;
       const jit = SKIN.light.arc.jitterMM * MM * S;
       const mid = this.v3b.copy(tip).add(surf).multiplyScalar(0.5);
-      arcLight.position.set(mid.x + r.signed() * jit, mid.y + 0.006, mid.z + r.signed() * jit);
+      // Just off the surface along its normal, so it floods the part, the rod and the glove.
+      arcLight.position.set(mid.x + r.signed() * jit, mid.y, mid.z + r.signed() * jit).addScaledVector(this.normW, 0.018);
       arcLight.intensity = L.arc.intensity * k;
       arcOn = k;
       this.tools.arcGlow.position.copy(mid);
       this.tools.arcGlow.quaternion.copy(this.rig.cam.quaternion);
-      const sz = (3 + a.L * 1.2) * MM * S * (0.8 + 0.4 * r.next());
+      const sz = (6 + a.L * 1.8) * MM * S * (0.8 + 0.4 * r.next());
       this.tools.arcGlow.scale.set(sz, sz, sz);
       this.tools.arcStar.position.copy(this.tools.arcGlow.position);
       this.tools.arcStar.quaternion.copy(this.rig.cam.quaternion);
-      const ss = (0.08 + 0.04 * r.next()) * k;
+      const ss = (0.14 + 0.07 * r.next()) * k;
       this.tools.arcStar.scale.set(ss, ss, ss);
       this.tools.setBolt(tip, surf, (0.4 + a.L * 0.35) * MM * S, r);
       if (this.tools.pool.visible) {
@@ -1199,12 +1210,13 @@ export class View {
     u.uMaskSee.value = g.stats.maskSee;
     u.uMaskWindow.value = g.stats.maskWindow;
     u.uGlare.value = g.glare;
-    this.updateSpots(dt, lit && g.mask.pos < 0.5);
     u.uArcOn.value = arcOn;
     if (lit) {
       this.v3.copy(this.tools.arcGlow.position).project(this.rig.cam);
       u.uArcUv.value.set(this.v3.x * 0.5 + 0.5, this.v3.y * 0.5 + 0.5);
     }
+    // After the arc's screen position is known, or the first stain lands in the middle of the screen.
+    this.updateSpots(dt, lit && g.mask.pos < 0.5);
     if (this.shakeT > 0) {
       this.shakeT -= dt;
       u.uShake.value.set(r.int(-1, 1), r.int(-1, 1));
