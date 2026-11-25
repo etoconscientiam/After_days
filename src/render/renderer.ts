@@ -794,9 +794,11 @@ export class Renderer {
       this.sunPos = { x, y, up: su > 0 && su < 1, low };
     } else this.sunPos = null;
     const mu = ((this.dayPhase + 0.25) % 1) / 0.5;
+    this.moonPos = null;
     if (mu > -0.05 && mu < 1.05) {
       const { x, y } = arc(Math.max(0, Math.min(1, mu)));
       const phase = ((this.dayCount % 10) + mu * 0.1) / 10;
+      this.moonPos = { x, up: mu > 0.02 && mu < 0.98, lit: 0.35 + 0.65 * Math.sin(phase * Math.PI) };
       const glow = c.createRadialGradient(x, y, 1, x, y, 16);
       glow.addColorStop(0, `rgba(210,220,255,${0.25 * Math.sin(phase * Math.PI) + 0.05})`); glow.addColorStop(1, 'rgba(200,210,255,0)');
       c.fillStyle = glow; c.fillRect(x - 16, y - 16, 32, 32);
@@ -821,6 +823,8 @@ export class Renderer {
     }
   }
   private sunPos: { x: number; y: number; up: boolean; low: number } | null = null;
+  /** the moon over the sky (its path of light on the water), how full it is */
+  private moonPos: { x: number; up: boolean; lit: number } | null = null;
 
   private drawSatellites(g: Game, alt: number): void {
     const r = g.run;
@@ -1140,6 +1144,75 @@ export class Renderer {
 
   groundY(x: number, g?: Game): number { void g; return this.gy[Math.max(0, Math.min(WW - 1, Math.round(x)))]; }
 
+  /** One column of the sea's surface, made of a few quiet, living things (pixel by pixel, nothing evenly spaced):
+   *  - a slow swell: two long waves and a short one; where they meet in a crest the surface rises a pixel for a
+   *    stretch and lights up, in a trough it settles and a darker pixel under it gives the line some depth;
+   *  - the sky in the water: the top pixel takes the colour of the horizon;
+   *  - light under the surface: a faint web of shimmer a few pixels down, drifting (caustics), brighter by day;
+   *  - glints that run along the crests and wink out, and the path of the sun or the moon — a broken column of
+   *    sparkles under it that sways with the swell. */
+  private drawSeaSurfaceCol(x: number, room: number, sea: number, sky: Sky): void {
+    const c = this.ctx, t = this.t, day = sky.light;
+    const swell = 0.55 * Math.sin(x * 0.085 + t * 0.85) + 0.35 * Math.sin(x * 0.21 - t * 1.25 + 1.3) + 0.18 * Math.sin(x * 0.53 + t * 2.1 + Math.sin(x * 0.07 + t * 0.3) * 2);
+    // the surface stands at three heights (a crest a pixel up, a trough a pixel down): the line itself undulates
+    const h = swell > 0.5 ? -1 : swell < -0.5 ? 1 : 0;
+    const crest = h < 0;
+    const hor = sky.hor;
+    // its colour: the horizon in the water, lifted toward white the higher the swell (brightest at a crest's top,
+    // dimmer down its flanks, so a crest is a soft hump, not a bar)
+    const lift = Math.max(0, swell);
+    const mixW = 0.38 + 0.45 * lift;
+    const sr = hor[0] + (236 - hor[0]) * mixW, sg = hor[1] + (243 - hor[1]) * mixW, sb = hor[2] + (249 - hor[2]) * mixW;
+    const a = 0.3 + 0.25 * day + lift * 0.3;
+    c.fillStyle = rgb(sr, sg, sb, Math.min(0.92, a));
+    c.fillRect(x, sea + h, 1, 1);
+    // under the line: a pixel of half light on a crest (the wave has a body), a faint shadow elsewhere
+    if (room > 2) {
+      if (crest) { c.fillStyle = rgb(sr, sg, sb, a * 0.35); c.fillRect(x, sea, 1, 1); }
+      else { c.fillStyle = rgb(6, 20, 36, 0.16 + (h > 0 ? 0.08 : 0)); c.fillRect(x, sea + h + 1, 1, 1); }
+    }
+    // a whitecap now and then at the very top of a crest
+    if (swell > 0.86 && Math.sin(t * 3.3 + x * 2.1) > 0.35) {
+      c.fillStyle = rgb(250, 252, 255, 0.55 + 0.3 * day);
+      c.fillRect(x, sea - 1, 1, 1);
+    }
+    // light under the surface: a drifting web, a few pixels deep, fading with depth
+    const deep = Math.min(7, room - 1);
+    for (let d = 2; d <= deep; d++) {
+      const w = Math.sin(x * 0.31 + d * 0.8 - t * 1.1 + Math.sin(x * 0.05 + t * 0.4) * 2.5) * Math.sin(x * 0.12 - d * 0.5 + t * 0.6);
+      if (w < 0.55) continue;
+      c.fillStyle = rgb(175, 228, 240, (w - 0.55) * (0.5 + 0.6 * day) * (1 - d / 8));
+      c.fillRect(x, sea + d, 1, 1);
+    }
+    // glints running along the crests: a few at a time, each lives a moment
+    if (swell > 0.3) {
+      const g = Math.sin(x * 0.9 + Math.floor(t * 1.7 + x * 0.013) * 2.3);
+      if (g > 0.93) {
+        const tw = 0.5 + 0.5 * Math.sin(t * 6 + x);
+        c.fillStyle = rgb(255, 252, 240, (0.35 + 0.5 * tw) * (0.4 + 0.6 * day));
+        c.fillRect(x, sea - (crest ? 1 : 0), 1, 1);
+      }
+    }
+    // the path of the sun (warm) or the moon (cool, at night): sparkles under it, broken by the swell
+    const sun = this.sunPos && this.sunPos.up ? this.sunPos : null;
+    const moon = !sun && this.moonPos && this.moonPos.up && day < 0.6 ? this.moonPos : null;
+    const src = sun ?? moon;
+    if (src) {
+      const half = sun ? 9 + (sun.low ?? 0) * 12 : 6;
+      const dx = Math.abs(x - src.x);
+      if (dx < half) {
+        const k = 1 - dx / half;
+        for (let d = 0; d < Math.min(6, room); d++) {
+          const sp = Math.sin(t * 5.3 + x * 1.9 + d * 2.7) + Math.sin(t * 3.1 - x * 0.7 + d);
+          if (sp < 0.9 - k * 0.6) continue;
+          const al = Math.min(1, (sp - 0.5) * 0.55) * k * (1 - d / 7) * (sun ? 0.9 - (sun.low ?? 0) * 0.2 : 0.55 * (moon!.lit));
+          c.fillStyle = sun ? rgb(255, 236, 190, al) : rgb(214, 224, 255, al);
+          c.fillRect(x, sea + d + (crest && d === 0 ? -1 : 0), 1, 1);
+        }
+      }
+    }
+  }
+
   /** The body of the sea, opaque, under everything that sinks in it: the far hills of the backdrop must not show
    *  through the water (they ended in a hard edge under its surface). The translucent tint of drawGround and
    *  the particles go over it. */
@@ -1226,16 +1299,7 @@ export class Renderer {
     for (let x = 0; x < WW; x++) {
       const gy = this.gy[x];
       if (g.water.col[x >> 1] !== 1 || gy <= sea) continue;
-      // the surface line, with ripples that are not evenly spaced (three waves): a crest only now and then,
-      // and fainter than the line, so it does not read as a row of dots
-      const wave = Math.sin(x * 0.5 + t * 2) + Math.sin(x * 0.2 - t * 1.3) + 0.7 * Math.sin(x * 1.37 + t * 0.7 + Math.sin(x * 0.11));
-      c.fillStyle = rgb(200, 230, 245, 0.4 + wave * 0.08);
-      c.fillRect(x, sea, 1, 1);
-      if (wave > 1.7) { c.fillStyle = rgb(210, 236, 248, 0.22 * (wave - 1.7)); c.fillRect(x, sea - 1, 1, 1); }
-      if (this.sunPos && this.sunPos.up && Math.abs(x - this.sunPos.x) < 6 + this.sunPos.low * 10 && Math.sin(t * 7 + x * 1.7) > 0.4) {
-        c.fillStyle = rgb(255, 240, 200, 0.75 - this.sunPos.low * 0.2);
-        c.fillRect(x, sea + 1 + ((x * 3) % 3), 1, 1);
-      }
+      this.drawSeaSurfaceCol(x, gy - sea, sea, sky);
       if (glacier) { c.fillStyle = 'rgba(220,235,245,0.85)'; c.fillRect(x, sea, 1, 2); }
       if (gy - sea <= 3 && (x === 0 || this.gy[x - 1] > sea + 3 || this.gy[x + 1] > sea + 3 || gy - sea <= 1)) {
         const fm = Math.sin(t * 2.4 + x * 0.9);
