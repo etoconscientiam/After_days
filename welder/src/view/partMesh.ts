@@ -230,7 +230,7 @@ export function partMaterials(tx: Textures): Mats {
   fineSteel.repeat.set(3, 3);
   fineSteel.needsUpdate = true;
   shared = {
-    iron: lambert({ map: fine, color: '#d8d2ca' }),
+    iron: lambert({ map: fine, color: '#c4beb6' }),
     dark: lambert({ color: P.iron }),
     copper: lambert({ color: P.copper }),
     steel: lambert({ map: fineSteel, color: '#c8c8cc' }),

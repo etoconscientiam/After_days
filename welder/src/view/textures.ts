@@ -287,7 +287,43 @@ export function makeTextures() {
     return tex(c);
   })();
 
-  return { stone, floor, wood, woodDark, plate, iron, steel, leather, wool, paper, chalk, sky, part };
+  /** Old machine paint, sage green, chipped down to rust at the edges and scuffed. */
+  const paint = (() => {
+    const S = 32;
+    const [c, x] = canvas(S, S);
+    x.fillStyle = P.paint;
+    x.fillRect(0, 0, S, S);
+    for (let i = 0; i < 30; i++) {
+      x.fillStyle = shade(P.paint, r.range(0.85, 1.12));
+      x.fillRect(r.int(0, S - 3), r.int(0, S - 3), r.int(1, 4), r.int(1, 3));
+    }
+    for (let i = 0; i < 14; i++) {
+      x.fillStyle = shade(P.rust, r.range(0.8, 1.2));
+      x.fillRect(r.int(0, S - 2), r.int(0, S - 2), r.int(1, 3), r.int(1, 2));
+    }
+    x.fillStyle = shade(P.rust, 0.9);
+    x.fillRect(0, S - 2, S, 2);
+    noise(x, S, S, r, 10);
+    return tex(c);
+  })();
+
+  /** Plywood pegboard: a grid of dark holes. */
+  const peg = (() => {
+    const S = 32;
+    const [c, x] = canvas(S, S);
+    x.fillStyle = '#9a8264';
+    x.fillRect(0, 0, S, S);
+    for (let i = 0; i < 6; i++) {
+      x.fillStyle = shade('#9a8264', r.range(0.88, 1.08));
+      x.fillRect(0, r.int(0, S - 1), S, 1);
+    }
+    x.fillStyle = '#3a2e22';
+    for (let j = 2; j < S; j += 4) for (let i = 2; i < S; i += 4) x.fillRect(i, j, 1, 1);
+    noise(x, S, S, r, 8);
+    return tex(c);
+  })();
+
+  return { stone, floor, wood, woodDark, plate, iron, steel, leather, wool, paper, chalk, sky, part, paint, peg };
 }
 
 /** A paper price tag with a number inked on it. */

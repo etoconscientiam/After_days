@@ -34,6 +34,9 @@ const BACK_Z = -1.15;
 /** Largest polygon edge on textured surfaces, metres. */
 const CELL = 0.3;
 const P = SKIN.palette;
+/** Share of the bench lamp's intensity in the shadowed spot on the bench and in the room-filling glow. */
+export const KEY_K = 1.15;
+export const LAMP_K = 0.6;
 
 export interface Workshop {
   scene: THREE.Scene;
@@ -42,6 +45,7 @@ export interface Workshop {
     window: THREE.SpotLight;
     door: THREE.SpotLight;
     lamp: THREE.PointLight;
+    key: THREE.SpotLight;
     lampBulb: THREE.MeshBasicMaterial;
     stove: THREE.PointLight;
     arc: THREE.PointLight;
@@ -151,7 +155,9 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
   scene.background = new THREE.Color('#000000');
   const pick: THREE.Object3D[] = [];
 
-  const stone = lambert({ map: tx.stone, color: '#c4c8d0' });
+  const stone = lambert({ map: tx.stone, color: '#dcd8d0' });
+  const paintM = lambert({ map: tx.paint, color: '#ffffff' });
+  const pegM = lambert({ map: tx.peg, color: '#ffffff' });
   const floorM = lambert({ map: tx.floor, color: '#8a8682' });
   const wood = lambert({ map: tx.wood, color: '#c8b8a4' });
   const woodD = lambert({ map: tx.woodDark, color: '#b0a294' });
@@ -368,7 +374,7 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
   bench.add(texBox(2.3, 0.012, 0.045, rustM, 0, TABLE + 0.002, -0.305, 0.25, true));
   bench.add(texBox(2.3, 0.14, 0.05, woodD, 0, TABLE - 0.12, -0.3, 0.4));
   for (const x of [-1.05, 1.05]) bench.add(texBox(0.1, TABLE - 0.07, 0.1, woodD, x, (TABLE - 0.07) / 2, -0.4, 0.5));
-  bench.add(texBox(0.8, 0.008, 0.54, lambert({ map: tx.steel, color: '#a8a4a0' }), 0, TABLE + 0.002, -0.68, 0.25));
+  bench.add(texBox(0.8, 0.008, 0.54, lambert({ map: tx.steel, color: '#7c7872' }), 0, TABLE + 0.002, -0.68, 0.25));
   tag(bench, 'bench');
   scene.add(bench);
   pick.push(bench);
@@ -527,9 +533,9 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
   scene.add(restHammer);
   // Bench vise bolted at the back right, an oil can beside it.
   const vise = new THREE.Group();
-  vise.add(boxAt(0.14, 0.05, 0.1, rustM, 0, 0.025, 0, true));
-  vise.add(boxAt(0.05, 0.09, 0.08, iron, -0.045, 0.095, 0, true));
-  vise.add(boxAt(0.05, 0.09, 0.08, iron, 0.045, 0.095, 0, true));
+  vise.add(boxAt(0.14, 0.05, 0.1, paintM, 0, 0.025, 0, true));
+  vise.add(boxAt(0.05, 0.09, 0.08, paintM, -0.045, 0.095, 0, true));
+  vise.add(boxAt(0.05, 0.09, 0.08, paintM, 0.045, 0.095, 0, true));
   const screw = mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.16, 5), iron, 0.13, 0.09, 0, true);
   screw.rotation.z = Math.PI / 2;
   vise.add(screw);
@@ -542,7 +548,7 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
   const spout = mesh(new THREE.CylinderGeometry(0.004, 0.008, 0.12, 5), iron, 0.03, 0.1, 0, true);
   spout.rotation.z = -0.6;
   oil.add(spout);
-  oil.position.set(0.82, TABLE, -0.92);
+  oil.position.set(0.72, TABLE, -0.82);
   scene.add(oil);
   // Nuts and bolts scattered by the job.
   for (let i = 0; i < 7; i++) {
@@ -877,6 +883,49 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
     return false;
   };
 
+  // --- More of the lived-in clutter --------------------------------------------------------
+  // Pegboard behind the tool rail and the chalkboard.
+  scene.add(texBox(0.5, 0.42, 0.015, pegM, -0.22, 1.16, BACK_Z + 0.01, 0.2));
+  // Bench grinder in old green paint, at the back right.
+  const grinder = new THREE.Group();
+  grinder.add(boxAt(0.16, 0.03, 0.1, paintM, 0, 0.015, 0, true));
+  const motor = mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.12, 8), paintM, 0, 0.08, 0, true);
+  motor.rotation.z = Math.PI / 2;
+  grinder.add(motor);
+  for (const sx of [-1, 1]) {
+    const wheel = mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.02, 10), lambert({ color: '#8a8478' }), sx * 0.085, 0.08, 0, true);
+    wheel.rotation.z = Math.PI / 2;
+    grinder.add(wheel);
+    grinder.add(boxAt(0.02, 0.07, 0.06, paintM, sx * 0.085, 0.115, -0.01, true));
+  }
+  grinder.position.set(0.88, TABLE, -1.0);
+  grinder.rotation.y = -0.4;
+  scene.add(grinder);
+  // An anvil on a stump by the west side of the bench, a bucket and a coiled hose on the floor.
+  const anvil = new THREE.Group();
+  anvil.add(mesh(new THREE.CylinderGeometry(0.2, 0.22, 0.5, 9), wood, 0, 0.25, 0, true));
+  anvil.add(boxAt(0.3, 0.07, 0.12, iron, 0, 0.57, 0, true));
+  anvil.add(boxAt(0.16, 0.08, 0.08, iron, 0, 0.5, 0, true));
+  const horn = mesh(new THREE.ConeGeometry(0.05, 0.16, 6), iron, 0.22, 0.58, 0, true);
+  horn.rotation.z = -Math.PI / 2;
+  anvil.add(horn);
+  anvil.position.set(-1.45, 0, -0.85);
+  scene.add(anvil);
+  const bucket = new THREE.Group();
+  bucket.add(mesh(new THREE.CylinderGeometry(0.15, 0.12, 0.3, 10, 1, true), lambert({ map: tx.plate, color: '#c8c0b8', side: THREE.DoubleSide }), 0, 0.15, 0, true));
+  bucket.add(mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.01, 10), dark, 0, 0.01, 0));
+  bucket.add(mesh(new THREE.TorusGeometry(0.15, 0.006, 4, 12, Math.PI), iron, 0, 0.3, 0));
+  bucket.position.set(-0.95, 0, -0.1);
+  scene.add(bucket);
+  for (let i = 0; i < 3; i++) {
+    const hose = mesh(new THREE.TorusGeometry(0.2 - i * 0.03, 0.02, 4, 14), lambert({ color: '#3a3430' }), 1.1, 0.02 + i * 0.03, -0.05);
+    hose.rotation.x = Math.PI / 2;
+    hose.castShadow = true;
+    scene.add(hose);
+  }
+  // Sacks of coal dust and rags under the bench.
+  for (const [x, z] of [[-0.75, -0.75], [-0.45, -0.85]] as [number, number][]) scene.add(mesh(new THREE.SphereGeometry(0.17, 7, 5), lambert({ map: tx.wool, color: '#b8a888' }), x, 0.13, z, true));
+
   // --- Lights: cold moonlight from the window and the door; warmth only from behind you ---------
   const L = SKIN.light;
   const hemi = new THREE.HemisphereLight(L.ambient.sky, L.ambient.ground, L.ambient.intensity);
@@ -890,7 +939,18 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
   door.target.position.set(0.6, 0.8, -0.6);
   scene.add(door, door.target);
   const bulbM0 = new THREE.MeshBasicMaterial({ color: '#ffb070' });
-  const lamp = new THREE.PointLight(L.lamp.color, L.lamp.intensity, 0, 2);
+  // Key light: the lamp over the bench throws soft shadows of everything on it.
+  const key = new THREE.SpotLight(L.lamp.color, L.lamp.intensity * KEY_K, 0, 0.95, 0.65, 1.6);
+  key.position.set(0.05, 1.52, -0.6);
+  key.target.position.set(0.0, TABLE, -0.72);
+  key.castShadow = true;
+  key.shadow.mapSize.set(512, 512);
+  key.shadow.camera.near = 0.1;
+  key.shadow.camera.far = 3;
+  key.shadow.bias = -0.0015;
+  key.shadow.radius = 3;
+  scene.add(key, key.target);
+  const lamp = new THREE.PointLight(L.lamp.color, L.lamp.intensity * LAMP_K, 0, 2);
   lamp.position.set(0.05, 1.5, -0.66);
   scene.add(mesh(new THREE.ConeGeometry(0.12, 0.09, 8, 1, true), iron, 0.05, 1.56, -0.66));
   scene.add(mesh(new THREE.SphereGeometry(0.025, 6, 4), bulbM0, 0.05, 1.53, -0.66));
@@ -936,7 +996,7 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
 
   return {
     scene,
-    lights: { hemi, window: win, door, lamp, lampBulb: bulbM, stove, arc, appArc },
+    lights: { hemi, window: win, door, lamp, key, lampBulb: bulbM, stove, arc, appArc },
     wheels: [w1, w2],
     wheel2: w2,
     sky: skyM,

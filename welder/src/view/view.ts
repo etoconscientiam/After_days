@@ -6,7 +6,7 @@ import { BALANCE } from '../data/balance';
 import { SKIN } from '../skin/default';
 import { LowRes } from './renderer';
 import { makeTextures, Textures } from './textures';
-import { buildWorkshop, Workshop, BENCH, TABLE, PART_ROT, PART_SPAN, figure } from './workshop';
+import { buildWorkshop, Workshop, BENCH, TABLE, PART_ROT, PART_SPAN, figure, KEY_K, LAMP_K } from './workshop';
 import { buildPart, PartMesh } from './partMesh';
 import { BeadView, BeadSource } from './bead';
 import { Effects } from './particles';
@@ -652,7 +652,9 @@ export class View {
     // Lights and the world outside.
     const I = g.power.I;
     const dark = g.clock.dark;
-    this.ws.lights.lamp.intensity = L.lamp.intensity * Math.min(1.6, I * I);
+    const lampK = L.lamp.intensity * Math.min(1.6, I * I);
+    this.ws.lights.lamp.intensity = lampK * LAMP_K;
+    this.ws.lights.key.intensity = lampK * KEY_K;
     const wi = L.window.intensity * (1 - dark) + L.window.night * dark;
     this.ws.lights.window.intensity = wi;
     this.ws.lights.door.intensity = wi * 0.7;

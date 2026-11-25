@@ -13,6 +13,11 @@ void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }
 const POST_FRAG = `
 uniform sampler2D tScene;
 uniform sampler2D tBloom;
+uniform sampler2D tAO;
+uniform float uAO;
+uniform float uSat;
+uniform vec3 uLift;
+uniform vec3 uGain;
 uniform float uBloom;
 uniform vec2 uRes;
 uniform float uExposure;
@@ -52,6 +57,11 @@ void main() {
   vec2 pix = floor(vUv * uRes);
   vec2 src = clamp(pix + uShake, vec2(0.0), uRes - 1.0);
   vec3 c = texture2D(tScene, (src + 0.5) / uRes).rgb;
+  // Ambient occlusion, softened with a small cross blur: corners, creases and contact go dark.
+  vec2 tx = 1.0 / uRes;
+  vec2 ac = (src + 0.5) / uRes;
+  float ao = texture2D(tAO, ac).r * 0.4 + (texture2D(tAO, ac + vec2(tx.x, 0.0)).r + texture2D(tAO, ac - vec2(tx.x, 0.0)).r + texture2D(tAO, ac + vec2(0.0, tx.y)).r + texture2D(tAO, ac - vec2(0.0, tx.y)).r) * 0.15;
+  c *= mix(1.0, ao, uAO);
   c += texture2D(tBloom, (src + 0.5) / uRes).rgb * uBloom;
   c *= uExposure;
 
@@ -79,6 +89,10 @@ void main() {
 
   c = aces(c);
   c = pow(c, vec3(1.0 / 2.2));
+  // Grade: a little less saturation, lifted warm shadows, warm highlights.
+  float lum = dot(c, vec3(0.299, 0.587, 0.114));
+  c = mix(vec3(lum), c, uSat);
+  c = c * uGain + uLift * (1.0 - c);
 
   // Afterimage: a stain on the retina that stays where the arc was on screen.
   // Afterimages: small stains left on the eye where the arc was, fading on their own.
@@ -118,6 +132,41 @@ void main() {
   gl_FragColor = vec4(c * max(0.0, l - uThreshold) / max(l, 1e-4), 1.0);
 }`;
 
+/**
+ * Crease ambient occlusion from depth alone: for pairs of opposite samples, a pixel deeper than the average of
+ * its neighbours sits in a corner or a crease. Slopes cancel out; silhouettes fade out by distance.
+ */
+const AO_FRAG = `
+uniform sampler2D tDepth;
+uniform vec2 uRes;
+uniform float uNear;
+uniform float uFar;
+uniform float uProj;
+uniform float uRadius;
+varying vec2 vUv;
+float lin(vec2 uv) {
+  float z = texture2D(tDepth, uv).r * 2.0 - 1.0;
+  return 2.0 * uNear * uFar / (uFar + uNear - z * (uFar - uNear));
+}
+void main() {
+  float d0 = lin(vUv);
+  if (d0 > 20.0) { gl_FragColor = vec4(1.0); return; }
+  float rpx = clamp(uRadius * uProj / d0, 2.0, 22.0);
+  float rot = fract(sin(dot(floor(vUv * uRes), vec2(12.9898, 78.233))) * 43758.5453) * 3.1416;
+  float occ = 0.0;
+  for (int i = 0; i < 8; i++) {
+    float fi = float(i);
+    float a = rot + fi * 0.3927;
+    float rr = rpx * (0.35 + 0.65 * fract(fi * 0.618 + 0.3));
+    vec2 off = vec2(cos(a), sin(a)) * rr / uRes;
+    float dA = lin(vUv + off), dB = lin(vUv - off);
+    float crease = d0 - 0.5 * (dA + dB);
+    float fall = 1.0 - smoothstep(uRadius, uRadius * 2.5, max(d0 - dA, d0 - dB));
+    occ += clamp(crease / (uRadius * 0.35), 0.0, 1.0) * fall;
+  }
+  gl_FragColor = vec4(vec3(1.0 - occ / 8.0), 1.0);
+}`;
+
 const BLUR_FRAG = `
 uniform sampler2D tSrc;
 uniform vec2 uDir;
@@ -146,13 +195,15 @@ export class LowRes {
   private blur: THREE.ShaderMaterial;
   private passScene = new THREE.Scene();
   private passMesh: THREE.Mesh;
+  private aoRT: THREE.WebGLRenderTarget;
+  private ao: THREE.ShaderMaterial;
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', stencil: false });
     this.renderer.setPixelRatio(1);
     this.renderer.setSize(this.w, this.h, false);
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.BasicShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.info.autoReset = false;
     this.rt = new THREE.WebGLRenderTarget(this.w, this.h, {
       type: THREE.HalfFloatType,
@@ -160,6 +211,22 @@ export class LowRes {
       magFilter: THREE.NearestFilter,
       depthBuffer: true,
       generateMipmaps: false,
+    });
+    this.rt.depthTexture = new THREE.DepthTexture(this.w, this.h);
+    this.aoRT = new THREE.WebGLRenderTarget(this.w, this.h, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: false, generateMipmaps: false });
+    this.ao = new THREE.ShaderMaterial({
+      vertexShader: POST_VERT,
+      fragmentShader: AO_FRAG,
+      depthTest: false,
+      depthWrite: false,
+      uniforms: {
+        tDepth: { value: this.rt.depthTexture },
+        uRes: { value: new THREE.Vector2(this.w, this.h) },
+        uNear: { value: 0.015 },
+        uFar: { value: 90 },
+        uProj: { value: 200 },
+        uRadius: { value: SKIN.post.aoRadius },
+      },
     });
     const half = { type: THREE.HalfFloatType, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, depthBuffer: false, generateMipmaps: false };
     this.blurA = new THREE.WebGLRenderTarget(Math.ceil(this.w / 2), Math.ceil(this.h / 2), half);
@@ -186,6 +253,11 @@ export class LowRes {
       uniforms: {
         tScene: { value: this.rt.texture },
         tBloom: { value: this.blurA.texture },
+        tAO: { value: this.aoRT.texture },
+        uAO: { value: SKIN.post.ao },
+        uSat: { value: SKIN.post.saturation },
+        uLift: { value: new THREE.Vector3(...SKIN.post.lift) },
+        uGain: { value: new THREE.Vector3(...SKIN.post.gain) },
         uBloom: { value: SKIN.post.bloom },
         uRes: { value: new THREE.Vector2(this.w, this.h) },
         uExposure: { value: SKIN.post.exposure },
@@ -226,8 +298,16 @@ export class LowRes {
     this.renderer.info.reset();
     this.renderer.setRenderTarget(this.rt);
     this.renderer.render(scene, camera);
-    // Bloom.
     const r = this.renderer;
+    // Ambient occlusion from the depth of this frame.
+    const pc = camera as THREE.PerspectiveCamera;
+    this.ao.uniforms.uNear.value = pc.near;
+    this.ao.uniforms.uFar.value = pc.far;
+    this.ao.uniforms.uProj.value = this.h / 2 / Math.tan(THREE.MathUtils.degToRad(pc.fov / 2));
+    this.passMesh.material = this.ao;
+    r.setRenderTarget(this.aoRT);
+    r.render(this.passScene, this.postCam);
+    // Bloom.
     const bw = this.blurA.width, bh = this.blurA.height;
     this.passMesh.material = this.bright;
     r.setRenderTarget(this.blurA);
