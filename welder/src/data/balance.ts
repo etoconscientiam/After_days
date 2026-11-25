@@ -7,7 +7,9 @@ export const BALANCE = {
     /** Distance from the joint where scratching the electrode can light the arc. */
     strikeRadius: 14,
     /** Electrode travel needed to strike (scratch). */
-    scratchMM: 7,
+    scratchMM: 6,
+    /** ...or this long holding the rod on the joint (a touch start). */
+    touchTime: 0.35,
     /** Pressing on a pool this hot relights without scratching. */
     hotRestart: 0.75,
     /** Lateral distance at which the arc still feeds the joint. */

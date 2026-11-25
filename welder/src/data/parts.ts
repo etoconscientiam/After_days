@@ -101,7 +101,7 @@ const list: PartDef[] = [
       { kind: 'plate', pts: [[1, -70], [110, -67], [150, -48], [172, -16], [178, 0], [172, 16], [150, 48], [110, 67], [1, 70]], p: { t: 3 }, mat: 'iron' },
       { kind: 'plate', pts: [[-50, -18], [-1.5, -31], [-1.5, 31], [-50, 18]], p: { t: 5 }, mat: 'rust' },
       { kind: 'cyl', p: { r: 15, r2: 18, h: 100, seg: 10 }, pos: [-100, 14, 0], rot: [0, 0, 90], mat: 'rust' },
-      { kind: 'cyl', p: { r: 13.5, h: 170, seg: 8 }, pos: [-235, 14, 0], rot: [0, 0, 90], mat: 'wood' },
+      { kind: 'cyl', p: { r: 13.5, h: 100, seg: 8 }, pos: [-195, 14, 0], rot: [0, 0, 90], mat: 'wood' },
     ],
     seams: [line('neck', [0, 4.2, -28], [0, 4.2, 28], [-0.15, 1, 0])],
     thick: 0.9,
@@ -180,7 +180,7 @@ const list: PartDef[] = [
     // A guard's spear: blade and socket parted at the neck. The ring has to be turned round as you go.
     id: 'spear',
     pieces: [
-      { kind: 'cyl', p: { r: 12.5, h: 200, seg: 8 }, pos: [-200, 0, 0], rot: [0, 0, 90], mat: 'wood' },
+      { kind: 'cyl', p: { r: 12.5, h: 110, seg: 8 }, pos: [-160, 0, 0], rot: [0, 0, 90], mat: 'wood' },
       { kind: 'cyl', p: { r: 15, r2: 18.5, h: 112, seg: 12 }, pos: [-57, 0, 0], rot: [0, 0, 90], mat: 'rust' },
       { kind: 'torus', p: { R: 18.5, r: 2.5 }, pos: [-104, 0, 0], rot: [0, 0, 90], mat: 'dark' },
       { kind: 'cyl', p: { r: 11.5, h: 16, seg: 12 }, pos: [8.5, 0, 0], rot: [0, 0, 90], mat: 'steel' },

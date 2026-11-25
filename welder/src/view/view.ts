@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import type { Game } from '../sim/game';
 import type { TorchIn } from '../sim/weld';
-import { emptyTorch } from '../sim/weld';
+import { emptyTorch, nearestSeam, canReach } from '../sim/weld';
+import type { Proj } from '../sim/seam';
 import { BALANCE } from '../data/balance';
 import { SKIN } from '../skin/default';
 import { LowRes } from './renderer';
@@ -22,6 +23,10 @@ const MM = 0.001;
 /** Things you click instead of welding on them. */
 const TOOLS_OF_THE_ROOM = new Set(['pile', 'board', 'electrodes', 'door', 'done']);
 const Y_UP = new THREE.Vector3(0, 1, 0);
+/** Room on the bench for a job turned any way (m): clear of the scrap crate and the finished stack. */
+const FREE_R = 0.4;
+/** How far the head leans toward the arc while welding (fraction of the way). */
+const LEAN = 0.38;
 
 /**
  * Everything the player sees, from one station at the bench (Dish Pit style). Reads sim state each frame,
@@ -70,6 +75,13 @@ export class View {
   private scale = 1;
   private lastPartTip = new THREE.Vector3();
   private lastSurf = new THREE.Vector3();
+  /** Middle of the job's footprint (part-local mm), the point it turns about on the bench. */
+  private mid = new THREE.Vector3();
+  private aimProj: Proj = { s: 0, d: 0, dist: 0, seam: -1 };
+  private strikeAcc = 0;
+  private leanT = 0;
+  private leanAt = new THREE.Vector3();
+  private whyT = 0;
   private v3q = new THREE.Quaternion();
   private v3 = new THREE.Vector3();
   private v3b = new THREE.Vector3();
@@ -585,7 +597,20 @@ export class View {
     const def = this.game.data.parts[id];
     this.part = buildPart(def, this.tx);
     // Every job is drawn to fill the middle of the view.
-    this.S = PART_SPAN / (def.frame * MM);
+    // Turn about the middle of the job, and keep it small enough that, turned any way, it stays clear of
+    // the scrap crate and the finished stack on either side.
+    const h = this.part.hull;
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+    for (let i = 0; i < h.length; i += 3) {
+      x0 = Math.min(x0, h[i]);
+      x1 = Math.max(x1, h[i]);
+      z0 = Math.min(z0, h[i + 2]);
+      z1 = Math.max(z1, h[i + 2]);
+    }
+    this.mid.set((x0 + x1) / 2, 0, (z0 + z1) / 2);
+    let rmax = 1;
+    for (let i = 0; i < h.length; i += 3) rmax = Math.max(rmax, Math.hypot(h[i] - this.mid.x, h[i + 1], h[i + 2] - this.mid.z));
+    this.S = Math.min(PART_SPAN / (def.frame * MM), FREE_R / (rmax * MM));
     this.partRoot.scale.setScalar(this.S);
     this.partRoot.add(this.part.group);
     this.rotKey = '';
@@ -611,10 +636,13 @@ export class View {
         const y = this.v3.set(h[i], h[i + 1], h[i + 2]).applyQuaternion(this.q3).y;
         if (y < minY) minY = y;
       }
-      this.lift = -minY;
+      this.lift = -minY + 0.5;
       this.partRoot.quaternion.copy(this.q3);
       if (PART_ROT) this.partRoot.quaternion.premultiply(this.v3q.setFromAxisAngle(Y_UP, PART_ROT));
-      this.partRoot.position.copy(BENCH).add(this.v3.set(0, this.lift * MM * this.S, 0));
+      // Keep the middle of the job over the middle of the bench whichever way it's turned.
+      const c = this.v3.copy(this.mid).applyQuaternion(this.partRoot.quaternion);
+      const k = MM * this.S;
+      this.partRoot.position.copy(BENCH).add(this.v3.set(-c.x * k, this.lift * k, -c.z * k));
       this.partRoot.updateMatrixWorld(true);
       this.box.setFromObject(this.part.group);
       this.grip.set(Math.max(this.box.min.x, BENCH.x - 0.34), (this.box.min.y + this.box.max.y) / 2, Math.min(this.box.max.z, BENCH.z + 0.06));
@@ -830,7 +858,7 @@ export class View {
 
     // The job, the hands and the arc.
     this.placePart(dt);
-    this.bead.update();
+    this.bead.update(dt);
     const tip = this.v3c;
     if (this.part && this.torch.has) {
       const hover = b.stage === 'weld' ? (a.lit ? a.L * 1.4 : this.lmb ? 0.4 : 7) : 0;
@@ -855,7 +883,18 @@ export class View {
     this.tools.arcGlow.visible = lit;
     this.tools.arcStar.visible = lit;
     this.tools.bolt.visible = lit;
-    this.tools.pool.visible = lit && a.onSeam && a.pool > 0.8;
+    this.tools.pool.visible = false;
+    this.bead.setPool(lit && a.onSeam, a.seam, a.s, a.d, a.pool, a.dir, 0.85 + 0.3 * r.next());
+    // Lean in over the work while the arc burns; straighten up a moment after it goes out.
+    if (lit && this.rig.mode === 'station') {
+      if (this.leanT <= 0) this.leanAt.copy(this.lastSurf);
+      this.leanT = 1.4;
+      this.rig.lean(this.leanAt, LEAN);
+    } else if (this.leanT > 0) {
+      this.leanT -= dt;
+      if (this.leanT <= 0 && this.rig.mode === 'station') this.rig.lean(null, 0);
+    }
+    this.updateAim(dt);
     const arcLight = this.ws.lights.arc;
     let arcOn = 0;
     if (lit) {
@@ -934,6 +973,34 @@ export class View {
     this.lr.render(this.ws.scene, this.rig.cam);
     this.placeOverlay();
     this.ui.update(dt);
+  }
+
+  /**
+   * Before the arc burns: a mark on the joint where the rod would land, and, while the button is held, why
+   * nothing happens (off the joint, facing away, no rod...). Striking throws a few sparks as it catches.
+   */
+  private updateAim(dt: number): void {
+    const g = this.game, b = g.player, a = b.arc;
+    const atBench = this.rig.mode !== 'walk' && !this.ui.boardOpen && !this.ui.endOpen && this.started;
+    let state: '' | 'ok' | 'near' | 'away' = '';
+    const P = this.aimProj;
+    if (atBench && this.part && b.stage === 'weld' && !a.lit && this.torch.has && b.swap <= 0) {
+      nearestSeam(b, this.torch.x, this.torch.y, this.torch.z, -1, P);
+      const R = BALANCE.weld.strikeRadius;
+      if (P.seam >= 0 && P.dist < R * 2.6) state = !canReach(b, P.seam, P.s) ? 'away' : P.dist <= R ? 'ok' : 'near';
+    }
+    this.bead.setMark(state, P.seam, P.s, a.why === 'strike' ? a.strikeK : 0);
+    // Sputter while the strike is coming.
+    if (a.why === 'strike' && this.lmb && this.part) {
+      this.strikeAcc += dt * (6 + 30 * a.strikeK);
+      const n = Math.floor(this.strikeAcc);
+      this.strikeAcc -= n;
+      if (n) this.fx.spatter(this.lastSurf.x, this.lastSurf.y + 0.002, this.lastSurf.z, n, 0.2);
+    }
+    // Explain a held button that isn't welding, after a beat.
+    const why = atBench && this.lmb && !this.suppress && a.why && a.why !== 'strike' ? a.why : '';
+    this.whyT = why ? this.whyT + dt : 0;
+    this.ui.setWhy(this.whyT > 0.2 ? why : '', this.mouse.x, this.mouse.y);
   }
 
   /**

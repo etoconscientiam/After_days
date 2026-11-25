@@ -53,6 +53,21 @@ export class CameraRig {
     this.tFov = 58;
   }
 
+  /**
+   * Lean toward a point on the work by fraction k of the way (0 = upright at the bench). The head moves along
+   * the line of sight to that point without turning, so the point stays exactly where it is on screen and the
+   * hand on the mouse doesn't jump; everything around it just gets bigger.
+   */
+  lean(at: THREE.Vector3 | null, k: number): void {
+    if (this.mode !== 'station') return;
+    this.tPos.copy(this.eye);
+    this.tLook.copy(this.ahead);
+    if (!at || k <= 0) return;
+    const d = this.tmp.copy(at).sub(this.eye).multiplyScalar(k);
+    this.tPos.add(d);
+    this.tLook.add(d);
+  }
+
   /** Step back from the bench and walk. */
   walk(): void {
     this.mode = 'walk';

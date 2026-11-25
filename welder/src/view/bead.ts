@@ -63,6 +63,17 @@ export class BeadView {
   private snap: (p: THREE.Vector3, n: THREE.Vector3) => void = () => {};
   private rev = -1;
   private stage = '';
+  /** View clock (s), and when each ripple of each seam first appeared, so the bead cools and crusts over. */
+  private clock = 0;
+  private born: Float32Array[] = [];
+  /** Bare-metal colour of each ripple instance (before crust). */
+  private baseCol = new Float32Array(CAP * 3);
+  /** The molten pool under the arc, its glowing tail, and the aim mark on the joint. */
+  readonly pool: THREE.Mesh;
+  readonly tail: THREE.Mesh;
+  readonly mark: THREE.Group;
+  private markMat: THREE.MeshBasicMaterial;
+  private markFill: THREE.Mesh;
   readonly glowK = { value: SKIN.glow.k };
   private tmpM = new THREE.Matrix4();
   private tmpQ = new THREE.Quaternion();
@@ -70,6 +81,7 @@ export class BeadView {
   private tmpP = new THREE.Vector3();
   private tmpS = new THREE.Vector3();
   private tmpC = new THREE.Color();
+  private tmpC2 = new THREE.Color();
   private side = new THREE.Vector3(0, 0, 1);
   private pt = seamPoint();
   private ax = new THREE.Vector3();
@@ -125,6 +137,71 @@ export class BeadView {
     this.grooveMat = new THREE.MeshBasicMaterial({ color: '#050403', side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
     this.hiMat = new THREE.MeshBasicMaterial({ color: '#c89a70', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
     this.group.add(this.ripples, this.holes, this.dots, this.pores);
+
+    // Molten pool: a white-hot lens of metal with an orange tail where it is freezing behind the arc.
+    const lens = new THREE.SphereGeometry(1, 12, 5, 0, Math.PI * 2, 0, Math.PI / 2);
+    this.pool = new THREE.Mesh(lens, new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 0.88, 0.62).multiplyScalar(9) }));
+    this.tail = new THREE.Mesh(lens, new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 0.38, 0.06).multiplyScalar(4) }));
+    this.pool.visible = this.tail.visible = false;
+    this.pool.frustumCulled = this.tail.frustumCulled = false;
+    // Aim mark: a ring on the joint where the rod would strike.
+    const ring = new THREE.RingGeometry(0.78, 1, 20);
+    ring.rotateX(-Math.PI / 2);
+    this.markMat = new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.9, depthTest: false, depthWrite: false, side: THREE.DoubleSide });
+    const fill = new THREE.CircleGeometry(1, 20);
+    fill.rotateX(-Math.PI / 2);
+    this.markFill = new THREE.Mesh(fill, this.markMat);
+    this.mark = new THREE.Group();
+    this.mark.add(new THREE.Mesh(ring, this.markMat), this.markFill);
+    this.mark.traverse((o) => (o.renderOrder = 20));
+    this.mark.visible = false;
+    this.group.add(this.pool, this.tail, this.mark);
+  }
+
+  /** Put a point of seam `seam` at (s, d) and its frame into this.pt; returns false if there's no such seam. */
+  private at(seam: number, s: number): boolean {
+    const sr = this.src?.seams[seam];
+    if (!sr) return false;
+    sr.pointAt(s, this.pt);
+    return true;
+  }
+
+  /** The molten pool under the arc: size from the heat at the pool, stretched back along the run. */
+  setPool(on: boolean, seam = -1, s = 0, d = 0, heat = 0, dir = 1, flick = 1): void {
+    this.pool.visible = this.tail.visible = on && this.at(seam, s);
+    if (!this.pool.visible) return;
+    const p = this.pt;
+    const r = (3.4 + 1.8 * Math.min(2, heat)) * flick;
+    const M = this.tmpM, P = this.tmpP, S = this.tmpS;
+    this.frame(dir, this.tmpQ);
+    P.set((p.x + p.bx * d + p.nx * 0.4) * MM, (p.y + p.by * d + p.ny * 0.4) * MM, (p.z + p.bz * d + p.nz * 0.4) * MM);
+    S.set(r * 1.15 * MM, r * 0.45 * MM, r * MM);
+    M.compose(P, this.tmpQ, S);
+    this.pool.matrixAutoUpdate = false;
+    this.pool.matrix.copy(M);
+    const back = -dir * r * 1.6;
+    P.set((p.x + p.bx * d + p.tx * back + p.nx * 0.3) * MM, (p.y + p.by * d + p.ty * back + p.ny * 0.3) * MM, (p.z + p.bz * d + p.tz * back + p.nz * 0.3) * MM);
+    S.set(r * 2.2 * MM, r * 0.38 * MM, r * 0.85 * MM);
+    M.compose(P, this.tmpQ, S);
+    this.tail.matrixAutoUpdate = false;
+    this.tail.matrix.copy(M);
+  }
+
+  /**
+   * Where the rod would land: green on a joint it can strike, amber when close but off it, red when the joint
+   * faces away. `k` (0..1) fills the ring while the strike is coming.
+   */
+  setMark(state: '' | 'ok' | 'near' | 'away', seam = -1, s = 0, k = 0): void {
+    this.mark.visible = state !== '' && this.at(seam, s);
+    if (!this.mark.visible) return;
+    const p = this.pt;
+    this.mark.position.set((p.x + p.nx * 1.2) * MM, (p.y + p.ny * 1.2) * MM, (p.z + p.nz * 1.2) * MM);
+    this.frame(1, this.mark.quaternion);
+    const r = state === 'ok' ? 6 : 8;
+    this.mark.scale.setScalar(r * MM);
+    this.markMat.color.set(state === 'ok' ? '#9cff7a' : state === 'near' ? '#ffc24a' : '#ff5a3a').multiplyScalar(state === 'ok' ? 2.5 : 2);
+    this.markFill.visible = state === 'ok' && k > 0;
+    this.markFill.scale.setScalar(Math.max(0.05, k) * 0.7);
   }
 
   attach(src: BeadSource | null, snap: (p: THREE.Vector3, n: THREE.Vector3) => void = () => {}): void {
@@ -141,6 +218,9 @@ export class BeadView {
     this.src = src;
     this.snap = snap;
     this.rev = -1;
+    // Ripples already there (the gate kept for the end card) are cold; new ones are stamped as they appear.
+    this.born = src ? src.seams.map((sr) => new Float32Array(sr.cap).fill(Number.NaN).fill(-1e9, 0, sr.count)) : [];
+    this.pool.visible = this.tail.visible = this.mark.visible = false;
     this.ripples.count = this.holes.count = this.dots.count = this.pores.count = 0;
     if (!src) return;
     for (const sr of src.seams) {
@@ -177,11 +257,12 @@ export class BeadView {
 
   /** Which seam to highlight (-1 none) and how strongly. Steady, no pulsing. */
   highlight(seam: number, k: number): void {
-    this.hiMat.opacity = k * 0.09;
+    this.hiMat.opacity = k * 0.16;
     for (let i = 0; i < this.hi.length; i++) this.hi[i].visible = i === seam && k > 0;
   }
 
-  update(): void {
+  update(dt = 0): void {
+    this.clock += dt;
     const src = this.src;
     if (!src) return;
     if (src.rev !== this.rev || src.stage !== this.stage) {
@@ -204,13 +285,18 @@ export class BeadView {
 
   private rebuild(): void {
     const src = this.src!;
+    const welding = src.stage === 'weld';
     let k = 0, kh = 0, kd = 0, kp = 0;
+    let si = -1;
     const M = this.tmpM, P = this.tmpP, S = this.tmpS, Q = this.tmpQ, C = this.tmpC;
     const p = this.pt;
     this.ranges.length = 0;
     for (const sr of src.seams) {
+      si++;
+      const born = this.born[si];
       const start = k;
       for (let i = 0; i < sr.count && k < CAP; i++, k++) {
+        if (born && Number.isNaN(born[i])) born[i] = this.clock;
         sr.pointAt(sr.rS[i], p);
         const d = sr.rD[i];
         const f = sr.rF[i];
@@ -229,11 +315,12 @@ export class BeadView {
         this.tmpQ2.setFromAxisAngle(this.side, 0.22);
         Q.multiply(this.tmpQ2);
         const hs = slag > 0 ? 1.25 : 1;
-        S.set(len * MM, h * hs * MM, w * 0.5 * MM);
+        // Drawn a little fuller than the sim's millimetres so the bead reads at this resolution.
+        S.set(len * 1.25 * MM, h * hs * 1.9 * MM, w * 0.5 * 1.45 * MM);
         M.compose(P, Q, S);
         this.ripples.setMatrixAt(k, M);
         // Colour: slag crust, or bare metal tinted by how it was laid.
-        if (slag > 0) C.copy(this.slag).multiplyScalar(0.85 + 0.3 * hash(i, 1));
+        if (slag > 0 && !welding) C.copy(this.slag).multiplyScalar(0.85 + 0.3 * hash(i, 1));
         else {
           C.copy(this.metal);
           if (f & F_COLD) C.lerp(this.dull, 0.55);
@@ -242,6 +329,9 @@ export class BeadView {
           if (f & F_LONG) C.lerp(this.dull, 0.3);
           C.multiplyScalar(0.8 + 0.35 * hash(i, 2));
         }
+        C.toArray(this.baseCol, k * 3);
+        // While welding, the bead crusts over with scale as it cools.
+        if (welding) this.crust(C, this.clock - (born ? born[i] : -1e9), i);
         this.ripples.setColorAt(k, C);
         if (f & F_PORE && slag === 0 && kp < 400) {
           const dd = d + (hash(i, 3) - 0.5) * w * 0.4;
@@ -289,25 +379,48 @@ export class BeadView {
     for (let i = 0; i < this.grooves.length; i++) this.grooves[i].visible = true;
   }
 
+  /** Fresh metal → dark scale over the first seconds after it's laid. */
+  private crust(C: THREE.Color, age: number, i: number): void {
+    const t = Math.min(1, Math.max(0, (age - 0.6) / 2.4));
+    if (t > 0) C.lerp(this.tmpC2.copy(this.slag).multiplyScalar(0.85 + 0.3 * hash(i, 1)), t * t * (3 - 2 * t));
+  }
+
+  /**
+   * Each frame: how hot each ripple glows. The sim's heat field, or the cooling of freshly laid metal, whichever
+   * is hotter, so the bead behind the arc goes white → yellow → orange → cherry → dark over a few seconds.
+   * While welding, the colour follows the crust forming on it.
+   */
   private updateGlow(): void {
     const src = this.src!;
-    let any = false;
+    const welding = src.stage === 'weld';
+    let any = false, anyC = false;
     let kh = 0;
+    const col = this.ripples.instanceColor!.array as Float32Array;
     for (let s = 0; s < src.seams.length; s++) {
       const sr = src.seams[s];
       const rg = this.ranges[s];
+      const born = this.born[s];
       if (!rg) continue;
       const hot = sr.maxHeat > 0.03;
       for (let k = rg[0], i = 0; k < rg[1]; k++, i++) {
-        const g = hot ? sr.heat[sr.cellAt(sr.rS[i])] : 0;
+        const age = born ? this.clock - born[i] : 1e9;
+        const fresh = age < 10 ? 2.2 * Math.exp(-age / 1.7) : 0;
+        const g = Math.max(hot ? sr.heat[sr.cellAt(sr.rS[i])] : 0, fresh);
         if (this.rGlow.array[k] !== g) {
           (this.rGlow.array as Float32Array)[k] = g;
           any = true;
+        }
+        if (welding && age < 3.2) {
+          this.tmpC.fromArray(this.baseCol, k * 3);
+          this.crust(this.tmpC, age, i);
+          this.tmpC.toArray(col, k * 3);
+          anyC = true;
         }
       }
       for (let c = 0; c < sr.n && kh < 256; c++) if (sr.hole[c]) (this.hGlow.array as Float32Array)[kh++] = sr.heat[c] * 1.3;
     }
     if (any) this.rGlow.needsUpdate = true;
+    if (anyC) this.ripples.instanceColor!.needsUpdate = true;
     if (kh) this.hGlow.needsUpdate = true;
   }
 

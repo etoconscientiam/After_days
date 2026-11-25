@@ -14,6 +14,9 @@ const A = BALANCE.arc;
 
 export type BenchStage = 'empty' | 'weld' | 'chip' | 'inspect' | 'ready';
 
+/** Why a held button isn't welding: off the joint, the joint faces away, no rod, changing rods, stuck, or striking. */
+export type StrikeWhy = '' | 'far' | 'away' | 'empty' | 'swap' | 'stuck' | 'strike';
+
 /** What drives a bench this step: the player's mouse, or the apprentice's replayed habit. */
 export interface TorchIn {
   /** Cursor is on the part (x, y, z valid, part-local mm). */
@@ -61,6 +64,12 @@ export class Arc {
   pool = 0;
   litTime = 0;
   emptyNotified = false;
+  /** Seconds the rod has been held on the joint without catching (striking by touch). */
+  touch = 0;
+  /** While the button is held and the arc isn't burning: why not. '' when nothing to say. */
+  why: StrikeWhy = '';
+  /** 0..1 how close the strike is (scratch or touch), for sputtering sparks. */
+  strikeK = 0;
 }
 
 export interface WeldCtx {
@@ -271,8 +280,10 @@ function stepWeld(b: Bench, inp: TorchIn, ctx: WeldCtx): void {
   const dt = ctx.dt;
   const part = b.part!;
 
+  a.why = '';
   if (b.swap > 0) {
     extinguish(b, 'release', ctx);
+    if (inp.press) a.why = 'swap';
     b.swap -= dt;
     if (b.swap <= 0) {
       b.swap = 0;
@@ -284,6 +295,7 @@ function stepWeld(b: Bench, inp: TorchIn, ctx: WeldCtx): void {
   }
 
   if (a.stuck) {
+    a.why = 'stuck';
     if (!inp.press) {
       a.stuck = false;
       ctx.bus.emit('arcUnstick', { bench: b.id });
@@ -294,7 +306,10 @@ function stepWeld(b: Bench, inp: TorchIn, ctx: WeldCtx): void {
   if (!inp.press) b.reachWarned = false;
   if (!inp.press || !inp.has) {
     if (a.lit) extinguish(b, inp.press ? 'off' : 'release', ctx);
+    if (inp.press && !a.lit) a.why = 'far';
     a.scratch = 0;
+    a.touch = 0;
+    a.strikeK = 0;
     a.hadPos = false;
     if (!a.lit) checkDone(b, ctx);
     return;
@@ -311,6 +326,7 @@ function stepWeld(b: Bench, inp: TorchIn, ctx: WeldCtx): void {
 
   if (!a.lit) {
     if (b.electrode <= 0) {
+      a.why = 'empty';
       if (!a.emptyNotified) {
         a.emptyNotified = true;
         ctx.bus.emit('electrodeEmpty', { bench: b.id });
@@ -320,11 +336,17 @@ function stepWeld(b: Bench, inp: TorchIn, ctx: WeldCtx): void {
     nearestSeam(b, inp.x, inp.y, inp.z, a.seam, proj);
     if (proj.seam < 0 || proj.dist > W.strikeRadius) {
       a.scratch = 0;
+      a.touch = 0;
+      a.strikeK = 0;
+      a.why = 'far';
       return;
     }
     // A joint that faces away can't be reached with the rod: the part has to be turned first.
     if (!canReach(b, proj.seam, proj.s)) {
       a.scratch = 0;
+      a.touch = 0;
+      a.strikeK = 0;
+      a.why = 'away';
       if (!b.reachWarned) {
         b.reachWarned = true;
         ctx.bus.emit('cantReach', { bench: b.id, seam: proj.seam });
@@ -333,8 +355,15 @@ function stepWeld(b: Bench, inp: TorchIn, ctx: WeldCtx): void {
     }
     const sr = b.seams[proj.seam];
     const hot = sr.heat[sr.cellAt(proj.s)];
+    // Strike: scratch the rod along, or just hold it on the joint for a moment.
     a.scratch += moved;
-    if (hot >= W.hotRestart || a.scratch >= W.scratchMM * ctx.stats.strikeMul) {
+    a.touch += dt;
+    a.why = 'strike';
+    a.strikeK = Math.min(1, Math.max(a.scratch / (W.scratchMM * ctx.stats.strikeMul), a.touch / (W.touchTime * ctx.stats.strikeMul)));
+    if (hot >= W.hotRestart || a.strikeK >= 1) {
+      a.why = '';
+      a.strikeK = 0;
+      a.touch = 0;
       a.lit = true;
       a.L = Number.isFinite(inp.forceL) ? inp.forceL : A.startL;
       a.seam = proj.seam;

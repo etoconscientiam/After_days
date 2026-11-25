@@ -27,6 +27,9 @@ export class UI {
   private appStatus = el('div', 'app-status');
   private ctrl = el('div', 'ctrl');
   private promptEl = el('div', 'prompt');
+  /** Why the held rod isn't burning, by the cursor. */
+  private whyEl = el('div', 'why');
+  private whyKey = '';
   private start = el('div', 'start', 'pe');
   private endEl = el('div', 'end');
   private stampT = 0;
@@ -40,7 +43,7 @@ export class UI {
     this.root = root;
     this.money.append(el('i'), this.moneyVal);
     this.endEl.style.display = 'none';
-    root.append(this.money, this.ctrl, this.promptEl, this.appStatus, this.hint, this.tip, this.stampEl, this.toasts, this.board, this.endEl, this.start, this.cursor);
+    root.append(this.money, this.ctrl, this.promptEl, this.whyEl, this.appStatus, this.hint, this.tip, this.stampEl, this.toasts, this.board, this.endEl, this.start, this.cursor);
   }
 
   /** Bottom strip: how to act in the current mode. At the bench, the mask and which way SPACE moves it. */
@@ -105,6 +108,19 @@ export class UI {
   placeHint(x: number, y: number): void {
     this.hint.style.left = x + 'px';
     this.hint.style.top = y + 'px';
+  }
+
+  /** Short reason under the cursor ('' hides it). */
+  setWhy(key: string, x: number, y: number): void {
+    if (key !== this.whyKey) {
+      this.whyKey = key;
+      this.whyEl.textContent = key ? t('why.' + key) : '';
+      this.whyEl.style.display = key ? 'block' : 'none';
+    }
+    if (key) {
+      this.whyEl.style.left = x + 'px';
+      this.whyEl.style.top = y + 'px';
+    }
   }
 
   placeCursor(x: number, y: number, show: boolean): void {

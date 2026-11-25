@@ -59,7 +59,7 @@ export const SKIN = {
   },
   glow: {
     /** Emissive multiplier of hot metal. */
-    k: 3.4,
+    k: 4.6,
   },
   mask: {
     tint: [0.45, 1.0, 0.5] as [number, number, number],

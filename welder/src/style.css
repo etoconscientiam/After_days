@@ -255,3 +255,17 @@ html, body {
   border: var(--px) solid #5a4834;
   white-space: nowrap;
 }
+
+#why {
+  position: absolute;
+  display: none;
+  transform: translate(-50%, 0);
+  margin-top: calc(var(--px) * 8);
+  padding: calc(var(--px) * 1) calc(var(--px) * 3);
+  color: #ffd890;
+  background: rgba(12, 9, 7, 0.8);
+  border: var(--px) solid #8a5a2a;
+  white-space: nowrap;
+  pointer-events: none;
+  text-transform: lowercase;
+}
