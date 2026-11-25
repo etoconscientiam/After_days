@@ -58,7 +58,7 @@ function boot(): void {
           } catch {
             /* ignore */
           }
-          location.search = '?fresh';
+          location.reload();
           return;
         }
         sound.init(game);
