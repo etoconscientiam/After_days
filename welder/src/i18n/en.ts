@@ -100,6 +100,8 @@ export const en = {
   'hint.learn': 'craft',
   'tour.next': 'next ▸',
   'gauge.arc': 'arc',
+  'rod.label': 'rod',
+  'rod.swap': 'new rod…',
   'gauge.speed': 'tempo',
   'pop.seam': 'seam ✓',
   'tour.done': 'to work ▸',

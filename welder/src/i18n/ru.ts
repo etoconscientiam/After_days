@@ -102,6 +102,8 @@ export const ru: Strings = {
   'hint.learn': 'ремесло',
   'tour.next': 'дальше ▸',
   'gauge.arc': 'дуга',
+  'rod.label': 'электрод',
+  'rod.swap': 'меняю…',
   'gauge.speed': 'темп',
   'pop.seam': 'шов ✓',
   'tour.done': 'за работу ▸',

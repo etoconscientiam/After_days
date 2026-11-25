@@ -632,12 +632,38 @@ export class View {
     return this.ray.ray.intersectPlane(this.plane, this.zoomP);
   }
 
+  /**
+   * Before the arc burns (and while chipping), a cursor near a joint pulls the rod (or the hammer) onto it, so
+   * the mark on the seam and the tip of the rod are in the same place and the strike lands where you aim.
+   * Once the arc burns the hand is yours alone.
+   */
+  private snapToSeam(tr: TorchIn): void {
+    const b = this.game.player;
+    if (!tr.has || !this.part) return;
+    const chip = b.stage === 'chip';
+    if (!(chip || (b.stage === 'weld' && !b.arc.lit))) return;
+    const P = this.aimProj;
+    nearestSeam(b, tr.x, tr.y, tr.z, -1, P, !chip);
+    const R = (chip ? BALANCE.chip.radius : BALANCE.weld.strikeRadius) * 1.6;
+    if (P.seam < 0 || P.dist > R) return;
+    if (!chip && !canReach(b, P.seam, P.s)) return;
+    const p = b.seams[P.seam].pointAt(P.s, this.pt);
+    const k = 0.2; // keep a fifth of the offset: the hand still shows
+    tr.x = p.x + (tr.x - p.x) * k;
+    tr.y = p.y + (tr.y - p.y) * k;
+    tr.z = p.z + (tr.z - p.z) * k;
+    this.p2w(tr.x, tr.y, tr.z, this.surfW);
+    this.normW.set(p.nx, p.ny, p.nz).transformDirection(this.partRoot.matrixWorld);
+  }
+
   /** Input for one frame; the arc-length request is handed to the first sim step only. */
   frameInput(dt: number): TorchIn {
     const tr = this.torch;
     const active = this.started && !this.ui.modal && !this.ui.endOpen && this.tour < 0 && (this.rig.mode === 'station' || this.rig.mode === 'inspect');
-    if (active) this.aimOnPart(tr);
-    else tr.has = false;
+    if (active) {
+      this.aimOnPart(tr);
+      this.snapToSeam(tr);
+    } else tr.has = false;
     tr.press = active && (this.lmb || this.latch) && !this.suppress && this.mouse.in;
     const kr = BALANCE.arc.keyRate * dt;
     const k = (c: string) => (this.held.has(c) ? 1 : 0);
@@ -1121,9 +1147,9 @@ export class View {
     this.ws.restHammer.visible = !chipping;
     this.tools.holder.visible = !chipping;
     this.tools.group.visible = this.rig.mode !== 'walk';
-    if (this.part && stage === 'weld') this.tools.placeHolder(tip, this.rig.cam, b.swap > 0 ? 0 : b.electrode);
+    if (this.part && stage === 'weld') this.tools.placeHolder(tip, this.rig.cam, b.swap > 0 ? 0 : b.electrode, this.torch.has ? this.normW : undefined);
     else this.tools.placeHolder(this.restTip, this.rig.cam, b.electrode);
-    if (chipping) this.tools.placeHammer(tip, this.rig.cam, dt);
+    if (chipping) this.tools.placeHammer(tip, this.rig.cam, dt, this.torch.has ? this.normW : undefined);
     if (this.part) this.tools.placeLeft(this.grip, this.rig.cam);
     else this.tools.placeLeft(this.restLeft, this.rig.cam);
 
@@ -1240,6 +1266,7 @@ export class View {
     if (this.stagesT <= 0) {
       this.stagesT = 0.12;
       this.ui.updateStages();
+      this.ui.setRod(this.started && !!this.part && (b.stage === 'weld'), b.electrode, b.swap > 0);
     }
     this.ui.update(dt);
   }
@@ -1251,12 +1278,19 @@ export class View {
   private updateAim(dt: number): void {
     const g = this.game, b = g.player, a = b.arc;
     const atBench = this.rig.mode !== 'walk' && !this.ui.modal && !this.ui.endOpen && this.started;
-    let state: '' | 'ok' | 'near' | 'away' = '';
+    let state: '' | 'ok' | 'near' | 'away' | 'chip' = '';
     const P = this.aimProj;
     if (atBench && this.part && b.stage === 'weld' && !a.lit && this.torch.has && b.swap <= 0) {
-      nearestSeam(b, this.torch.x, this.torch.y, this.torch.z, -1, P);
+      nearestSeam(b, this.torch.x, this.torch.y, this.torch.z, -1, P, true);
+      if (P.seam < 0 || P.dist > BALANCE.weld.strikeRadius * 2.6) nearestSeam(b, this.torch.x, this.torch.y, this.torch.z, -1, P);
       const R = BALANCE.weld.strikeRadius;
       if (P.seam >= 0 && P.dist < R * 2.6) state = !canReach(b, P.seam, P.s) ? 'away' : P.dist <= R ? 'ok' : 'near';
+    }
+    // Chipping: the hammer's mark sits on the nearest slag under the cursor.
+    if (atBench && this.part && b.stage === 'chip' && this.torch.has) {
+      nearestSeam(b, this.torch.x, this.torch.y, this.torch.z, -1, P);
+      const sr = P.seam >= 0 ? b.seams[P.seam] : null;
+      if (sr && P.dist <= BALANCE.chip.radius * 1.6 && sr.slag[sr.cellAt(P.s)] > 0) state = 'chip';
     }
     this.bead.setMark(state, P.seam, P.s, a.why === 'strike' ? a.strikeK : 0);
     // Sputter while the strike is coming.

@@ -77,6 +77,9 @@ export class BeadView {
   /** Chalk dashes either side of each joint, drawn when the job comes in. */
   private chalk: THREE.Mesh[] = [];
   private chalkMat = new THREE.MeshLambertMaterial({ color: '#ece6d6', polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  /** While chipping: a warm pulsing band over every stretch that still has slag on it. */
+  private slagBand: THREE.Mesh;
+  private slagMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffb040').multiplyScalar(1.4), transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
   /** A glint that runs along the joint to weld next. */
   readonly glint: THREE.Mesh;
   private glintT = 0;
@@ -163,7 +166,10 @@ export class BeadView {
     this.mark.visible = false;
     this.glint = new THREE.Mesh(new THREE.SphereGeometry(1, 8, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 0.9, 0.7).multiplyScalar(3), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
     this.glint.visible = false;
-    this.group.add(this.pool, this.tail, this.mark, this.glint);
+    this.slagBand = new THREE.Mesh(new THREE.BufferGeometry(), this.slagMat);
+    this.slagBand.renderOrder = 3;
+    this.slagBand.visible = false;
+    this.group.add(this.pool, this.tail, this.mark, this.glint, this.slagBand);
   }
 
   /** Chalk: short dashes along both sides of the joint, laid onto the surface. */
@@ -254,7 +260,7 @@ export class BeadView {
    * Where the rod would land: green on a joint it can strike, amber when close but off it, red when the joint
    * faces away. `k` (0..1) fills the ring while the strike is coming.
    */
-  setMark(state: '' | 'ok' | 'near' | 'away', seam = -1, s = 0, k = 0): void {
+  setMark(state: '' | 'ok' | 'near' | 'away' | 'chip', seam = -1, s = 0, k = 0): void {
     this.mark.visible = state !== '' && this.at(seam, s);
     if (!this.mark.visible) return;
     const p = this.pt;
@@ -262,7 +268,7 @@ export class BeadView {
     this.frame(1, this.mark.quaternion);
     const r = state === 'ok' ? 6 : 8;
     this.mark.scale.setScalar(r * MM);
-    this.markMat.color.set(state === 'ok' ? '#9cff7a' : state === 'near' ? '#ffc24a' : '#ff5a3a').multiplyScalar(state === 'ok' ? 2.5 : 2);
+    this.markMat.color.set(state === 'ok' ? '#9cff7a' : state === 'chip' ? '#ffb040' : state === 'near' ? '#ffc24a' : '#ff5a3a').multiplyScalar(state === 'ok' ? 2.5 : 2);
     this.markFill.visible = state === 'ok' && k > 0;
     this.markFill.scale.setScalar(Math.max(0.05, k) * 0.7);
   }
@@ -335,6 +341,7 @@ export class BeadView {
 
   update(dt = 0): void {
     this.clock += dt;
+    if (this.slagBand.visible) this.slagMat.opacity = 0.22 + 0.16 * Math.sin(this.clock * 5);
     const src = this.src;
     if (!src) return;
     if (src.rev !== this.rev || src.stage !== this.stage) {
@@ -343,6 +350,33 @@ export class BeadView {
       this.rebuild();
     }
     this.updateGlow();
+  }
+
+  /** The band over the slag still to knock off (rebuilt with the bead). */
+  private buildSlagBand(src: BeadSource): void {
+    const g = this.slagBand.geometry;
+    if (src.stage !== 'chip') {
+      this.slagBand.visible = false;
+      return;
+    }
+    const pos: number[] = [];
+    const p = this.pt;
+    const half = 5, lift = 3.2;
+    for (const sr of src.seams) {
+      for (let c = 0; c < sr.n; c++) {
+        if (sr.slag[c] <= 0) continue;
+        const s0 = c * sr.cell, s1 = (c + 1) * sr.cell;
+        const quad: number[][] = [];
+        for (const s of [s0, s1]) {
+          sr.pointAt(Math.min(sr.len, s), p);
+          for (const k of [-1, 1]) quad.push([(p.x + p.bx * half * k + p.nx * lift) * MM, (p.y + p.by * half * k + p.ny * lift) * MM, (p.z + p.bz * half * k + p.nz * lift) * MM]);
+        }
+        for (const i of [0, 1, 2, 1, 3, 2]) pos.push(...quad[i]);
+      }
+    }
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.computeBoundingSphere();
+    this.slagBand.visible = pos.length > 0;
   }
 
   /** Orientation of a ripple: x along travel, y out of the joint, z across. */
@@ -440,6 +474,7 @@ export class BeadView {
       }
     }
     for (const c of this.chalk) c.visible = src.stage === 'weld' || src.stage === 'chip';
+    this.buildSlagBand(src);
     this.ripples.count = k;
     this.holes.count = kh;
     this.dots.count = kd;

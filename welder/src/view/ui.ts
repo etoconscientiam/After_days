@@ -49,6 +49,10 @@ export class UI {
   onCraftBtn: () => void = () => {};
   onLang: () => void = () => {};
   private langBtn = el('div', 'lang-btn', 'pe');
+  private hudL = el('div', 'hudl');
+  /** How much of the rod is left. */
+  private rodEl = el('div', 'rod');
+  private rodKey = '';
   onTourNext: () => void = () => {};
 
   /** Any panel over the game that takes the mouse. */
@@ -68,7 +72,9 @@ export class UI {
     this.root = root;
     this.money.append(el('i'), this.moneyVal);
     this.endEl.style.display = 'none';
-    root.append(this.money, this.langBtn, this.craftBtn, this.stagesEl, this.jobEl, this.craftEl, this.tourEl, this.ctrl, this.promptEl, this.whyEl, this.appStatus, this.hint, this.tip, this.stampEl, this.toasts, this.board, this.endEl, this.start, this.cursor);
+    // Left column, one flow top to bottom: money, the craft book, the rod, the job's stages.
+    this.hudL.append(this.money, this.craftBtn, this.rodEl, this.stagesEl);
+    root.append(this.hudL, this.langBtn, this.jobEl, this.craftEl, this.tourEl, this.ctrl, this.promptEl, this.whyEl, this.appStatus, this.hint, this.tip, this.stampEl, this.toasts, this.board, this.endEl, this.start, this.cursor);
   }
 
   /** Bottom strip: how to act in the current mode. At the bench, the mask and which way SPACE moves it. */
@@ -358,8 +364,11 @@ export class UI {
     const know: Record<string, number> = { tempo: g.stats.knowTempo, arc: g.stats.knowArc, fusion: g.stats.knowFusion, hand: g.stats.knowHand };
     const out: string[] = [];
     let unknown = 0;
+    // Losses can add up past the whole seam (it is then simply worthless): show them as shares of what was lost.
+    const sum = L.tempo + L.arc + L.fusion + L.hand;
+    const k1 = sum > 1 ? 1 / sum : 1;
     for (const k of ['tempo', 'arc', 'fusion', 'hand'] as const) {
-      const v = L[k];
+      const v = L[k] * k1;
       if (v < 0.03) continue;
       if (know[k]) out.push(`<span class="cause">${t('cause.' + k)} −${Math.round(v * 100)}%</span>`);
       else unknown += v;
@@ -409,6 +418,19 @@ export class UI {
     };
     set(ga, arc);
     set(gs, speed);
+  }
+
+  /** The rod in the holder: a bar of what's left, red when it's nearly gone; hidden with no job on the bench. */
+  setRod(show: boolean, remain: number, swapping: boolean): void {
+    const pct = Math.max(0, Math.min(100, Math.round(remain * 100)));
+    const key = show ? `${pct}|${swapping}` : '';
+    if (key === this.rodKey) return;
+    this.rodKey = key;
+    this.rodEl.style.display = show ? 'flex' : 'none';
+    if (!show) return;
+    const low = pct <= 15;
+    this.rodEl.className = low ? 'low' : '';
+    this.rodEl.innerHTML = `<span>${swapping ? t('rod.swap') : t('rod.label')}</span><i class="bar"><i style="width:${swapping ? 0 : pct}%"></i></i>${low && !swapping ? '<span class="k">R</span>' : ''}`;
   }
 
   /** Short reason under the cursor ('' hides it). */

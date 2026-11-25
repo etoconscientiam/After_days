@@ -61,8 +61,8 @@ export class Tools {
   private swing = 0;
   /** Visible rod length when new (m). */
   readonly rodLen = 0.16;
-  private dR = new THREE.Vector3(0.5, -0.55, 0.65).normalize();
-  private dL = new THREE.Vector3(-0.55, -0.6, 0.6).normalize();
+  private dR = new THREE.Vector3(0.55, -0.72, 0.42).normalize();
+  private dL = new THREE.Vector3(-0.6, -0.72, 0.36).normalize();
   private tmp = new THREE.Vector3();
   private q = new THREE.Quaternion();
 
@@ -155,28 +155,32 @@ export class Tools {
   }
 
   /** Orient a tool so it runs from `tip` toward the arm's shoulder (a fixed direction in view space). */
-  private aim(cam: THREE.Camera, dir: THREE.Vector3, out: THREE.Quaternion): void {
+  private aim(cam: THREE.Camera, dir: THREE.Vector3, out: THREE.Quaternion, normal?: THREE.Vector3): void {
     const d = this.tmp.copy(dir).applyQuaternion(cam.quaternion);
+    // Lean the tool out of the surface it touches, so the rod and the hammer never sink into the work.
+    // Only as much as needed: the tool keeps coming from the hand, just never from inside the work.
+    if (normal && d.dot(normal) < 0.3) d.addScaledVector(normal, 0.3 - d.dot(normal)).normalize();
     out.setFromUnitVectors(Y, d);
   }
 
   /** Electrode holder with its tip at `tip`. `remain` is 0..1 of the rod left. */
-  placeHolder(tip: THREE.Vector3, cam: THREE.Camera, remain: number): void {
+  placeHolder(tip: THREE.Vector3, cam: THREE.Camera, remain: number, normal?: THREE.Vector3): void {
     const len = 0.03 + this.rodLen * Math.max(0, remain);
     this.rod.scale.y = len;
     this.rod.position.y = len / 2;
     this.grip.position.y = len;
     this.holder.position.copy(tip);
-    this.aim(cam, this.dR, this.q);
+    this.aim(cam, this.dR, this.q, normal);
     this.holder.quaternion.copy(this.q);
   }
 
-  placeHammer(tip: THREE.Vector3, cam: THREE.Camera, dt: number): void {
+  placeHammer(tip: THREE.Vector3, cam: THREE.Camera, dt: number, normal?: THREE.Vector3): void {
     this.swing = Math.max(0, this.swing - dt * 7);
     const lift = Math.sin(Math.min(1, this.swing) * Math.PI);
     this.hammer.position.copy(tip);
-    this.hammer.position.y += 0.002 + lift * 0.04;
-    this.aim(cam, this.dR, this.q);
+    if (normal) this.hammer.position.addScaledVector(normal, 0.002 + lift * 0.04);
+    else this.hammer.position.y += 0.002 + lift * 0.04;
+    this.aim(cam, this.dR, this.q, normal);
     this.hammer.quaternion.copy(this.q);
   }
 

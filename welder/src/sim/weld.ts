@@ -235,13 +235,19 @@ export function turnPart(b: Bench, ax: number, ay: number): void {
   b.rot = qNorm(q);
 }
 
-/** Nearest joint to (x, y, z) across all seams; the current seam gets a small preference so crossings don't flip. */
-export function nearestSeam(b: Bench, x: number, y: number, z: number, prefer: number, out: Proj): void {
+/**
+ * Nearest joint to (x, y, z) across all seams; the current seam gets a small preference so crossings don't flip.
+ * `workable`: only joints with something left to lay that face the welder there (where a strike can land) —
+ * two seams side by side (over and under a handle) then don't steal each other's strikes.
+ */
+export function nearestSeam(b: Bench, x: number, y: number, z: number, prefer: number, out: Proj, workable = false): void {
   let best = Infinity;
   out.dist = Infinity;
   out.seam = -1;
   for (let i = 0; i < b.seams.length; i++) {
+    if (workable && b.seams[i].filled) continue;
     b.seams[i].project(x, y, z, tmpP);
+    if (workable && !canReach(b, i, tmpP.s)) continue;
     const score = tmpP.dist - (i === prefer ? 3 : 0);
     if (score < best) {
       best = score;
@@ -345,7 +351,9 @@ function stepWeld(b: Bench, inp: TorchIn, ctx: WeldCtx): void {
       }
       return;
     }
-    nearestSeam(b, inp.x, inp.y, inp.z, a.seam, proj);
+    // Strike on a joint that can take it; failing that, look at all of them to say why not.
+    nearestSeam(b, inp.x, inp.y, inp.z, a.seam, proj, true);
+    if (proj.seam < 0 || proj.dist > W.strikeRadius) nearestSeam(b, inp.x, inp.y, inp.z, a.seam, proj);
     if (proj.seam < 0 || proj.dist > W.strikeRadius) {
       a.scratch = 0;
       a.touch = 0;

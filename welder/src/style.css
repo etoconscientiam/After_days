@@ -524,3 +524,36 @@ html, body, #ui, #ui .pe, #ui .pe * { cursor: var(--cur); }
 #game { cursor: none; }
 /* While a window is open (or before the start) the game's crosshair is hidden: the pixel arrow shows over the scene too. */
 body.ui-modal #game { cursor: var(--cur); }
+
+/* Left column: everything stacks, nothing overlaps. */
+#hudl {
+  position: absolute;
+  left: calc(var(--px) * 4);
+  top: calc(var(--px) * 4);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: calc(var(--px) * 3);
+  max-width: calc(var(--px) * 125);
+  pointer-events: none;
+}
+#hudl > * { position: static !important; }
+#hudl #craft-btn { pointer-events: auto; }
+#stages { max-width: calc(var(--px) * 125); }
+#stages li { white-space: normal; }
+#stages .legend { white-space: normal; }
+#rod {
+  display: none;
+  align-items: center;
+  gap: calc(var(--px) * 2);
+  border-style: solid;
+  border-width: calc(var(--px) * 3.2);
+  border-image: var(--sq-panel-s) 5 fill / calc(var(--px) * 5) / calc(var(--px) * 1.8) stretch;
+  padding: 0 calc(var(--px) * 1.5);
+  color: #e0d0a8;
+}
+#rod .bar { display: inline-block; width: calc(var(--px) * 36); height: calc(var(--px) * 3); background: #1a120a; border: var(--px) solid #5a4428; }
+#rod .bar i { display: block; height: 100%; background: linear-gradient(#e8d8b0, #b8a070); }
+#rod.low { border-image-source: var(--sq-bad-s); }
+#rod.low .bar i { background: #e0603a; }
+#rod .k { color: #ffd27a; }
