@@ -199,9 +199,9 @@ export function makeTextures() {
     noise(x, S, S, r, 16);
     return tex(c);
   };
-  const plate = rusty(P.steelDark, 1.2);
+  const plate = rusty(P.steelDark, 0.7);
   const iron = rusty(P.iron, 0.1, 32);
-  const steel = rusty(P.steel, 0.25);
+  const steel = rusty(P.steel, 0.15);
 
   /** Tan leather glove with creases and stitching. */
   const leather = (() => {
@@ -267,7 +267,27 @@ export function makeTextures() {
     return tex(c, false);
   })();
 
-  return { stone, floor, wood, woodDark, plate, iron, steel, leather, wool, paper, chalk, sky };
+  /** Worked iron for the jobs: calm mottling, a darker rim, a few rust spots. Reads well under the bead. */
+  const part = (() => {
+    const S = 32;
+    const [c, x] = canvas(S, S);
+    x.fillStyle = '#56585c';
+    x.fillRect(0, 0, S, S);
+    for (let i = 0; i < 70; i++) {
+      x.fillStyle = shade('#56585c', r.range(0.82, 1.15));
+      x.fillRect(r.int(0, S - 2), r.int(0, S - 2), 2, 2);
+    }
+    for (let i = 0; i < 5; i++) {
+      x.globalAlpha = 0.5;
+      x.fillStyle = shade(P.rust, r.range(0.8, 1.1));
+      x.fillRect(r.int(0, S - 3), r.int(0, S - 3), r.int(1, 3), r.int(1, 3));
+    }
+    x.globalAlpha = 1;
+    noise(x, S, S, r, 8);
+    return tex(c);
+  })();
+
+  return { stone, floor, wood, woodDark, plate, iron, steel, leather, wool, paper, chalk, sky, part };
 }
 
 /** A paper price tag with a number inked on it. */
@@ -347,3 +367,128 @@ export function counterTex(): { tex: THREE.CanvasTexture; redraw: (s: string) =>
 }
 
 export type Textures = ReturnType<typeof makeTextures>;
+
+/** A small canvas texture that can be repainted in place (painted numbers, chalk). */
+export function dynTex(w: number, h: number): { tex: THREE.CanvasTexture; ctx: CanvasRenderingContext2D; flush: () => void } {
+  const [c, x] = canvas(w, h);
+  const t = tex(c, false);
+  return { tex: t, ctx: x, flush: () => (t.needsUpdate = true) };
+}
+
+/** Fired clay with soot at the rim. */
+export function clayTex(): THREE.CanvasTexture {
+  const r = new Rng(77);
+  const [c, x] = canvas(32, 32);
+  x.fillStyle = '#8a5236';
+  x.fillRect(0, 0, 32, 32);
+  for (let i = 0; i < 40; i++) {
+    x.fillStyle = shade('#8a5236', r.range(0.75, 1.2));
+    x.fillRect(r.int(0, 31), r.int(0, 31), r.int(1, 4), 1);
+  }
+  x.globalAlpha = 0.5;
+  x.fillStyle = '#2a1810';
+  x.fillRect(0, 0, 32, 4);
+  x.globalAlpha = 1;
+  noise(x, 32, 32, r, 16);
+  return tex(c);
+}
+
+/** Barrel staves with two iron hoops. */
+export function barrelTex(): THREE.CanvasTexture {
+  const r = new Rng(78);
+  const [c, x] = canvas(64, 64);
+  for (let i = 0; i < 8; i++) {
+    x.fillStyle = shade(P.wood, r.range(0.75, 1.1));
+    x.fillRect(i * 8, 0, 8, 64);
+    x.fillStyle = shade(P.wood, 0.4);
+    x.fillRect(i * 8, 0, 1, 64);
+  }
+  for (const y of [8, 52]) {
+    x.fillStyle = '#2a2a2c';
+    x.fillRect(0, y, 64, 5);
+    x.fillStyle = '#4a4a4c';
+    x.fillRect(0, y, 64, 1);
+  }
+  noise(x, 64, 64, r, 14);
+  return tex(c);
+}
+
+/** Plank door with a Z brace. */
+export function doorTex(): THREE.CanvasTexture {
+  const r = new Rng(79);
+  const [c, x] = canvas(48, 96);
+  for (let i = 0; i < 4; i++) {
+    x.fillStyle = shade(P.wood, r.range(0.7, 0.95));
+    x.fillRect(i * 12, 0, 12, 96);
+    x.fillStyle = shade(P.wood, 0.35);
+    x.fillRect(i * 12, 0, 1, 96);
+    for (let g = 0; g < 3; g++) {
+      x.fillStyle = shade(P.wood, 0.55);
+      x.fillRect(i * 12 + r.int(2, 10), r.int(0, 90), 1, r.int(8, 20));
+    }
+  }
+  x.fillStyle = shade(P.wood, 1.05);
+  for (const y of [14, 74]) x.fillRect(0, y, 48, 7);
+  for (let k = 0; k < 60; k++) x.fillRect(4 + (k / 60) * 40, 74 - (k / 60) * 53, 5, 3);
+  x.fillStyle = shade(P.wood, 0.4);
+  for (const y of [14, 74]) x.fillRect(0, y + 6, 48, 1);
+  noise(x, 48, 96, r, 12);
+  return tex(c);
+}
+
+/** Painted wooden post: a down arrow and a mask: the mask is lowered with SPACE. */
+export function postTex(): THREE.CanvasTexture {
+  const [c, x] = canvas(16, 48);
+  x.fillStyle = shade(P.wood, 0.75);
+  x.fillRect(0, 0, 16, 48);
+  const ink = '#d8d0bc';
+  x.fillStyle = ink;
+  x.fillRect(7, 6, 2, 9);
+  x.fillRect(4, 13, 8, 1);
+  x.fillRect(5, 14, 6, 1);
+  x.fillRect(6, 15, 4, 1);
+  x.fillRect(7, 16, 2, 1);
+  x.fillRect(4, 24, 8, 1);
+  x.fillRect(4, 24, 1, 12);
+  x.fillRect(11, 24, 1, 12);
+  x.fillRect(5, 36, 6, 1);
+  x.fillRect(6, 28, 4, 3);
+  return tex(c, false);
+}
+
+/** Battery box with a lightning mark. */
+export function batteryTex(): THREE.CanvasTexture {
+  const [c, x] = canvas(24, 16);
+  x.fillStyle = '#4a4c50';
+  x.fillRect(0, 0, 24, 16);
+  x.fillStyle = '#6a6c70';
+  x.fillRect(0, 0, 24, 2);
+  x.fillStyle = '#e8b830';
+  for (const [px, py, w] of [[13, 3, 3], [12, 5, 3], [11, 7, 5], [13, 9, 3], [12, 11, 2]] as [number, number, number][]) x.fillRect(px, py, w, 2);
+  return tex(c, false);
+}
+
+/** Wall ammeter: cream half-dial with a lightning mark. */
+export function bigDialTex(): THREE.CanvasTexture {
+  const S = 64;
+  const [c, x] = canvas(S, 40);
+  x.fillStyle = '#2a2420';
+  x.fillRect(0, 0, S, 40);
+  x.fillStyle = '#e6dcc0';
+  x.beginPath();
+  x.arc(S / 2, 38, 30, Math.PI, 0);
+  x.fill();
+  x.fillStyle = '#b03a20';
+  x.fillRect(6, 24, 6, 3);
+  x.fillStyle = '#2a1e14';
+  for (let i = 0; i <= 8; i++) {
+    const a = Math.PI + (Math.PI * i) / 8;
+    for (let k = 23; k < 28; k++) x.fillRect(Math.round(S / 2 + Math.cos(a) * k), Math.round(38 + Math.sin(a) * k), 1, 1);
+  }
+  x.fillStyle = '#c86a18';
+  for (const [px, py, w] of [[33, 14, 3], [31, 17, 3], [29, 20, 6], [32, 23, 3], [31, 26, 2]] as [number, number, number][]) x.fillRect(px, py, w, 3);
+  const img = x.getImageData(0, 0, S, 40);
+  for (let i = 0; i < img.data.length; i += 4) img.data[i + 3] = 255;
+  x.putImageData(img, 0, 0);
+  return tex(c, false);
+}

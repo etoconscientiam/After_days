@@ -139,7 +139,7 @@ export class BeadView {
     this.ripples.count = this.holes.count = this.dots.count = this.pores.count = 0;
     if (!src) return;
     for (const sr of src.seams) {
-      const g = new THREE.Mesh(this.ribbon(sr, 1.3, 0.12), this.grooveMat);
+      const g = new THREE.Mesh(this.ribbon(sr, 2.4, 0.12), this.grooveMat);
       g.renderOrder = 1;
       this.grooves.push(g);
       this.group.add(g);
