@@ -2,6 +2,9 @@ import type { Game } from '../sim/game';
 import type { Reason } from '../sim/stats';
 import type { GradeId } from '../data/types';
 import { t } from '../i18n';
+import type { Order } from '../sim/orders';
+import { jobSheet, payAtGrade, seamProgress, JobSheet } from '../sim/jobs';
+import { payForSeams } from '../sim/quality';
 
 function el(tag: string, id?: string, cls?: string): HTMLElement {
   const e = document.createElement(tag);
@@ -30,6 +33,18 @@ export class UI {
   /** Why the held rod isn't burning, by the cursor. */
   private whyEl = el('div', 'why');
   private whyKey = '';
+  /** The job sheet shown before taking a job, and the live list of stages while it is on the bench. */
+  private jobEl = el('div', 'job', 'pe');
+  private stagesEl = el('div', 'stages');
+  private stagesHtml = '';
+  private sheet: JobSheet | null = null;
+  private sheetUid = -1;
+  jobOpen = false;
+
+  /** Any panel over the game that takes the mouse. */
+  get modal(): boolean {
+    return this.boardOpen || this.jobOpen;
+  }
   private start = el('div', 'start', 'pe');
   private endEl = el('div', 'end');
   private stampT = 0;
@@ -43,7 +58,7 @@ export class UI {
     this.root = root;
     this.money.append(el('i'), this.moneyVal);
     this.endEl.style.display = 'none';
-    root.append(this.money, this.ctrl, this.promptEl, this.whyEl, this.appStatus, this.hint, this.tip, this.stampEl, this.toasts, this.board, this.endEl, this.start, this.cursor);
+    root.append(this.money, this.stagesEl, this.jobEl, this.ctrl, this.promptEl, this.whyEl, this.appStatus, this.hint, this.tip, this.stampEl, this.toasts, this.board, this.endEl, this.start, this.cursor);
   }
 
   /** Bottom strip: how to act in the current mode. At the bench, the mask and which way SPACE moves it. */
@@ -110,6 +125,123 @@ export class UI {
     this.hint.style.top = y + 'px';
   }
 
+  /** Name of a stage: a seam by its id (numbered ones get their number), chipping, handing over. */
+  private stageName(id: string): string {
+    const m = /^(.*?)(\d+)$/.exec(id);
+    return m ? `${t('seam.' + m[1])} ${+m[2] + 1}` : t('seam.' + id);
+  }
+
+  private stars(n: number): string {
+    return '★'.repeat(n) + '☆'.repeat(5 - n);
+  }
+
+  private coins(v: number): string {
+    return (Math.round(v * 10) / 10).toFixed(1).replace(/\.0$/, '');
+  }
+
+  private reqText(o: Order): string[] {
+    const req: string[] = [];
+    if (o.req.minGrade) req.push(t('req.minPay', { n: Math.ceil(payAtGrade(o.reward, o.req.minGrade)) }));
+    if (o.req.noHoles) req.push(t('req.noHoles'));
+    if (o.req.needs) req.push(t('req.needs', { name: t('up.' + o.req.needs + '.name') }));
+    return req;
+  }
+
+  /** The job sheet: what it is, for whom, how hard, its stages with what each pays at best, conditions. */
+  showJob(o: Order, onTake: () => void): void {
+    const s = jobSheet(this.game.data, o);
+    const rows = s.stages
+      .map((st, i) => {
+        const what = st.kind === 'seam' ? `${t('job.seam')}: ${this.stageName(st.id)} · ${Math.round(st.len)} ${t('job.mm')}` : t('stage.' + st.kind);
+        return `<li><span>${i + 1}. ${what}</span>${st.kind === 'seam' ? `<em>${t('job.upTo')} ${this.coins(st.max)} ◆</em>` : ''}</li>`;
+      })
+      .join('');
+    const req = this.reqText(o);
+    this.jobEl.innerHTML = `<div class="head"><b>${t('part.' + o.part)}</b><span class="pay">${t('job.upTo')} ${o.reward} ◆</span></div>
+      <div class="who">${t('cust.' + o.customer)}</div>
+      <div class="row">${t('job.diff')} <span class="stars">${this.stars(s.stars)}</span></div>
+      <div class="row">${t('job.stages', { n: s.stages.length })}</div>
+      <ol>${rows}</ol>
+      <div class="row dim">${t('job.money')}</div>
+      ${req.length ? `<div class="row">${t('job.req')}: ${req.join(' · ')}</div>` : ''}
+      <div class="btns"><span class="take">${t('job.take')}</span><span class="later">${t('job.later')}</span></div>`;
+    this.jobEl.style.display = 'block';
+    this.jobOpen = true;
+    this.jobEl.querySelector('.take')!.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      this.closeJob();
+      onTake();
+    });
+    this.jobEl.querySelector('.later')!.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      this.closeJob();
+    });
+  }
+
+  closeJob(): void {
+    if (!this.jobOpen) return;
+    this.jobOpen = false;
+    this.jobEl.style.display = 'none';
+    this.onBoardClose();
+  }
+
+  /**
+   * The stages of the job on the bench: the one in hand marked, each finished seam with how well it came out
+   * in money, chipping with how much slag is left, and the running total.
+   */
+  updateStages(): void {
+    const g = this.game, b = g.player;
+    if (!b.order || !b.part || b.stage === 'empty') {
+      if (this.stagesHtml) {
+        this.stagesHtml = '';
+        this.stagesEl.style.display = 'none';
+      }
+      return;
+    }
+    if (this.sheetUid !== b.order.uid) {
+      this.sheet = jobSheet(g.data, b.order);
+      this.sheetUid = b.order.uid;
+    }
+    const s = this.sheet!;
+    const reward = b.order.reward;
+    // Which seam is in hand: the one burning, else the one the guide points to, else the first unfinished.
+    let cur = -1;
+    if (b.stage === 'weld') {
+      cur = b.arc.lit ? b.arc.seam : g.guide.seam;
+      if (cur < 0) cur = b.seams.findIndex((x) => !x.filled);
+    }
+    const done = b.stage !== 'weld';
+    let total = 0;
+    const rows = s.stages.map((st, i) => {
+      const n = `${i + 1}. `;
+      if (st.kind === 'seam') {
+        const p = seamProgress(b.seams, st.seam, reward);
+        const finished = p.filled || done;
+        if (finished) {
+          const pay = done ? seamProgress(b.seams, st.seam, reward).pay : p.pay;
+          total += pay;
+          return `<li class="ok">✓ ${n}${this.stageName(st.id)}<em>${Math.round(b.seams[st.seam].quality * 100)}% · ${this.coins(pay)}/${this.coins(st.max)} ◆</em></li>`;
+        }
+        const on = st.seam === cur;
+        const bar = `<i class="bar"><i style="width:${Math.round(p.laid * 100)}%"></i></i>`;
+        return `<li class="${on ? 'on' : ''}">${on ? '▶' : '·'} ${n}${this.stageName(st.id)}${p.laid > 0.02 || on ? bar : `<em>${t('job.upTo')} ${this.coins(st.max)} ◆</em>`}</li>`;
+      }
+      if (st.kind === 'chip') {
+        if (b.stage === 'chip') return `<li class="on">▶ ${n}${t('stage.chip')}<em>${Math.round((1 - b.slagLeft) * 100)}%</em></li>`;
+        if (b.stage === 'inspect' || b.stage === 'ready') return `<li class="ok">✓ ${n}${t('stage.chip')}</li>`;
+        return `<li>· ${n}${t('stage.chip')}</li>`;
+      }
+      return `<li class="${b.stage === 'ready' ? 'on' : ''}">${b.stage === 'ready' ? '▶' : '·'} ${n}${t('stage.hand')}</li>`;
+    });
+    const sum = done ? `<div class="sum">${t('job.total')}: ${this.coins(payForSeams(b.seams, reward))} / ${reward} ◆</div>` : total > 0 ? `<div class="sum">${t('job.sofar')}: ${this.coins(total)} ◆</div>` : '';
+    const html = `<b>${t('part.' + b.order.part)}</b> <span class="stars">${this.stars(s.stars)}</span><ol>${rows.join('')}</ol>${sum}`;
+    if (html !== this.stagesHtml) {
+      this.stagesHtml = html;
+      this.stagesEl.innerHTML = html;
+      this.stagesEl.style.display = 'block';
+    }
+  }
+
   /** Short reason under the cursor ('' hides it). */
   setWhy(key: string, x: number, y: number): void {
     if (key !== this.whyKey) {
@@ -173,8 +305,9 @@ export class UI {
     }
   }
 
-  stamp(grade: GradeId, line: string): void {
-    this.stampEl.innerHTML = `${t('grade.' + grade)}<small>${line}</small>`;
+  stamp(grade: GradeId, line: string, pay?: number, reward?: number): void {
+    const head = pay !== undefined && reward !== undefined ? `${this.coins(pay)} / ${reward} ◆` : t('grade.' + grade);
+    this.stampEl.innerHTML = `${head}<small>${[t('grade.' + grade), line].filter(Boolean).join(' · ')}</small>`;
     this.stampEl.className = grade === 'bad' || grade === 'rough' ? 'bad' : '';
     this.stampEl.style.display = 'block';
     this.stampT = 2.4;
@@ -217,15 +350,13 @@ export class UI {
     const g = this.game;
     const cards = g.board.map((o) => {
       const ok = g.canTake(o);
-      const req: string[] = [];
-      if (o.req.minGrade) req.push(t('req.minGrade', { grade: t('grade.' + o.req.minGrade) }));
-      if (o.req.noHoles) req.push(t('req.noHoles'));
-      if (o.req.needs) req.push(t('req.needs', { name: t('up.' + o.req.needs + '.name') }));
-      if (!req.length) req.push(t('req.none'));
+      const req = this.reqText(o);
+      const sh = jobSheet(g.data, o);
+      req.unshift(`<span class="stars">${this.stars(sh.stars)}</span> · ${t('job.stages', { n: sh.stages.length })}`);
       if (o.simple && g.owned.apprentice) req.push(t('req.simple'));
       const why = ok.ok ? '' : ok.why === 'needs' ? t('board.needs', { name: t('up.' + o.req.needs + '.name') }) : t('board.' + ok.why);
       return `<div class="card ${ok.ok ? '' : 'off'}" data-uid="${o.uid}">
-        <span class="pay">◆ ${o.reward}</span>
+        <span class="pay">${t('job.upTo')} ${o.reward} ◆</span>
         <b>${t('part.' + o.part)}</b><span class="who">${t('cust.' + o.customer)}</span>
         <ul>${req.map((r) => `<li>${r}</li>`).join('')}</ul>
         ${why ? `<div class="why">${why}</div>` : ''}
@@ -236,8 +367,12 @@ export class UI {
       c.addEventListener('pointerdown', (e) => {
         e.stopPropagation();
         if (c.classList.contains('off')) return;
-        this.onTake(+c.dataset.uid!);
-        this.closeBoard();
+        const uid = +c.dataset.uid!;
+        const o = g.board.find((x) => x.uid === uid);
+        if (!o) return;
+        this.board.style.display = 'none';
+        this.boardOpen = false;
+        this.showJob(o, () => this.onTake(uid));
       }),
     );
     this.board.querySelector('.close')!.addEventListener('pointerdown', (e) => {

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { Game } from '../sim/game';
 import type { TorchIn } from '../sim/weld';
 import { emptyTorch, nearestSeam, canReach } from '../sim/weld';
+import { payForSeams } from '../sim/quality';
 import type { Proj } from '../sim/seam';
 import { BALANCE } from '../data/balance';
 import { SKIN } from '../skin/default';
@@ -79,6 +80,7 @@ export class View {
   private mid = new THREE.Vector3();
   private aimProj: Proj = { s: 0, d: 0, dist: 0, seam: -1 };
   private strikeAcc = 0;
+  private stagesT = 0;
   private leanT = 0;
   private leanAt = new THREE.Vector3();
   private zoomP = new THREE.Vector3();
@@ -264,10 +266,12 @@ export class View {
         if (e.code.startsWith('Arrow')) e.preventDefault();
       } else if (e.code === 'KeyR') this.game.queue({ type: 'newElectrode' });
       else if (e.code === 'KeyE' && !e.repeat) {
-        if (this.ui.boardOpen) this.ui.closeBoard();
+        if (this.ui.jobOpen) this.ui.closeJob();
+        else if (this.ui.boardOpen) this.ui.closeBoard();
         else if (this.rig.mode === 'station' || this.rig.mode === 'inspect') this.leaveBench();
         else if (this.rig.mode === 'walk') this.interact();
-      } else if (e.code === 'Escape' && this.ui.boardOpen) this.ui.closeBoard();
+      } else if (e.code === 'Escape' && this.ui.jobOpen) this.ui.closeJob();
+      else if (e.code === 'Escape' && this.ui.boardOpen) this.ui.closeBoard();
     });
     addEventListener('keyup', (e) => {
       this.held.delete(e.code);
@@ -317,8 +321,7 @@ export class View {
     }
     if (id === 'pile') {
       if (g.pile && g.player.stage === 'empty') {
-        g.queue({ type: 'takePile' });
-        this.toBench();
+        this.offerPile(() => this.toBench());
       } else if (g.flags.board) {
         this.unlockPointer();
         this.ui.openBoard();
@@ -331,15 +334,27 @@ export class View {
     else if (id === 'bench' || id === 'part' || id === 'done' || id === 'electrodes') this.toBench();
   }
 
+  /** Show the job on top of the heap; taking it puts it on the bench. */
+  private offerPile(after?: () => void): void {
+    const g = this.game;
+    if (!g.pile) return;
+    this.unlockPointer();
+    this.ui.hideTip();
+    this.ui.showJob(g.pile, () => {
+      g.queue({ type: 'takePile' });
+      after?.();
+    });
+  }
+
   private onClick(): void {
     const g = this.game;
-    if (this.ui.boardOpen || this.ui.endOpen) return;
+    if (this.ui.modal || this.ui.endOpen) return;
     const id = this.pick();
     const b = g.player;
     if (TOOLS_OF_THE_ROOM.has(id) || id.startsWith('shelf:')) {
       this.suppress = true;
       if (id === 'pile') {
-        if (g.pile) g.queue({ type: 'takePile' });
+        if (g.pile && b.stage === 'empty') this.offerPile();
         else if (g.flags.board) this.ui.openBoard();
       } else if (id === 'board' && g.flags.board) {
         this.ui.openBoard();
@@ -357,7 +372,7 @@ export class View {
       g.queue({ type: 'handOver' });
       this.suppress = true;
     } else if (b.stage === 'empty' && g.pile) {
-      g.queue({ type: 'takePile' });
+      this.offerPile();
       this.suppress = true;
     }
   }
@@ -457,7 +472,7 @@ export class View {
   /** Input for one frame; the arc-length request is handed to the first sim step only. */
   frameInput(dt: number): TorchIn {
     const tr = this.torch;
-    const active = this.started && !this.ui.boardOpen && !this.ui.endOpen && (this.rig.mode === 'station' || this.rig.mode === 'inspect');
+    const active = this.started && !this.ui.modal && !this.ui.endOpen && (this.rig.mode === 'station' || this.rig.mode === 'inspect');
     if (active) this.aimOnPart(tr);
     else tr.has = false;
     tr.press = active && (this.lmb || this.latch) && !this.suppress && this.mouse.in;
@@ -534,7 +549,8 @@ export class View {
     b.on('revealed', (e) => {
       if (e.bench !== 'player') return;
       const line = [e.holes ? `${t('end.holes')}: ${e.holes}` : '', e.pores ? t('stamp.pores', { n: e.pores }) : ''].filter(Boolean).join(' · ');
-      this.ui.stamp(e.grade, line);
+      const o = g.player.order;
+      this.ui.stamp(e.grade, line, o ? payForSeams(g.player.seams, o.reward) : undefined, o?.reward);
       this.inspect();
     });
     b.on('slagChip', (e) => {
@@ -810,9 +826,9 @@ export class View {
       this.inspectT -= dt;
       if (this.inspectT <= 0 && this.rig.mode === 'inspect') this.rig.station();
     }
-    this.rig.turnable = !this.lmb && !a.lit && !this.ui.boardOpen;
+    this.rig.turnable = !this.lmb && !a.lit && !this.ui.modal;
     if (this.mouse.in && this.rig.mode !== 'walk') this.rig.setNudge((this.mouse.x / this.cssW) * 2 - 1);
-    if (this.rig.mode === 'walk' && !this.ui.boardOpen) {
+    if (this.rig.mode === 'walk' && !this.ui.modal) {
       const k = (c: string) => (this.held.has(c) ? 1 : 0);
       const moved = this.rig.move(
         Math.min(1, k('KeyW') + k('ArrowUp')) - Math.min(1, k('KeyS') + k('ArrowDown')),
@@ -839,7 +855,7 @@ export class View {
     }
 
     // Hover: highlight and the shelf tooltip.
-    const canHover = this.started && !this.ui.boardOpen && !this.ui.endOpen;
+    const canHover = this.started && !this.ui.modal && !this.ui.endOpen;
     if (canHover && (this.mouseMoved || !this.rig.settled())) {
       this.mouseMoved = false;
       const id = this.pick();
@@ -998,6 +1014,11 @@ export class View {
 
     this.lr.render(this.ws.scene, this.rig.cam);
     this.placeOverlay();
+    this.stagesT -= dt;
+    if (this.stagesT <= 0) {
+      this.stagesT = 0.12;
+      this.ui.updateStages();
+    }
     this.ui.update(dt);
   }
 
@@ -1007,7 +1028,7 @@ export class View {
    */
   private updateAim(dt: number): void {
     const g = this.game, b = g.player, a = b.arc;
-    const atBench = this.rig.mode !== 'walk' && !this.ui.boardOpen && !this.ui.endOpen && this.started;
+    const atBench = this.rig.mode !== 'walk' && !this.ui.modal && !this.ui.endOpen && this.started;
     let state: '' | 'ok' | 'near' | 'away' = '';
     const P = this.aimProj;
     if (atBench && this.part && b.stage === 'weld' && !a.lit && this.torch.has && b.swap <= 0) {
@@ -1073,8 +1094,8 @@ export class View {
     const g = this.game;
     const f = g.guide;
     const overJob = !!this.part && this.torch.has && (this.hover === 'part' || this.hover === 'bench' || this.hover === '') && g.player.stage === 'weld';
-    if (this.rig.mode === 'walk') this.ui.placeCursor(this.cssW / 2, this.cssH / 2, this.started && !this.ui.boardOpen);
-    else this.ui.placeCursor(this.mouse.x, this.mouse.y, this.started && this.mouse.in && !this.ui.boardOpen && !overJob);
+    if (this.rig.mode === 'walk') this.ui.placeCursor(this.cssW / 2, this.cssH / 2, this.started && !this.ui.modal);
+    else this.ui.placeCursor(this.mouse.x, this.mouse.y, this.started && this.mouse.in && !this.ui.modal && !overJob);
     this.ui.placePrompt(this.cssW / 2, this.cssH / 2 + 12 * this.scale);
     // Walking: the prompt under the crosshair already says it; don't repeat it over the bench.
     this.ui.muteHint(this.rig.mode === 'walk' && this.ui.promptShown);

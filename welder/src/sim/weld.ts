@@ -7,7 +7,7 @@ import type { Stats } from './stats';
 import type { Order } from './orders';
 import { Q, qIdent, qEuler, qMul, qAxis, qRot, qNorm, qTurnToward, V3 } from '../core/quat';
 import { SeamRun, Proj, seamPoint, F_PORE, F_COLD, F_HOT, F_LONG, F_SHORT, F_OFF, F_BACK } from './seam';
-import { partQuality, gradeOf, countHoles, countPores } from './quality';
+import { partQuality, gradeOf, countHoles, countPores, seamQuality } from './quality';
 
 const W = BALANCE.weld;
 const A = BALANCE.arc;
@@ -552,7 +552,8 @@ function stepWeld(b: Bench, inp: TorchIn, ctx: WeldCtx): void {
 
   if (!sr.filled && sr.gaps(W.fillMin) === 0) {
     sr.filled = true;
-    ctx.bus.emit('seamFilled', { bench: b.id, seam: proj.seam });
+    sr.quality = seamQuality(sr, part.thick);
+    ctx.bus.emit('seamFilled', { bench: b.id, seam: proj.seam, quality: sr.quality });
   }
 }
 

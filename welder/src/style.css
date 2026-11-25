@@ -269,3 +269,51 @@ html, body {
   pointer-events: none;
   text-transform: lowercase;
 }
+
+#job {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(var(--px) * 190);
+  padding: calc(var(--px) * 5);
+  background: #b8aa8c;
+  color: #2a1e14;
+  border: calc(var(--px) * 2) solid #4a3422;
+  box-shadow: calc(var(--px) * 2) calc(var(--px) * 2) 0 rgba(0, 0, 0, 0.6);
+  display: none;
+}
+#job .head { display: flex; justify-content: space-between; align-items: baseline; }
+#job .head b { font-size: 1.3em; }
+#job .pay { font-weight: bold; color: #6a4a10; }
+#job .who { color: #5a4834; margin-bottom: calc(var(--px) * 3); }
+#job .row { margin: calc(var(--px) * 1.5) 0; }
+#job .dim { color: #5a4834; font-size: 0.9em; }
+#job ol { margin: calc(var(--px) * 1) 0 calc(var(--px) * 2); padding: 0; list-style: none; }
+#job li { display: flex; justify-content: space-between; padding: calc(var(--px) * 0.8) 0; border-bottom: var(--px) dotted #8a7a5c; }
+#job li em { font-style: normal; color: #6a4a10; }
+#job .btns { display: flex; gap: calc(var(--px) * 6); margin-top: calc(var(--px) * 4); }
+#job .btns span { cursor: pointer; padding: calc(var(--px) * 1.5) calc(var(--px) * 5); border: var(--px) solid #2a1e14; }
+#job .take { background: #2a1e14; color: #f0e0b8; }
+#job .later { color: #2a1e14; }
+.stars { color: #c08a20; letter-spacing: 0.05em; }
+#stages {
+  position: absolute;
+  left: calc(var(--px) * 5);
+  top: calc(var(--px) * 24);
+  min-width: calc(var(--px) * 90);
+  padding: calc(var(--px) * 2.5) calc(var(--px) * 3.5);
+  background: var(--bg);
+  border: var(--px) solid var(--line);
+  display: none;
+  pointer-events: none;
+  font-size: 0.9em;
+}
+#stages ol { margin: calc(var(--px) * 1.5) 0 0; padding: 0; list-style: none; }
+#stages li { display: flex; gap: calc(var(--px) * 3); justify-content: space-between; align-items: center; color: var(--dim); padding: calc(var(--px) * 0.4) 0; }
+#stages li.on { color: #f0e0b8; }
+#stages li.ok { color: #b8d890; }
+#stages li em { font-style: normal; color: #e8c878; }
+#stages .bar { display: inline-block; width: calc(var(--px) * 22); height: calc(var(--px) * 2.5); background: #3a3026; }
+#stages .bar i { display: block; height: 100%; background: #e8a040; }
+#stages .sum { margin-top: calc(var(--px) * 1.5); color: #e8c878; }

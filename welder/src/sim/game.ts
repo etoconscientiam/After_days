@@ -8,7 +8,7 @@ import { Bench, TorchIn, WeldCtx, emptyTorch, stepBench, newElectrode, reveal, f
 import { Power } from './power';
 import { Order, makeOrder, rollBoardOrder } from './orders';
 import { Recorder, Replayer, Habit } from './apprentice';
-import { payFor, gradeRank, idealSpeed } from './quality';
+import { payForSeams, gradeRank, idealSpeed } from './quality';
 import type { SeamRun } from './seam';
 import { computeGuide, Guide } from './guide';
 
@@ -383,11 +383,11 @@ export class Game {
     this.bus.emit('save', {});
   }
 
-  private settle(o: Order, q: number, holes: number, grade: GradeId): { pay: number; met: boolean } {
+  private settle(o: Order, b: Bench): { pay: number; met: boolean } {
     let met = true;
-    if (o.req.minGrade && gradeRank(grade) < gradeRank(o.req.minGrade)) met = false;
-    if (o.req.noHoles && holes > 0) met = false;
-    let pay = payFor(o.reward, q);
+    if (o.req.minGrade && gradeRank(b.grade) < gradeRank(o.req.minGrade)) met = false;
+    if (o.req.noHoles && b.holes > 0) met = false;
+    let pay = payForSeams(b.seams, o.reward);
     if (!met) pay *= BALANCE.quality.failedReqMul;
     return { pay: Math.max(1, Math.round(pay)), met };
   }
@@ -396,7 +396,7 @@ export class Game {
     const b = this.player;
     if (b.stage !== 'ready' || !b.order) return;
     const o = b.order;
-    const { pay, met } = this.settle(o, b.quality, b.holes, b.grade);
+    const { pay, met } = this.settle(o, b);
     this.money += pay;
     this.log.earned += pay;
     this.ordersDone++;
@@ -567,7 +567,7 @@ export class Game {
         this.appTimer -= dt;
         if (this.appTimer <= 0 && b.order) {
           const o = b.order;
-          const { pay, met } = this.settle(o, b.quality, b.holes, b.grade);
+          const { pay, met } = this.settle(o, b);
           this.money += pay;
           this.log.earned += pay;
           this.log.apprenticeJobs++;

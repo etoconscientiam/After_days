@@ -94,3 +94,34 @@ export function payFor(reward: number, q: number): number {
 export function idealSpeed(thick: number, I: number): number {
   return (BALANCE.weld.vIdeal * Math.pow(I, 1.2)) / Math.pow(thick, 1.5);
 }
+
+/**
+ * Money is the measure of quality: every seam carries a share of the reward by its length, and pays that
+ * share times how well it was laid (same curve as payFor).
+ */
+export function seamShare(seams: { len: number }[], i: number): number {
+  let tot = 0;
+  for (const s of seams) tot += s.len;
+  return tot > 0 ? seams[i].len / tot : 0;
+}
+
+export function seamPay(reward: number, share: number, q: number): number {
+  return payFor(reward * share, q);
+}
+
+/** What the job pays for the seams as they are now (each seam's quality as last measured). */
+export function payForSeams(seams: SeamRun[], reward: number): number {
+  let p = 0;
+  for (let i = 0; i < seams.length; i++) p += seamPay(reward, seamShare(seams, i), seams[i].quality);
+  return p;
+}
+
+/** How hard a job is, 1..5: total length, how many seams, rings, joints that need the work turned, thickness. */
+export function difficulty(part: { seams: { pts: number[][]; closed?: boolean }[]; thick: number }, needsTurn: boolean): number {
+  let len = 0;
+  for (const s of part.seams)
+    for (let i = 1; i < s.pts.length; i++) len += Math.hypot(s.pts[i][0] - s.pts[i - 1][0], s.pts[i][1] - s.pts[i - 1][1], s.pts[i][2] - s.pts[i - 1][2]);
+  const rings = part.seams.some((s) => s.closed) ? 1 : 0;
+  const score = len / 110 + (part.seams.length - 1) * 0.35 + rings * 0.8 + (needsTurn ? 0.8 : 0) + Math.max(0, part.thick - 1) * 2;
+  return Math.max(1, Math.min(5, Math.round(0.6 + score)));
+}

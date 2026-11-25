@@ -17,7 +17,7 @@ export interface SimEvents {
   arcStick: { bench: BenchId };
   arcUnstick: { bench: BenchId };
   burnThrough: { bench: BenchId; seam: number; s: number; x: number; y: number; z: number };
-  seamFilled: { bench: BenchId; seam: number };
+  seamFilled: { bench: BenchId; seam: number; quality: number };
   weldDone: { bench: BenchId };
   slagChip: { bench: BenchId; seam: number; s0: number; s1: number; x: number; y: number; z: number; amount: number };
   hammerMiss: { bench: BenchId; x: number; y: number; z: number; onMetal: boolean };
