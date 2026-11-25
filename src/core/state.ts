@@ -16,7 +16,7 @@ export interface ActiveEffect { id: string; until: number; x?: number; data?: an
 export interface TargetZone { kind: 'water' | 'heat' | 'magma'; x0: number; x1: number; b0: number; b1: number; until: number; heat: number }
 
 /** Press: a finger holding the strata — a circle in grid cells (particle columns/rows); power after paying. */
-export interface PressState { x: number; y: number; r: number; power: number }
+export interface PressState { x: number; y: number; r: number; power: number; /** the finger's step this frame (grid cells), eased */ mx?: number; my?: number }
 /** The conveyor into the archive (core/pressure.ts). */
 export interface SinkRun { acc: number; rows: number }
 /** A marker bed waiting for the air to clear (core/beds.ts). */

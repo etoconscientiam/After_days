@@ -108,6 +108,8 @@ export class Renderer {
   hover: { x: number; y: number } | null = null;
   targeting: { rx: number; ry: number; x: number; y: number; kind: string } | null = null;
   reveal = Infinity;
+  /** the main menu is up (the choice of the thing waits behind it) */
+  menuOpen = false;
   quality: 'high' | 'low' = 'high';
   chooseHover = -1;
   /** canvas point the click sparks fly to (the Energy counter), set by the UI */
@@ -2652,6 +2654,8 @@ export class Renderer {
     const c = this.ctx;
     c.fillStyle = '#0e0c10'; c.fillRect(0, 0, WW, WH);
     for (let i = 0; i < 80; i++) { c.fillStyle = `rgba(255,255,255,${0.02 + 0.02 * Math.sin(this.t + i)})`; c.fillRect((i * 97) % WW, (i * 53) % WH, 1, 1); }
+    // behind the main menu the things are not offered yet: only the dark and its specks
+    if (this.menuOpen) return;
     const items = g.availableItems();
     const xs = this.chooseXs(items.length);
     items.forEach((id, i) => {

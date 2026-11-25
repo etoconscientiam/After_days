@@ -149,7 +149,8 @@
   "_comment": "Press (brief 5, A2): hold a layer >holdMs to squeeze it: compaction x6, transformations x4 in a circle of `radius` world px (+ Wide Press). Costs costShare of the income per second.",
   "holdMs": 250,
   "radius": 24,
-  "costShare": 0.02
+  "costShare": 0.02,
+  "push": { "_comment": "The finger moves the loose grains under it (core/finger.ts): share of them that step each frame; moveMin: grid cells a frame the finger must travel to push along its way (else it presses them aside); up: chance a pressed grain near the top of the circle goes up; chain: how many grains ahead one can shove to reach an empty cell.", "share": 0.11, "moveMin": 0.15, "up": 0.35, "chain": 6 }
  },
  "burial": {
   "_comment": "Burial window (brief 5, В2): >= killed violent deaths within windowYears game years opens it for `seconds` real seconds; a flood or a volcano cast in it makes bones from before..after years around now fossilise fossilMul times as easily.",

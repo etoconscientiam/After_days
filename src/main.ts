@@ -483,6 +483,7 @@ function frame(now: number): void {
   renderer.lay.update(drawerWorldPx());
   game.lowPhysics = renderer.quality === 'low';
   watchFps(dtReal);
+  renderer.menuOpen = !!menu?.open;
   renderer.draw(game, dtReal, now);
   // the compaction line's label, until the strata first reach it in this world; then, at the same place, the
   // press is shown once: hold a finger on the strata to squeeze them (until the player presses, or 14 s)

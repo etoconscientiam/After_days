@@ -4,6 +4,7 @@ import { Grid, GW, P_OLD } from '../world/Grid';
 import { Archive } from '../world/Archive';
 import { stepFull, Water } from './sand';
 import { sinkStep } from './pressure';
+import { fingerPush } from './finger';
 import { BandLine, captureRow, pushBand } from './absorb';
 import { fluidStep } from './fluids';
 import { Surface, newSurface, readSurface, wildStep, nicheOpen, wildOf } from './niche';
@@ -499,6 +500,7 @@ export class Game {
       const step = 1 / (this.lowPhysics ? SAND.stepsPerSecondLow : SAND.stepsPerSecond);
       this.physAcc = Math.min(this.physAcc + dt, step * 6);
       const t0 = performance.now();
+      fingerPush(this);
       while (this.physAcc >= step) {
         this.physAcc -= step;
         this.moving = stepFull(this.grid, this.rng, this.water, this.physTick++);

@@ -35,15 +35,15 @@
         function bedColor(n) { return BEDS[Math.floor(n / 70) % BEDS.length]; }
         function drop() {
           if (Math.random() < 0.08) tapX = 6 + Math.random() * (W - 12);
-          for (var i = 0; i < 6; i++) grains.push({ x: Math.round(tapX + (Math.random() - 0.5) * 5), y: -Math.random() * 6, v: 0, c: bedColor(laid + i) });
+          for (var i = 0; i < 6; i++) grains.push({ x: Math.round(tapX + (Math.random() - 0.5) * 9), y: -Math.random() * 6, v: 0, c: bedColor(laid + i) });
           laid += 6;
         }
         function settle(x, c2) {
           // a grain rolls down the slope, then lies on its column
-          for (var k = 0; k < 12; k++) {
+          for (var k = 0; k < 24; k++) {
             // down a step of two always, of one now and then: gentle slopes that spread into beds
             var dl = x > 0 ? h[x - 1] - h[x] : 0, dr = x < W - 1 ? h[x + 1] - h[x] : 0;
-            var l = dl > 1 || (dl === 1 && Math.random() < 0.55), r = dr > 1 || (dr === 1 && Math.random() < 0.55);
+            var l = dl > 1 || (dl === 1 && Math.random() < 0.9), r = dr > 1 || (dr === 1 && Math.random() < 0.9);
             if (l && r) x += Math.random() < 0.5 ? -1 : 1; else if (l) x--; else if (r) x++; else break;
           }
           h[x]--; col[x].push(c2);

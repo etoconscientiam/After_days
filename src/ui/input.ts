@@ -257,7 +257,10 @@ export class Input {
     const R = CFG.B.press.radius + g.stats.pressRadius;
     // a circle of the strata under the finger (grid cells: one particle = 2 world px)
     const prev = g.run.press;
-    g.run.press = { x: Math.floor(x / 2), y: Math.floor((sy + CFG.B.layout.sectionTop) / 2), r: R / 2, power: prev ? prev.power : 1 + g.stats.pressPower };
+    const px = Math.floor(x / 2), py = Math.floor((sy + CFG.B.layout.sectionTop) / 2);
+    // how the finger moves (eased): the grains under it are pushed along its way
+    const mx = prev ? (prev.mx ?? 0) * 0.6 + (px - prev.x) * 0.4 : 0, my = prev ? (prev.my ?? 0) * 0.6 + (py - prev.y) * 0.4 : 0;
+    g.run.press = { x: px, y: py, r: R / 2, power: prev ? prev.power : 1 + g.stats.pressPower, mx, my };
     this.ren.press = { x, y: this.ren.lay.sectionTop + sy, r: R, t0: h0.t0, power: g.run.press.power };
   }
 
