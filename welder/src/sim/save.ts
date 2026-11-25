@@ -4,7 +4,7 @@ import { computeStats } from './stats';
 import type { Habit } from './apprentice';
 
 /** Save format: a version, ids and numbers only. The bead in progress is not saved; its order goes back. */
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 type OrderRow = [number, string, string, number, string, number, string, number, number];
 
@@ -89,9 +89,12 @@ export function restore(g: Game, d: SaveData): boolean {
   g.ordersDone = d.ordersDone;
   g.introIndex = d.introIndex;
   g.uid = d.uid;
+  // Orders for parts this build doesn't have (an older save) are dropped.
+  const known = (o: Order) => !!g.data.parts[o.part] && !!g.data.customers[o.customer];
   g.pile = d.pile ? unrow(d.pile) : null;
+  if (g.pile && !known(g.pile)) g.pile = null;
   if (g.pile?.urgent) g.flags.finaleQueued = true;
-  g.board = d.board.map(unrow);
+  g.board = d.board.map(unrow).filter(known);
   g.nextArrival = d.nextArrival;
   g.habit = d.habit;
   g.appState = d.app as Game['appState'];

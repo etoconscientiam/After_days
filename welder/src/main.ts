@@ -95,32 +95,45 @@ function boot(): void {
   const STEP = BALANCE.dt;
   let last = performance.now();
   let acc = 0;
-  const prev = { x: 0, z: 0, has: false };
+  const prev = { x: 0, y: 0, z: 0, has: false };
   const input = { torch: view.frameInput(0) };
-  const frame = (now: number) => {
-    const dt = Math.min(0.25, (now - last) / 1000);
-    last = now;
+  let errors = 0;
+  const tick = (dt: number) => {
     acc += dt;
     const torch = view.frameInput(dt);
     // Spread the mouse motion of this frame over its sim steps so a slow frame doesn't bunch the bead up.
     const n = Math.floor(acc / STEP);
-    const tx = torch.x, tz = torch.z;
-    const jump = !prev.has || !torch.has || Math.hypot(tx - prev.x, tz - prev.z) > 60;
+    const tx = torch.x, ty = torch.y, tz = torch.z;
+    const jump = !prev.has || !torch.has || Math.hypot(tx - prev.x, ty - prev.y, tz - prev.z) > 60;
     for (let k = 0; k < n; k++) {
       const f = jump ? 1 : (k + 1) / n;
       torch.x = prev.x + (tx - prev.x) * f;
+      torch.y = prev.y + (ty - prev.y) * f;
       torch.z = prev.z + (tz - prev.z) * f;
       game.step(input);
       if (k === 0) view.consumeOneShot();
       acc -= STEP;
     }
     torch.x = tx;
+    torch.y = ty;
     torch.z = tz;
     prev.x = tx;
+    prev.y = ty;
     prev.z = tz;
     prev.has = torch.has;
     view.render(dt);
     sound.update(game);
+  };
+  const frame = (now: number) => {
+    const dt = Math.min(0.25, (now - last) / 1000);
+    last = now;
+    // One bad frame must not stop the game: report it and carry on with the next one.
+    try {
+      tick(dt);
+    } catch (e) {
+      acc = 0;
+      if (errors++ < 5) console.error(e);
+    }
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);
