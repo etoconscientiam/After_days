@@ -1923,11 +1923,18 @@ export class Renderer {
       w.t += dt;
       if (w.t > 4) { this.splashWatch.splice(k, 1); continue; }
       let n = 0, sx = 0;
+      const solid = (i: number) => { const m = grid.mat[i]; return !!m && KIND[m] !== K_NONE; };
       for (let x = Math.max(0, w.gx - 6); x <= Math.min(W - 1, w.gx + 6); x++) {
         if (g.water.col[x] !== 1) continue;
+        // open water under the surface here: at least 3 empty rows before the ground (a pile already up to or
+        // above the water, or a shoal, does not splash)
+        let open = 0;
+        for (let y = L + 2; y < L + 5 && y < grid.floor; y++) { if (solid(y * W + x)) break; open++; }
+        if (open < 3) continue;
         for (let y = L - 1; y <= L + 1; y++) {
-          const m = grid.mat[y * W + x];
-          if (m && KIND[m] !== K_NONE && KIND[m] !== K_SOLID) { n++; sx += x; }
+          const i = y * W + x, m = grid.mat[i];
+          // only a grain falling in (nothing under it), not one lying on a slope
+          if (m && KIND[m] !== K_NONE && KIND[m] !== K_SOLID && !solid(i + W)) { n++; sx += x; }
         }
       }
       if (n >= 3) {
