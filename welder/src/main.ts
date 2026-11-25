@@ -169,6 +169,6 @@ installFrames();
 installCursors();
 const fonts = (document as Document & { fonts?: FontFaceSet }).fonts;
 const ready = fonts
-  ? Promise.all([fonts.load('16px "Tiny5"', 'АаZz09')]).catch(() => undefined)
+  ? Promise.all([fonts.load('16px "Strata Pixel"', 'АаZz09'), fonts.load('32px "Strata Stone"', 'АаZz09')]).catch(() => undefined)
   : Promise.resolve();
 Promise.race([ready, new Promise((r) => setTimeout(r, 1500))]).then(() => boot());

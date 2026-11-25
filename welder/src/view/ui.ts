@@ -1,3 +1,4 @@
+import { setFrameUnit } from './frames';
 import type { Game } from '../sim/game';
 import type { Reason } from '../sim/stats';
 import type { GradeId } from '../data/types';
@@ -113,7 +114,15 @@ export class UI {
     this.root.style.setProperty('--px', px + 'px');
     document.documentElement.style.setProperty('--px', px + 'px');
     // The pixel font only stays crisp at whole pixel sizes.
-    document.documentElement.style.setProperty('--fs', Math.max(16, Math.round((px * 6.5) / 8) * 8) + 'px');
+    // Strata Pixel is drawn on a 16 px grid: whole multiples of 16 only. Headings a step up, in Strata Stone
+    // (32 px grid) where that lands on 32/64, else in Strata Pixel.
+    const fs = 16 * Math.max(1, Math.round((px * 7) / 16));
+    const fh = fs === 16 ? 32 : fs + 16;
+    const root = document.documentElement.style;
+    root.setProperty('--fs', fs + 'px');
+    root.setProperty('--fh', fh + 'px');
+    root.setProperty('--fhf', fh % 32 === 0 ? "'Strata Stone', 'Strata Pixel', monospace" : "'Strata Pixel', monospace");
+    setFrameUnit(px);
   }
 
   showMoney(v: number, bump = false): void {

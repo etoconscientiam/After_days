@@ -1,31 +1,16 @@
-/* The game's pixel font (Tiny5, SIL Open Font License), bundled: no request leaves the page. */
+/* Our own pixel fonts (tools/font, SIL Open Font License), bundled: no request leaves the page.
+   Strata Pixel (16 px grid) for all text, crisp at 16/32/48 px; Strata Stone (32 px grid) for headings, crisp at 32/64. */
 @font-face {
-  font-family: 'Tiny5';
-  src: url('./fonts/tiny5-cyrillic-ext.woff2') format('woff2');
+  font-family: 'Strata Pixel';
+  src: url('./fonts/StrataPixel-Regular.woff2') format('woff2');
   font-weight: 400;
   font-display: block;
-  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
 }
 @font-face {
-  font-family: 'Tiny5';
-  src: url('./fonts/tiny5-cyrillic.woff2') format('woff2');
+  font-family: 'Strata Stone';
+  src: url('./fonts/StrataStone-Regular.woff2') format('woff2');
   font-weight: 400;
   font-display: block;
-  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
-}
-@font-face {
-  font-family: 'Tiny5';
-  src: url('./fonts/tiny5-latin-ext.woff2') format('woff2');
-  font-weight: 400;
-  font-display: block;
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-@font-face {
-  font-family: 'Tiny5';
-  src: url('./fonts/tiny5-latin.woff2') format('woff2');
-  font-weight: 400;
-  font-display: block;
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 :root {
   --px: 3px;
@@ -42,7 +27,10 @@ html, body {
   height: 100%;
   background: #000;
   overflow: hidden;
-  font-family: 'Tiny5', 'Courier New', monospace;
+  font-family: 'Strata Pixel', 'Courier New', monospace;
+  font-kerning: normal;
+  -webkit-font-smoothing: none;
+  font-smooth: never;
 
   color: var(--ink);
   user-select: none;
@@ -66,8 +54,8 @@ html, body {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  font-size: var(--fs, 12px);
-  line-height: 1.2;
+  font-size: var(--fs, 16px);
+  line-height: calc(var(--fs, 16px) * 1.25);
   letter-spacing: 0.02em;
 }
 #ui .pe { pointer-events: auto; }
@@ -89,8 +77,8 @@ html, body {
   align-items: center;
   gap: calc(var(--px) * 3);
   padding: calc(var(--px) * 2) calc(var(--px) * 5);
-  font-size: calc(var(--px) * 9);
-  font-weight: bold;
+  font-size: var(--fh); line-height: calc(var(--fh) * 1.25); font-family: var(--fhf); font-weight: 400;
+  font-weight: 400;
   color: #2a1e14;
   background: #e6dabb;
   border: calc(var(--px) * 1.2) solid #2a1e14;
@@ -121,7 +109,7 @@ html, body {
   gap: calc(var(--px) * 4);
   color: #e6dabb;
   text-shadow: var(--px) var(--px) 0 #000;
-  font-weight: bold;
+  font-weight: 400;
 }
 #ctrl .k {
   padding: 0 calc(var(--px) * 1.5);
@@ -170,14 +158,14 @@ html, body {
   padding: calc(var(--px) * 2) calc(var(--px) * 6);
   border: calc(var(--px) * 1.5) solid #e8c878;
   color: #e8c878;
-  font-size: calc(var(--px) * 10);
-  font-weight: bold;
+  font-size: var(--fh); line-height: calc(var(--fh) * 1.25); font-family: var(--fhf); font-weight: 400;
+  font-weight: 400;
   text-transform: uppercase;
   background: rgba(10, 8, 6, 0.6);
   display: none;
   text-align: center;
 }
-#stamp small { display: block; font-size: 0.5em; color: var(--ink); text-transform: none; }
+#stamp small { display: block; font-size: 1em; color: var(--ink); text-transform: none; }
 #stamp.bad { border-color: var(--bad); color: var(--bad); }
 #toasts {
   position: absolute;
@@ -206,7 +194,7 @@ html, body {
   border: calc(var(--px) * 2) solid #4a3422;
   display: none;
 }
-#board h3 { margin: 0 0 calc(var(--px) * 4); font-size: 1.2em; color: #e8d8b0; letter-spacing: 0.2em; }
+#board h3 { margin: 0 0 calc(var(--px) * 4); font-size: var(--fh); line-height: calc(var(--fh) * 1.25); font-family: var(--fhf); font-weight: 400; color: #e8d8b0; letter-spacing: 0.2em; }
 #board .cards { display: grid; grid-template-columns: 1fr 1fr; gap: calc(var(--px) * 4); }
 #board .card {
   background: #b8aa8c;
@@ -218,10 +206,10 @@ html, body {
 }
 #board .card:hover { background: #d0c2a0; }
 #board .card.off { opacity: 0.55; cursor: default; }
-#board .card b { display: block; font-size: 1.05em; }
+#board .card b { display: block; font-size: 1em; }
 #board .card .who { color: #5a4834; }
 #board .card ul { margin: calc(var(--px) * 1.5) 0 0; padding-left: calc(var(--px) * 5); }
-#board .card .pay { position: absolute; right: calc(var(--px) * 3); top: calc(var(--px) * 3); font-weight: bold; color: #6a4a10; }
+#board .card .pay { position: absolute; right: calc(var(--px) * 3); top: calc(var(--px) * 3); font-weight: 400; color: #6a4a10; }
 #board .card .why { color: #8a2a10; margin-top: calc(var(--px) * 1.5); }
 #board .close { margin-top: calc(var(--px) * 4); text-align: right; color: var(--dim); cursor: pointer; }
 #board .empty { color: var(--dim); }
@@ -254,10 +242,10 @@ html, body {
   text-align: center;
   gap: calc(var(--px) * 4);
 }
-#start h1 { margin: 0; font-size: calc(var(--px) * 22); letter-spacing: 0.25em; color: #e8d8b8; }
+#start h1 { margin: 0; font-size: calc(var(--fh) * 2); line-height: calc(var(--fh) * 2.5); font-family: 'Strata Stone'; font-weight: 400; letter-spacing: 0.25em; color: #e8d8b8; }
 #start .sub { color: var(--dim); }
 #start .go { color: #f0e0b8; margin-top: calc(var(--px) * 6); }
-#start .small { color: var(--dim); font-size: 0.8em; max-width: 80%; }
+#start .small { color: var(--dim); font-size: 1em; max-width: 80%; }
 #start .links { display: flex; gap: calc(var(--px) * 8); margin-top: calc(var(--px) * 4); }
 #start .links span { color: var(--dim); cursor: pointer; text-decoration: underline; }
 #end { background: none; align-items: flex-end; justify-content: center; padding-right: calc(var(--px) * 10); }
@@ -268,7 +256,7 @@ html, body {
   padding: calc(var(--px) * 5);
   text-align: left;
 }
-#end h2 { margin: 0 0 calc(var(--px) * 2); font-size: 1.4em; color: #f0e0b8; }
+#end h2 { margin: 0 0 calc(var(--px) * 2); font-size: var(--fh); line-height: calc(var(--fh) * 1.25); font-family: var(--fhf); font-weight: 400; color: #f0e0b8; }
 #end p { margin: 0 0 calc(var(--px) * 4); color: var(--dim); }
 #end table { width: 100%; border-collapse: collapse; }
 #end td { padding: calc(var(--px) * 0.8) 0; }
@@ -314,11 +302,11 @@ html, body {
   display: none;
 }
 #job .head { display: flex; justify-content: space-between; align-items: baseline; }
-#job .head b { font-size: 1.3em; }
-#job .pay { font-weight: bold; color: #6a4a10; }
+#job .head b { font-size: var(--fh); line-height: calc(var(--fh) * 1.25); font-family: var(--fhf); font-weight: 400; }
+#job .pay { font-weight: 400; color: #6a4a10; }
 #job .who { color: #5a4834; margin-bottom: calc(var(--px) * 3); }
 #job .row { margin: calc(var(--px) * 1.5) 0; }
-#job .dim { color: #5a4834; font-size: 0.9em; }
+#job .dim { color: #5a4834; font-size: 1em; }
 #job ol { margin: calc(var(--px) * 1) 0 calc(var(--px) * 2); padding: 0; list-style: none; }
 #job li { display: flex; justify-content: space-between; padding: calc(var(--px) * 0.8) 0; border-bottom: var(--px) dotted #8a7a5c; }
 #job li em { font-style: normal; color: #6a4a10; }
@@ -337,7 +325,7 @@ html, body {
   border: var(--px) solid var(--line);
   display: none;
   pointer-events: none;
-  font-size: 0.9em;
+  font-size: 1em;
 }
 #stages ol { margin: calc(var(--px) * 1.5) 0 0; padding: 0; list-style: none; }
 #stages li { display: flex; gap: calc(var(--px) * 3); justify-content: space-between; align-items: center; color: var(--dim); padding: calc(var(--px) * 0.4) 0; }
@@ -365,9 +353,9 @@ html, body {
 @keyframes craftGlow { 0%, 100% { box-shadow: 0 0 0 rgba(255, 190, 90, 0); } 50% { box-shadow: 0 0 calc(var(--px) * 5) rgba(255, 190, 90, 0.9); } }
 #stages { top: calc(var(--px) * 34); }
 #stages li.causes { display: flex; flex-wrap: wrap; gap: calc(var(--px) * 1.5); justify-content: flex-start; padding-left: calc(var(--px) * 5); }
-#stages .cause { font-size: 0.85em; padding: 0 calc(var(--px) * 1.5); border: var(--px) solid #6a5a44; color: #e8b878; }
+#stages .cause { font-size: 1em; padding: 0 calc(var(--px) * 1.5); border: var(--px) solid #6a5a44; color: #e8b878; }
 #stages .cause.unk { color: #9a8a74; border-style: dashed; }
-#stages .legend { margin-top: calc(var(--px) * 1.5); font-size: 0.8em; color: var(--dim); }
+#stages .legend { margin-top: calc(var(--px) * 1.5); font-size: 1em; color: var(--dim); }
 #craft {
   position: absolute;
   left: 50%;
@@ -382,20 +370,20 @@ html, body {
   box-shadow: calc(var(--px) * 2) calc(var(--px) * 2) 0 rgba(0, 0, 0, 0.6);
   display: none;
 }
-#craft h3 { margin: 0; font-size: 1.3em; color: #f0e0b8; letter-spacing: 0.2em; }
+#craft h3 { margin: 0; font-size: var(--fh); line-height: calc(var(--fh) * 1.25); font-family: var(--fhf); font-weight: 400; color: #f0e0b8; letter-spacing: 0.2em; }
 #craft .money-line { color: #e8c878; margin: calc(var(--px) * 1) 0 calc(var(--px) * 3); }
-#craft h4 { margin: calc(var(--px) * 4) 0 calc(var(--px) * 2); color: #c8a878; letter-spacing: 0.15em; text-transform: uppercase; font-size: 0.85em; }
+#craft h4 { margin: calc(var(--px) * 4) 0 calc(var(--px) * 2); color: #c8a878; letter-spacing: 0.15em; text-transform: uppercase; font-size: 1em; }
 #craft .items { display: grid; grid-template-columns: 1fr 1fr; gap: calc(var(--px) * 3); }
 #craft .item { position: relative; background: #b8aa8c; color: #2a1e14; padding: calc(var(--px) * 3); }
 #craft .item.owned { background: #7a8a6a; }
 #craft .item.off { opacity: 0.6; }
 #craft .item b { display: block; padding-right: calc(var(--px) * 14); }
-#craft .item .cost { position: absolute; right: calc(var(--px) * 3); top: calc(var(--px) * 3); font-weight: bold; color: #6a4a10; }
-#craft .item p { margin: calc(var(--px) * 1.5) 0; font-size: 0.9em; }
+#craft .item .cost { position: absolute; right: calc(var(--px) * 3); top: calc(var(--px) * 3); font-weight: 400; color: #6a4a10; }
+#craft .item p { margin: calc(var(--px) * 1.5) 0; font-size: 1em; }
 #craft .buy { display: inline-block; cursor: pointer; padding: calc(var(--px) * 1) calc(var(--px) * 4); background: #2a1e14; color: #f0e0b8; }
 #craft .buy:hover { background: #4a3422; }
-#craft .no { color: #8a2a10; font-size: 0.9em; }
-#craft .own { color: #1e3a14; font-weight: bold; }
+#craft .no { color: #8a2a10; font-size: 1em; }
+#craft .own { color: #1e3a14; font-weight: 400; }
 #craft .close { margin-top: calc(var(--px) * 4); text-align: right; color: var(--dim); cursor: pointer; }
 #tour {
   display: none;
@@ -413,16 +401,16 @@ html, body {
   position: absolute;
   transform: translate(-50%, -100%);
   pointer-events: none;
-  font-weight: bold;
-  font-size: 1.15em;
+  font-weight: 400;
+  font-size: 1em;
   color: #ffe08a;
   text-shadow: calc(var(--px) * 0.7) calc(var(--px) * 0.7) 0 #000;
   white-space: nowrap;
   animation: pop 1.2s ease-out forwards;
 }
 .pop.mid { color: #e8c060; font-size: 1em; }
-.pop.low { color: #d07050; font-size: 0.95em; }
-.pop.big { font-size: 1.5em; color: #fff0b0; }
+.pop.low { color: #d07050; font-size: 1em; }
+.pop.big { font-size: var(--fh); line-height: calc(var(--fh) * 1.25); font-family: var(--fhf); font-weight: 400; color: #fff0b0; }
 @keyframes pop { 0% { opacity: 0; margin-top: 0; } 12% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; margin-top: calc(var(--px) * -14); } }
 #gauges {
   position: absolute;
@@ -435,7 +423,7 @@ html, body {
 #gauges .band { position: absolute; left: 0; right: 0; bottom: 33%; height: 34%; background: rgba(120, 200, 90, 0.55); }
 #gauges .needle { position: absolute; left: calc(var(--px) * -1.5); right: calc(var(--px) * -1.5); height: var(--px); background: #fff0c0; box-shadow: 0 0 calc(var(--px) * 2) #ffd070; }
 #gauges .g.off .needle { background: #ff7a50; box-shadow: 0 0 calc(var(--px) * 2) #ff5030; }
-#gauges span { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: var(--px); font-size: 0.65em; color: #c8b898; text-shadow: 0 0 var(--px) #000; }
+#gauges span { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: var(--px); font-size: 1em; color: #c8b898; text-shadow: 0 0 var(--px) #000; }
 
 #lang-btn {
   position: absolute;
@@ -446,55 +434,34 @@ html, body {
   background: rgba(12, 9, 7, 0.75);
   border: var(--px) solid #5a4834;
   cursor: pointer;
-  font-weight: bold;
+  font-weight: 400;
 }
 #lang-btn:empty { display: none; }
 
 /* ------------------------------------------------------------------------------------------------
- * Pixel squircles: every plate and button wears a 9-slice frame drawn in frames.ts (outline, a two-pixel
- * rim, a bevel lit from above). L = panels and sheets (slice 7), S = labels, keys, small buttons (slice 5).
+ * Pixel squircles: every plate and button gets its own picture drawn at its size (frames.ts), in whole
+ * frame pixels (--fu). The border only keeps the content clear of the rim.
  * ---------------------------------------------------------------------------------------------- */
 #ui .label, #prompt, #why, .toast, #app-status, #craft-btn, #lang-btn, #ctrl .k, #craft .buy, #job .btns span,
-#board .close, #craft .close, #start .go, #end .go, #start .links span, #stages .cause {
-  border-style: solid;
-  border-width: calc(var(--px) * 3.2);
-  border-image-slice: 5 fill;
-  border-image-width: calc(var(--px) * 5);
-  border-image-outset: calc(var(--px) * 1.8);
-  border-image-repeat: stretch;
-  background: none !important;
-  box-shadow: none !important;
-  image-rendering: pixelated;
+#board .close, #craft .close, #start .go, #end .go, #start .links span, #stages .cause, #rod {
+  border: calc(var(--fu, 3px) * 3) solid transparent !important;
 }
 #money, #job, #craft, #board, #stages, #end .panel, #stamp, #craft .item, #board .card {
-  border-style: solid;
-  border-width: calc(var(--px) * 5);
-  border-image-slice: 7 fill;
-  border-image-width: calc(var(--px) * 7);
-  border-image-outset: calc(var(--px) * 2);
-  border-image-repeat: stretch;
-  background: none !important;
+  border: calc(var(--fu, 3px) * 4) solid transparent !important;
+}
+[data-sq] {
+  border-image: none !important;
+  background: var(--sqn) 0 0 / 100% 100% no-repeat border-box !important;
   box-shadow: none !important;
   image-rendering: pixelated;
 }
-/* Which frame each wears. */
-#ui .label, #prompt, .toast, #app-status { border-image-source: var(--sq-panel-s) !important; }
-#why { border-image-source: var(--sq-bad-s) !important; }
-#tour { border-image-source: var(--sq-gold-s) !important; }
-#stages, #craft, #board, #end .panel { border-image-source: var(--sq-panel-l) !important; }
-#money, #job, #craft .item, #board .card { border-image-source: var(--sq-paper-l) !important; }
-#craft .item.owned { border-image-source: var(--sq-good-l) !important; color: #d8e8c0; }
+[data-sq].sq-hov:hover { background-image: var(--sqh) !important; }
+#craft .item.owned { color: #d8e8c0; }
 #craft .item.owned p { color: #a8b898; }
 #craft .item.owned .own { color: #b8e090; }
-#stamp { border-image-source: var(--sq-gold-l) !important; }
-#stamp.bad { border-image-source: var(--sq-bad-l) !important; }
-#craft-btn, #lang-btn, #craft .buy, #job .take, #start .go, #end .go { border-image-source: var(--sq-btn-s) !important; }
-#craft-btn:hover, #lang-btn:hover, #craft .buy:hover, #job .take:hover, #start .go:hover, #end .go:hover, #craft-btn.glow { border-image-source: var(--sq-hot-s) !important; }
-#job .later, #board .close, #craft .close, #start .links span { border-image-source: var(--sq-dark-s) !important; color: #c8b898 !important; text-decoration: none !important; }
-#job .later:hover, #board .close:hover, #craft .close:hover, #start .links span:hover { border-image-source: var(--sq-btn-s) !important; }
-#ctrl .k { border-image-source: var(--sq-key-s) !important; padding: 0 calc(var(--px) * 0.6); border-width: calc(var(--px) * 2.4); color: #f0e0b8; }
-#stages .cause { border-image-source: var(--sq-dark-s) !important; border-width: calc(var(--px) * 2); border-image-outset: calc(var(--px) * 1); padding: 0 calc(var(--px) * 0.5); }
-#stages .cause.unk { border-image-source: var(--sq-dark-s) !important; }
+#job .later, #board .close, #craft .close, #start .links span { color: #c8b898 !important; text-decoration: none !important; }
+#ctrl .k { padding: 0 calc(var(--fu, 3px) * 1); color: #f0e0b8; }
+#stages .cause { border-width: calc(var(--fu, 3px) * 2) !important; padding: 0 calc(var(--fu, 3px) * 1); }
 /* Paddings inside the frames (the border already holds the rim and a little fill). */
 #ui .label, #prompt, #why { padding: 0 calc(var(--px) * 1.5); }
 .toast { padding: 0 calc(var(--px) * 2); }
@@ -507,14 +474,14 @@ html, body {
 #craft .item .cost, #board .card .pay { right: calc(var(--px) * 1); top: calc(var(--px) * 0.5); }
 #stamp { padding: 0 calc(var(--px) * 5); }
 #job .btns span, #craft .buy, #board .close, #craft .close, #start .go, #end .go, #start .links span { display: inline-block; padding: 0 calc(var(--px) * 3); cursor: pointer; }
-#start .go { color: #ffe6a8 !important; font-size: 1.2em; }
+#start .go { color: #ffe6a8 !important; font-size: var(--fh); line-height: calc(var(--fh) * 1.25); font-family: var(--fhf); font-weight: 400; }
 /* Labels point with a small pixel tail of the rim colour. */
 #ui .label::after { bottom: calc(var(--px) * -7); border-top-color: #8a6638; }
 #tour::after { border-top-color: #f0c860 !important; }
 /* Headings in the game font, a bit bigger and spaced. */
-#craft h3, #board h3, #start h1, #end h2 { font-weight: 700; letter-spacing: 0.12em; }
+#craft h3, #board h3, #start h1, #end h2 { font-weight: 400; letter-spacing: 0.12em; }
 #craft h4 { letter-spacing: 0.1em; }
-#gauges span { font-size: 0.7em; }
+#gauges span { font-size: 1em; }
 
 /* Pixel cursors (frames.ts): the game draws its own crosshair over the scene; over windows and buttons
    the system cursor is replaced by a pixel arrow, golden over anything you can press. */
@@ -546,14 +513,10 @@ body.ui-modal #game { cursor: var(--cur); }
   display: none;
   align-items: center;
   gap: calc(var(--px) * 2);
-  border-style: solid;
-  border-width: calc(var(--px) * 3.2);
-  border-image: var(--sq-panel-s) 5 fill / calc(var(--px) * 5) / calc(var(--px) * 1.8) stretch;
   padding: 0 calc(var(--px) * 1.5);
   color: #e0d0a8;
 }
 #rod .bar { display: inline-block; width: calc(var(--px) * 36); height: calc(var(--px) * 3); background: #1a120a; border: var(--px) solid #5a4428; }
 #rod .bar i { display: block; height: 100%; background: linear-gradient(#e8d8b0, #b8a070); }
-#rod.low { border-image-source: var(--sq-bad-s); }
 #rod.low .bar i { background: #e0603a; }
 #rod .k { color: #ffd27a; }

@@ -52,7 +52,7 @@ function noise(ctx: CanvasRenderingContext2D, w: number, h: number, r: Rng, amt:
 export function crispText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, size: number, color: string, align: CanvasTextAlign = 'center'): void {
   const w = ctx.canvas.width, h = ctx.canvas.height;
   const [c, t] = canvas(w, h);
-  t.font = `${size}px "Tiny5", "Courier New", monospace`;
+  t.font = `${size}px "Strata Pixel", "Courier New", monospace`;
   t.textAlign = align;
   t.textBaseline = 'middle';
   t.fillStyle = '#fff';
@@ -525,7 +525,7 @@ export function dialTex(redTo: number, max: number): THREE.CanvasTexture {
     const a = a0 + (span * i) / 6;
     for (let k = 14; k < 19; k++) x.fillRect(Math.round(S / 2 + Math.cos(a) * k), Math.round(S / 2 + Math.sin(a) * k), 1, 1);
   }
-  crispText(x, 'A', S / 2, S / 2 + 9, 8, '#2a1e14');
+  crispText(x, 'A', S / 2, S / 2 + 9, 16, '#2a1e14');
   // Hard-edge the circle.
   const img = x.getImageData(0, 0, S, S);
   for (let i = 0; i < img.data.length; i += 4) img.data[i + 3] = 255;
