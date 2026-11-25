@@ -40,8 +40,10 @@ export class Tools {
   private hHolder = new THREE.Vector3(0.82, -0.2, 0.54).normalize();
   private eHolder = new THREE.Vector3(0.45, -0.85, 0.25).normalize();
   private eHammer = new THREE.Vector3(0.35, -0.75, 0.55).normalize();
-  private hL = new THREE.Vector3(-0.35, -0.2, 0.9).normalize();
-  private eL = new THREE.Vector3(-0.45, -0.75, 0.45).normalize();
+  // The tongs: from the jaws back toward you and a little left, over the work rather than past the bench's
+  // side; held palm down in an oblique grip, the handles running out along the forearm to the lower left.
+  private hL = new THREE.Vector3(-0.35, 0.05, 0.93).normalize();
+  private eL = new THREE.Vector3(-0.8, -0.6, 0).normalize();
   private tE = new THREE.Vector3();
   readonly handR: Hand;
   readonly handH: Hand;
@@ -136,7 +138,7 @@ export class Tools {
     piv.rotation.x = Math.PI / 2;
     piv.position.y = 0.06;
     this.left.add(piv);
-    const lh = holdingHand(0.016, 0.14, 0, true);
+    const lh = holdingHand(0.016, 0.14, 0, true, 35);
     this.handL = lh.hand;
     this.left.add(lh.group);
     this.left.visible = false;
