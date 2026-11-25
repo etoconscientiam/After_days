@@ -68,6 +68,8 @@ export class View {
   private pt: SeamPoint = { x: 0, z: 0, tx: 1, tz: 0 };
   private endSrc: BeadSource | null = null;
   private lastMask = false;
+  private spotI = 0;
+  private spotT = 0;
   private lastStage = '';
   private pickList: THREE.Object3D[] = [];
   private hits: THREE.Intersection[] = [];
@@ -554,7 +556,8 @@ export class View {
     this.ws.wheels[0].userData.rot.rotation.z = -g.power.angle;
     this.ws.wheels[1].userData.rot.rotation.z = -g.power.angle * 1.15 + 0.5;
     this.ws.setGauge(I);
-    this.updateSnow(dt, g.clock.snow);
+    this.ws.snow.visible = SKIN.snow;
+    if (SKIN.snow) this.updateSnow(dt, g.clock.snow);
     const qn = Math.min(7, Math.round(1 + g.t / 55 + g.board.length * 0.5 + (g.flags.finale ? 2 : 0)));
     for (let i = 0; i < this.ws.queue.length; i++) this.ws.queue[i].visible = g.started && i < qn;
     this.ws.customer.visible = b.stage !== 'empty';
@@ -648,12 +651,11 @@ export class View {
     u.uMaskT.value = g.stats.maskTransmission;
     u.uMaskWindow.value = g.stats.maskWindow;
     u.uGlare.value = g.glare;
-    u.uAfter.value = g.after;
+    this.updateSpots(dt, lit && g.mask.pos < 0.5);
     u.uArcOn.value = arcOn;
     if (lit) {
       this.v3.copy(this.tools.arcGlow.position).project(this.rig.cam);
       u.uArcUv.value.set(this.v3.x * 0.5 + 0.5, this.v3.y * 0.5 + 0.5);
-      if (g.mask.pos < 0.5) u.uAfterUv.value.copy(u.uArcUv.value);
     }
     if (this.shakeT > 0) {
       this.shakeT -= dt;
@@ -664,6 +666,30 @@ export class View {
     this.lr.render(this.ws.scene, this.rig.cam);
     this.placeOverlay();
     this.ui.update(dt);
+  }
+
+  /**
+   * Bunnies in the eye: while the arc is watched without the mask, a stain is left every so often where it
+   * burns on screen; each one fades by itself over a couple of seconds.
+   */
+  private updateSpots(dt: number, exposed: boolean): void {
+    const spots = this.lr.u.uSpots.value as THREE.Vector3[];
+    for (const s of spots) s.z *= Math.exp(-dt / 2.8);
+    if (!exposed) {
+      this.spotT = 0;
+      return;
+    }
+    this.spotT -= dt;
+    const uv = this.lr.u.uArcUv.value as THREE.Vector2;
+    // Strengthen the newest stain while the eye stays on the same spot; start a new one when it moves.
+    const cur = spots[this.spotI];
+    const near = Math.hypot(cur.x - uv.x, (cur.y - uv.y) * 0.56) < 0.03;
+    if (near && cur.z > 0.05) cur.z = Math.min(1, cur.z + dt * 1.2);
+    else if (this.spotT <= 0) {
+      this.spotT = 0.35;
+      this.spotI = (this.spotI + 1) % spots.length;
+      spots[this.spotI].set(uv.x, uv.y, 0.75);
+    }
   }
 
   private updateSnow(dt: number, density: number): void {

@@ -24,8 +24,7 @@ uniform vec3 uShell;
 uniform float uGlare;
 uniform vec2 uArcUv;
 uniform float uArcOn;
-uniform float uAfter;
-uniform vec2 uAfterUv;
+uniform vec3 uSpots[6];
 uniform vec3 uAfterColor;
 uniform vec2 uShake;
 uniform float uFade;
@@ -70,19 +69,27 @@ void main() {
   vec2 wq = abs(vec2(q.x, q.y - yc)) - w;
   float inWin = step(max(wq.x, wq.y), 0.0);
   vec3 seen = (c + halo * 0.35) * uMaskT * uMaskTint;
-  vec3 world = c + halo * (0.6 + 3.0 * uGlare);
+  vec3 world = c + halo * (0.6 + 1.2 * uGlare);
   c = mix(world, mix(uShell, seen, inWin), covered);
 
   // Blinding white when the arc is watched bare-eyed.
-  c = mix(c, vec3(3.0), uGlare * uGlareMax);
+  // Bare-eyed arc: the picture blows out toward blue-white but stays readable.
+  c = c * (1.0 + uGlare * 1.6) + vec3(0.85, 0.92, 1.0) * uGlare * uGlareMax;
 
   c = aces(c);
   c = pow(c, vec3(1.0 / 2.2));
 
   // Afterimage: a stain on the retina that stays where the arc was on screen.
-  vec2 dq = (vUv - uAfterUv) * vec2(aspect, 1.0);
-  float spot = uAfter * smoothstep(0.075, 0.02, length(dq));
-  c = mix(c, c * 0.25 + uAfterColor * 0.55, spot * 0.85);
+  // Afterimages: small stains left on the eye where the arc was, fading on their own.
+  for (int i = 0; i < 6; i++) {
+    vec3 s = uSpots[i];
+    if (s.z <= 0.002) continue;
+    float d = length((vUv - s.xy) * vec2(aspect, 1.0));
+    float core = s.z * smoothstep(0.04, 0.01, d);
+    float rim = s.z * 0.5 * smoothstep(0.05, 0.03, d) * (1.0 - smoothstep(0.03, 0.02, d));
+    c = mix(c, uAfterColor * 0.55 + c * 0.15, min(1.0, core * 1.1));
+    c += vec3(0.3, 0.42, 0.18) * rim;
+  }
 
   float vig = 1.0 - uVignette * dot(q, q) * 1.2;
   c *= vig;
@@ -190,8 +197,7 @@ export class LowRes {
         uGlareMax: { value: SKIN.post.glare },
         uArcUv: { value: new THREE.Vector2(0.5, 0.5) },
         uArcOn: { value: 0 },
-        uAfter: { value: 0 },
-        uAfterUv: { value: new THREE.Vector2(0.5, 0.5) },
+        uSpots: { value: Array.from({ length: 6 }, () => new THREE.Vector3()) },
         uAfterColor: { value: new THREE.Vector3(...SKIN.post.afterColor) },
         uShake: { value: new THREE.Vector2(0, 0) },
         uFade: { value: 0 },

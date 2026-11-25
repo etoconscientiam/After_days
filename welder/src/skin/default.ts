@@ -56,10 +56,12 @@ export const SKIN = {
     tint: [0.45, 1.0, 0.5] as [number, number, number],
     shell: [0.006, 0.005, 0.004] as [number, number, number],
   },
+  /** Falling snow outside the window. */
+  snow: false,
   post: {
     exposure: 1.2,
     vignette: 0.55,
-    glare: 0.86,
+    glare: 0.3,
     afterColor: [0.55, 0.35, 0.8] as [number, number, number],
     bloomThreshold: 1.1,
     bloom: 0.9,
