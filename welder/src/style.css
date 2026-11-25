@@ -1,3 +1,32 @@
+/* The game's pixel font (Tiny5, SIL Open Font License), bundled: no request leaves the page. */
+@font-face {
+  font-family: 'Tiny5';
+  src: url('./fonts/tiny5-cyrillic-ext.woff2') format('woff2');
+  font-weight: 400;
+  font-display: block;
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Tiny5';
+  src: url('./fonts/tiny5-cyrillic.woff2') format('woff2');
+  font-weight: 400;
+  font-display: block;
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Tiny5';
+  src: url('./fonts/tiny5-latin-ext.woff2') format('woff2');
+  font-weight: 400;
+  font-display: block;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Tiny5';
+  src: url('./fonts/tiny5-latin.woff2') format('woff2');
+  font-weight: 400;
+  font-display: block;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
 :root {
   --px: 3px;
   --ink: #d8c8a8;
@@ -13,7 +42,8 @@ html, body {
   height: 100%;
   background: #000;
   overflow: hidden;
-  font-family: 'Courier New', Courier, monospace;
+  font-family: 'Tiny5', 'Courier New', monospace;
+
   color: var(--ink);
   user-select: none;
   -webkit-user-select: none;
@@ -36,8 +66,8 @@ html, body {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  font-size: calc(var(--px) * 6.5);
-  line-height: 1.15;
+  font-size: var(--fs, 12px);
+  line-height: 1.2;
   letter-spacing: 0.02em;
 }
 #ui .pe { pointer-events: auto; }
@@ -419,3 +449,69 @@ html, body {
   font-weight: bold;
 }
 #lang-btn:empty { display: none; }
+
+/* ------------------------------------------------------------------------------------------------
+ * Pixel squircles: every plate and button wears a 9-slice frame drawn in frames.ts (outline, a two-pixel
+ * rim, a bevel lit from above). L = panels and sheets (slice 7), S = labels, keys, small buttons (slice 5).
+ * ---------------------------------------------------------------------------------------------- */
+#ui .label, #prompt, #why, .toast, #app-status, #craft-btn, #lang-btn, #ctrl .k, #craft .buy, #job .btns span,
+#board .close, #craft .close, #start .go, #end .go, #start .links span, #stages .cause {
+  border-style: solid;
+  border-width: calc(var(--px) * 3.2);
+  border-image-slice: 5 fill;
+  border-image-width: calc(var(--px) * 5);
+  border-image-outset: calc(var(--px) * 1.8);
+  border-image-repeat: stretch;
+  background: none !important;
+  box-shadow: none !important;
+  image-rendering: pixelated;
+}
+#money, #job, #craft, #board, #stages, #end .panel, #stamp, #craft .item, #board .card {
+  border-style: solid;
+  border-width: calc(var(--px) * 5);
+  border-image-slice: 7 fill;
+  border-image-width: calc(var(--px) * 7);
+  border-image-outset: calc(var(--px) * 2);
+  border-image-repeat: stretch;
+  background: none !important;
+  box-shadow: none !important;
+  image-rendering: pixelated;
+}
+/* Which frame each wears. */
+#ui .label, #prompt, .toast, #app-status { border-image-source: var(--sq-panel-s) !important; }
+#why { border-image-source: var(--sq-bad-s) !important; }
+#tour { border-image-source: var(--sq-gold-s) !important; }
+#stages, #craft, #board, #end .panel { border-image-source: var(--sq-panel-l) !important; }
+#money, #job, #craft .item, #board .card { border-image-source: var(--sq-paper-l) !important; }
+#craft .item.owned { border-image-source: var(--sq-good-l) !important; color: #d8e8c0; }
+#craft .item.owned p { color: #a8b898; }
+#craft .item.owned .own { color: #b8e090; }
+#stamp { border-image-source: var(--sq-gold-l) !important; }
+#stamp.bad { border-image-source: var(--sq-bad-l) !important; }
+#craft-btn, #lang-btn, #craft .buy, #job .take, #start .go, #end .go { border-image-source: var(--sq-btn-s) !important; }
+#craft-btn:hover, #lang-btn:hover, #craft .buy:hover, #job .take:hover, #start .go:hover, #end .go:hover, #craft-btn.glow { border-image-source: var(--sq-hot-s) !important; }
+#job .later, #board .close, #craft .close, #start .links span { border-image-source: var(--sq-dark-s) !important; color: #c8b898 !important; text-decoration: none !important; }
+#job .later:hover, #board .close:hover, #craft .close:hover, #start .links span:hover { border-image-source: var(--sq-btn-s) !important; }
+#ctrl .k { border-image-source: var(--sq-key-s) !important; padding: 0 calc(var(--px) * 0.6); border-width: calc(var(--px) * 2.4); color: #f0e0b8; }
+#stages .cause { border-image-source: var(--sq-dark-s) !important; border-width: calc(var(--px) * 2); border-image-outset: calc(var(--px) * 1); padding: 0 calc(var(--px) * 0.5); }
+#stages .cause.unk { border-image-source: var(--sq-dark-s) !important; }
+/* Paddings inside the frames (the border already holds the rim and a little fill). */
+#ui .label, #prompt, #why { padding: 0 calc(var(--px) * 1.5); }
+.toast { padding: 0 calc(var(--px) * 2); }
+#craft-btn, #lang-btn { padding: 0 calc(var(--px) * 1.5); cursor: pointer; }
+#craft-btn .k { border: none; padding: 0; margin-left: calc(var(--px) * 1.5); color: #e8c878; }
+#money { padding: 0 calc(var(--px) * 3); color: #2a1e14; }
+#stages { padding: calc(var(--px) * 0.5) calc(var(--px) * 1.5); }
+#job, #craft, #board, #end .panel { padding: calc(var(--px) * 2) calc(var(--px) * 3); }
+#craft .item, #board .card { padding: calc(var(--px) * 0.5) calc(var(--px) * 1.5); }
+#craft .item .cost, #board .card .pay { right: calc(var(--px) * 1); top: calc(var(--px) * 0.5); }
+#stamp { padding: 0 calc(var(--px) * 5); }
+#job .btns span, #craft .buy, #board .close, #craft .close, #start .go, #end .go, #start .links span { display: inline-block; padding: 0 calc(var(--px) * 3); cursor: pointer; }
+#start .go { color: #ffe6a8 !important; font-size: 1.2em; }
+/* Labels point with a small pixel tail of the rim colour. */
+#ui .label::after { bottom: calc(var(--px) * -7); border-top-color: #8a6638; }
+#tour::after { border-top-color: #f0c860 !important; }
+/* Headings in the game font, a bit bigger and spaced. */
+#craft h3, #board h3, #start h1, #end h2 { font-weight: 700; letter-spacing: 0.12em; }
+#craft h4 { letter-spacing: 0.1em; }
+#gauges span { font-size: 0.7em; }

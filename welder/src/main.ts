@@ -7,6 +7,7 @@ import { Sound } from './audio/audio';
 import { serialize, restore, SaveData } from './sim/save';
 import { setLang, getLang, Lang } from './i18n';
 import { demoWeld } from './dev';
+import { installFrames } from './view/frames';
 
 const SAVE_KEY = 'welder.save';
 const LANG_KEY = 'welder.lang';
@@ -162,4 +163,11 @@ function boot(): void {
   (window as unknown as { welder: unknown }).welder = { game, view, demo: (o: Parameters<typeof demoWeld>[1]) => demoWeld(game, o) };
 }
 
-boot();
+// The pixel squircle frames, then the pixel font (in-world lettering is painted on canvases, so it must be
+// loaded first), then the game. A missing font never blocks it for more than a moment.
+installFrames();
+const fonts = (document as Document & { fonts?: FontFaceSet }).fonts;
+const ready = fonts
+  ? Promise.all([fonts.load('16px "Tiny5"', 'АаZz09')]).catch(() => undefined)
+  : Promise.resolve();
+Promise.race([ready, new Promise((r) => setTimeout(r, 1500))]).then(() => boot());

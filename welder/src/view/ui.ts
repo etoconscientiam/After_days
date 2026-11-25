@@ -106,6 +106,8 @@ export class UI {
   setScale(px: number): void {
     this.root.style.setProperty('--px', px + 'px');
     document.documentElement.style.setProperty('--px', px + 'px');
+    // The pixel font only stays crisp at whole pixel sizes.
+    document.documentElement.style.setProperty('--fs', Math.max(16, Math.round((px * 6.5) / 8) * 8) + 'px');
   }
 
   showMoney(v: number, bump = false): void {
