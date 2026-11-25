@@ -10,6 +10,8 @@ const listeners: (() => void)[] = [];
 export function setLang(l: Lang): void {
   lang = l;
   document.documentElement.lang = l;
+  // the loader (index.html) speaks the player's language from the first frame of the next visit
+  try { localStorage.setItem('strata.lang', JSON.stringify(l)); } catch { /* ignore */ }
   listeners.forEach((f) => f());
 }
 export function getLang(): Lang { return lang; }

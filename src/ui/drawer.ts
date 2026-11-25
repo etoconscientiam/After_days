@@ -43,6 +43,8 @@ export class Drawer {
   onExport: () => string = () => '';
   onImport: (s: string) => boolean = () => false;
   onReset: () => void = () => {};
+  /** back to the main menu (from the settings) */
+  onMenu: () => void = () => {};
   /** Book → Debug: the cheats and debugging panel (the beetle) */
   onDebug: () => void = () => {};
   onToast: (s: string) => void = () => {};
@@ -696,6 +698,7 @@ export class Drawer {
     const reset = h('button', { class: 'stone-btn danger' }, resetFill, h('span', { style: 'position:relative' }, t('settings.resetHold'))) as HTMLButtonElement;
     holdToConfirm(reset, resetFill, 2000, () => this.onReset());
     this.body.append(
+      h('button', { class: 'stone-btn set-menu', onclick: () => this.onMenu() }, t('menu.toMenu')),
       h('div', { class: 'set-row' }, t('settings.language'), lang),
       h('div', { class: 'set-row' }, t('settings.music'), range('music')),
       h('div', { class: 'set-row' }, t('settings.sfx'), range('sfx')),

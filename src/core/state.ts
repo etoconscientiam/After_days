@@ -248,8 +248,9 @@ export function newLegacy(): LegacyState {
 }
 
 export function defaultSettings(): Settings {
-  // English by default (spec); the player switches language in settings.
-  return { lang: 'en', music: 0.5, sfx: 0.7, muted: false, quality: 'high', integerScale: true, detailed: false };
+  // the browser's language (Russian or else English); the player switches it in the settings
+  const ru = typeof navigator !== 'undefined' && /^ru/i.test(navigator.language || '');
+  return { lang: ru ? 'ru' : 'en', music: 0.5, sfx: 0.7, muted: false, quality: 'high', integerScale: true, detailed: false };
 }
 
 export function newGameState(seed = (Math.random() * 2 ** 31) | 0): GameState {

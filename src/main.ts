@@ -22,13 +22,21 @@ import { setWear, wearFrom } from './ui/wear';
 import { Turmoil, SEVERITY } from './ui/turmoil';
 import { Geologist } from './ui/geologist';
 import { rockNeedsHeatOrDepth } from './core/forecast';
-import { saveLocal, loadLocal, clearLocal, exportString, importString } from './save/save';
+import { saveLocal, loadLocal, clearLocal, exportString, importString, loadSlot, deleteSlot, setActiveSlot, activeSlot } from './save/save';
+import { loadAllSkins } from './render/assets';
+import { Menu } from './ui/menu';
 
 /** Touch screen without hover (phones, tablets). */
 const TOUCH = window.matchMedia('(hover: none)').matches;
 document.documentElement.classList.toggle('touch', TOUCH);
 // colour tokens from config/theme.json → CSS variables
 for (const [k, v] of Object.entries(THEME)) if (!k.startsWith('_')) document.documentElement.style.setProperty('--' + k, v as string);
+
+/** The loader and the main menu open the game; an automated test (webdriver) goes straight in, unless it asks for the
+ *  menu (?menu in the address). */
+const INTRO = !(navigator.webdriver && !/[?&]menu\b/.test(location.search));
+/** the game stands still while the menu is up (the world behind it still breathes: sky, water, light) */
+let paused = INTRO;
 
 let game: Game;
 const loaded = loadLocal();
@@ -264,7 +272,11 @@ function bind(g: Game): void {
   bus.on('excavationDone', () => turmoil.hit(SEVERITY.finding));
 }
 
-function save(): void { if (saveLocal(game)) game.state.savedAt = Date.now(); }
+function save(): void {
+  // nothing moves behind the menu; saving there would also lose the time the player was away
+  if (paused) return;
+  if (saveLocal(game)) game.state.savedAt = Date.now();
+}
 
 function swapGame(g: Game): void {
   game = g;
@@ -274,7 +286,6 @@ function swapGame(g: Game): void {
   drawer.relabel();
   drawer.close();
   modals.close();
-  renderer.reveal = 0;
 }
 
 function resetAll(): void {
@@ -416,7 +427,7 @@ function offline(sinceMs: number): void {
     pendingAway = { rep, t: sec };
   }
 }
-if (loaded) offline(game.state.savedAt);
+if (loaded && !INTRO) offline(game.state.savedAt);
 let hiddenAt = 0;
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { hiddenAt = Date.now(); save(); }
@@ -466,7 +477,7 @@ function frame(now: number): void {
   // an era change: time almost stops for a second
   let dtGame = dtReal;
   if (slowmo > 0) { slowmo -= dtReal; dtGame = dtReal * 0.08; }
-  const steps = Math.min(dev.timeScale, 100);
+  const steps = paused ? 0 : Math.min(dev.timeScale, 100);
   for (let i = 0; i < steps; i++) game.update(dtGame);
   renderer.timeMul = steps * (dtGame / Math.max(1e-6, dtReal));
   renderer.lay.update(drawerWorldPx());
@@ -482,7 +493,7 @@ function frame(now: number): void {
     const below = game.state.phase === 'play' && game.run.sink.rows === 0;
     if (!below && game.state.phase === 'play' && !f.pressTaught) { pressHintT += dtReal; if (pressHintT > 14) f.pressTaught = true; }
     const hint = !below && game.state.phase === 'play' && !f.pressTaught;
-    const show = below || hint;
+    const show = (below || hint) && !menu.open;
     if (pl.hidden === show) pl.hidden = !show;
     toggle(pl, 'press-hint', hint);
     if (show) {
@@ -516,7 +527,9 @@ function frame(now: number): void {
   ui.classList.toggle('finale', ph === 'finale' || ph === 'temple' || ph === 'newWorld' || ph === 'end');
   ui.classList.toggle('detailed', !!game.state.settings.detailed);
   ui.classList.toggle('drawer-open', !!drawer.open);
-  if (ph !== 'play' && drawer.open) drawer.close();
+  if (ph !== 'play' && drawer.open && !menuSettings) drawer.close();
+  // the settings opened from the menu: when the drawer closes, the menu comes back
+  if (menuSettings && !drawer.open) { menuSettings = false; menu.conceal(false); ui.classList.remove('menu-settings'); menu.relabel(); }
   dev.update(dtReal);
   if (ph === 'temple') audio.choirLevel(Math.min(1, game.state.templeProgress * 1.5));
   else if (ph === 'play') audio.choirLevel(0);
@@ -525,6 +538,67 @@ function frame(now: number): void {
 }
 fit();
 requestAnimationFrame(frame);
+
+// ---------- the loader, then the main menu ----------
+const menu = new Menu();
+let menuSettings = false;
+/** Leave the menu into the game; the time away is caught up (a short timelapse) if the world was already there. */
+function enterGame(catchUp: boolean): void {
+  menu.hide();
+  paused = false;
+  if (catchUp) offline(game.state.savedAt);
+}
+function freshGame(): Game {
+  const g = new Game(newGameState());
+  g.state.settings = game.state.settings;
+  return g;
+}
+menu.onContinue = () => enterGame(true);
+menu.onNew = (slot) => {
+  setActiveSlot(slot);
+  swapGame(freshGame());
+  paused = false;
+  save();
+  enterGame(false);
+};
+menu.onLoad = (slot) => {
+  if (slot === activeSlot() && game.state.savedAt) { enterGame(true); return; }
+  const l = loadSlot(slot);
+  if (!l) return;
+  setActiveSlot(slot);
+  l.state.settings = game.state.settings;
+  swapGame(new Game(l.state, l.grid, l.archive));
+  enterGame(true);
+};
+menu.onDelete = (slot) => {
+  deleteSlot(slot);
+  // the world behind the menu was this one: an empty world takes its place (nothing is saved until played)
+  if (slot === activeSlot()) swapGame(freshGame());
+};
+menu.onSettings = () => {
+  menuSettings = true;
+  menu.conceal(true);
+  ui.classList.add('menu-settings');
+  drawer.toggleView('settings');
+};
+drawer.onMenu = () => {
+  save();
+  drawer.close();
+  modals.close();
+  paused = true;
+  menu.show();
+};
+onLangChange(() => menu.relabel());
+{
+  const boot = (window as any).__boot as { progress(k: number): void; done(cb?: () => void): void } | undefined;
+  const fonts = (document as any).fonts?.ready ?? Promise.resolve();
+  // every image of the world and the interface, and the fonts, before the loader lets go: the scene then appears
+  // whole at once, not drawn in pieces
+  Promise.all([loadAllSkins((k) => boot?.progress(k * 0.95)), fonts]).then(() => new Promise((r) => setTimeout(r, 150))).then(() => {
+    if (!boot) { if (INTRO) menu.show(); return; }
+    boot.done(() => { if (INTRO) menu.show(); });
+  });
+}
 void energyIcon;
 (window as any).__strata = { get game() { return game; }, cfg: CFG, renderer, save, dev, drawer, input, modals, turmoil, away: (sec: number) => offline(Date.now() - sec * 1000),
   lang: (l: 'en' | 'ru') => { game.state.settings.lang = l; setLang(l); drawer.relabel(); } };

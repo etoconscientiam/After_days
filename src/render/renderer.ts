@@ -576,7 +576,9 @@ export class Renderer {
   }
 
   /** Offline return: a few seconds of timelapse (days flicker, the section grows back in). */
-  startTimelapse(sec: number): void { this.timelapse = sec; this.reveal = 0; }
+  /** The time away, quickly: the world is shown whole at once (no reveal drawn line by line, which read as slow
+   *  loading). */
+  startTimelapse(sec: number): void { this.timelapse = sec; }
 
   showEcho(picture: string, alpha: number): void {
     if (this.echo) { if (this.echoQueue.length < 3) this.echoQueue.push({ picture, alpha }); return; }

@@ -202,9 +202,69 @@ export function deserialize(json: string): Loaded {
   return { state: blob.state, grid: emptyGrid(blob.state), archive: new Archive() };
 }
 
+// ---------- slots ----------
+/** Three worlds can be kept: each in its own slot (KEY.s1..s3) with a small summary beside it (KEY.m1..m3) for
+ *  the menu; one slot is active (KEY.active) — the one the game saves to. A save of the time before the slots
+ *  (KEY) becomes slot 1. */
+export const SLOTS = 3;
+const slotKey = (i: number) => `${KEY}.s${i}`;
+const metaKey = (i: number) => `${KEY}.m${i}`;
+const ACTIVE = `${KEY}.active`;
+
+export interface SlotMeta { era: number; year: number; real: number; savedAt: number; playthrough: number; prestiges: number; phase: string }
+
+function metaOf(g: Game): SlotMeta {
+  const s = g.state;
+  return { era: s.run.era, year: Math.round(s.run.year), real: s.legacy.totalRealTime, savedAt: Date.now(), playthrough: s.legacy.playthrough, prestiges: s.meta.prestiges, phase: s.phase };
+}
+
+function migrateSlots(): void {
+  try {
+    for (const k of (CFG.B.save as { oldKeys?: string[] }).oldKeys ?? []) localStorage.removeItem(k);
+    const old = localStorage.getItem(KEY);
+    if (old && !localStorage.getItem(slotKey(1))) {
+      localStorage.setItem(slotKey(1), old);
+      try { const l = deserialize(old); localStorage.setItem(metaKey(1), JSON.stringify(metaOf(new Game(l.state, l.grid, l.archive)))); } catch { /* the summary comes with the next save */ }
+      localStorage.setItem(ACTIVE, '1');
+    }
+    if (old) localStorage.removeItem(KEY);
+  } catch { /* ignore */ }
+}
+
+export function activeSlot(): number {
+  try { const v = Number(localStorage.getItem(ACTIVE)); return v >= 1 && v <= SLOTS ? v : 1; } catch { return 1; }
+}
+export function setActiveSlot(i: number): void { try { localStorage.setItem(ACTIVE, String(i)); } catch { /* ignore */ } }
+
+/** The summary of a slot for the menu, or null if it is empty. */
+export function slotMeta(i: number): SlotMeta | null {
+  try {
+    if (!localStorage.getItem(slotKey(i))) return null;
+    const m = localStorage.getItem(metaKey(i));
+    return m ? (JSON.parse(m) as SlotMeta) : { era: 0, year: 0, real: 0, savedAt: 0, playthrough: 1, prestiges: 0, phase: 'play' };
+  } catch { return null; }
+}
+
+export function deleteSlot(i: number): void {
+  try { localStorage.removeItem(slotKey(i)); localStorage.removeItem(metaKey(i)); } catch { /* ignore */ }
+}
+
+export function loadSlot(i: number): Loaded | null {
+  try {
+    const s = localStorage.getItem(slotKey(i));
+    return s ? deserialize(s) : null;
+  } catch (e) {
+    console.warn('load failed', e);
+    return null;
+  }
+}
+
+/** Save into the active slot. */
 export function saveLocal(g: Game): boolean {
   try {
-    localStorage.setItem(KEY, serialize(g));
+    const i = activeSlot();
+    localStorage.setItem(slotKey(i), serialize(g));
+    localStorage.setItem(metaKey(i), JSON.stringify(metaOf(g)));
     return true;
   } catch (e) {
     console.warn('save failed', e);
@@ -212,22 +272,14 @@ export function saveLocal(g: Game): boolean {
   }
 }
 
+/** Load the active slot (a save from before the slots becomes slot 1). */
 export function loadLocal(): Loaded | null {
-  try {
-    // saves of the worlds that started on old ground are not carried over: the game starts anew, bare
-    for (const k of (CFG.B.save as { oldKeys?: string[] }).oldKeys ?? []) localStorage.removeItem(k);
-    const s = localStorage.getItem(KEY);
-    if (!s) return null;
-    return deserialize(s);
-  } catch (e) {
-    console.warn('load failed', e);
-    return null;
-  }
+  migrateSlots();
+  return loadSlot(activeSlot());
 }
 
-export function clearLocal(): void {
-  try { localStorage.removeItem(KEY); } catch { /* ignore */ }
-}
+/** Empty the active slot. */
+export function clearLocal(): void { deleteSlot(activeSlot()); }
 
 /** Export: base64 of the JSON (unicode-safe). */
 export function exportString(g: Game): string {

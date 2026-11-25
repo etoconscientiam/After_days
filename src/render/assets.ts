@@ -47,3 +47,17 @@ export function skinPixels(path: string): SkinPixels | null {
 export function preloadSkins(prefix: string): void {
   for (const k of Object.keys(files)) if (k.startsWith('/assets/' + prefix)) skin(k.slice('/assets/'.length));
 }
+
+/** Load every skin (world and interface) and wait for them all, reporting the share loaded (the loader). A broken
+ *  file counts as loaded: the game draws its placeholder. */
+export function loadAllSkins(onProgress: (k: number) => void): Promise<void> {
+  const keys = Object.keys(files);
+  if (!keys.length) { onProgress(1); return Promise.resolve(); }
+  let n = 0;
+  return Promise.all(keys.map((k) => new Promise<void>((res) => {
+    skin(k.slice('/assets/'.length));
+    const img = images.get(k.slice('/assets/'.length))!;
+    const fin = () => { n++; onProgress(n / keys.length); res(); };
+    if (img.complete) fin(); else { img.addEventListener('load', fin, { once: true }); img.addEventListener('error', fin, { once: true }); }
+  }))).then(() => undefined);
+}

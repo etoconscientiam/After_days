@@ -7,8 +7,86 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <title>Strata</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%230E0C10'/%3E%3Crect y='9' width='16' height='2' fill='%235a4030'/%3E%3Crect y='11' width='16' height='2' fill='%23787866'/%3E%3Crect y='13' width='16' height='3' fill='%23242428'/%3E%3Crect x='6' y='12' width='4' height='3' fill='%23F2B54A'/%3E%3C/svg%3E" />
+    <style>
+      /* the loader: shown at once, before the game's code and styles arrive (see the script under it) */
+      #boot { position: fixed; inset: 0; z-index: 100; background: #0E0C10; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; transition: opacity 0.7s ease; }
+      #boot.out { opacity: 0; pointer-events: none; }
+      #boot canvas { width: 176px; height: 240px; image-rendering: pixelated; image-rendering: crisp-edges; }
+      #boot .b-title { font-family: 'Strata Stone', 'Cormorant Garamond', Georgia, serif; font-size: 32px; letter-spacing: 6px; color: #EDE3D0; text-indent: 6px; }
+      #boot .b-cap { font-family: 'Strata Pixel', 'Lora', Georgia, serif; font-size: 16px; color: #A89B88; letter-spacing: 1px; min-height: 20px; }
+    </style>
   </head>
   <body>
+    <div id="boot"><canvas width="44" height="60"></canvas><div class="b-title"></div><div class="b-cap"></div></div>
+    <script>
+      // The loader, in the spirit of the game: small piles fall where an unseen finger taps, slide and settle into
+      // beds of sediment over the thing glowing at the bottom; each bed its own colour, as the eras lay them.
+      // The game reports how far it has loaded (window.__boot.progress) and lets it go (window.__boot.done).
+      (function () {
+        var el = document.getElementById('boot'), cv = el.querySelector('canvas'), c = cv.getContext('2d');
+        var ru = /^ru/i.test(navigator.language || '');
+        try { var st = JSON.parse(localStorage.getItem('strata.lang') || 'null'); if (st) ru = st === 'ru'; } catch (e) {}
+        el.querySelector('.b-title').textContent = ru ? 'СЛОИ' : 'STRATA';
+        el.querySelector('.b-cap').textContent = ru ? 'оседают слои' : 'the layers settle';
+        var W = 44, H = 60, FLOOR = H - 8, h = [], col = [], grains = [], laid = 0, target = 0, pr = 0, done = false, t0 = performance.now(), last = t0;
+        var BEDS = ['#c6a872', '#9a6e52', '#e2dccb', '#6f7a74', '#4f5c28', '#b88a4a', '#8c8f99', '#d89030', '#5d6a30', '#a87a5c'];
+        for (var x = 0; x < W; x++) { h[x] = FLOOR; col[x] = []; }
+        var tapX = W / 2;
+        function bedColor(n) { return BEDS[Math.floor(n / 70) % BEDS.length]; }
+        function drop() {
+          if (Math.random() < 0.08) tapX = 6 + Math.random() * (W - 12);
+          for (var i = 0; i < 6; i++) grains.push({ x: Math.round(tapX + (Math.random() - 0.5) * 5), y: -Math.random() * 6, v: 0, c: bedColor(laid + i) });
+          laid += 6;
+        }
+        function settle(x, c2) {
+          // a grain rolls down the slope, then lies on its column
+          for (var k = 0; k < 12; k++) {
+            // down a step of two always, of one now and then: gentle slopes that spread into beds
+            var dl = x > 0 ? h[x - 1] - h[x] : 0, dr = x < W - 1 ? h[x + 1] - h[x] : 0;
+            var l = dl > 1 || (dl === 1 && Math.random() < 0.55), r = dr > 1 || (dr === 1 && Math.random() < 0.55);
+            if (l && r) x += Math.random() < 0.5 ? -1 : 1; else if (l) x--; else if (r) x++; else break;
+          }
+          h[x]--; col[x].push(c2);
+        }
+        function frame(now) {
+          var dt = Math.min(0.05, (now - last) / 1000); last = now;
+          target = Math.max(target, 40 + pr * 900);
+          if (laid < target && grains.length < 60) drop();
+          if (done && laid < 900) { drop(); drop(); }
+          c.clearRect(0, 0, W, H);
+          // the thing and its light
+          var gl = 0.55 + 0.15 * Math.sin(now / 420);
+          var g = c.createRadialGradient(W / 2, FLOOR + 2, 1, W / 2, FLOOR + 2, 22);
+          g.addColorStop(0, 'rgba(242,181,74,' + gl + ')'); g.addColorStop(1, 'rgba(242,181,74,0)');
+          c.fillStyle = g; c.fillRect(0, 0, W, H);
+          c.fillStyle = '#2a2521'; c.fillRect(0, FLOOR + 3, W, H - FLOOR - 3);
+          c.fillStyle = '#F2B54A'; c.fillRect(W / 2 - 3, FLOOR + 1, 6, 2);
+          c.fillStyle = '#ffe2a0'; c.fillRect(W / 2 - 1, FLOOR + 1, 2, 1);
+          // the beds laid so far
+          for (var x = 0; x < W; x++) for (var j = 0; j < col[x].length; j++) { c.fillStyle = col[x][j]; c.fillRect(x, FLOOR - 1 - j, 1, 1); }
+          // falling grains
+          for (var i = grains.length - 1; i >= 0; i--) {
+            var p = grains[i]; p.v += 90 * dt; p.y += p.v * dt;
+            var xi = Math.max(0, Math.min(W - 1, p.x));
+            if (p.y >= h[xi] - 1) { settle(xi, p.c); grains.splice(i, 1); continue; }
+            c.fillStyle = p.c; c.fillRect(xi, Math.round(p.y), 1, 1);
+          }
+          // when the column is full, the oldest beds sink into the thing (as in the game)
+          var top = FLOOR; for (x = 0; x < W; x++) top = Math.min(top, h[x]);
+          if (FLOOR - top > 34) for (x = 0; x < W; x++) if (col[x].length) { col[x].shift(); h[x]++; }
+          if (!el.classList.contains('gone')) requestAnimationFrame(frame);
+        }
+        requestAnimationFrame(frame);
+        window.__boot = {
+          progress: function (p) { pr = Math.max(pr, Math.min(1, p)); },
+          done: function (cb) {
+            done = true; pr = 1;
+            var wait = Math.max(0, 1100 - (performance.now() - t0));
+            setTimeout(function () { el.classList.add('out'); setTimeout(function () { el.classList.add('gone'); el.remove(); if (cb) cb(); }, 700); }, wait);
+          },
+        };
+      })();
+    </script>
     <div id="app">
       <canvas id="ambi" width="18" height="32"></canvas>
       <div id="column">

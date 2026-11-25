@@ -95,7 +95,14 @@
   },
   "niche": {
     "strengthenShort": "strengthen",
-    "how": {"mud": "pile into the sea", "carbonate": "extra: shells, strengthen plankton", "soil": "pile onto the land", "wet": "pile by the water", "sand": "sand in the pile", "barren": "ash and dust"},
+    "how": {
+      "mud": "pile into the sea",
+      "carbonate": "extra: shells, strengthen plankton",
+      "soil": "pile onto the land",
+      "wet": "pile by the water",
+      "sand": "sand in the pile",
+      "barren": "ash and dust"
+    },
     "strengthen": "Strengthen: +1 unit over what the niche keeps",
     "wild": "{n} wild",
     "waiting": "waiting for its niche",
@@ -642,7 +649,11 @@
     "horizon": "Technogenic horizon"
   },
   "toast": {
-    "buried": {"trees": "A buried forest becomes coal", "mosses": "Buried moss becomes peat", "mats": "Buried mats become oil"},
+    "buried": {
+      "trees": "A buried forest becomes coal",
+      "mosses": "Buried moss becomes peat",
+      "mats": "Buried mats become oil"
+    },
     "wildBorn": "Arose on its own: {s}",
     "wildDied": "Niche gone, died out: {s}",
     "rock": "New rock: {rock}",
@@ -918,5 +929,26 @@
   "bed": {
     "tip": "Bed: a thin ochre layer over the whole surface. In the strata a mark of time and jasper — and a seal: oil gathers under it",
     "button": "Bed: an ochre bed over all the land (jasper in the depth)"
+  },
+  "menu": {
+    "subtitle": "time settles in layers",
+    "continue": "Continue",
+    "newGame": "New game",
+    "saves": "Saves",
+    "settings": "Settings",
+    "back": "Back",
+    "slot": "World {n}",
+    "current": "current",
+    "empty": "Empty",
+    "play": "Play",
+    "delete": "Delete (hold)",
+    "overwrite": "Start anew here (hold)",
+    "newHere": "New game",
+    "whereNew": "Where to start a new world?",
+    "year": "year {n}",
+    "played": "played {t}",
+    "savedAgo": "saved {t} ago",
+    "justNow": "just now",
+    "toMenu": "Main menu"
   }
 }
