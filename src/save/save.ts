@@ -220,7 +220,9 @@ function metaOf(g: Game): SlotMeta {
 
 function migrateSlots(): void {
   try {
-    for (const k of (CFG.B.save as { oldKeys?: string[] }).oldKeys ?? []) localStorage.removeItem(k);
+    // the saves of older worlds (and their slots: KEY.s1, KEY.m1, KEY.active…) are dropped
+    const olds = (CFG.B.save as { oldKeys?: string[] }).oldKeys ?? [];
+    for (const k of Object.keys(localStorage)) if (olds.some((o) => k === o || k.startsWith(o + '.'))) localStorage.removeItem(k);
     const old = localStorage.getItem(KEY);
     if (old && !localStorage.getItem(slotKey(1))) {
       localStorage.setItem(slotKey(1), old);
