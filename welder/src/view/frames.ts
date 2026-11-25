@@ -29,8 +29,8 @@ const PALS: Record<string, Pal> = {
 /** Which frame each element wears: [selector, palette, palette on hover, big]. The last matching rule wins. */
 type Rule = [string, string, string | null, boolean];
 const RULES: Rule[] = [
-  ['#ui .label, #prompt, .toast, #app-status, #rod', 'panel', null, false],
-  ['#why, #rod.low', 'bad', null, false],
+  ['#tip, .toast, #app-status, #rod', 'panel', null, false],
+  ['#rod.low', 'bad', null, false],
   ['#tour', 'gold', null, false],
   ['#stages, #craft, #board, #end .panel', 'panel', null, true],
   ['#money, #job, #craft .item, #board .card', 'paper', null, true],

@@ -442,7 +442,7 @@ html, body {
  * Pixel squircles: every plate and button gets its own picture drawn at its size (frames.ts), in whole
  * frame pixels (--fu). The border only keeps the content clear of the rim.
  * ---------------------------------------------------------------------------------------------- */
-#ui .label, #prompt, #why, .toast, #app-status, #craft-btn, #lang-btn, #ctrl .k, #craft .buy, #job .btns span,
+#tip, #tour, .toast, #app-status, #craft-btn, #lang-btn, #ctrl .k, #craft .buy, #job .btns span,
 #board .close, #craft .close, #start .go, #end .go, #start .links span, #stages .cause, #rod {
   border: calc(var(--fu, 3px) * 3) solid transparent !important;
 }
@@ -463,7 +463,7 @@ html, body {
 #ctrl .k { padding: 0 calc(var(--fu, 3px) * 1); color: #f0e0b8; }
 #stages .cause { border-width: calc(var(--fu, 3px) * 2) !important; padding: 0 calc(var(--fu, 3px) * 1); }
 /* Paddings inside the frames (the border already holds the rim and a little fill). */
-#ui .label, #prompt, #why { padding: 0 calc(var(--px) * 1.5); }
+#tip, #tour { padding: 0 calc(var(--px) * 1.5); }
 .toast { padding: 0 calc(var(--px) * 2); }
 #craft-btn, #lang-btn { padding: 0 calc(var(--px) * 1.5); cursor: pointer; }
 #craft-btn .k { border: none; padding: 0; margin-left: calc(var(--px) * 1.5); color: #e8c878; }
@@ -476,7 +476,7 @@ html, body {
 #job .btns span, #craft .buy, #board .close, #craft .close, #start .go, #end .go, #start .links span { display: inline-block; padding: 0 calc(var(--px) * 3); cursor: pointer; }
 #start .go { color: #ffe6a8 !important; font-size: var(--fh); line-height: calc(var(--fh) * 1.25); font-family: var(--fhf); font-weight: 400; }
 /* Labels point with a small pixel tail of the rim colour. */
-#ui .label::after { bottom: calc(var(--px) * -7); border-top-color: #8a6638; }
+#tour::after { bottom: calc(var(--px) * -7); }
 #tour::after { border-top-color: #f0c860 !important; }
 /* Headings in the game font, a bit bigger and spaced. */
 #craft h3, #board h3, #start h1, #end h2 { font-weight: 400; letter-spacing: 0.12em; }
@@ -520,3 +520,36 @@ body.ui-modal #game { cursor: var(--cur); }
 #rod .bar i { display: block; height: 100%; background: linear-gradient(#e8d8b0, #b8a070); }
 #rod.low .bar i { background: #e0603a; }
 #rod .k { color: #ffd27a; }
+
+/* ------------------------------------------------------------------------------------------------
+ * Annotations on the work (what to do here, why the arc won't catch): no plate, no frame. Just words
+ * floating over the spot like a thought, with a soft shadow to read on bright metal, and a thin fading
+ * stroke down to the point they mean. Seen, not shouted.
+ * ---------------------------------------------------------------------------------------------- */
+#hint, #prompt, #why {
+  background: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  color: rgba(242, 226, 192, 0.88);
+  text-shadow: 0 0 calc(var(--px) * 1.2) rgba(0, 0, 0, 0.95), calc(var(--px) * 0.5) calc(var(--px) * 0.5) 0 rgba(0, 0, 0, 0.7);
+  pointer-events: none;
+  animation: ar-in 0.25s ease-out;
+}
+#hint { transform: translate(-50%, calc(-100% - var(--px) * 7)); }
+#hint::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  bottom: auto;
+  margin: calc(var(--px) * 1) 0 0 -1px;
+  width: 2px;
+  height: calc(var(--px) * 6);
+  border: 0;
+  background: linear-gradient(rgba(242, 226, 192, 0.55), rgba(242, 226, 192, 0));
+}
+#hint.top::after, #hint.edge-l::after { display: none; }
+#hint.edge-r::after { width: auto; height: auto; margin: 0; background: none; }
+#why { color: rgba(255, 196, 150, 0.9); margin-top: calc(var(--px) * 7); }
+@keyframes ar-in { from { opacity: 0; } to { opacity: 1; } }
