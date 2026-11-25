@@ -317,3 +317,92 @@ html, body {
 #stages .bar { display: inline-block; width: calc(var(--px) * 22); height: calc(var(--px) * 2.5); background: #3a3026; }
 #stages .bar i { display: block; height: 100%; background: #e8a040; }
 #stages .sum { margin-top: calc(var(--px) * 1.5); color: #e8c878; }
+
+#craft-btn {
+  position: absolute;
+  left: calc(var(--px) * 5);
+  top: calc(var(--px) * 22);
+  display: none;
+  padding: calc(var(--px) * 1) calc(var(--px) * 3);
+  color: #f0e0b8;
+  background: #3a2a1a;
+  border: var(--px) solid #8a6a3a;
+  cursor: pointer;
+  text-transform: lowercase;
+}
+#craft-btn .k { border: var(--px) solid #8a6a3a; padding: 0 calc(var(--px) * 1); margin-left: calc(var(--px) * 1.5); }
+#craft-btn.glow { animation: craftGlow 1.2s ease-in-out infinite; }
+@keyframes craftGlow { 0%, 100% { box-shadow: 0 0 0 rgba(255, 190, 90, 0); } 50% { box-shadow: 0 0 calc(var(--px) * 5) rgba(255, 190, 90, 0.9); } }
+#stages { top: calc(var(--px) * 34); }
+#stages li.causes { display: flex; flex-wrap: wrap; gap: calc(var(--px) * 1.5); justify-content: flex-start; padding-left: calc(var(--px) * 5); }
+#stages .cause { font-size: 0.85em; padding: 0 calc(var(--px) * 1.5); border: var(--px) solid #6a5a44; color: #e8b878; }
+#stages .cause.unk { color: #9a8a74; border-style: dashed; }
+#stages .legend { margin-top: calc(var(--px) * 1.5); font-size: 0.8em; color: var(--dim); }
+#craft {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(var(--px) * 240);
+  max-height: 86%;
+  overflow-y: auto;
+  padding: calc(var(--px) * 5);
+  background: #2a1e14;
+  border: calc(var(--px) * 2) solid #6a4a2a;
+  box-shadow: calc(var(--px) * 2) calc(var(--px) * 2) 0 rgba(0, 0, 0, 0.6);
+  display: none;
+}
+#craft h3 { margin: 0; font-size: 1.3em; color: #f0e0b8; letter-spacing: 0.2em; }
+#craft .money-line { color: #e8c878; margin: calc(var(--px) * 1) 0 calc(var(--px) * 3); }
+#craft h4 { margin: calc(var(--px) * 4) 0 calc(var(--px) * 2); color: #c8a878; letter-spacing: 0.15em; text-transform: uppercase; font-size: 0.85em; }
+#craft .items { display: grid; grid-template-columns: 1fr 1fr; gap: calc(var(--px) * 3); }
+#craft .item { position: relative; background: #b8aa8c; color: #2a1e14; padding: calc(var(--px) * 3); }
+#craft .item.owned { background: #7a8a6a; }
+#craft .item.off { opacity: 0.6; }
+#craft .item b { display: block; padding-right: calc(var(--px) * 14); }
+#craft .item .cost { position: absolute; right: calc(var(--px) * 3); top: calc(var(--px) * 3); font-weight: bold; color: #6a4a10; }
+#craft .item p { margin: calc(var(--px) * 1.5) 0; font-size: 0.9em; }
+#craft .buy { display: inline-block; cursor: pointer; padding: calc(var(--px) * 1) calc(var(--px) * 4); background: #2a1e14; color: #f0e0b8; }
+#craft .buy:hover { background: #4a3422; }
+#craft .no { color: #8a2a10; font-size: 0.9em; }
+#craft .own { color: #1e3a14; font-weight: bold; }
+#craft .close { margin-top: calc(var(--px) * 4); text-align: right; color: var(--dim); cursor: pointer; }
+#tour {
+  display: none;
+  max-width: calc(var(--px) * 110);
+  white-space: normal;
+  text-transform: none;
+  color: #f0e0b8;
+  cursor: pointer;
+  border-color: #c89a50;
+}
+#tour p { margin: 0 0 calc(var(--px) * 1.5); }
+#tour .next { color: #e8c878; }
+
+.pop {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  pointer-events: none;
+  font-weight: bold;
+  font-size: 1.15em;
+  color: #ffe08a;
+  text-shadow: calc(var(--px) * 0.7) calc(var(--px) * 0.7) 0 #000;
+  white-space: nowrap;
+  animation: pop 1.2s ease-out forwards;
+}
+.pop.mid { color: #e8c060; font-size: 1em; }
+.pop.low { color: #d07050; font-size: 0.95em; }
+.pop.big { font-size: 1.5em; color: #fff0b0; }
+@keyframes pop { 0% { opacity: 0; margin-top: 0; } 12% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; margin-top: calc(var(--px) * -14); } }
+#gauges {
+  position: absolute;
+  display: none;
+  gap: calc(var(--px) * 9);
+  pointer-events: none;
+  transform: translate(calc(var(--px) * 10), -50%);
+}
+#gauges .g { position: relative; width: calc(var(--px) * 3); height: calc(var(--px) * 22); background: rgba(20, 14, 8, 0.75); border: var(--px) solid #6a5a44; }
+#gauges .band { position: absolute; left: 0; right: 0; bottom: 33%; height: 34%; background: rgba(120, 200, 90, 0.55); }
+#gauges .needle { position: absolute; left: calc(var(--px) * -1.5); right: calc(var(--px) * -1.5); height: var(--px); background: #fff0c0; box-shadow: 0 0 calc(var(--px) * 2) #ffd070; }
+#gauges .g.off .needle { background: #ff7a50; box-shadow: 0 0 calc(var(--px) * 2) #ff5030; }
+#gauges span { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: var(--px); font-size: 0.65em; color: #c8b898; text-shadow: 0 0 var(--px) #000; }

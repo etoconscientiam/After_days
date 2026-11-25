@@ -9,6 +9,7 @@ export interface Order {
   req: Requirement;
   simple: boolean;
   urgent: boolean;
+  minPay?: number;
 }
 
 export function makeOrder(data: GameData, t: OrderTemplate, uid: number, rng: Rng, urgent = false): Order {
@@ -20,6 +21,7 @@ export function makeOrder(data: GameData, t: OrderTemplate, uid: number, rng: Rn
     req: { ...(t.req ?? {}) },
     simple: data.parts[t.part].simple,
     urgent,
+    ...(t.minPay ? { minPay: t.minPay } : {}),
   };
 }
 

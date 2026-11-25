@@ -40,6 +40,7 @@ function boot(): void {
   const view = new View(game, canvas, uiRoot, stage);
   const sound = new Sound();
   view.onStep = () => sound.step();
+  view.onSfx = (k, v) => sound.sfx(k, v ?? 0);
 
   game.bus.on('save', () => {
     try {
@@ -127,6 +128,11 @@ function boot(): void {
   const frame = (now: number) => {
     const dt = Math.min(0.25, (now - last) / 1000);
     last = now;
+    // Hit-stop: hold the frame on a strong moment (the picture stays, the sim waits).
+    if (view.consumeFreeze(dt)) {
+      requestAnimationFrame(frame);
+      return;
+    }
     // One bad frame must not stop the game: report it and carry on with the next one.
     try {
       tick(dt);

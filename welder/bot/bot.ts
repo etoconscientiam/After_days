@@ -27,9 +27,9 @@ interface Skill {
 }
 
 const SKILLS: Record<string, Skill> = {
-  good: { name: 'good', speedMul: 1.0, speedNoise: 0.12, lat: 1.0, Ltol: 0.7, reaction: 0.35, aim: 0.7, chipEvery: 0.28, buys: ['coated', 'glass', 'jar', 'apprentice', 'wheel2', 'cable'], think: 1.2 },
-  average: { name: 'average', speedMul: 1.15, speedNoise: 0.3, lat: 2.4, Ltol: 1.1, reaction: 0.55, aim: 1.0, chipEvery: 0.36, buys: ['jar', 'coated', 'glass', 'apprentice', 'wheel2', 'cable'], think: 2.6 },
-  poor: { name: 'poor', speedMul: 1.65, speedNoise: 0.5, lat: 4.5, Ltol: 1.8, reaction: 0.8, aim: 1.4, chipEvery: 0.45, buys: ['glass', 'coated', 'apprentice', 'jar', 'wheel2'], think: 3.5 },
+  good: { name: 'good', speedMul: 1.0, speedNoise: 0.12, lat: 1.0, Ltol: 0.7, reaction: 0.35, aim: 0.7, chipEvery: 0.28, buys: ['guild', 'coated', 'tempo', 'glass', 'jar', 'ear', 'apprentice', 'wheel2', 'cable'], think: 1.2 },
+  average: { name: 'average', speedMul: 1.15, speedNoise: 0.3, lat: 2.4, Ltol: 1.1, reaction: 0.55, aim: 1.0, chipEvery: 0.36, buys: ['guild', 'jar', 'coated', 'glass', 'tempo', 'apprentice', 'wheel2', 'cable'], think: 2.6 },
+  poor: { name: 'poor', speedMul: 1.65, speedNoise: 0.5, lat: 4.5, Ltol: 1.8, reaction: 0.8, aim: 1.4, chipEvery: 0.45, buys: ['guild', 'glass', 'coated', 'apprentice', 'jar', 'wheel2'], think: 3.5 },
 };
 
 const fmt = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;

@@ -376,6 +376,7 @@ export class Game {
     this.bus.emit('bought', { id });
     this.bus.emit('shopChanged', {});
     this.milestone('buy:' + id);
+    if (id === 'guild') this.refillPile();
     if (id === 'apprentice') {
       this.appState = this.habit ? 'idle' : 'watching';
       this.bus.emit('apprentice', { state: this.appState });
@@ -389,7 +390,7 @@ export class Game {
     if (o.req.noHoles && b.holes > 0) met = false;
     let pay = payForSeams(b.seams, o.reward);
     if (!met) pay *= BALANCE.quality.failedReqMul;
-    return { pay: Math.max(1, Math.round(pay)), met };
+    return { pay: Math.max(1, o.minPay ?? 0, Math.round(pay)), met };
   }
 
   private handOver(): void {
@@ -460,6 +461,8 @@ export class Game {
       return;
     }
     if (this.flags.board) return;
+    // After the first job the next waits until you've joined the guild.
+    if (this.introIndex >= 1 && !this.owned.guild) return;
     const tpl =
       this.introIndex < this.data.intro.length
         ? this.data.intro[this.introIndex++]

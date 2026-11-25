@@ -11,47 +11,105 @@ function smooth(a: number, b: number, x: number): number {
  * Score of one seam, 0..1. Everything that lowers it is visible on the bead after the slag is gone:
  * holes, gaps, cold lumps, pores, wandering off the joint, spatter, an uneven ripple rhythm.
  */
-export function seamQuality(sr: SeamRun, thick = 1): number {
+/** Filler a good pass leaves on a part of this thickness. */
+function idealMetal(thick: number): number {
   const W = BALANCE.weld;
-  // Filler a good pass leaves on this part; thicker parts take a fatter bead.
-  const mI = (W.deposit * W.vIdeal) / idealSpeed(thick, 1);
-  let sum = 0;
-  let cnt = 0;
+  return (W.deposit * W.vIdeal) / idealSpeed(thick, 1);
+}
+
+/** Losses of one cell, each 0..1 of the cell: too little/too much filler, not fused, off the joint, pores, holes. */
+interface CellLoss {
+  fill: number;
+  fuse: number;
+  off: number;
+  pores: number;
+  hole: number;
+}
+
+function cellLoss(sr: SeamRun, c: number, mI: number, out: CellLoss): number {
+  const W = BALANCE.weld;
+  out.fill = out.fuse = out.off = out.pores = out.hole = 0;
+  if (sr.hole[c]) {
+    out.hole = 1;
+    return 0;
+  }
+  const m = sr.metal[c];
+  let fill = m < 0.8 * mI ? smooth(0.25 * mI, 0.8 * mI, m) : 1;
+  if (m > 1.45 * mI) fill *= Math.max(0.45, 1 - (m / mI - 1.45) * 0.45);
+  const fuse = smooth(W.fuseLow, W.fuseHigh, sr.peak[c]);
+  const off = smooth(4, 8, sr.dev[c]);
+  const afterFuse = fill * (0.3 + 0.7 * fuse);
+  const afterOff = afterFuse * (1 - 0.5 * off);
+  const sc = Math.max(0, afterOff - 0.6 * sr.pores[c]);
+  out.fill = 1 - fill;
+  out.fuse = fill - afterFuse;
+  out.off = afterFuse - afterOff;
+  out.pores = afterOff - sc;
+  return sc;
+}
+
+const tmpLoss: CellLoss = { fill: 0, fuse: 0, off: 0, pores: 0, hole: 0 };
+
+/** Score of cells [c0, c1] of a seam, 0..1 (a stretch of the bead: what one chip of slag uncovers). */
+export function stretchScore(sr: SeamRun, c0: number, c1: number, thick = 1): number {
+  const mI = idealMetal(thick);
+  let sum = 0, n = 0;
+  for (let c = c0; c <= c1; c++) {
+    sum += cellLoss(sr, ((c % sr.n) + sr.n) % sr.n, mI, tmpLoss);
+    n++;
+  }
+  return n ? sum / n : 0;
+}
+
+/** Ripple rhythm penalty (0..0.12): fish scale vs lumps. */
+function rhythmLoss(sr: SeamRun): number {
+  if (sr.count <= 6) return 0;
+  let ms = 0, n = 0;
+  const sp = new Float32Array(sr.count);
+  for (let i = 1; i < sr.count; i++) {
+    const d = Math.abs(sr.delta(sr.rS[i - 1], sr.rS[i]));
+    if (d < 8) {
+      sp[n++] = d;
+      ms += d;
+    }
+  }
+  if (n <= 4) return 0;
+  ms /= n;
+  let v = 0;
+  for (let i = 0; i < n; i++) v += (sp[i] - ms) * (sp[i] - ms);
+  const cv = Math.sqrt(v / n) / Math.max(0.3, ms);
+  return 0.12 * smooth(0.25, 0.9, cv);
+}
+
+/**
+ * Score of one seam, 0..1. Everything that lowers it is visible on the bead after the slag is gone:
+ * holes, gaps, cold lumps, pores, wandering off the joint, spatter, an uneven ripple rhythm.
+ */
+export function seamQuality(sr: SeamRun, thick = 1): number {
+  const L = seamLosses(sr, thick);
+  return Math.max(0, Math.min(1, 1 - L.tempo - L.fusion - L.hand - L.arc));
+}
+
+/**
+ * Where a seam's quality went, by the cause a welder learns to tell: tempo (too fast or too slow: thin or
+ * heaped bead, uneven ripple), fusion (cold, not fused, burnt through), hand (wandering off the joint),
+ * arc (arc length: pores and spatter). Each is the share of the seam's score it cost.
+ */
+export function seamLosses(sr: SeamRun, thick = 1): { tempo: number; fusion: number; hand: number; arc: number } {
+  const mI = idealMetal(thick);
+  let fill = 0, fuse = 0, off = 0, pores = 0, hole = 0, cnt = 0;
   for (let c = sr.edge; c < sr.n - sr.edge; c++) {
     cnt++;
-    if (sr.hole[c]) continue;
-    const m = sr.metal[c];
-    let fill = m < 0.8 * mI ? smooth(0.25 * mI, 0.8 * mI, m) : 1;
-    if (m > 1.45 * mI) fill *= Math.max(0.45, 1 - (m / mI - 1.45) * 0.45);
-    const fuse = smooth(W.fuseLow, W.fuseHigh, sr.peak[c]);
-    const off = smooth(4, 8, sr.dev[c]);
-    let sc = fill * (0.3 + 0.7 * fuse) * (1 - 0.5 * off);
-    sc -= 0.6 * sr.pores[c];
-    sum += Math.max(0, sc);
+    cellLoss(sr, c, mI, tmpLoss);
+    fill += tmpLoss.fill;
+    fuse += tmpLoss.fuse;
+    off += tmpLoss.off;
+    pores += tmpLoss.pores;
+    hole += tmpLoss.hole;
   }
-  let q = cnt > 0 ? sum / cnt : 0;
-
-  // Rhythm: ripple spacing should be even. Fish scale vs. lumps.
-  if (sr.count > 6) {
-    let ms = 0, n = 0;
-    const sp = new Float32Array(sr.count);
-    for (let i = 1; i < sr.count; i++) {
-      const d = Math.abs(sr.delta(sr.rS[i - 1], sr.rS[i]));
-      if (d < 8) {
-        sp[n++] = d;
-        ms += d;
-      }
-    }
-    if (n > 4) {
-      ms /= n;
-      let v = 0;
-      for (let i = 0; i < n; i++) v += (sp[i] - ms) * (sp[i] - ms);
-      const cv = Math.sqrt(v / n) / Math.max(0.3, ms);
-      q -= 0.12 * smooth(0.25, 0.9, cv);
-    }
-  }
-  q -= Math.min(0.08, sr.spN * 0.0015);
-  return Math.max(0, Math.min(1, q));
+  const k = cnt ? 1 / cnt : 0;
+  const spatter = Math.min(0.08, sr.spN * 0.0015);
+  return { tempo: fill * k + rhythmLoss(sr), fusion: (fuse + hole) * k, hand: off * k, arc: pores * k + spatter };
 }
 
 export function partQuality(seams: SeamRun[], thick = 1): number {

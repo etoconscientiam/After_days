@@ -4,7 +4,7 @@ import type { GradeId } from '../data/types';
 import { t } from '../i18n';
 import type { Order } from '../sim/orders';
 import { jobSheet, payAtGrade, seamProgress, JobSheet } from '../sim/jobs';
-import { payForSeams } from '../sim/quality';
+import { payForSeams, seamLosses } from '../sim/quality';
 
 function el(tag: string, id?: string, cls?: string): HTMLElement {
   const e = document.createElement(tag);
@@ -40,10 +40,18 @@ export class UI {
   private sheet: JobSheet | null = null;
   private sheetUid = -1;
   jobOpen = false;
+  /** The craft book (upgrades) and the guided tour of the workshop. */
+  private craftEl = el('div', 'craft', 'pe');
+  private craftBtn = el('div', 'craft-btn', 'pe');
+  private tourEl = el('div', 'tour', 'label pe');
+  craftOpen = false;
+  onBuy: (id: string) => void = () => {};
+  onCraftBtn: () => void = () => {};
+  onTourNext: () => void = () => {};
 
   /** Any panel over the game that takes the mouse. */
   get modal(): boolean {
-    return this.boardOpen || this.jobOpen;
+    return this.boardOpen || this.jobOpen || this.craftOpen;
   }
   private start = el('div', 'start', 'pe');
   private endEl = el('div', 'end');
@@ -58,7 +66,7 @@ export class UI {
     this.root = root;
     this.money.append(el('i'), this.moneyVal);
     this.endEl.style.display = 'none';
-    root.append(this.money, this.stagesEl, this.jobEl, this.ctrl, this.promptEl, this.whyEl, this.appStatus, this.hint, this.tip, this.stampEl, this.toasts, this.board, this.endEl, this.start, this.cursor);
+    root.append(this.money, this.craftBtn, this.stagesEl, this.jobEl, this.craftEl, this.tourEl, this.ctrl, this.promptEl, this.whyEl, this.appStatus, this.hint, this.tip, this.stampEl, this.toasts, this.board, this.endEl, this.start, this.cursor);
   }
 
   /** Bottom strip: how to act in the current mode. At the bench, the mask and which way SPACE moves it. */
@@ -212,6 +220,7 @@ export class UI {
     }
     const done = b.stage !== 'weld';
     let total = 0;
+    let anyUnknown = false;
     const rows = s.stages.map((st, i) => {
       const n = `${i + 1}. `;
       if (st.kind === 'seam') {
@@ -220,7 +229,9 @@ export class UI {
         if (finished) {
           const pay = done ? seamProgress(b.seams, st.seam, reward).pay : p.pay;
           total += pay;
-          return `<li class="ok">✓ ${n}${this.stageName(st.id)}<em>${Math.round(b.seams[st.seam].quality * 100)}% · ${this.coins(pay)}/${this.coins(st.max)} ◆</em></li>`;
+          const c = this.causes(st.seam);
+          if (c.includes('unk')) anyUnknown = true;
+          return `<li class="ok">✓ ${n}${this.stageName(st.id)}<em>${Math.round(b.seams[st.seam].quality * 100)}% · ${this.coins(pay)}/${this.coins(st.max)} ◆</em></li>${c ? `<li class="causes">${c}</li>` : ''}`;
         }
         const on = st.seam === cur;
         const bar = `<i class="bar"><i style="width:${Math.round(p.laid * 100)}%"></i></i>`;
@@ -234,12 +245,150 @@ export class UI {
       return `<li class="${b.stage === 'ready' ? 'on' : ''}">${b.stage === 'ready' ? '▶' : '·'} ${n}${t('stage.hand')}</li>`;
     });
     const sum = done ? `<div class="sum">${t('job.total')}: ${this.coins(payForSeams(b.seams, reward))} / ${reward} ◆</div>` : total > 0 ? `<div class="sum">${t('job.sofar')}: ${this.coins(total)} ◆</div>` : '';
-    const html = `<b>${t('part.' + b.order.part)}</b> <span class="stars">${this.stars(s.stars)}</span><ol>${rows.join('')}</ol>${sum}`;
+    const legend = anyUnknown ? `<div class="legend">${t('cause.unknown')}</div>` : '';
+    const html = `<b>${t('part.' + b.order.part)}</b> <span class="stars">${this.stars(s.stars)}</span><ol>${rows.join('')}</ol>${sum}${legend}`;
     if (html !== this.stagesHtml) {
       this.stagesHtml = html;
       this.stagesEl.innerHTML = html;
       this.stagesEl.style.display = 'block';
     }
+  }
+
+  // ---------------------------------------------------------------- craft book
+
+  /** The small plate under the money that opens the craft book (shown once the book is open to you). */
+  setCraftButton(show: boolean, glow: boolean): void {
+    this.craftBtn.style.display = show ? 'block' : 'none';
+    this.craftBtn.classList.toggle('glow', glow);
+    this.craftBtn.innerHTML = `${t('craft.title')} <span class="k">U</span>`;
+    this.craftBtn.onpointerdown = (e) => {
+      e.stopPropagation();
+      this.onCraftBtn();
+    };
+  }
+
+  openCraft(): void {
+    this.craftOpen = true;
+    this.hideTip();
+    this.renderCraft();
+    this.craftEl.style.display = 'block';
+  }
+
+  closeCraft(): void {
+    if (!this.craftOpen) return;
+    this.craftOpen = false;
+    this.craftEl.style.display = 'none';
+    this.onBoardClose();
+  }
+
+  /** Sections of the book: what you know, what you work with, the workshop. Each entry: what it does, price, why not yet. */
+  renderCraft(): void {
+    if (!this.craftOpen) return;
+    const g = this.game;
+    const sec = (group: string) => {
+      const items = g.data.upgrades.filter((u) => u.group === group);
+      // Before the guild there is only the guild; after it, whatever its own prerequisites allow.
+      const visible = items.filter((u) => (u.id === 'guild' || g.owned.guild) && (g.owned[u.id] || !u.requires?.owns || u.requires.owns.every((o) => g.owned[o])));
+      if (!visible.length) return '';
+      const cards = visible.map((u) => {
+        const owned = !!g.owned[u.id];
+        const why = owned ? [] : g.whyNot(u.id).map((r) => this.reason(r));
+        const state = owned ? `<div class="own">✓ ${t('why.owned')}</div>` : why.length ? why.map((w) => `<div class="no">${w}</div>`).join('') : `<div class="buy" data-id="${u.id}">${t('buy')} · ◆ ${u.cost}</div>`;
+        return `<div class="item ${owned ? 'owned' : why.length ? 'off' : 'can'}"><b>${t('up.' + u.id + '.name')}</b><span class="cost">${owned ? '' : '◆ ' + u.cost}</span><p>${t('up.' + u.id + '.desc')}</p>${state}</div>`;
+      });
+      return `<h4>${t('craft.' + group)}</h4><div class="items">${cards.join('')}</div>`;
+    };
+    this.craftEl.innerHTML = `<h3>${t('craft.title')}</h3><div class="money-line">◆ ${g.money}</div>${sec('craft')}${sec('tools')}${sec('shop')}<div class="close">${t('board.close')}</div>`;
+    this.craftEl.querySelectorAll<HTMLElement>('.buy').forEach((b) =>
+      b.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+        this.onBuy(b.dataset.id!);
+      }),
+    );
+    this.craftEl.querySelector('.close')!.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      this.closeCraft();
+    });
+  }
+
+  /** One step of the workshop tour: a label at (x, y) with what this is and a "next" mark. */
+  setTour(text: string, x: number, y: number, last: boolean): void {
+    if (!text) {
+      this.tourEl.style.display = 'none';
+      return;
+    }
+    const html = `<p>${text}</p><span class="next">${last ? t('tour.done') : t('tour.next')}</span>`;
+    if (this.tourEl.dataset.t !== text) {
+      this.tourEl.dataset.t = text;
+      this.tourEl.innerHTML = html;
+      this.tourEl.onpointerdown = (e) => {
+        e.stopPropagation();
+        this.onTourNext();
+      };
+    }
+    this.tourEl.style.display = 'block';
+    this.tourEl.style.left = x + 'px';
+    this.tourEl.style.top = y + 'px';
+  }
+
+  /** Why a seam lost what it lost, as far as the welder can tell: causes he has learned by name, the rest as '?'. */
+  private causes(seam: number): string {
+    const g = this.game, b = g.player;
+    const L = seamLosses(b.seams[seam], b.part?.thick ?? 1);
+    const know: Record<string, number> = { tempo: g.stats.knowTempo, arc: g.stats.knowArc, fusion: g.stats.knowFusion, hand: g.stats.knowHand };
+    const out: string[] = [];
+    let unknown = 0;
+    for (const k of ['tempo', 'arc', 'fusion', 'hand'] as const) {
+      const v = L[k];
+      if (v < 0.03) continue;
+      if (know[k]) out.push(`<span class="cause">${t('cause.' + k)} −${Math.round(v * 100)}%</span>`);
+      else unknown += v;
+    }
+    if (unknown >= 0.03) out.push(`<span class="cause unk">? −${Math.round(unknown * 100)}%</span>`);
+    return out.join('');
+  }
+
+  /** A word or a sum that rises from a point on the work and fades (a chip's worth, a closed seam). */
+  popup(text: string, x: number, y: number, cls = ''): void {
+    const d = el('div', undefined, 'pop ' + cls);
+    d.textContent = text;
+    d.style.left = x + 'px';
+    d.style.top = y + 'px';
+    this.root.append(d);
+    setTimeout(() => d.remove(), 1300);
+  }
+
+  /** Gauges by the holder while the arc burns: arc length and travel speed, each with its green band. */
+  private gaugeEl = (() => {
+    const g = el('div', 'gauges');
+    g.innerHTML = `<div class="g arc"><i class="band"></i><i class="needle"></i><span>${''}</span></div><div class="g spd"><i class="band"></i><i class="needle"></i><span></span></div>`;
+    return g;
+  })();
+  private gaugeMounted = false;
+
+  setGauges(arc: number | null, speed: number | null, x: number, y: number): void {
+    if (!this.gaugeMounted) {
+      this.root.append(this.gaugeEl);
+      this.gaugeMounted = true;
+      const [ga, gs] = this.gaugeEl.querySelectorAll<HTMLElement>('.g');
+      ga.querySelector('span')!.textContent = t('gauge.arc');
+      gs.querySelector('span')!.textContent = t('gauge.speed');
+    }
+    const show = arc !== null || speed !== null;
+    this.gaugeEl.style.display = show ? 'flex' : 'none';
+    if (!show) return;
+    this.gaugeEl.style.left = x + 'px';
+    this.gaugeEl.style.top = y + 'px';
+    const [ga, gs] = this.gaugeEl.querySelectorAll<HTMLElement>('.g');
+    const set = (g: HTMLElement, v: number | null) => {
+      g.style.display = v === null ? 'none' : 'block';
+      if (v === null) return;
+      const n = g.querySelector<HTMLElement>('.needle')!;
+      n.style.bottom = `${Math.max(0, Math.min(1, v)) * 100}%`;
+      g.classList.toggle('off', v < 0.33 || v > 0.67);
+    };
+    set(ga, arc);
+    set(gs, speed);
   }
 
   /** Short reason under the cursor ('' hides it). */

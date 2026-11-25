@@ -2,7 +2,7 @@ import type { OrderTemplate } from './types';
 
 /** The first jobs arrive one at a time, in this order, on the scrap heap by the door. */
 export const INTRO: OrderTemplate[] = [
-  { part: 'spade', customer: 'northerner', reward: [3, 3] },
+  { part: 'spade', customer: 'northerner', reward: [4, 4], minPay: 3 },
   { part: 'pan', customer: 'neighbour', reward: [4, 4] },
   { part: 'wheel', customer: 'carter', reward: [5, 5] },
   { part: 'kettle', customer: 'northwoman', reward: [6, 6] },

@@ -7,7 +7,7 @@ import type { Stats } from './stats';
 import type { Order } from './orders';
 import { Q, qIdent, qEuler, qMul, qAxis, qRot, qNorm, qTurnToward, V3 } from '../core/quat';
 import { SeamRun, Proj, seamPoint, F_PORE, F_COLD, F_HOT, F_LONG, F_SHORT, F_OFF, F_BACK } from './seam';
-import { partQuality, gradeOf, countHoles, countPores, seamQuality } from './quality';
+import { partQuality, gradeOf, countHoles, countPores, seamQuality, stretchScore, seamShare, payFor } from './quality';
 
 const W = BALANCE.weld;
 const A = BALANCE.arc;
@@ -603,7 +603,11 @@ function hammer(b: Bench, inp: TorchIn, ctx: WeldCtx): void {
     return;
   }
   b.rev++;
-  ctx.bus.emit('slagChip', { bench: b.id, seam: proj.seam, s0, s1, x: inp.x, y: inp.y, z: inp.z, amount });
+  // What this piece of slag uncovered: how good that stretch is, and what it's worth.
+  const q = stretchScore(sr, i0, i1, b.part!.thick);
+  const reward = b.order?.reward ?? 0;
+  const value = payFor(reward * seamShare(b.seams, proj.seam) * Math.min(1, (i1 - i0 + 1) / sr.n), q);
+  ctx.bus.emit('slagChip', { bench: b.id, seam: proj.seam, s0, s1, x: inp.x, y: inp.y, z: inp.z, amount, q, value });
   let left = 0;
   for (const s of b.seams) left += s.slagTotal();
   b.slagLeft = left / b.slag0;

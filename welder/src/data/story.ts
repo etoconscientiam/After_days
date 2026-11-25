@@ -2,7 +2,7 @@ import type { StoryBeat } from './types';
 
 /** Beats fire once, in any order, when their condition holds. */
 export const STORY: StoryBeat[] = [
-  { id: 'shelf', when: { ordersDone: 2 } },
+  { id: 'shelf', when: { ordersDone: 1 } },
   { id: 'board', when: { ordersDone: 5 } },
   {
     id: 'finale',

@@ -682,6 +682,10 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
   const signMat = new THREE.MeshLambertMaterial({ map: signTex(signText), color: '#d0c8b8' });
   const sign = mesh(new THREE.PlaneGeometry(0.3, 0.066), signMat, 0.58, 1.24, BACK_Z + 0.03);
   scene.add(sign);
+  // The sign opens the craft book.
+  tag(sign, 'craft');
+  pick.push(sign);
+  glowable('craft', sign);
   for (const x of [0.48, 0.68]) scene.add(boxAt(0.004, 0.08, 0.004, dark, x, 1.3, BACK_Z + 0.03));
   const shelfItems: Record<string, THREE.Object3D> = {};
   const ownedItems: Record<string, THREE.Object3D> = {};
@@ -740,6 +744,7 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
     },
   };
   for (const u of data.upgrades) {
+    if (u.slot < 0) continue;
     const o = (models[u.model] ?? models.rods)();
     o.position.set(0.37 + u.slot * 0.084, SHELF_Y + 0.016, BACK_Z + 0.11);
     o.scale.setScalar(0.8);

@@ -76,6 +76,8 @@ export interface OrderTemplate {
   reward: [number, number];
   req?: Requirement;
   weight?: number;
+  /** Pays at least this whatever the quality (the first job of the shift). */
+  minPay?: number;
 }
 
 /** Condition language shared by story beats and upgrade requirements. */
@@ -91,6 +93,10 @@ export interface Cond {
 export type StatId =
   | 'maskTransmission'
   | 'maskSee'
+  | 'knowTempo'
+  | 'knowArc'
+  | 'knowFusion'
+  | 'knowHand'
   | 'maskWindow'
   | 'strikeMul'
   | 'spatterMul'
@@ -112,6 +118,8 @@ export interface Effects {
 
 export interface UpgradeDef {
   id: string;
+  /** Section of the craft book: what you know, what you work with, the workshop itself. */
+  group: 'craft' | 'tools' | 'shop';
   cost: number;
   /** All must hold to buy; anything missing is shown as the reason. */
   requires?: Cond;

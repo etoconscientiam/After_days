@@ -22,8 +22,18 @@ import { seamPoint } from '../sim/seam';
 /** Part-local units are millimetres; inside partRoot one unit of geometry is a metre. */
 const MM = 0.001;
 /** Things you click instead of welding on them. */
-const TOOLS_OF_THE_ROOM = new Set(['pile', 'board', 'electrodes', 'door', 'done']);
+const TOOLS_OF_THE_ROOM = new Set(['pile', 'board', 'electrodes', 'door', 'done', 'craft']);
 const Y_UP = new THREE.Vector3(0, 1, 0);
+/** The guild master's walk round the workshop, right after joining: what each thing is, briefly. */
+const TOUR: { key: string; at: [number, number, number]; glow: string }[] = [
+  { key: 'bench', at: [0, TABLE + 0.1, -0.68], glow: 'bench' },
+  { key: 'rods', at: [-0.12, TABLE + 0.2, -1.06], glow: 'electrodes' },
+  { key: 'mask', at: [-0.86, TABLE + 0.25, -0.98], glow: '' },
+  { key: 'gauge', at: [0.12, 1.12, -1.1], glow: '' },
+  { key: 'jars', at: [-2.0, 0.85, 1.55], glow: '' },
+  { key: 'pile', at: [-0.6, TABLE + 0.2, -0.66], glow: 'pile' },
+  { key: 'craft', at: [0.58, 1.24, -1.12], glow: 'craft' },
+];
 /** Room on the bench for a job turned any way (m): clear of the scrap crate and the finished stack. */
 const FREE_R = 0.4;
 /** How far the head leans toward the arc while welding (fraction of the way). */
@@ -62,6 +72,15 @@ export class View {
   private turn = { x: 0, y: 0 };
   /** Called on every footstep (for the sound). */
   onStep: () => void = () => {};
+  /** One-shot sounds the view asks for (coins landing, the ding of a clean stretch, a closed seam). */
+  onSfx: (kind: 'coin' | 'ding' | 'seam', v?: number) => void = () => {};
+  /** Hit-stop: the whole game holds for a few frames on a strong moment. */
+  private freezeT = 0;
+  /** Coins flying from the bench into the pot after a hand-over; the counter rises as they land. */
+  private coins: { m: THREE.Mesh; t: number; d: number; a: THREE.Vector3; b: THREE.Vector3; v: number }[] = [];
+  private coinPool: THREE.Mesh[] = [];
+  private moneyShown = 0;
+  private moneyTarget = -1;
   private stepT = 0;
   private locked = false;
   private hover = '';
@@ -80,6 +99,8 @@ export class View {
   private mid = new THREE.Vector3();
   private aimProj: Proj = { s: 0, d: 0, dist: 0, seam: -1 };
   private strikeAcc = 0;
+  /** Step of the workshop tour (-1 = none). */
+  private tour = -1;
   private stagesT = 0;
   private leanT = 0;
   private leanAt = new THREE.Vector3();
@@ -140,8 +161,20 @@ export class View {
     this.partRoot.add(this.bead.group);
     this.ws.scene.add(this.partRoot, this.fx.group, this.tools.group, this.rig.cam);
     this.lastPartTip.copy(BENCH);
+    const coinGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.004, 10);
+    const coinMat = new THREE.MeshLambertMaterial({ color: '#e8c060', emissive: '#7a5200' });
+    for (let i = 0; i < 20; i++) {
+      const m = new THREE.Mesh(coinGeo, coinMat);
+      m.visible = false;
+      this.ws.scene.add(m);
+      this.coinPool.push(m);
+    }
+    this.moneyShown = game.money;
     this.ui = new UI(uiRoot, game);
     this.ui.onTake = (uid) => game.queue({ type: 'takeOrder', uid });
+    this.ui.onBuy = (id) => game.queue({ type: 'buy', id });
+    this.ui.onCraftBtn = () => this.toggleCraft();
+    this.ui.onTourNext = () => this.tourNext();
     this.ui.onBoardClose = () => (this.suppress = true);
     this.bindInput();
     this.bindEvents();
@@ -264,13 +297,18 @@ export class View {
       } else if (/^(Key[WASD]|Arrow)/.test(e.code)) {
         this.held.add(e.code);
         if (e.code.startsWith('Arrow')) e.preventDefault();
-      } else if (e.code === 'KeyR') this.game.queue({ type: 'newElectrode' });
+      } else if (this.tour >= 0 && (e.code === 'Enter' || e.code === 'KeyE') && !e.repeat) this.tourNext();
+      else if (e.code === 'KeyR') this.game.queue({ type: 'newElectrode' });
+      else if (e.code === 'KeyU' && !e.repeat) this.toggleCraft();
       else if (e.code === 'KeyE' && !e.repeat) {
-        if (this.ui.jobOpen) this.ui.closeJob();
+        if (this.ui.craftOpen) this.ui.closeCraft();
+        else if (this.ui.jobOpen) this.ui.closeJob();
         else if (this.ui.boardOpen) this.ui.closeBoard();
         else if (this.rig.mode === 'station' || this.rig.mode === 'inspect') this.leaveBench();
         else if (this.rig.mode === 'walk') this.interact();
-      } else if (e.code === 'Escape' && this.ui.jobOpen) this.ui.closeJob();
+      } else if (e.code === 'Escape' && this.tour >= 0) this.endTour();
+      else if (e.code === 'Escape' && this.ui.craftOpen) this.ui.closeCraft();
+      else if (e.code === 'Escape' && this.ui.jobOpen) this.ui.closeJob();
       else if (e.code === 'Escape' && this.ui.boardOpen) this.ui.closeBoard();
     });
     addEventListener('keyup', (e) => {
@@ -329,15 +367,134 @@ export class View {
     } else if (id === 'board' && g.flags.board) {
       this.unlockPointer();
       this.ui.openBoard();
-    } else if (id.startsWith('shelf:')) g.queue({ type: 'buy', id: id.slice(6) });
+    } else if (id.startsWith('shelf:') || id === 'craft') this.openCraft();
     else if (id === 'door') g.queue({ type: 'handOver' });
     else if (id === 'bench' || id === 'part' || id === 'done' || id === 'electrodes') this.toBench();
+  }
+
+  // ------------------------------------------------------------------ juice
+
+  freeze(s: number): void {
+    this.freezeT = Math.max(this.freezeT, s);
+  }
+
+  /** True while the game should hold still this frame (the main loop then skips the sim and the render). */
+  consumeFreeze(dt: number): boolean {
+    if (this.freezeT <= 0) return false;
+    this.freezeT -= dt;
+    return true;
+  }
+
+  private toScreen(w: THREE.Vector3): [number, number] | null {
+    const p = this.v3b.copy(w).project(this.rig.cam);
+    if (p.z > 1) return null;
+    return [(p.x * 0.5 + 0.5) * this.cssW, (-p.y * 0.5 + 0.5) * this.cssH];
+  }
+
+  /** Pay flies from the bench into the pot, a coin at a time. */
+  private flyCoins(pay: number): void {
+    const n = Math.max(3, Math.min(this.coinPool.length, pay));
+    const from = this.v3.copy(BENCH).add(this.v3b.set(0, 0.06, 0));
+    const to = new THREE.Vector3(-0.5, BENCH.y + 0.1, -1.0);
+    this.coins.length = 0;
+    for (let i = 0; i < n; i++) {
+      const m = this.coinPool[i];
+      const a = from.clone().add(new THREE.Vector3(this.rng.signed() * 0.05, 0, this.rng.signed() * 0.03));
+      this.coins.push({ m, t: -i * 0.06, d: 0.5 + this.rng.next() * 0.12, a, b: to.clone(), v: pay / n });
+    }
+    this.moneyTarget = -1;
+  }
+
+  private updateCoins(dt: number): void {
+    if (!this.coins.length) return;
+    let flying = 0;
+    for (const c of this.coins) {
+      if (c.t >= c.d) continue;
+      c.t += dt;
+      if (c.t < 0) {
+        c.m.visible = false;
+        flying++;
+        continue;
+      }
+      const k = Math.min(1, c.t / c.d);
+      c.m.visible = k < 1;
+      c.m.position.copy(c.a).lerp(c.b, k);
+      c.m.position.y += Math.sin(Math.PI * k) * 0.22;
+      c.m.rotation.set(c.t * 14, c.t * 9, 0);
+      if (k >= 1) {
+        this.moneyShown += c.v;
+        const shown = this.moneyTarget >= 0 ? Math.min(this.moneyTarget, Math.round(this.moneyShown)) : Math.round(this.moneyShown);
+        this.ui.showMoney(shown, true);
+        this.onSfx('coin');
+      } else flying++;
+    }
+    if (!flying) {
+      this.coins.length = 0;
+      const target = this.moneyTarget >= 0 ? this.moneyTarget : this.game.money;
+      this.moneyShown = target;
+      this.moneyTarget = -1;
+      this.ui.showMoney(target, true);
+      this.ws.setMoney(target);
+    }
+  }
+
+  // ------------------------------------------------------------------ craft book & tour
+
+  private openCraft(): void {
+    if (!this.game.flags.shelf) return;
+    this.unlockPointer();
+    this.ui.closeBoard();
+    this.ui.closeJob();
+    this.ui.openCraft();
+  }
+
+  private toggleCraft(): void {
+    if (this.ui.craftOpen) this.ui.closeCraft();
+    else if (this.tour < 0) this.openCraft();
+  }
+
+  private startTour(): void {
+    if (this.rig.mode === 'walk') this.toBench();
+    this.tour = 0;
+    this.applyFocus();
+  }
+
+  private tourNext(): void {
+    if (this.tour < 0) return;
+    this.tour++;
+    if (this.tour >= TOUR.length) this.endTour();
+    else this.applyFocus();
+  }
+
+  private endTour(): void {
+    this.tour = -1;
+    this.ui.setTour('', 0, 0, false);
+    this.rig.station();
+    this.applyFocus();
+  }
+
+  /** While touring: the head turns to each thing in turn, and its label sits on it. */
+  private updateTour(): void {
+    if (this.tour < 0) return;
+    const st = TOUR[this.tour];
+    const p = this.v3.set(st.at[0], st.at[1], st.at[2]);
+    this.rig.inspect(p, st.key === 'jars' ? 46 : 40);
+    p.project(this.rig.cam);
+    const x = Math.max(0.12, Math.min(0.88, p.x * 0.5 + 0.5)) * this.cssW;
+    const y = Math.max(0.2, Math.min(0.9, -p.y * 0.5 + 0.5)) * this.cssH - 10 * this.scale;
+    this.ui.setTour(t('tour.' + st.key), x, y, this.tour === TOUR.length - 1);
   }
 
   /** Show the job on top of the heap; taking it puts it on the bench. */
   private offerPile(after?: () => void): void {
     const g = this.game;
     if (!g.pile) return;
+    // The very first job, before the guild: no paperwork, straight to the bench.
+    if (!g.owned.guild) {
+      g.queue({ type: 'takePile' });
+      after?.();
+      return;
+    }
     this.unlockPointer();
     this.ui.hideTip();
     this.ui.showJob(g.pile, () => {
@@ -348,6 +505,11 @@ export class View {
 
   private onClick(): void {
     const g = this.game;
+    if (this.tour >= 0) {
+      this.suppress = true;
+      this.tourNext();
+      return;
+    }
     if (this.ui.modal || this.ui.endOpen) return;
     const id = this.pick();
     const b = g.player;
@@ -359,7 +521,7 @@ export class View {
       } else if (id === 'board' && g.flags.board) {
         this.ui.openBoard();
         this.ui.hideTip();
-      } else if (id.startsWith('shelf:')) g.queue({ type: 'buy', id: id.slice(6) });
+      } else if (id.startsWith('shelf:') || id === 'craft') this.openCraft();
       else if (id === 'electrodes') g.queue({ type: 'newElectrode' });
       else if (id === 'door' || id === 'done') g.queue({ type: 'handOver' });
       return;
@@ -472,7 +634,7 @@ export class View {
   /** Input for one frame; the arc-length request is handed to the first sim step only. */
   frameInput(dt: number): TorchIn {
     const tr = this.torch;
-    const active = this.started && !this.ui.modal && !this.ui.endOpen && (this.rig.mode === 'station' || this.rig.mode === 'inspect');
+    const active = this.started && !this.ui.modal && !this.ui.endOpen && this.tour < 0 && (this.rig.mode === 'station' || this.rig.mode === 'inspect');
     if (active) this.aimOnPart(tr);
     else tr.has = false;
     tr.press = active && (this.lmb || this.latch) && !this.suppress && this.mouse.in;
@@ -505,6 +667,13 @@ export class View {
     const g = this.game;
     const b = g.bus;
     b.on('money', (e) => {
+      this.ui.renderCraft();
+      // Pay for a job arrives with the coins; the counter catches up as they land in the pot.
+      if (this.coins.length && e.delta > 0) {
+        this.moneyTarget = e.money;
+        return;
+      }
+      this.moneyShown = e.money;
       this.ui.showMoney(e.money, e.delta > 0);
       this.ws.setMoney(e.money);
     });
@@ -521,7 +690,14 @@ export class View {
       this.syncPile();
       this.syncWorld();
     });
-    b.on('bought', () => this.syncWorld());
+    b.on('bought', (e) => {
+      this.syncWorld();
+      this.ui.renderCraft();
+      if (e.id === 'guild') {
+        this.ui.closeCraft();
+        this.startTour();
+      }
+    });
     b.on('beat', (e) => {
       this.syncWorld();
       this.ui.beat(t('beat.' + e.id));
@@ -537,6 +713,7 @@ export class View {
     });
     b.on('handedOver', (e) => {
       if (e.bench === 'player') {
+        this.flyCoins(e.pay);
         this.ui.toast(`+${e.pay} ◆  ${t('part.' + e.part)}` + (e.reqMet ? '' : ' · ' + t('pay.reqFail')));
         this.ws.customer.visible = false;
         if (!g.showEnd) {
@@ -559,6 +736,25 @@ export class View {
       this.shakeT = 0.09;
       this.p2w(e.x, e.y, e.z, this.v3).addScaledVector(this.normW, 2 * MM * this.S);
       this.fx.slag(this.v3.x, this.v3.y, this.v3.z, e.amount);
+      // The moment of truth: what this stretch of bead turned out to be, in money and in sound.
+      this.onSfx('ding', e.q);
+      if (e.q >= 0.8) {
+        this.freeze(0.04);
+        this.fx.spatter(this.v3.x, this.v3.y + 0.004, this.v3.z, 6, 0.05);
+      }
+      const sp = this.toScreen(this.v3);
+      if (sp && e.value >= 0.05) this.ui.popup(`+${e.value.toFixed(1)} ◆`, sp[0], sp[1], e.q >= 0.8 ? '' : e.q >= 0.55 ? 'mid' : 'low');
+    });
+    b.on('seamFilled', (e) => {
+      if (e.bench !== 'player') return;
+      // A seam closed: a beat of stillness, a chime, and its mark over the bead.
+      this.freeze(0.08);
+      this.onSfx('seam');
+      const sr = g.player.seams[e.seam];
+      if (!sr) return;
+      sr.pointAt(sr.len / 2, this.pt);
+      const sp = this.toScreen(this.p2w(this.pt.x, this.pt.y, this.pt.z, this.v3d));
+      if (sp) this.ui.popup(`${t('pop.seam')} ${Math.round(e.quality * 100)}%`, sp[0], sp[1] - 8 * this.scale, 'big');
     });
     b.on('hammerMiss', (e) => {
       if (e.bench === 'player') {
@@ -576,6 +772,7 @@ export class View {
       if (e.bench !== 'player') return;
       this.p2w(e.x, e.y, e.z, this.v3);
       this.fx.spatter(this.v3.x, this.v3.y, this.v3.z, 16, 0.4);
+      this.freeze(0.045);
     });
     b.on('apprentice', (e) => {
       this.syncWorld();
@@ -781,9 +978,11 @@ export class View {
   /** World objects that mirror sim state: shelf, owned things, tally, piles, apprentice, second wheel. */
   syncWorld(): void {
     const g = this.game;
+    this.ui.setCraftButton(!!g.flags.shelf, !!g.flags.shelf && !g.owned.guild);
     for (const u of g.data.upgrades) {
       const owned = !!g.owned[u.id];
-      this.ws.shelfItems[u.id].visible = !!g.flags.shelf && !owned;
+      const si = this.ws.shelfItems[u.id];
+      if (si) si.visible = !!g.flags.shelf && !!g.owned.guild && !owned;
       const o = this.ws.ownedItems[u.id];
       if (o) o.visible = owned;
     }
@@ -801,13 +1000,13 @@ export class View {
 
   private applyFocus(): void {
     const f = this.game.guide;
-    const key = f.target === 'shelf' ? 'shelf:coated' : f.target === 'door' ? 'done' : f.target;
+    const key = this.tour >= 0 ? TOUR[this.tour].glow : f.target === 'shelf' ? 'craft' : f.target === 'door' ? 'done' : f.target;
     for (const k in this.ws.hiMats) {
       const on = k === key || k === this.hover;
       for (const m of this.ws.hiMats[k]) m.emissive.set(on ? '#3a2a1a' : '#000000');
     }
     this.bead.highlight(f.target === 'seam' ? f.seam : -1, 1);
-    let hint = f.hint ? t('hint.' + f.hint) : '';
+    let hint = f.hint && this.tour < 0 ? t('hint.' + f.hint) : '';
     if (this.rig.mode === 'walk') hint = f.target ? t('hint.toBench') : '';
     this.ui.setHint(hint, f.target === 'mask' && this.rig.mode !== 'walk');
   }
@@ -1014,6 +1213,16 @@ export class View {
 
     this.lr.render(this.ws.scene, this.rig.cam);
     this.placeOverlay();
+    this.updateTour();
+    this.updateCoins(dt);
+    // Gauges by the holder, for what you have learned to read.
+    if (lit && this.rig.mode !== 'walk') {
+      const A = BALANCE.arc;
+      const arcK = g.stats.knowArc ? 0.33 + ((a.L - A.goodLo) / (A.goodHi - A.goodLo)) * 0.34 : null;
+      const vI = g.idealSpeed(b);
+      const spK = g.stats.knowTempo ? 0.33 + ((a.v / Math.max(0.1, vI) - 0.75) / 0.55) * 0.34 : null;
+      this.ui.setGauges(arcK, spK, this.mouse.x, this.mouse.y);
+    } else this.ui.setGauges(null, null, 0, 0);
     this.stagesT -= dt;
     if (this.stagesT <= 0) {
       this.stagesT = 0.12;
@@ -1141,7 +1350,7 @@ export class View {
     if (!id || id === 'bench') return this.nearBench() ? t('act.bench') : '';
     if (id === 'pile') return g.pile && g.player.stage === 'empty' ? t('act.take') : g.flags.board ? t('act.board') : t('act.bench');
     if (id === 'board') return g.flags.board ? t('act.board') : '';
-    if (id.startsWith('shelf:')) return t('act.buy');
+    if (id.startsWith('shelf:') || id === 'craft') return t('act.craft');
     if (id === 'door') return g.player.stage === 'ready' ? t('act.door') : '';
     if (id === 'bench' || id === 'part' || id === 'done' || id === 'electrodes') return t('act.bench');
     return '';

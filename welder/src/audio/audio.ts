@@ -375,6 +375,24 @@ export class Sound {
     }
   }
 
+  /** One-shots the view asks for: a coin landing in the pot, the ding of a clean stretch, a seam closed. */
+  sfx(kind: 'coin' | 'ding' | 'seam', v = 0): void {
+    if (!this.ok) return;
+    if (kind === 'coin') {
+      this.tone(2637 + this.rng.next() * 300, 0.05, 0.12, 'triangle');
+      this.tone(3520, 0.025, 0.08, 'sine', 0, 0.03);
+    } else if (kind === 'ding') {
+      // Pitch by how good the stretch is: a bright ding for clean, a dull tick for poor.
+      const f = 660 + 900 * v;
+      this.tone(f, 0.03 + 0.05 * v, 0.25 + 0.3 * v, 'sine');
+      if (v > 0.8) this.tone(f * 1.5, 0.03, 0.35, 'sine', 0, 0.04);
+    } else {
+      this.thump(80, 0.3, 0.15);
+      this.tone(988, 0.05, 0.4, 'triangle');
+      this.tone(1318, 0.045, 0.5, 'triangle', 0, 0.09);
+    }
+  }
+
   private bind(g: Game): void {
     const b = g.bus;
     b.on('arcStrike', (e) => {

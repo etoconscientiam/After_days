@@ -35,14 +35,21 @@ export function computeGuide(g: Game, out: Guide): Guide {
 
   switch (b.stage) {
     case 'empty':
+      // After the first job: the craft book, where the guild is the one thing on offer.
+      if (g.flags.shelf && !g.owned.guild) {
+        out.target = 'shelf';
+        out.hint = 'guild';
+        return out;
+      }
       if (g.pile) {
         out.target = 'pile';
         out.hint = g.pile.urgent || early ? 'take' : '';
       } else if (g.flags.board && g.board.length) {
         out.target = 'board';
         out.hint = g.ordersDone <= 5 ? 'board' : '';
-      } else if (g.flags.shelf && !g.log.milestones['buy:coated'] && g.ordersDone <= 3) {
+      } else if (g.flags.shelf && g.ordersDone <= 3 && g.money >= 4) {
         out.target = 'shelf';
+        out.hint = g.ordersDone <= 2 ? 'learn' : '';
       }
       return out;
 

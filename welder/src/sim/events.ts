@@ -19,7 +19,7 @@ export interface SimEvents {
   burnThrough: { bench: BenchId; seam: number; s: number; x: number; y: number; z: number };
   seamFilled: { bench: BenchId; seam: number; quality: number };
   weldDone: { bench: BenchId };
-  slagChip: { bench: BenchId; seam: number; s0: number; s1: number; x: number; y: number; z: number; amount: number };
+  slagChip: { bench: BenchId; seam: number; s0: number; s1: number; x: number; y: number; z: number; amount: number; q: number; value: number };
   hammerMiss: { bench: BenchId; x: number; y: number; z: number; onMetal: boolean };
   revealed: { bench: BenchId; quality: number; grade: GradeId; holes: number; pores: number };
   handedOver: { bench: BenchId; uid: number; pay: number; grade: GradeId; reqMet: boolean; part: string };
