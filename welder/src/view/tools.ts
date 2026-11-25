@@ -33,16 +33,34 @@ export class Tools {
   // The electrode holder: the rod rises from the work up and toward you to the jaws; the handle runs off to
   // the right across the palm; the forearm comes from below, toward you.
   // The chipping hammer: the shaft rises from the head up and right into the fist.
-  private hHammer = new THREE.Vector3(0.45, 0.6, 0.65).normalize();
-  private rodUp = new THREE.Vector3(0.2, 0.45, 0.87).normalize();
-  private hHolder = new THREE.Vector3(0.6, 0.75, 0.1).normalize();
-  private eHolder = new THREE.Vector3(0.5, -0.72, 0.45).normalize();
-  private hL = new THREE.Vector3(-0.35, 0.6, 0.72).normalize();
-  private eL = new THREE.Vector3(-0.75, -0.5, 0.45).normalize();
+  private hHammer = new THREE.Vector3(0.45, -0.25, 0.85).normalize();
+  // A welder's hold: the fist on the right, the handle slanting through it (an oblique power grip) and out by
+  // the thumb to the left, the head and rod going down into the work; the forearm down and to the right.
+  private rodUp = new THREE.Vector3(0.55, -0.1, 0.83).normalize();
+  private hHolder = new THREE.Vector3(0.82, -0.2, 0.54).normalize();
+  private eHolder = new THREE.Vector3(0.45, -0.85, 0.25).normalize();
+  private eHammer = new THREE.Vector3(0.35, -0.75, 0.55).normalize();
+  private hL = new THREE.Vector3(-0.35, -0.2, 0.9).normalize();
+  private eL = new THREE.Vector3(-0.45, -0.75, 0.45).normalize();
   private tE = new THREE.Vector3();
   readonly handR: Hand;
   readonly handH: Hand;
   readonly handL: Hand;
+  /**
+   * How much bigger than life the hands and tools are drawn, so the fists read at the game's few pixels the
+   * way hands do in a first-person view (a stylised view model). Scaled about the working end: the tip of
+   * the rod, the point of the hammer and the jaws of the tongs stay exactly where they work.
+   */
+  k = 1.8;
+  lastD = 0;
+  /** The enlargement at this distance from the eye: full far off, life size when the camera leans in close. */
+  private kAt(cam: THREE.Camera, at: THREE.Vector3): number {
+    const d = cam.position.distanceTo(at);
+    this.lastD = d;
+    // Full enlargement at the usual bench distance (~0.93 m), life size by the time the eye leans in (0.7 m).
+    const t = Math.min(1, Math.max(0, (d - 0.7) / 0.22));
+    return 1 + (this.k - 1) * t * t * (3 - 2 * t);
+  }
   private tmp = new THREE.Vector3();
   private q = new THREE.Quaternion();
 
@@ -55,10 +73,17 @@ export class Tools {
     this.rod.castShadow = true;
     this.holder.add(this.rod);
     // The holder: sprung jaws on a long insulated handle.
-    const jaws = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.06, 0.032), dark);
-    jaws.position.y = 0.025;
-    jaws.castShadow = true;
-    this.grip.add(jaws);
+    // Head: an insulated sleeve tapering to two copper jaws that bite the rod.
+    const sleeveH = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.011, 0.05, 6), dark);
+    sleeveH.position.y = 0.03;
+    sleeveH.castShadow = true;
+    this.grip.add(sleeveH);
+    const copper = lambert({ color: '#b06a38', flatShading: true });
+    for (const sx of [-1, 1]) {
+      const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.007, 0.016, 0.014), copper);
+      jaw.position.set(sx * 0.005, 0.0, 0);
+      this.grip.add(jaw);
+    }
     const lever = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.11, 0.012), lambert({ map: tx.iron, color: '#c0b8b0' }));
     lever.position.set(0.02, 0.08, -0.015);
     lever.rotation.z = -0.15;
@@ -66,7 +91,7 @@ export class Tools {
     const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.02, 0.14, 6), lambert({ color: '#2a2420' }));
     handle.position.y = 0.12;
     this.grip.add(handle);
-    const hr = holdingHand(0.019, 0.12);
+    const hr = holdingHand(0.019, 0.12, 0, false, 25);
     this.handR = hr.hand;
     this.grip.add(hr.group);
     // The cable leaves the end of the handle and runs off behind the hand.
@@ -156,7 +181,9 @@ export class Tools {
     // The rod, from the tip up to the jaws: down into the work from the hand, leaned out of the surface.
     const up = this.tmp.copy(this.rodUp).applyQuaternion(cam.quaternion);
     if (normal && up.dot(normal) < 0.4) up.addScaledVector(normal, 0.4 - up.dot(normal)).normalize();
-    this.holder.position.copy(tip).addScaledVector(up, len);
+    const k = this.kAt(cam, tip);
+    this.holder.scale.setScalar(k);
+    this.holder.position.copy(tip).addScaledVector(up, len * k);
     gripFrame(this.tH.copy(this.hHolder).applyQuaternion(cam.quaternion), this.tE.copy(this.eHolder).applyQuaternion(cam.quaternion), this.q);
     this.holder.quaternion.copy(this.q);
     // In the holder's frame the rod runs from the jaws (origin) back down to the tip.
@@ -171,10 +198,11 @@ export class Tools {
   placeHammer(tip: THREE.Vector3, cam: THREE.Camera, dt: number, normal?: THREE.Vector3): void {
     this.swing = Math.max(0, this.swing - dt * 7);
     const lift = Math.sin(Math.min(1, this.swing) * Math.PI);
+    this.hammer.scale.setScalar(this.kAt(cam, tip));
     this.hammer.position.copy(tip);
     if (normal) this.hammer.position.addScaledVector(normal, 0.002 + lift * 0.04);
     else this.hammer.position.y += 0.002 + lift * 0.04;
-    this.aim(cam, this.hHammer, this.eHolder, this.q, normal);
+    this.aim(cam, this.hHammer, this.eHammer, this.q, normal);
     this.hammer.quaternion.copy(this.q);
   }
 
@@ -182,6 +210,8 @@ export class Tools {
   placeLeft(at: THREE.Vector3 | null, cam: THREE.Camera): void {
     this.left.visible = !!at;
     if (!at) return;
+    // The left hand only steadies the job: a little smaller, so it never crowds the work.
+    this.left.scale.setScalar(1 + (this.kAt(cam, at) - 1) * 0.6);
     this.left.position.copy(at);
     this.aim(cam, this.hL, this.eL, this.q);
     this.left.quaternion.copy(this.q);

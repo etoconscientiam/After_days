@@ -390,7 +390,10 @@ export class Game {
     if (o.req.noHoles && b.holes > 0) met = false;
     let pay = payForSeams(b.seams, o.reward);
     if (!met) pay *= BALANCE.quality.failedReqMul;
-    return { pay: Math.max(1, o.minPay ?? 0, Math.round(pay)), met };
+    // Until the welder has joined the guild, a finished job always pays at least its fee: however rough
+    // the first seam, the first step forward is always open.
+    const guild = this.owned.guild ? 0 : (this.data.upgrades.find((u) => u.id === 'guild')?.cost ?? 0);
+    return { pay: Math.max(1, o.minPay ?? 0, guild, Math.round(pay)), met };
   }
 
   private handOver(): void {

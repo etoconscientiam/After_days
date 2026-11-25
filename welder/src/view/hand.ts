@@ -91,6 +91,7 @@ function segment(len: number, w0: number, w1: number, t0: number, t1: number, ro
 export interface HandMats {
   glove: THREE.Material;
   gloveD: THREE.Material;
+  palm: THREE.Material;
   cuff: THREE.Material;
   band: THREE.Material;
   sleeve: THREE.Material;
@@ -99,8 +100,10 @@ export interface HandMats {
 let shared: HandMats | null = null;
 export function handMats(): HandMats {
   return (shared ??= {
-    glove: lambert({ color: '#423020', flatShading: true }),
-    gloveD: lambert({ color: '#302014', flatShading: true }),
+    // Fingers a shade lighter than the back of the hand, the tips darker (worn, sooty): the fist reads as fingers.
+    glove: lambert({ color: '#5e4430', flatShading: true }),
+    gloveD: lambert({ color: '#46301e', flatShading: true }),
+    palm: lambert({ color: '#3a281a', flatShading: true }),
     cuff: lambert({ color: '#3a281a', flatShading: true }),
     band: lambert({ color: '#7a2418', flatShading: true }),
     sleeve: lambert({ color: '#3e3430', flatShading: true }),
@@ -120,13 +123,13 @@ class Finger {
       mesh.castShadow = true;
       j.g.add(mesh);
     };
-    add(this.mcp, segment(l1, w, w * 0.93, t, t * 0.92), m.glove);
+    add(this.mcp, segment(l1, w * 0.9, w * 0.85, t, t * 0.92), m.glove);
     this.pip.g.position.y = l1;
     this.mcp.g.add(this.pip.g);
-    add(this.pip, segment(l2, w * 0.93, w * 0.86, t * 0.92, t * 0.85), m.glove);
+    add(this.pip, segment(l2, w * 0.85, w * 0.8, t * 0.92, t * 0.85), m.glove);
     this.dip.g.position.y = l2;
     this.pip.g.add(this.dip.g);
-    add(this.dip, segment(l3, w * 0.86, w * 0.78, t * 0.85, t * 0.75, 0.55), m.gloveD);
+    add(this.dip, segment(l3, w * 0.8, w * 0.72, t * 0.85, t * 0.75, 0.55), m.gloveD);
   }
 
   /** Flexion of all three joints, DIP coupled to PIP. */
@@ -211,15 +214,15 @@ export class Hand {
     this.root.add(this.forearm, this.wrist.g);
     this.wrist.g.add(this.palm);
     // Palm: the metacarpal block, wider and thinner at the knuckles than at the wrist.
-    const palm = new THREE.Mesh(segment(0.088, 0.07, 0.084, 0.034, 0.03, 0, 0.1), m.glove);
+    const palm = new THREE.Mesh(segment(0.088, 0.07, 0.084, 0.034, 0.03, 0, 0.1), m.palm);
     palm.castShadow = true;
     this.palm.add(palm);
     this.fingers = FINGERS.map((f) => {
       const fg = new Finger(f, m);
       this.palm.add(fg.mcp.g);
       // The knuckle: the head of the metacarpal, standing up on the back of the fist.
-      const kn = new THREE.Mesh(new THREE.IcosahedronGeometry(f.w * 0.55, 0), m.glove);
-      kn.scale.set(1, 0.9, 0.8);
+      const kn = new THREE.Mesh(new THREE.IcosahedronGeometry(f.w * 0.5, 1), m.palm);
+      kn.scale.set(1, 0.8, 0.55);
       kn.position.set(f.x, f.y - 0.006, -0.009);
       kn.castShadow = true;
       this.palm.add(kn);
@@ -250,11 +253,16 @@ export class Hand {
   }
 
   /**
-   * Power grip round a handle of radius `r` lying across the palm (along hand x) at (cy, cz).
+   * Power grip round a handle of radius `r` lying across the palm at (cy, cz) where it crosses the middle
+   * finger. `oblique` (degrees): how far the handle runs diagonally, from the base of the index finger down
+   * to the heel of the hand by the little finger (a real power grip is oblique, 0 = straight across).
    * `squeeze` 0..1 tightens it. The thumb wraps the other way, over the index and middle fingers.
    */
-  grip(r: number, cy: number, cz: number, squeeze = 0): void {
-    for (const f of this.fingers) f.grip(cy, cz, r + f.def.t * 0.5, squeeze);
+  grip(r: number, cy: number, cz: number, squeeze = 0, oblique = 0): void {
+    const t = Math.tan(oblique * D2R), c = Math.cos(oblique * D2R);
+    // Each finger meets the slanted handle a little higher (index) or lower (little finger); its section
+    // through the handle is a little longer than round.
+    for (const f of this.fingers) f.grip(cy + (f.def.x - 0.0095) * t, cz, (r + f.def.t * 0.5) / Math.sqrt(c), squeeze);
     const k = squeeze * 5;
     this.thumb.cmc.set(40 + k, -15, -85);
     this.thumb.mcp.set(40 + k);
@@ -267,15 +275,24 @@ export class Hand {
  * toward the elbow, back of the hand toward +z for the right hand). `r`: handle radius; `y`: where along
  * the handle the fist sits; `x`: the handle axis's offset in the tool. The left hand is the mirror image.
  */
-export function holdingHand(r: number, y: number, x = 0, left = false): { group: THREE.Group; hand: Hand } {
+export function holdingHand(r: number, y: number, x = 0, left = false, oblique = 0): { group: THREE.Group; hand: Hand } {
   const hand = new Hand();
   // Across the palm, in the hollow under the knuckles, resting on the palm.
   const cy = 0.068, cz = 0.017 + r;
-  hand.grip(r, cy, cz);
-  // Hand axes into the tool: radial (x) → toward the working end (−y), distal (y) → away from the elbow
-  // (−x), palmar (z) → −z.
-  hand.root.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(0, -1, 0), new THREE.Vector3(-1, 0, 0), new THREE.Vector3(0, 0, -1)));
-  hand.root.position.set(x + cy, y, cz);
+  hand.grip(r, cy, cz, 0, oblique);
+  // The handle in the hand: from the index side (the working end) toward the little finger, slanting down
+  // toward the wrist by `oblique`. It becomes the tool's +y; across it in the palm plane becomes +x (toward
+  // the elbow when straight); palmar becomes −z.
+  const o = oblique * D2R;
+  const hDir = new THREE.Vector3(-Math.cos(o), -Math.sin(o), 0);
+  const pDir = new THREE.Vector3(Math.sin(o), -Math.cos(o), 0);
+  const H = new THREE.Matrix4().makeBasis(pDir, hDir, new THREE.Vector3(0, 0, 1));
+  const T = new THREE.Matrix4().makeBasis(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, -1));
+  const M = T.multiply(H.transpose());
+  hand.root.quaternion.setFromRotationMatrix(M);
+  // The point where the handle crosses the middle finger's line goes onto the handle axis.
+  const c0 = new THREE.Vector3(0.0095, cy, cz).applyQuaternion(hand.root.quaternion);
+  hand.root.position.set(x - c0.x, y - c0.y, -c0.z);
   const group = new THREE.Group();
   group.add(hand.root);
   if (left) group.scale.z = -1;
