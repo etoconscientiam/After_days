@@ -5,39 +5,86 @@ import type { Textures } from './textures';
 
 const Y = new THREE.Vector3(0, 1, 0);
 
+/** A capsule from a to b (radius r): fingers, thumb joints. */
+function bone(a: THREE.Vector3, b: THREE.Vector3, r: number, m: THREE.Material): THREE.Mesh {
+  const d = new THREE.Vector3().subVectors(b, a);
+  const o = new THREE.Mesh(new THREE.CapsuleGeometry(r, Math.max(0.001, d.length()), 3, 8), m);
+  o.position.addVectors(a, b).multiplyScalar(0.5);
+  o.quaternion.setFromUnitVectors(Y, d.normalize());
+  return o;
+}
+
 /**
- * A chunky arm, Dish Pit style: leather gauntlet around a handle that runs along +y, a wide cuff with a
- * stitched band, and a thick wool sleeve running on past the edge of the view.
+ * A gloved fist around a handle that runs along +y through the origin: four curled fingers (each a bent
+ * ring around the handle with a rounded tip), a padded back of the hand, a two-joint thumb over the fingers,
+ * a flared leather gauntlet with a stitched band, and a wool sleeve with a couple of folds running on past
+ * the edge of the view. Rounded low-poly, so it reads as a hand at the game's pixel size.
  */
 function arm(tx: Textures, mirror = false): THREE.Group {
   const g = new THREE.Group();
   const leather = lambert({ map: tx.leather, color: '#ffffff' });
-  const leatherD = lambert({ map: tx.leather, color: '#a89888' });
+  const leatherD = lambert({ map: tx.leather, color: '#b4a494' });
   const wool = lambert({ map: tx.wool, color: '#8c8078' });
   const band = lambert({ color: '#6a2a1c' });
-  const s = mirror ? -1 : 1;
-  const box = (w: number, h: number, d: number, m: THREE.Material, x: number, y: number, z: number) => {
-    const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
-    o.position.set(x * s, y, z);
+  const add = (o: THREE.Mesh) => {
     o.castShadow = true;
     g.add(o);
     return o;
   };
-  box(0.075, 0.1, 0.058, leather, 0.0, 0.045, 0.026); // back of the hand
-  box(0.036, 0.096, 0.06, leatherD, -0.036, 0.045, -0.014); // curled fingers
-  for (const y of [0.022, 0.046, 0.07]) box(0.038, 0.004, 0.062, leather, -0.036, y, -0.014);
-  const th = box(0.026, 0.06, 0.026, leather, 0.036, 0.0, -0.022);
-  th.rotation.z = 0.45 * s;
-  const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.062, 0.052, 0.09, 6), leather);
-  cuff.position.set(0, 0.145, 0.018);
-  cuff.castShadow = true;
-  g.add(cuff);
-  const stripe = new THREE.Mesh(new THREE.CylinderGeometry(0.064, 0.064, 0.018, 6), band);
-  stripe.position.set(0, 0.17, 0.018);
-  g.add(stripe);
-  const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.066, 0.08, 0.8, 6), wool);
-  sleeve.position.set(0, 0.59, 0.018);
-  g.add(sleeve);
+  const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
+  // Fingers: index nearest the tool, little finger toward the wrist. Each wraps from the back of the hand
+  // (+z) round the far side (−x) to the front (−z), where the tip tucks in.
+  const fingers = [
+    { y: 0.012, r: 0.0098 },
+    { y: 0.033, r: 0.0102 },
+    { y: 0.054, r: 0.0098 },
+    { y: 0.073, r: 0.0088 },
+  ];
+  const D2 = Math.PI / 180;
+  for (const f of fingers) {
+    const R = 0.02 + f.r;
+    const from = 70, len = 215;
+    const ring = new THREE.TorusGeometry(R, f.r, 6, 9, len * D2);
+    ring.rotateX(Math.PI / 2);
+    ring.rotateY(-from * D2);
+    ring.translate(0, f.y, 0);
+    add(new THREE.Mesh(ring, f.y < 0.02 ? leather : leatherD));
+    const e = (from + len) * D2;
+    const tip = add(new THREE.Mesh(new THREE.SphereGeometry(f.r * 1.02, 8, 6), leatherD));
+    tip.position.set(R * Math.cos(e), f.y, R * Math.sin(e));
+  }
+  // The back of the hand: a padded, slightly domed slab over the knuckles.
+  const back = add(new THREE.Mesh(new THREE.CapsuleGeometry(0.024, 0.052, 4, 10), leather));
+  back.scale.set(1.25, 1, 0.62);
+  back.position.set(0.006, 0.05, 0.03);
+  // Heel of the palm on the near side, where the thumb grows from.
+  const heel = add(new THREE.Mesh(new THREE.SphereGeometry(0.022, 10, 8), leather));
+  heel.scale.set(1, 1.3, 0.9);
+  heel.position.set(0.026, 0.078, 0.01);
+  // Thumb: from the heel over the front of the fingers, pointing toward the tool.
+  const t0 = V(0.03, 0.07, 0.004), t1 = V(0.024, 0.045, -0.024), t2 = V(0.006, 0.026, -0.034);
+  add(bone(t0, t1, 0.0115, leather));
+  add(bone(t1, t2, 0.0102, leatherD));
+  // Gauntlet: flares from the wrist; a stitched band round its top.
+  const cuffProf = [V(0.032, 0.085, 0), V(0.036, 0.1, 0), V(0.046, 0.15, 0), V(0.054, 0.2, 0), V(0.05, 0.205, 0)].map((v) => new THREE.Vector2(v.x, v.y));
+  const cuff = add(new THREE.Mesh(new THREE.LatheGeometry(cuffProf, 12), leather));
+  cuff.position.z = 0.012;
+  const stripe = add(new THREE.Mesh(new THREE.CylinderGeometry(0.0535, 0.0515, 0.018, 12, 1, true), band));
+  stripe.position.set(0, 0.176, 0.012);
+  // Sleeve: wool, thickening up the forearm, with two loose folds just above the gauntlet.
+  const sleeveProf = [
+    [0.0, 0.19], [0.046, 0.19], [0.058, 0.215], [0.054, 0.24], [0.064, 0.27], [0.06, 0.3], [0.068, 0.42], [0.074, 0.7], [0.078, 1.0], [0.0, 1.0],
+  ].map(([r, y]) => new THREE.Vector2(r, y));
+  const sleeve = add(new THREE.Mesh(new THREE.LatheGeometry(sleeveProf, 12), wool));
+  sleeve.position.z = 0.016;
+  sleeve.castShadow = true;
+  if (mirror) {
+    // Left hand: mirror across x (three.js flips the winding for a negative scale).
+    const m = new THREE.Group();
+    m.scale.x = -1;
+    m.add(g);
+    return m;
+  }
   return g;
 }
 
