@@ -192,6 +192,51 @@ export class Audio {
     n.start(t); n.stop(t + 0.8);
   }
 
+  /** A pile falls into the water, quietly: a «plop» (a sine falling in pitch, like a bubble closing), the hiss of
+   *  the spray (noise through a high band) and a couple of small bubble blips after it. Every one a little
+   *  different in pitch and loudness. m: how much hit the water (0..1). */
+  splash(m: number): void {
+    if (!this.ctx || !this.noiseBuf) return;
+    const c = this.ctx, t = c.currentTime, r = () => Math.random();
+    const vol = 0.05 + 0.05 * m;
+    // the plop
+    const o = c.createOscillator();
+    o.type = 'sine';
+    const f0 = 520 + r() * 260 - m * 120;
+    o.frequency.setValueAtTime(f0, t);
+    o.frequency.exponentialRampToValueAtTime(f0 * (0.35 + r() * 0.1), t + 0.09 + r() * 0.04);
+    const og = c.createGain();
+    this.env(og, t, 0.004, vol * 1.4, 0.16 + r() * 0.06);
+    o.connect(og).connect(this.sfx);
+    o.start(t); o.stop(t + 0.3);
+    // the spray
+    const n = c.createBufferSource();
+    n.buffer = this.noiseBuf;
+    n.playbackRate.value = 0.8 + r() * 0.5;
+    const f = c.createBiquadFilter();
+    f.type = 'bandpass'; f.Q.value = 0.9;
+    f.frequency.setValueAtTime(2400 + r() * 1200, t);
+    f.frequency.exponentialRampToValueAtTime(900 + r() * 300, t + 0.3);
+    const ng = c.createGain();
+    this.env(ng, t + 0.01, 0.01, vol * 0.7, 0.22 + 0.12 * m);
+    n.connect(f).connect(ng).connect(this.sfx);
+    n.start(t, r() * 1.5); n.stop(t + 0.5);
+    // bubbles: short rising blips a moment later
+    const nb = 1 + Math.round(r() * (1 + 2 * m));
+    for (let i = 0; i < nb; i++) {
+      const tb = t + 0.08 + r() * 0.3;
+      const b = c.createOscillator();
+      b.type = 'sine';
+      const fb = 700 + r() * 900;
+      b.frequency.setValueAtTime(fb, tb);
+      b.frequency.exponentialRampToValueAtTime(fb * (1.3 + r() * 0.4), tb + 0.03);
+      const bg = c.createGain();
+      this.env(bg, tb, 0.003, vol * (0.25 + r() * 0.3), 0.04 + r() * 0.03);
+      b.connect(bg).connect(this.sfx);
+      b.start(tb); b.stop(tb + 0.1);
+    }
+  }
+
   /** Choir pad for the finale; level follows the temple's growth. */
   choirLevel(level: number): void {
     if (!this.ctx) return;

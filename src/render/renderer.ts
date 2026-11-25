@@ -115,6 +115,8 @@ export class Renderer {
   onSparkArrive: () => void = () => {};
   /** where the button of a pile extra is (world px), and the matter set off to it / arrived (ui/pileChips.ts) */
   matTarget: (id: string) => { x: number; y: number } | null = () => null;
+  /** a pile splashed into the water (m: how much, 0..1): the sound */
+  onSplash: (m: number) => void = () => {};
   onMatSend: (id: string, n: number) => void = () => {};
   onMatArrive: (id: string, n: number) => void = () => {};
   private t = 0;
@@ -1909,7 +1911,9 @@ export class Renderer {
 
   // ---------- the splash of a pile ----------
   private splashWatch: { gx: number; t: number }[] = [];
-  private splashes: { x: number; t: number; m: number; jet: boolean; bubbles: { x: number; y: number; vy: number; ph: number; done?: boolean }[] }[] = [];
+  private splashes: { x: number; t: number; m: number; jet: boolean; bubbles: { x: number; y: number; vy: number; ph: number; done?: boolean }[];
+    /** its own shape: the slant, the crown's life and the height of each wall, when and how high the jet, the rings' speed */
+    lean: number; crown: number; hL: number; hR: number; jetAt: number; jetH: number; ring: number }[] = [];
 
   /** Watch the piles of the last taps: the moment enough of one is at the surface of open water, it splashes. */
   private watchSplashes(g: Game): void {
@@ -1938,16 +1942,23 @@ export class Renderer {
   splash(x: number, m: number): void {
     if (this.splashes.length > 6) this.splashes.shift();
     const sea = this.lay.waterLevel;
-    const nd = Math.round((10 + 14 * m) * (this.quality === 'low' ? 0.5 : 1));
+    this.onSplash(m);
+    const R = Math.random;
+    // every splash its own: the pile comes in a little slanted (one side throws more and further), the drops
+    // leave at their own moment, speed and angle, a few big ones among them, some break off the crown late
+    const lean = (R() - 0.5) * 0.8;
+    const nd = Math.round((8 + 16 * m) * (0.75 + R() * 0.5) * (this.quality === 'low' ? 0.5 : 1));
     for (let i = 0; i < nd; i++) {
-      const side = i % 2 ? 1 : -1, a = 0.25 + Math.random() * 0.9;
-      const sp = (22 + Math.random() * 26) * (0.75 + 0.4 * m);
-      this.particles.push({ x: x + side * (1 + Math.random() * 2), y: sea - 1, vx: side * Math.cos(a) * sp * 0.55, vy: -Math.sin(a) * sp, life: 0, max: 1.2,
-        color: Math.random() < 0.35 ? '#f4fbff' : Math.random() < 0.5 ? '#cfe8f4' : '#9cc8e6', size: 1, kind: 'drop' });
+      const side = R() < 0.5 + lean * 0.5 ? 1 : -1, a = 0.2 + R() * 1.05;
+      const sp = (16 + R() * 34) * (0.75 + 0.4 * m) * (1 + side * lean * 0.5);
+      const big = R() < 0.12;
+      this.particles.push({ x: x + side * (0.5 + R() * 3), y: sea - 1 - R() * 2, vx: side * Math.cos(a) * sp * (0.4 + R() * 0.35) + (R() - 0.5) * 6, vy: -Math.sin(a) * sp,
+        life: -R() * 0.08, max: 0.8 + R() * 0.7,
+        color: big ? '#f4fbff' : R() < 0.35 ? '#f4fbff' : R() < 0.5 ? '#cfe8f4' : '#9cc8e6', size: big ? 2 : 1, kind: 'drop' });
     }
     const bubbles = [];
-    for (let i = 0; i < 3 + Math.round(5 * m); i++) bubbles.push({ x: x + (Math.random() - 0.5) * 8, y: sea + 3 + Math.random() * (6 + 8 * m), vy: 7 + Math.random() * 7, ph: Math.random() * 6.28 });
-    this.splashes.push({ x, t: 0, m, jet: false, bubbles });
+    for (let i = 0; i < 2 + Math.round((3 + R() * 4) * m); i++) bubbles.push({ x: x + (R() - 0.5) * 10, y: sea + 3 + R() * (6 + 10 * m), vy: 5 + R() * 10, ph: R() * 6.28 });
+    this.splashes.push({ x, t: 0, m, jet: false, bubbles, lean, crown: 0.16 + R() * 0.12, hL: 0.6 + R() * 0.8, hR: 0.6 + R() * 0.8, jetAt: 0.1 + R() * 0.1, jetH: 0.6 + R() * 0.8, ring: 20 + R() * 12 });
   }
 
   private drawSplashes(): void {
@@ -1957,11 +1968,13 @@ export class Renderer {
       S.t += dt;
       const x0 = Math.round(S.x);
       // the crown: a little cup of water thrown up round the impact, for a blink
-      if (S.t < 0.22) {
-        const u = S.t / 0.22, h = Math.round(1 + 3.5 * S.m * Math.sin(u * Math.PI)), sp = Math.round(2 + u * 2);
+      if (S.t < S.crown) {
+        const u = S.t / S.crown, sp = Math.round(2 + u * 2);
         c.fillStyle = rgb(240, 249, 253, 0.9 * (1 - u * 0.4));
-        // two walls leaning out, lower at their outer edge, a whiter lip on top
+        // two walls leaning out, lower at their outer edge, a whiter lip on top; each its own height
         for (const sg of [-1, 1]) {
+          const h = Math.round(1 + 3.5 * S.m * Math.sin(u * Math.PI) * (sg < 0 ? S.hL : S.hR) * (1 + sg * S.lean * 0.4));
+          if (h <= 0) continue;
           c.fillRect(x0 + sg * sp, sea - h, 1, h);
           if (h > 1) c.fillRect(x0 + sg * (sp + 1), sea - h + 1, 1, h - 1);
           c.fillStyle = rgb(255, 255, 255, 0.9 * (1 - u * 0.4)); c.fillRect(x0 + sg * (sp + 1), sea - h, 1, 1);
@@ -1971,12 +1984,13 @@ export class Renderer {
         c.fillStyle = rgb(10, 28, 46, 0.35 * (1 - u)); c.fillRect(x0 - 1, sea, 3, 1);
       }
       // the jet: the water closing over the hole throws a thin column up, and a drop off its top
-      if (!S.jet && S.t > 0.14) {
+      if (!S.jet && S.t > S.jetAt) {
         S.jet = true;
-        for (let i = 0; i < 1 + Math.round(S.m); i++) this.particles.push({ x: x0 + 0.5, y: sea - 2, vx: (Math.random() - 0.5) * 4, vy: -(26 + 14 * S.m) - i * 6, life: 0, max: 1, color: '#f4fbff', size: 1, kind: 'drop' });
+        const nj = Math.random() < 0.3 ? 0 : 1 + Math.round(S.m * Math.random() * 1.5);
+        for (let i = 0; i < nj; i++) this.particles.push({ x: x0 + 0.5, y: sea - 2, vx: (Math.random() - 0.5) * 6 + S.lean * 6, vy: -(22 + 16 * S.m) * S.jetH - i * (4 + Math.random() * 5), life: 0, max: 1, color: '#f4fbff', size: 1, kind: 'drop' });
       }
-      if (S.t > 0.14 && S.t < 0.38) {
-        const u = (S.t - 0.14) / 0.24, h = Math.round((3 + 5 * S.m) * Math.sin(u * Math.PI));
+      if (S.t > S.jetAt && S.t < S.jetAt + 0.24) {
+        const u = (S.t - S.jetAt) / 0.24, h = Math.round((3 + 5 * S.m) * S.jetH * Math.sin(u * Math.PI));
         if (h > 0) { c.fillStyle = rgb(226, 242, 250, 0.7); c.fillRect(x0, sea - h, 1, h); }
       }
       // rings: crests running out along the surface, one after another, fading as they spread
@@ -1985,7 +1999,7 @@ export class Renderer {
         const tt = S.t - r * 0.16;
         if (tt <= 0 || tt > 1.1) { if (tt <= 0) alive = true; continue; }
         alive = true;
-        const u = tt / 1.1, R = 3 + tt * (24 + 10 * S.m), a = (1 - u) * (0.85 - r * 0.2) * (0.6 + 0.4 * S.m);
+        const u = tt / 1.1, R = 3 + tt * (S.ring + 10 * S.m), a = (1 - u) * (0.85 - r * 0.2) * (0.6 + 0.4 * S.m);
         for (const sgn of [-1, 1]) {
           const X = Math.round(x0 + sgn * R);
           if (X < 0 || X >= WW || this.gy[X] <= sea + 1) continue;
@@ -2342,6 +2356,7 @@ export class Renderer {
       const p = this.particles[i];
       p.life += dt;
       if (p.life >= p.max || p.x > WW + 4) { this.particles.splice(i, 1); continue; }
+      if (p.life < 0) continue; // not yet: it leaves a moment later (the drops of a splash)
       p.x += p.vx * dt; p.y += p.vy * dt;
       if (!p.kind) p.vy -= 6 * dt;
       if (p.kind === 'mote') p.vy += Math.sin(this.t * 2 + i) * dt * 2;

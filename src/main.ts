@@ -50,6 +50,7 @@ const geo = new Geologist(() => game, renderer, input, () => uiScale);
 renderer.matTarget = (id) => hud.specialPoint(id, canvas.getBoundingClientRect());
 renderer.onMatSend = (id, n) => hud.specialSend(id, n);
 renderer.onMatArrive = (id, n) => hud.specialArrive(id, n);
+renderer.onSplash = (m) => audio.splash(m);
 
 // ---------- layout / scaling ----------
 const column = $('#column');
