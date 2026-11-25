@@ -102,6 +102,7 @@ export class View {
   /** Step of the workshop tour (-1 = none). */
   private tour = -1;
   private stagesT = 0;
+  private modalCursor = false;
   private leanT = 0;
   private leanAt = new THREE.Vector3();
   private zoomP = new THREE.Vector3();
@@ -1313,6 +1314,11 @@ export class View {
   /** Move the hint label to its anchor and draw the cursor. */
   private placeOverlay(): void {
     const g = this.game;
+    const modal = !this.started || this.ui.modal || this.ui.endOpen;
+    if (modal !== this.modalCursor) {
+      this.modalCursor = modal;
+      document.body.classList.toggle('ui-modal', modal);
+    }
     const f = g.guide;
     const overJob = !!this.part && this.torch.has && (this.hover === 'part' || this.hover === 'bench' || this.hover === '') && g.player.stage === 'weld';
     if (this.rig.mode === 'walk') this.ui.placeCursor(this.cssW / 2, this.cssH / 2, this.started && !this.ui.modal);

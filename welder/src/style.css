@@ -515,3 +515,12 @@ html, body {
 #craft h3, #board h3, #start h1, #end h2 { font-weight: 700; letter-spacing: 0.12em; }
 #craft h4 { letter-spacing: 0.1em; }
 #gauges span { font-size: 0.7em; }
+
+/* Pixel cursors (frames.ts): the game draws its own crosshair over the scene; over windows and buttons
+   the system cursor is replaced by a pixel arrow, golden over anything you can press. */
+html, body, #ui, #ui .pe, #ui .pe * { cursor: var(--cur); }
+#craft-btn, #lang-btn, #craft .buy, #job .btns span, #board .card:not(.off), #board .close, #craft .close,
+#start, #start .go, #start .links span, #end .go, #tour, #tour * { cursor: var(--cur-hot) !important; }
+#game { cursor: none; }
+/* While a window is open (or before the start) the game's crosshair is hidden: the pixel arrow shows over the scene too. */
+body.ui-modal #game { cursor: var(--cur); }

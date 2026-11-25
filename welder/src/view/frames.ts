@@ -73,3 +73,48 @@ export function installFrames(root: HTMLElement = document.documentElement): voi
     root.style.setProperty(`--sq-${name}-s`, frame(p, false));
   }
 }
+
+/**
+ * Pixel cursors in the game's style, for wherever the system cursor would show (over windows and buttons):
+ * an arrow in cream, and the same arrow in gold over things you can press. Drawn at 2x, hot spot at the tip.
+ */
+const ARROW = [
+  'X..........',
+  'XX.........',
+  'XoX........',
+  'XooX.......',
+  'XoooX......',
+  'XooooX.....',
+  'XoooooX....',
+  'XooooooX...',
+  'XoooooooX..',
+  'XooooooooX.',
+  'XoooooXXXXX',
+  'XooXooX....',
+  'XoX.XooX...',
+  'XX..XooX...',
+  'X....XooX..',
+  '.....XXXX..',
+];
+
+function cursor(fill: string, shade: string, k = 2): string {
+  const w = ARROW[0].length, h = ARROW.length;
+  const c = document.createElement('canvas');
+  c.width = w * k;
+  c.height = h * k;
+  const x = c.getContext('2d')!;
+  for (let y = 0; y < h; y++)
+    for (let i = 0; i < w; i++) {
+      const ch = ARROW[y][i];
+      if (ch === '.') continue;
+      // Outline dark; fill lit on the left edge, shaded toward the right.
+      x.fillStyle = ch === 'X' ? '#0a0604' : i <= 2 ? fill : i > 5 ? shade : fill;
+      x.fillRect(i * k, y * k, k, k);
+    }
+  return `url(${c.toDataURL()}) 0 0`;
+}
+
+export function installCursors(root: HTMLElement = document.documentElement): void {
+  root.style.setProperty('--cur', `${cursor('#f0e0b8', '#b8a07a')}, default`);
+  root.style.setProperty('--cur-hot', `${cursor('#ffd27a', '#c8944a')}, pointer`);
+}
