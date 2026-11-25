@@ -258,15 +258,17 @@ export class BeadView {
 
   /**
    * Where the rod would land: green on a joint it can strike, amber when close but off it, red when the joint
-   * faces away. `k` (0..1) fills the ring while the strike is coming.
+   * faces away. `k` (0..1) fills the ring while the strike is coming. Drawn where the hand really is (`d` mm
+   * across the joint), not pulled onto it: the ring is honest, the aim is yours.
    */
-  setMark(state: '' | 'ok' | 'near' | 'away' | 'chip', seam = -1, s = 0, k = 0): void {
+  setMark(state: '' | 'ok' | 'near' | 'away' | 'chip', seam = -1, s = 0, k = 0, d = 0, pxMM = 0): void {
     this.mark.visible = state !== '' && this.at(seam, s);
     if (!this.mark.visible) return;
     const p = this.pt;
-    this.mark.position.set((p.x + p.nx * 1.2) * MM, (p.y + p.ny * 1.2) * MM, (p.z + p.nz * 1.2) * MM);
+    this.mark.position.set((p.x + p.bx * d + p.nx * 1.2) * MM, (p.y + p.by * d + p.ny * 1.2) * MM, (p.z + p.bz * d + p.nz * 1.2) * MM);
     this.frame(1, this.mark.quaternion);
-    const r = state === 'ok' ? 6 : 8;
+    // Never smaller than a few screen pixels, however far the camera is.
+    const r = Math.max(state === 'ok' ? 6 : 8, pxMM * 3.5);
     this.mark.scale.setScalar(r * MM);
     this.markMat.color.set(state === 'ok' ? '#9cff7a' : state === 'chip' ? '#ffb040' : state === 'near' ? '#ffc24a' : '#ff5a3a').multiplyScalar(state === 'ok' ? 2.5 : 2);
     this.markFill.visible = state === 'ok' && k > 0;

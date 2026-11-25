@@ -632,37 +632,12 @@ export class View {
     return this.ray.ray.intersectPlane(this.plane, this.zoomP);
   }
 
-  /**
-   * Before the arc burns (and while chipping), a cursor near a joint pulls the rod (or the hammer) onto it, so
-   * the mark on the seam and the tip of the rod are in the same place and the strike lands where you aim.
-   * Once the arc burns the hand is yours alone.
-   */
-  private snapToSeam(tr: TorchIn): void {
-    const b = this.game.player;
-    if (!tr.has || !this.part) return;
-    const chip = b.stage === 'chip';
-    if (!(chip || (b.stage === 'weld' && !b.arc.lit))) return;
-    const P = this.aimProj;
-    nearestSeam(b, tr.x, tr.y, tr.z, -1, P, !chip);
-    const R = (chip ? BALANCE.chip.radius : BALANCE.weld.strikeRadius) * 1.6;
-    if (P.seam < 0 || P.dist > R) return;
-    if (!chip && !canReach(b, P.seam, P.s)) return;
-    const p = b.seams[P.seam].pointAt(P.s, this.pt);
-    const k = 0.2; // keep a fifth of the offset: the hand still shows
-    tr.x = p.x + (tr.x - p.x) * k;
-    tr.y = p.y + (tr.y - p.y) * k;
-    tr.z = p.z + (tr.z - p.z) * k;
-    this.p2w(tr.x, tr.y, tr.z, this.surfW);
-    this.normW.set(p.nx, p.ny, p.nz).transformDirection(this.partRoot.matrixWorld);
-  }
-
   /** Input for one frame; the arc-length request is handed to the first sim step only. */
   frameInput(dt: number): TorchIn {
     const tr = this.torch;
     const active = this.started && !this.ui.modal && !this.ui.endOpen && this.tour < 0 && (this.rig.mode === 'station' || this.rig.mode === 'inspect');
     if (active) {
       this.aimOnPart(tr);
-      this.snapToSeam(tr);
     } else tr.has = false;
     tr.press = active && (this.lmb || this.latch) && !this.suppress && this.mouse.in;
     const kr = BALANCE.arc.keyRate * dt;
@@ -1292,7 +1267,14 @@ export class View {
       const sr = P.seam >= 0 ? b.seams[P.seam] : null;
       if (sr && P.dist <= BALANCE.chip.radius * 1.6 && sr.slag[sr.cellAt(P.s)] > 0) state = 'chip';
     }
-    this.bead.setMark(state, P.seam, P.s, a.why === 'strike' ? a.strikeK : 0);
+    // One screen pixel of the low-res picture, in the part's millimetres, at the mark.
+    let pxMM = 0;
+    if (state && this.torch.has) {
+      const cam = this.rig.cam;
+      const dist = cam.position.distanceTo(this.surfW);
+      pxMM = (dist * 2 * Math.tan((cam.fov * Math.PI) / 360)) / 240 / (0.001 * this.S);
+    }
+    this.bead.setMark(state, P.seam, P.s, a.why === 'strike' ? a.strikeK : 0, P.d, pxMM);
     // Sputter while the strike is coming.
     if (a.why === 'strike' && this.lmb && this.part) {
       this.strikeAcc += dt * (6 + 30 * a.strikeK);
