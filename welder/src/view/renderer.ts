@@ -23,6 +23,7 @@ uniform vec2 uRes;
 uniform float uExposure;
 uniform float uMaskPos;
 uniform float uMaskT;
+uniform float uMaskSee;
 uniform float uMaskWindow;
 uniform vec3 uMaskTint;
 uniform vec3 uShell;
@@ -79,7 +80,9 @@ void main() {
   vec2 w = vec2(0.42 * aspect * uMaskWindow, 0.27 + 0.1 * uMaskWindow);
   vec2 wq = abs(vec2(q.x, q.y - yc)) - w;
   float inWin = step(max(wq.x, wq.y), 0.0);
-  vec3 seen = (c + halo * 0.35) * uMaskT * uMaskTint;
+  // Through the glass: the arc and hot metal at the glass's transmission, plus a dim, compressed view of the
+  // rest so the work stays readable (a lighter glass shows more of it).
+  vec3 seen = ((c + halo * 0.35) * uMaskT + c / (1.0 + c) * uMaskSee) * uMaskTint;
   vec3 world = c + halo * (0.6 + 1.2 * uGlare);
   c = mix(world, mix(uShell, seen, inWin), covered);
 
@@ -263,6 +266,7 @@ export class LowRes {
         uExposure: { value: SKIN.post.exposure },
         uMaskPos: { value: 0 },
         uMaskT: { value: 0.02 },
+        uMaskSee: { value: 0.2 },
         uMaskWindow: { value: 0.7 },
         uMaskTint: { value: new THREE.Vector3(...SKIN.mask.tint) },
         uShell: { value: new THREE.Vector3(...SKIN.mask.shell) },

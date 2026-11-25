@@ -69,7 +69,7 @@ export function computeGuide(g: Game, out: Guide): Guide {
         }
         return out;
       }
-      if (c.maskDownDark > 1.2 && learning) {
+      if (c.maskDownDark > 3 && learning) {
         out.target = 'mask';
         out.hint = 'maskUp';
         return out;

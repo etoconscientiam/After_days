@@ -7,6 +7,8 @@ export type Stats = Record<StatId, number>;
 export function baseStats(): Stats {
   return {
     maskTransmission: 0.03,
+    /** How much of the unlit room shows through the glass (0 = black). */
+    maskSee: 0.2,
     maskWindow: 0.7,
     strikeMul: 1,
     spatterMul: 1,

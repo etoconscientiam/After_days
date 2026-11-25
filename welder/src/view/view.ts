@@ -956,6 +956,7 @@ export class View {
     const u = this.lr.u;
     u.uMaskPos.value = g.mask.pos;
     u.uMaskT.value = g.stats.maskTransmission;
+    u.uMaskSee.value = g.stats.maskSee;
     u.uMaskWindow.value = g.stats.maskWindow;
     u.uGlare.value = g.glare;
     this.updateSpots(dt, lit && g.mask.pos < 0.5);

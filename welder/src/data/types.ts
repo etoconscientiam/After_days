@@ -90,6 +90,7 @@ export interface Cond {
 
 export type StatId =
   | 'maskTransmission'
+  | 'maskSee'
   | 'maskWindow'
   | 'strikeMul'
   | 'spatterMul'

@@ -15,7 +15,7 @@ export const UPGRADES: UpgradeDef[] = [
   {
     id: 'glass',
     cost: 5,
-    effects: { set: { maskTransmission: 0.065, maskWindow: 0.82 } },
+    effects: { set: { maskTransmission: 0.065, maskSee: 0.42, maskWindow: 0.82 } },
     slot: 1,
     model: 'glass',
   },
