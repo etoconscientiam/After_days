@@ -238,8 +238,8 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
   const doorLeaf = new THREE.Group();
   doorLeaf.add(mesh(new THREE.BoxGeometry(0.05, 1.92, 0.84), lambert({ map: doorTex(), color: '#b8a898' }), 0, 0.96, -0.42));
   doorLeaf.add(mesh(new THREE.TorusGeometry(0.05, 0.008, 4, 10), iron, -0.03, 1.0, -0.75));
-  doorLeaf.position.set(RX - 0.06, 0, 1.08);
-  doorLeaf.rotation.y = 1.25;
+  doorLeaf.position.set(RX + 0.12, 0, 1.08);
+  doorLeaf.rotation.y = -1.3;
   tag(doorLeaf, 'door');
   scene.add(doorLeaf);
   pick.push(doorLeaf);
@@ -629,10 +629,10 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
   needle.position.set(0, -0.05, 0.028);
   gauge.add(needle);
   const gCount = counterTex();
-  gauge.add(mesh(new THREE.PlaneGeometry(0.12, 0.042), new THREE.MeshBasicMaterial({ map: gCount.tex, color: '#ffffff' }), 0, -0.095, 0.022));
+  gauge.add(mesh(new THREE.PlaneGeometry(0.2, 0.07), new THREE.MeshBasicMaterial({ map: gCount.tex, color: '#ffffff' }), 0, -0.1, 0.022));
   for (const [x, y] of [[-0.15, 0.115], [0.15, 0.115], [-0.15, -0.115], [0.15, -0.115]]) gauge.add(boxAt(0.016, 0.016, 0.01, dark, x, y, 0.024));
   gauge.position.set(0.12, 1.12, BACK_Z + 0.03);
-  gauge.scale.setScalar(0.8);
+  gauge.scale.setScalar(0.92);
 
   scene.add(gauge);
   let gShown = -1;

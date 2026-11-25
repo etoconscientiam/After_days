@@ -21,8 +21,6 @@ import type { SeamPoint } from '../sim/seam';
 const MM = 0.001;
 /** Things you click instead of welding on them. */
 const TOOLS_OF_THE_ROOM = new Set(['pile', 'board', 'electrodes', 'door', 'done']);
-/** Guide targets that live on the bench: while walking, the hint just says to go back to it. */
-const AT_BENCH = new Set(['seam', 'bead', 'arc', 'mask', 'electrodes', 'door']);
 
 /**
  * Everything the player sees, from one station at the bench (Dish Pit style). Reads sim state each frame,
@@ -82,8 +80,8 @@ export class View {
   private hits: THREE.Intersection[] = [];
   private plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
   private mouseMoved = true;
-  private restTip = new THREE.Vector3(0.3, TABLE + 0.02, -0.42);
-  private restLeft = new THREE.Vector3(-0.42, TABLE + 0.01, -0.42);
+  private restTip = new THREE.Vector3(0.2, TABLE + 0.04, -0.62);
+  private restLeft = new THREE.Vector3(-0.24, TABLE + 0.02, -0.62);
   started = false;
 
   /** Where particles land: the job, the bench top, or the floor. */
@@ -266,7 +264,10 @@ export class View {
   private interact(): void {
     const g = this.game;
     const id = this.pick();
-    if (!id) return;
+    if (!id || id === 'bench') {
+      if (this.nearBench()) this.toBench();
+      return;
+    }
     if (id === 'pile') {
       if (g.pile && g.player.stage === 'empty') {
         g.queue({ type: 'takePile' });
@@ -553,7 +554,7 @@ export class View {
     const pm = buildPart(this.game.data.parts[o.part], this.tx);
     pm.group.traverse((c) => (c.userData.pick = 'pile'));
     pm.group.scale.setScalar(0.3 / (pm.half[0] * 2 * MM));
-    pm.group.position.y = 0.2;
+    pm.group.position.y = 0;
     this.pileMesh = pm.group;
     this.ws.pileSlot.add(pm.group);
   }
@@ -588,7 +589,7 @@ export class View {
     }
     this.bead.highlight(f.target === 'seam' ? f.seam : -1, 1);
     let hint = f.hint ? t('hint.' + f.hint) : '';
-    if (this.rig.mode === 'walk' && AT_BENCH.has(f.target)) hint = this.game.player.stage !== 'empty' ? t('hint.toBench') : '';
+    if (this.rig.mode === 'walk') hint = f.target ? t('hint.toBench') : '';
     this.ui.setHint(hint, f.target === 'mask' && this.rig.mode !== 'walk');
   }
 
@@ -642,7 +643,7 @@ export class View {
         if (id.startsWith('shelf:')) this.ui.showTip(id.slice(6), tx, ty + 10 * this.scale);
         else this.ui.hideTip();
         this.ui.setPrompt(this.rig.mode === 'walk' ? this.promptFor(id) : '');
-      }
+      } else if (this.rig.mode === 'walk') this.ui.setPrompt(this.promptFor(id));
     } else if (!canHover && this.hover) {
       this.hover = '';
       this.ui.hideTip();
@@ -823,7 +824,7 @@ export class View {
     this.ui.placePrompt(this.cssW / 2, this.cssH / 2 + 12 * this.scale);
     if (!this.ui.hintVisible) return;
     let w: THREE.Vector3 | null = null;
-    if (this.rig.mode === 'walk' && AT_BENCH.has(f.target)) {
+    if (this.rig.mode === 'walk') {
       w = this.v3.copy(this.ws.anchors.bench);
     } else if (f.target === 'mask') {
       this.ui.hintEdge('');
@@ -852,9 +853,15 @@ export class View {
     this.ui.placeHint((w.x * 0.5 + 0.5) * this.cssW, (-w.y * 0.5 + 0.5) * this.cssH - 4 * this.scale);
   }
 
+  /** Standing in front of the bench, roughly facing it. */
+  private nearBench(): boolean {
+    const r = this.rig;
+    return r.body.z < 1.25 && Math.abs(r.body.x) < 1.4 && Math.cos(r.walkYaw) > 0.3;
+  }
+
   private promptFor(id: string): string {
     const g = this.game;
-    if (!id) return '';
+    if (!id || id === 'bench') return this.nearBench() ? t('act.bench') : '';
     if (id === 'pile') return g.pile && g.player.stage === 'empty' ? t('act.take') : g.flags.board ? t('act.board') : t('act.bench');
     if (id === 'board') return g.flags.board ? t('act.board') : '';
     if (id.startsWith('shelf:')) return t('act.buy');
