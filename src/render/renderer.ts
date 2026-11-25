@@ -1306,6 +1306,8 @@ export class Renderer {
         if (fm > -0.3) { c.fillStyle = rgb(240, 246, 250, 0.55 + fm * 0.35); c.fillRect(x, sea + (fm > 0.5 ? 0 : 1), 1, 1); }
       }
     }
+    this.watchSplashes(g);
+    this.drawSplashes();
     const vfx = r.active.find((a) => a.id === 'volcanoFx');
     if (vfx && vfx.x !== undefined) {
       const gy = this.gy[Math.max(0, Math.min(WW - 1, vfx.x))];
@@ -1899,7 +1901,120 @@ export class Renderer {
 
   // ---------- press, taps, rare events, burial window ----------
   /** A tap's touch point flashes softly (the impulse itself rises from the thing). */
-  tapAt(x: number, y: number): void { this.taps.push({ x, y, t: 0 }); }
+  tapAt(x: number, y: number): void {
+    this.taps.push({ x, y, t: 0 });
+    // the pile of this tap: watched until it reaches the water (then it splashes) or for a few seconds
+    if (this.splashWatch.length < 12) this.splashWatch.push({ gx: Math.max(0, Math.min(WW / 2 - 1, Math.round(x) >> 1)), t: 0 });
+  }
+
+  // ---------- the splash of a pile ----------
+  private splashWatch: { gx: number; t: number }[] = [];
+  private splashes: { x: number; t: number; m: number; jet: boolean; bubbles: { x: number; y: number; vy: number; ph: number; done?: boolean }[] }[] = [];
+
+  /** Watch the piles of the last taps: the moment enough of one is at the surface of open water, it splashes. */
+  private watchSplashes(g: Game): void {
+    const grid = g.grid, W = grid.W, L = g.water.level, dt = this.dt;
+    for (let k = this.splashWatch.length - 1; k >= 0; k--) {
+      const w = this.splashWatch[k];
+      w.t += dt;
+      if (w.t > 4) { this.splashWatch.splice(k, 1); continue; }
+      let n = 0, sx = 0;
+      for (let x = Math.max(0, w.gx - 6); x <= Math.min(W - 1, w.gx + 6); x++) {
+        if (g.water.col[x] !== 1) continue;
+        for (let y = L - 1; y <= L + 1; y++) {
+          const m = grid.mat[y * W + x];
+          if (m && KIND[m] !== K_NONE && KIND[m] !== K_SOLID) { n++; sx += x; }
+        }
+      }
+      if (n >= 3) {
+        this.splashWatch.splice(k, 1);
+        this.splash(sx / n * 2 + 1, Math.min(1, n / 14));
+      }
+    }
+  }
+
+  /** A pile meets the water: a crown of drops on arcs, a thin jet a moment later, rings running out along the
+   *  surface, bubbles rising from what sinks and popping at the top. m: how much hit the water (0..1). */
+  splash(x: number, m: number): void {
+    if (this.splashes.length > 6) this.splashes.shift();
+    const sea = this.lay.waterLevel;
+    const nd = Math.round((10 + 14 * m) * (this.quality === 'low' ? 0.5 : 1));
+    for (let i = 0; i < nd; i++) {
+      const side = i % 2 ? 1 : -1, a = 0.25 + Math.random() * 0.9;
+      const sp = (22 + Math.random() * 26) * (0.75 + 0.4 * m);
+      this.particles.push({ x: x + side * (1 + Math.random() * 2), y: sea - 1, vx: side * Math.cos(a) * sp * 0.55, vy: -Math.sin(a) * sp, life: 0, max: 1.2,
+        color: Math.random() < 0.35 ? '#f4fbff' : Math.random() < 0.5 ? '#cfe8f4' : '#9cc8e6', size: 1, kind: 'drop' });
+    }
+    const bubbles = [];
+    for (let i = 0; i < 3 + Math.round(5 * m); i++) bubbles.push({ x: x + (Math.random() - 0.5) * 8, y: sea + 3 + Math.random() * (6 + 8 * m), vy: 7 + Math.random() * 7, ph: Math.random() * 6.28 });
+    this.splashes.push({ x, t: 0, m, jet: false, bubbles });
+  }
+
+  private drawSplashes(): void {
+    const c = this.ctx, dt = this.dt, sea = this.lay.waterLevel;
+    for (let k = this.splashes.length - 1; k >= 0; k--) {
+      const S = this.splashes[k];
+      S.t += dt;
+      const x0 = Math.round(S.x);
+      // the crown: a little cup of water thrown up round the impact, for a blink
+      if (S.t < 0.22) {
+        const u = S.t / 0.22, h = Math.round(1 + 3.5 * S.m * Math.sin(u * Math.PI)), sp = Math.round(2 + u * 2);
+        c.fillStyle = rgb(240, 249, 253, 0.9 * (1 - u * 0.4));
+        // two walls leaning out, lower at their outer edge, a whiter lip on top
+        for (const sg of [-1, 1]) {
+          c.fillRect(x0 + sg * sp, sea - h, 1, h);
+          if (h > 1) c.fillRect(x0 + sg * (sp + 1), sea - h + 1, 1, h - 1);
+          c.fillStyle = rgb(255, 255, 255, 0.9 * (1 - u * 0.4)); c.fillRect(x0 + sg * (sp + 1), sea - h, 1, 1);
+          c.fillStyle = rgb(240, 249, 253, 0.9 * (1 - u * 0.4));
+        }
+        // a dark dent where the pile went in
+        c.fillStyle = rgb(10, 28, 46, 0.35 * (1 - u)); c.fillRect(x0 - 1, sea, 3, 1);
+      }
+      // the jet: the water closing over the hole throws a thin column up, and a drop off its top
+      if (!S.jet && S.t > 0.14) {
+        S.jet = true;
+        for (let i = 0; i < 1 + Math.round(S.m); i++) this.particles.push({ x: x0 + 0.5, y: sea - 2, vx: (Math.random() - 0.5) * 4, vy: -(26 + 14 * S.m) - i * 6, life: 0, max: 1, color: '#f4fbff', size: 1, kind: 'drop' });
+      }
+      if (S.t > 0.14 && S.t < 0.38) {
+        const u = (S.t - 0.14) / 0.24, h = Math.round((3 + 5 * S.m) * Math.sin(u * Math.PI));
+        if (h > 0) { c.fillStyle = rgb(226, 242, 250, 0.7); c.fillRect(x0, sea - h, 1, h); }
+      }
+      // rings: crests running out along the surface, one after another, fading as they spread
+      let alive = S.t < 0.4;
+      for (let r = 0; r < 3; r++) {
+        const tt = S.t - r * 0.16;
+        if (tt <= 0 || tt > 1.1) { if (tt <= 0) alive = true; continue; }
+        alive = true;
+        const u = tt / 1.1, R = 3 + tt * (24 + 10 * S.m), a = (1 - u) * (0.85 - r * 0.2) * (0.6 + 0.4 * S.m);
+        for (const sgn of [-1, 1]) {
+          const X = Math.round(x0 + sgn * R);
+          if (X < 0 || X >= WW || this.gy[X] <= sea + 1) continue;
+          c.fillStyle = rgb(232, 244, 250, a);
+          c.fillRect(X, sea - 1, 1, 1);
+          c.fillStyle = rgb(232, 244, 250, a * 0.5);
+          c.fillRect(X - sgn, sea - 1, 1, 1); c.fillRect(X, sea, 1, 1);
+        }
+      }
+      // bubbles from what sinks: they wobble up and pop at the surface
+      for (const b of S.bubbles) {
+        if (b.done) continue;
+        if (S.t < 0.1) { alive = true; continue; }
+        b.y -= b.vy * dt;
+        b.x += Math.sin(S.t * 9 + b.ph) * dt * 3;
+        const X = Math.round(b.x);
+        if (b.y <= sea + 1) {
+          b.done = true;
+          if (X >= 0 && X < WW) { c.fillStyle = 'rgba(244,251,255,0.8)'; c.fillRect(X, sea - 1, 1, 1); }
+          continue;
+        }
+        alive = true;
+        c.fillStyle = rgb(210, 236, 248, 0.55);
+        c.fillRect(X, Math.round(b.y), 1, 1);
+        if (b.vy > 11) { c.fillStyle = rgb(210, 236, 248, 0.25); c.fillRect(X + 1, Math.round(b.y), 1, 1); }
+      }
+      if (!alive) this.splashes.splice(k, 1);
+    }
+  }
 
   private drawTaps(dt: number): void {
     const c = this.ctx;
