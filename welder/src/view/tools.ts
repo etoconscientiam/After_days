@@ -35,14 +35,14 @@ function arm(tx: Textures, mirror = false): THREE.Group {
   // Fingers: index nearest the tool, little finger toward the wrist. Each wraps from the back of the hand
   // (+z) round the far side (−x) to the front (−z), where the tip tucks in.
   const fingers = [
-    { y: 0.012, r: 0.0098 },
-    { y: 0.033, r: 0.0102 },
-    { y: 0.054, r: 0.0098 },
-    { y: 0.073, r: 0.0088 },
+    { y: 0.012, r: 0.0118 },
+    { y: 0.036, r: 0.0124 },
+    { y: 0.06, r: 0.012 },
+    { y: 0.082, r: 0.0108 },
   ];
   const D2 = Math.PI / 180;
   for (const f of fingers) {
-    const R = 0.02 + f.r;
+    const R = 0.021 + f.r;
     const from = 70, len = 215;
     const ring = new THREE.TorusGeometry(R, f.r, 6, 9, len * D2);
     ring.rotateX(Math.PI / 2);
@@ -54,26 +54,26 @@ function arm(tx: Textures, mirror = false): THREE.Group {
     tip.position.set(R * Math.cos(e), f.y, R * Math.sin(e));
   }
   // The back of the hand: a padded, slightly domed slab over the knuckles.
-  const back = add(new THREE.Mesh(new THREE.CapsuleGeometry(0.024, 0.052, 4, 10), leather));
+  const back = add(new THREE.Mesh(new THREE.CapsuleGeometry(0.03, 0.06, 4, 10), leather));
   back.scale.set(1.25, 1, 0.62);
-  back.position.set(0.006, 0.05, 0.03);
+  back.position.set(0.006, 0.052, 0.034);
   // Heel of the palm on the near side, where the thumb grows from.
-  const heel = add(new THREE.Mesh(new THREE.SphereGeometry(0.022, 10, 8), leather));
+  const heel = add(new THREE.Mesh(new THREE.SphereGeometry(0.027, 10, 8), leather));
   heel.scale.set(1, 1.3, 0.9);
-  heel.position.set(0.026, 0.078, 0.01);
+  heel.position.set(0.03, 0.086, 0.012);
   // Thumb: from the heel over the front of the fingers, pointing toward the tool.
-  const t0 = V(0.03, 0.07, 0.004), t1 = V(0.024, 0.045, -0.024), t2 = V(0.006, 0.026, -0.034);
-  add(bone(t0, t1, 0.0115, leather));
-  add(bone(t1, t2, 0.0102, leatherD));
+  const t0 = V(0.036, 0.078, 0.004), t1 = V(0.03, 0.05, -0.028), t2 = V(0.008, 0.03, -0.04);
+  add(bone(t0, t1, 0.0135, leather));
+  add(bone(t1, t2, 0.012, leatherD));
   // Gauntlet: flares from the wrist; a stitched band round its top.
-  const cuffProf = [V(0.032, 0.085, 0), V(0.036, 0.1, 0), V(0.046, 0.15, 0), V(0.054, 0.2, 0), V(0.05, 0.205, 0)].map((v) => new THREE.Vector2(v.x, v.y));
+  const cuffProf = [V(0, 0.095, 0), V(0.03, 0.095, 0), V(0.032, 0.11, 0), V(0.042, 0.155, 0), V(0.05, 0.2, 0), V(0.046, 0.205, 0), V(0, 0.205, 0)].map((v) => new THREE.Vector2(v.x, v.y));
   const cuff = add(new THREE.Mesh(new THREE.LatheGeometry(cuffProf, 12), leather));
   cuff.position.z = 0.012;
-  const stripe = add(new THREE.Mesh(new THREE.CylinderGeometry(0.0535, 0.0515, 0.018, 12, 1, true), band));
-  stripe.position.set(0, 0.176, 0.012);
+  const stripe = add(new THREE.Mesh(new THREE.CylinderGeometry(0.0495, 0.0475, 0.016, 12, 1, true), band));
+  stripe.position.set(0, 0.178, 0.012);
   // Sleeve: wool, thickening up the forearm, with two loose folds just above the gauntlet.
   const sleeveProf = [
-    [0.0, 0.19], [0.046, 0.19], [0.058, 0.215], [0.054, 0.24], [0.064, 0.27], [0.06, 0.3], [0.068, 0.42], [0.074, 0.7], [0.078, 1.0], [0.0, 1.0],
+    [0.0, 0.19], [0.044, 0.19], [0.056, 0.215], [0.054, 0.24], [0.064, 0.27], [0.06, 0.3], [0.068, 0.42], [0.074, 0.7], [0.078, 1.0], [0.0, 1.0],
   ].map(([r, y]) => new THREE.Vector2(r, y));
   const sleeve = add(new THREE.Mesh(new THREE.LatheGeometry(sleeveProf, 12), wool));
   sleeve.position.z = 0.016;
@@ -202,13 +202,30 @@ export class Tools {
   }
 
   /** Orient a tool so it runs from `tip` toward the arm's shoulder (a fixed direction in view space). */
-  private aim(cam: THREE.Camera, dir: THREE.Vector3, out: THREE.Quaternion, normal?: THREE.Vector3): void {
+  private aim(cam: THREE.Camera, dir: THREE.Vector3, out: THREE.Quaternion, normal?: THREE.Vector3, tip?: THREE.Vector3): void {
     const d = this.tmp.copy(dir).applyQuaternion(cam.quaternion);
     // Lean the tool out of the surface it touches, so the rod and the hammer never sink into the work.
     // Only as much as needed: the tool keeps coming from the hand, just never from inside the work.
     if (normal && d.dot(normal) < 0.3) d.addScaledVector(normal, 0.3 - d.dot(normal)).normalize();
-    out.setFromUnitVectors(Y, d);
+    if (!tip) {
+      out.setFromUnitVectors(Y, d);
+      return;
+    }
+    // Turn the fist about the handle so the back of the hand (+z, knuckles and thumb) faces the eye,
+    // the way you see your own hand: never the curled fingers from underneath.
+    const z = this.tz.copy(cam.position).sub(tip);
+    z.addScaledVector(d, -z.dot(d));
+    if (z.lengthSq() < 1e-8) {
+      out.setFromUnitVectors(Y, d);
+      return;
+    }
+    z.normalize();
+    const x = this.tx3.crossVectors(d, z);
+    out.setFromRotationMatrix(this.m4.makeBasis(x, d, z));
   }
+  private tz = new THREE.Vector3();
+  private tx3 = new THREE.Vector3();
+  private m4 = new THREE.Matrix4();
 
   /** Electrode holder with its tip at `tip`. `remain` is 0..1 of the rod left. */
   placeHolder(tip: THREE.Vector3, cam: THREE.Camera, remain: number, normal?: THREE.Vector3): void {
@@ -217,7 +234,7 @@ export class Tools {
     this.rod.position.y = len / 2;
     this.grip.position.y = len;
     this.holder.position.copy(tip);
-    this.aim(cam, this.dR, this.q, normal);
+    this.aim(cam, this.dR, this.q, normal, tip);
     this.holder.quaternion.copy(this.q);
   }
 
@@ -227,7 +244,7 @@ export class Tools {
     this.hammer.position.copy(tip);
     if (normal) this.hammer.position.addScaledVector(normal, 0.002 + lift * 0.04);
     else this.hammer.position.y += 0.002 + lift * 0.04;
-    this.aim(cam, this.dR, this.q, normal);
+    this.aim(cam, this.dR, this.q, normal, tip);
     this.hammer.quaternion.copy(this.q);
   }
 
@@ -236,7 +253,7 @@ export class Tools {
     this.left.visible = !!at;
     if (!at) return;
     this.left.position.copy(at);
-    this.aim(cam, this.dL, this.q);
+    this.aim(cam, this.dL, this.q, undefined, at);
     this.left.quaternion.copy(this.q);
   }
 
