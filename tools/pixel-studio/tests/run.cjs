@@ -261,6 +261,33 @@ async function makeFixtures(browser) {
     }
     await check('без привязки: любая ширина 64…512, высота = ширина × 16/9', async () => { await setS(p, s => { s.aspect = '9:16'; s.grid.snap = false; }); await slide(p, 'r-grid-width', 97); eq(await p.evaluate(() => [G.W, G.H]), [97, Math.round(97 * 16 / 9)]); });
     await check('клавиши [ и ] меняют ширину', async () => { await setS(p, s => { s.grid.snap = true; s.grid.width = 108; }); await p.locator('#info').click(); await p.keyboard.press(']'); await settle(p); eq(await p.evaluate(() => S.grid.width), 135); await p.keyboard.press('['); await p.keyboard.press('['); await settle(p); eq(await p.evaluate(() => S.grid.width), 90); await setS(p, s => { s.grid.width = 108; }); });
+    await check('готовые размеры: кнопка ставит ширину и отмечается, итог показывает пиксель в PNG', async () => { await setP(p, { aspect: '9:16', grid: { snap: true, width: 108 } }); await p.click('#gridChips button[data-w="216"]'); await settle(p); eq(await p.evaluate(() => S.grid.width), 216); eq(await p.getAttribute('#gridChips button[data-w="216"]', 'aria-pressed'), 'true'); ok(/216×384 · в PNG 1080 пиксель = 5×5/.test(await p.textContent('#gridDims')), await p.textContent('#gridDims')); });
+    await check('кнопки −/+: с привязкой — соседние размеры, без — шаг 1, с Shift — 8', async () => {
+      await p.click('#gridDec'); await settle(p); eq(await p.evaluate(() => S.grid.width), 180);
+      await p.click('#gridInc'); await settle(p); eq(await p.evaluate(() => S.grid.width), 216);
+      await setP(p, { grid: { snap: false, width: 100 } });
+      await p.click('#gridInc'); await settle(p); eq(await p.evaluate(() => S.grid.width), 101);
+      await p.click('#gridDec', { modifiers: ['Shift'] }); await settle(p); eq(await p.evaluate(() => S.grid.width), 93);
+    });
+    await check('поле ширины: любое число без привязки, с привязкой — ближайшее и объяснение', async () => {
+      await p.fill('#gridNum', '150'); await p.dispatchEvent('#gridNum', 'change'); await settle(p); eq(await p.evaluate(() => S.grid.width), 150);
+      await p.fill('#gridNum', '999'); await p.dispatchEvent('#gridNum', 'change'); await settle(p); eq(await p.evaluate(() => S.grid.width), 512);
+      await p.check('#snapCb'); await settle(p); eq(await p.evaluate(() => S.grid.width), 360); ok(/512 → 360/.test(await p.textContent('#toast')));
+      await p.fill('#gridNum', '100'); await p.dispatchEvent('#gridNum', 'change'); await settle(p); eq(await p.evaluate(() => S.grid.width), 108); ok(/100 → 108/.test(await p.textContent('#toast')));
+    });
+    await check('«по окну»: картинка и интерфейс Shore на экране одного размера при любой ширине сетки', async () => {
+      const sizes = new Set();
+      const hud = new Set();
+      for (const w of [72, 108, 135, 216, 360]) { await setP(p, { grid: { width: w } }); const b = await p.locator('#after').boundingBox(); sizes.add(Math.round(b.height / 2)); hud.add(await p.evaluate(() => { const h = shoreHits.find(x => x.key === 'time'), r = afterCv.getBoundingClientRect(); return Math.round(h.w * r.width / afterCv.width / 3); })); }
+      eq(sizes.size, 1, 'разных высот'); eq(hud.size, 1, 'разных размеров интерфейса Shore'); ok(/по окну/.test(await p.textContent('#zoomFit')));
+    });
+    await check('«целые»: строго целое увеличение, кнопка отмечается, повторное нажатие возвращает «по окну»', async () => {
+      await p.click('#exactBtn'); await settle(p);
+      const r = await p.evaluate(() => [afterCv.width / G.W, afterCv.getBoundingClientRect().width / G.W, $('#exactBtn').getAttribute('aria-pressed')]);
+      ok(Number.isInteger(r[0]) && Math.abs(r[1] - Math.round(r[1])) < 0.01 && r[2] === 'true', JSON.stringify(r));
+      await p.click('#exactBtn'); await settle(p); ok(/по окну/.test(await p.textContent('#zoomFit')));
+      await setP(p, { grid: { width: 108, snap: true } });
+    });
     for (const m of ['avg', 'dominant', 'detail', 'center']) {
       await check(`способ «${m}» даёт свою картинку и подсказку`, async () => { await p.selectOption('#methodSel', m); await settle(p); ok((await p.textContent('#methodHint')).length > 20); return (await hash(p)).g.split(':')[1]; });
     }

@@ -68,6 +68,16 @@ h1 b{font-weight:500;color:var(--accent)}
 .tb.primary:hover{filter:brightness(1.07)}
 .tb:disabled{opacity:.35;cursor:default;background:none}
 .tb:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.stepper{display:flex;align-items:center;border:1px solid var(--line-2);border-radius:7px;background:var(--bg)}
+.stepper input{width:58px;border:0;background:transparent;text-align:center;font:500 13px var(--f-mono);padding:5px 0;-moz-appearance:textfield}
+.stepper input::-webkit-inner-spin-button,.stepper input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.gridctl{display:flex;flex-direction:column;gap:8px}
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+.chips button{all:unset;box-sizing:border-box;cursor:pointer;padding:4px 9px;border:1px solid var(--line-2);border-radius:6px;font:12px var(--f-mono);color:var(--muted);font-variant-numeric:tabular-nums}
+.chips button:hover{color:var(--fg);border-color:var(--muted)}
+.chips button[aria-pressed="true"]{background:var(--accent);border-color:transparent;color:var(--bg)}
+.chips button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.chiplegend{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:-4px}
 .zoomv{font:500 12px/18px var(--f-mono);min-width:52px;text-align:center}
 #pick{flex:none;width:228px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden}
 #pick i{width:12px;height:12px;border-radius:2px;display:inline-block;box-shadow:inset 0 0 0 1px rgba(255,255,255,.15)}
@@ -242,6 +252,7 @@ input[type=color]::-moz-color-swatch{border:0;border-radius:4px}
           <button class="tb icon" id="zoomOut" title="Уменьшить (−, колесо мыши)" aria-label="Уменьшить">−</button>
           <button class="tb zoomv" id="zoomFit" title="Вписать в окно (0)">вписано</button>
           <button class="tb icon" id="zoomIn" title="Увеличить (+, колесо мыши)" aria-label="Увеличить">+</button>
+          <button class="tb" id="exactBtn" aria-pressed="false" title="Вписывать только целым увеличением: экранные пиксели строго одинаковые, но картинка может не заполнять окно и менять размер вместе с сеткой">целые</button>
         </div>
         <div class="tg end">
           <button class="tb primary" id="tbPng" title="PNG 1080 с подачей и Shore (Ctrl+S)">PNG</button>
@@ -377,7 +388,19 @@ input[type=color]::-moz-color-swatch{border:0;border-radius:4px}
         <section class="sec">
           <h2><span class="n">3</span>Сетка и уменьшение</h2>
           <div class="body">
-            <div class="row" data-r="grid.width,Ширина,64,512,1,px,A"></div>
+            <div class="gridctl">
+              <div class="line">
+                <div class="stepper">
+                  <button class="tb icon" id="gridDec" title="Крупнее пиксель — меньше клеток ([, с Shift — шаг 8)" aria-label="Уменьшить ширину сетки">−</button>
+                  <input type="number" id="gridNum" min="64" max="512" step="1" aria-label="Ширина сетки в пикселях">
+                  <button class="tb icon" id="gridInc" title="Мельче пиксель — больше клеток (], с Shift — шаг 8)" aria-label="Увеличить ширину сетки">+</button>
+                </div>
+                <span class="info" id="gridDims"></span>
+              </div>
+              <div class="chips" id="gridChips" role="group" aria-label="Готовые ширины сетки"></div>
+              <div class="chiplegend" aria-hidden="true"><span>← крупный пиксель</span><span>мелкий →</span></div>
+            </div>
+            <div class="row" data-r="grid.width,Точно,64,512,1,px,A"></div>
             <div class="line"><input type="checkbox" id="snapCb" data-bind="grid.snap" data-stage="A"><label for="snapCb">Ровно в 1080 без полей</label></div>
             <p class="hint" id="snapHint"></p>
             <div class="line">
@@ -2064,9 +2087,10 @@ function pxLine(ctx, x0, y0, x1, y1, u) {
     const e2 = 2 * err; if (e2 >= dy) { err += dy; a += sx; } if (e2 <= dx) { err += dx; b += sy; }
   }
 }
-function drawShore(ctx, cw, ch, hits) {
+// exact = true: «пиксель интерфейса» не округляется — для экрана «по окну», где холст потом плавно ужимается
+function drawShore(ctx, cw, ch, hits, exact) {
   const sh = S.shore; if (!sh.on && !sh.notesOn) return;
-  const u = Math.max(1, Math.round(cw / 270));
+  const u = exact ? cw / 270 : Math.max(1, Math.round(cw / 270));
   const m = Math.round(cw * 0.035);
   const a = clamp(+sh.opacity || 0.8, 0.05, 1);
   const col = `rgba(216,238,212,${a})`, red = `rgba(226,72,60,${Math.min(1, a + 0.15)})`, ink = 'rgba(14,20,18,.92)';
@@ -2181,7 +2205,9 @@ function applyLook(ctx, ox, oy, w, h, k) {
   ctx.fillRect(0, 0, w, h);
   ctx.restore();
 }
-const view = { fit: true, k: 1, px: 0, py: 0 };
+const view = { fit: true, k: 1, px: 0, py: 0, exact: false };
+// масштаб «по окну» в CSS-пикселях на пиксель сетки — не зависит от того, делится ли окно на сетку нацело
+const fillScale = () => Math.min(Math.max(40, stageEl.clientWidth - 6) / G.W, Math.max(40, stageEl.clientHeight - 6) / G.H);
 function fitK() {
   const aw = Math.max(40, stageEl.clientWidth - 6), ah = Math.max(40, stageEl.clientHeight - 6), dpr = window.devicePixelRatio || 1;
   return Math.max(1, Math.floor(Math.min(aw * dpr / G.W, ah * dpr / G.H)));
@@ -2201,21 +2227,33 @@ function renderDisplay() {
   const aw = Math.max(40, stageEl.clientWidth - 6), ah = Math.max(40, stageEl.clientHeight - 6);
   const dpr = window.devicePixelRatio || 1;
   const kf = fitK();
-  const k = view.fit ? kf : (view.k = Math.min(view.k, maxK(W, H)));
+  let k, cssW, cssH;
+  if (view.fit && !view.exact) {
+    // «по окну»: рисуем целым увеличением чуть крупнее окна и плавно ужимаем — размер на экране постоянный
+    const fs = fillScale();
+    // холст примерно втрое крупнее экрана: интерфейс Shore и подача пикселя одного размера при любой сетке
+    k = clamp(Math.ceil(fs * dpr * 3 - 0.01), 1, maxK(W, H));
+    cssW = W * fs; cssH = H * fs;
+    afterCv.style.imageRendering = 'auto';
+  } else {
+    k = view.fit ? kf : (view.k = Math.min(view.k, maxK(W, H)));
+    cssW = W * k / dpr; cssH = H * k / dpr;
+    if (view.fit && (cssW > aw || cssH > ah)) { const s = Math.min(aw / cssW, ah / cssH); cssW *= s; cssH *= s; }
+    afterCv.style.imageRendering = '';
+  }
   afterCv.width = W * k; afterCv.height = H * k;
-  let cssW = W * k / dpr, cssH = H * k / dpr;
-  if (view.fit && (cssW > aw || cssH > ah)) { const s = Math.min(aw / cssW, ah / cssH); cssW *= s; cssH *= s; }
   frameEl.style.width = cssW + 'px'; frameEl.style.height = cssH + 'px';
   afterCv.style.width = cssW + 'px'; afterCv.style.height = cssH + 'px';
   positionFrame();
-  const zf = $('#zoomFit'); zf.textContent = (view.fit ? 'вписано ' : '') + '×' + (Math.round(cssW / W * 10) / 10);
+  const zf = $('#zoomFit'); zf.textContent = (view.fit ? (view.exact ? 'вписано ' : 'по окну ') : '') + '×' + (Math.round(cssW / W * 10) / 10);
+  $('#exactBtn').setAttribute('aria-pressed', String(view.exact));
   zf.setAttribute('aria-pressed', String(view.fit));
   const c = afterCv.getContext('2d');
   c.imageSmoothingEnabled = false;
   c.drawImage(gridCv, 0, 0, W * k, H * k);
   applyLook(c, 0, 0, W * k, H * k, k);
   shoreHits = [];
-  drawShore(c, afterCv.width, afterCv.height, shoreHits);
+  drawShore(c, afterCv.width, afterCv.height, shoreHits, view.fit && !view.exact);
   if (cmp.on) {
     beforeCv.width = afterCv.width; beforeCv.height = afterCv.height;
     const b = beforeCv.getContext('2d'); b.imageSmoothingEnabled = true; b.imageSmoothingQuality = 'high';
@@ -2346,6 +2384,14 @@ function syncUI() {
   $('#exp1080').textContent = S.aspect === '1:1' ? 'PNG 1080×1080' : 'PNG 1080×1920';
   $('#expGrid').textContent = `PNG сетка ${gridW()}×${gridH()}`;
   const L = SNAP[S.aspect].filter(v => v >= 64 && v <= 512);
+  {
+    const W = gridW(), H = gridH(), OH = S.aspect === '1:1' ? 1080 : 1920, k = Math.max(1, Math.min(Math.floor(1080 / W), Math.floor(OH / H)));
+    const px = 1080 - W * k, py = OH - H * k;
+    if (document.activeElement !== $('#gridNum')) $('#gridNum').value = W;
+    $('#gridDims').textContent = `${W}×${H} · в PNG 1080 пиксель = ${k}×${k} точек${px || py ? `, поля ${px}×${py}` : ''}`;
+    const chips = L.map(v => `<button data-w="${v}" aria-pressed="${v === W}" title="${v}×${S.aspect === '1:1' ? v : Math.round(v * 16 / 9)}, пиксель ${1080 / v}×${1080 / v} в PNG 1080">${v}</button>`).join('');
+    if ($('#gridChips').dataset.k !== chips) { $('#gridChips').innerHTML = chips; $('#gridChips').dataset.k = chips; }
+  }
   $('#snapHint').innerHTML = S.grid.snap
     ? `Ширина прыгает по значениям, которые делят 1080 нацело: <b>${L.join(', ')}</b>. Высота ${S.aspect === '1:1' ? 'равна ширине' : '= ширина × 16/9'}: ${gridW()}×${gridH()}.`
     : `Любая ширина от 64 до 512. Сейчас сетка ${gridW()}×${gridH()}.`;
@@ -2377,7 +2423,7 @@ function onBind(ev) {
     if (S.keys[path]) autoKey(path, v);
     if (path === 'anim.frames' || path === 'anim.fps') { TL.frame = Math.min(TL.frame, nFrames() - 1); applyTimeline(TL.frame); renderTimeline(); renderKeyUI(); invalidate(tracksStage()); }
   }
-  if (path === 'grid.snap' && v) S.grid.width = snapW(S.grid.width);
+  if (path === 'grid.snap' && v) { const was = S.grid.width; S.grid.width = snapW(was); if (was !== S.grid.width) toast(`Ширина ${was} → ${S.grid.width}: так 1080 делится ровно.`); }
   if (!/^(shore|grid|crop)\./.test(path)) S.style = '';
   updateOut(el);
   if (path === 'grid.width' || path === 'grid.snap' || path === 'crop.zoom') drawCrop();
@@ -3447,13 +3493,14 @@ function zoomTo(k, ax, ay) {
   renderDisplay();
 }
 function zoomStep(dir, ax, ay) {
-  const cur = view.fit ? fitK() : view.k;
+  const cur = view.fit ? (view.exact ? fitK() : Math.max(1, Math.floor(fillScale() * (window.devicePixelRatio || 1) + 0.01))) : view.k;
   const k = dir > 0 ? (KSTEPS.find(s => s > cur) || cur) : ([...KSTEPS].reverse().find(s => s < cur) || 1);
   zoomTo(k, ax, ay);
 }
 $('#zoomIn').onclick = () => zoomStep(1);
 $('#zoomOut').onclick = () => zoomStep(-1);
 $('#zoomFit').onclick = () => { view.fit = true; renderDisplay(); };
+$('#exactBtn').onclick = () => { view.exact = !view.exact; view.fit = true; renderDisplay(); toast(view.exact ? 'Целое увеличение: пиксели на экране строго одинаковые.' : 'По окну: картинка заполняет окно при любой сетке.'); };
 (() => {
   let acc = 0;
   stageEl.addEventListener('wheel', e => {
@@ -3556,11 +3603,21 @@ document.addEventListener('dblclick', e => {
 /* ---------- горячие клавиши, вставка, справка ---------- */
 const IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 const TABS = ['src', 'pix', 'light', 'fx', 'shore', 'file'];
-function stepGrid(d) {
-  if (S.grid.snap) { const L = SNAP[S.aspect], i = L.indexOf(snapW(S.grid.width)); S.grid.width = L[clamp(i + d, 0, L.length - 1)]; }
-  else S.grid.width = clamp(S.grid.width + d * 8, 64, 512);
-  syncUI(); drawCrop(); invalidate('A'); toast(`Сетка ${gridW()}×${gridH()}`);
+function stepGrid(d, step = 8) {
+  if (S.grid.snap) { const L = SNAP[S.aspect], i = L.indexOf(snapW(S.grid.width)); setGridWidth(L[clamp(i + d, 0, L.length - 1)]); }
+  else setGridWidth(S.grid.width + d * step);
+  toast(`Сетка ${gridW()}×${gridH()}`);
 }
+function setGridWidth(v) {
+  const asked = clamp(Math.round(+v) || S.grid.width, 64, 512);
+  const w = S.grid.snap ? snapW(asked) : asked;
+  if (w !== S.grid.width) { S.grid.width = w; syncUI(); drawCrop(); invalidate('A'); } else syncUI();
+  if (w !== asked) toast(`Ширина ${asked} → ${w}: так 1080 делится ровно. Снимите «Ровно в 1080», чтобы задать любую.`);
+}
+$('#gridDec').onclick = e => stepGrid(-1, e.shiftKey ? 8 : 1);
+$('#gridInc').onclick = e => stepGrid(1, e.shiftKey ? 8 : 1);
+$('#gridNum').addEventListener('change', e => { if (e.target.value === '') { syncUI(); return; } setGridWidth(e.target.value); });
+$('#gridChips').addEventListener('click', e => { const b = e.target.closest('button[data-w]'); if (b) setGridWidth(+b.dataset.w); });
 function toggleHelp(show) { $('#helpModal').hidden = !show; if (show) $('#helpClose').focus(); }
 $('#helpBtn').onclick = () => toggleHelp(true);
 $('#helpClose').onclick = () => toggleHelp(false);
