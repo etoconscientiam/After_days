@@ -159,18 +159,15 @@ export class Game {
     return this.grid.sinkRow + 1 - Math.round(SAND.sinkLine * SAND.refRows);
   }
 
-  /** The sea: its columns and every low column next to them whose ground lies under the water line (the water
-   *  spreads from the sea over the lowland, it does not stand as a wall at the zone border). */
+  /** The sea: its columns and every column whose ground lies under the water line. The water does not drain:
+   *  a hollow cut off from the sea by a pile that rose above it stays a lagoon (it used to turn to a dark void,
+   *  being no longer joined to the sea). */
   updateWater(): void {
     const g = this.grid, col = this.water.col;
     const level = this.seaRow();
     this.water.level = level;
     col.fill(0);
-    for (let x = 0; x < GW; x++) if (this.zoneMap[x * 2 + 1] === 0) col[x] = 1;
-    for (let pass = 0; pass < 2; pass++) {
-      for (let x = 1; x < GW; x++) if (!col[x] && col[x - 1] && g.surf[x] > level) col[x] = 1;
-      for (let x = GW - 2; x >= 0; x--) if (!col[x] && col[x + 1] && g.surf[x] > level) col[x] = 1;
-    }
+    for (let x = 0; x < GW; x++) if (this.zoneMap[x * 2 + 1] === 0 || g.surf[x] > level) col[x] = 1;
     readSurface(this);
   }
 

@@ -640,6 +640,7 @@ export class Renderer {
     c.fillRect(-4, -4, WW + 8, WH + 8);
     this.drawSky(g, sky);
     this.drawPlanes(g, sky);
+    this.drawSeaBase(g, sky);
     this.drawEcho(dt);
     this.drawSection(g);
     this.drawGround(g, sky);
@@ -937,7 +938,12 @@ export class Renderer {
     // once the strata have reached it, it has done its job: no faint dashes over the world after that
     if (reached) return;
     c.fillStyle = rgb(242, 181, 74, 0.45 + 0.1 * Math.sin(this.t * 2));
-    for (let x = 0; x < WW; x += 4) c.fillRect(x, y, 2, 1);
+    // over open water lying at the line the surface of the sea is the level itself: no dashes on the waves
+    const sea = this.lay.waterLevel, onSea = Math.abs(y - sea) <= 2;
+    for (let x = 0; x < WW; x += 4) {
+      if (onSea && g.water.col[x >> 1] === 1 && this.gy[x] > sea + 1) continue;
+      c.fillRect(x, y, 2, 1);
+    }
     if (!reached) { c.fillStyle = rgb(242, 181, 74, 0.9); c.fillRect(WW - 4, y, 4, 1); }
   }
 
@@ -1134,6 +1140,24 @@ export class Renderer {
 
   groundY(x: number, g?: Game): number { void g; return this.gy[Math.max(0, Math.min(WW - 1, Math.round(x)))]; }
 
+  /** The body of the sea, opaque, under everything that sinks in it: the far hills of the backdrop must not show
+   *  through the water (they ended in a hard edge under its surface). The translucent tint of drawGround and
+   *  the particles go over it. */
+  private drawSeaBase(g: Game, sky: Sky): void {
+    const c = this.ctx, sea = this.lay.waterLevel, bottom = this.lay.sectionTop;
+    const night = 1 - sky.light;
+    const top = lerp3(sky.hor, [46, 96, 124], 0.55), deep = [12, 36, 58];
+    const nf = (k: number) => 1 - night * k;
+    const grd = c.createLinearGradient(0, sea, 0, Math.max(sea + 1, bottom));
+    grd.addColorStop(0, rgb(top[0] * nf(0.5), top[1] * nf(0.5), top[2] * nf(0.45)));
+    grd.addColorStop(1, rgb(deep[0] * nf(0.5), deep[1] * nf(0.5), deep[2] * nf(0.45)));
+    c.fillStyle = grd;
+    for (let x = 0; x < WW; x++) {
+      const gy = this.gy[x];
+      if (g.water.col[x >> 1] === 1 && gy > sea) c.fillRect(x, sea, 1, gy - sea);
+    }
+  }
+
   private drawGround(g: Game, sky: Sky): void {
     const c = this.ctx;
     const lay = this.lay;
@@ -1202,9 +1226,12 @@ export class Renderer {
     for (let x = 0; x < WW; x++) {
       const gy = this.gy[x];
       if (g.water.col[x >> 1] !== 1 || gy <= sea) continue;
-      const wave = Math.sin(x * 0.5 + t * 2) + Math.sin(x * 0.2 - t * 1.3);
-      c.fillStyle = rgb(200, 230, 245, 0.45 + wave * 0.15);
-      c.fillRect(x, sea + (wave > 1 ? -1 : 0), 1, 1);
+      // the surface line, with ripples that are not evenly spaced (three waves): a crest only now and then,
+      // and fainter than the line, so it does not read as a row of dots
+      const wave = Math.sin(x * 0.5 + t * 2) + Math.sin(x * 0.2 - t * 1.3) + 0.7 * Math.sin(x * 1.37 + t * 0.7 + Math.sin(x * 0.11));
+      c.fillStyle = rgb(200, 230, 245, 0.4 + wave * 0.08);
+      c.fillRect(x, sea, 1, 1);
+      if (wave > 1.7) { c.fillStyle = rgb(210, 236, 248, 0.22 * (wave - 1.7)); c.fillRect(x, sea - 1, 1, 1); }
       if (this.sunPos && this.sunPos.up && Math.abs(x - this.sunPos.x) < 6 + this.sunPos.low * 10 && Math.sin(t * 7 + x * 1.7) > 0.4) {
         c.fillStyle = rgb(255, 240, 200, 0.75 - this.sunPos.low * 0.2);
         c.fillRect(x, sea + 1 + ((x * 3) % 3), 1, 1);
@@ -1227,8 +1254,8 @@ export class Renderer {
   private edgeW: { sig: string; land: Float32Array } = { sig: '', land: new Float32Array(WW) };
 
   private drawSurfaceEdges(g: Game, sea: number, night: number, green: number, snow: boolean): void {
-    const imgs = { grass: skin('world/surface/grass.png'), beach: skin('world/surface/beach.png'), water: skin('world/surface/water.png'), barren: skin('world/surface/barren.png') };
-    if (!imgs.grass && !imgs.beach && !imgs.water && !imgs.barren) return;
+    const imgs = { grass: skin('world/surface/grass.png'), beach: skin('world/surface/beach.png'), barren: skin('world/surface/barren.png') };
+    if (!imgs.grass && !imgs.beach && !imgs.barren) return;
     const c = this.ctx;
     let sig = '';
     for (let x = 0; x < WW; x += 6) sig += g.zoneMap[x];
@@ -1245,7 +1272,7 @@ export class Renderer {
     const f = 1 - night * 0.55;
     const tint = snow ? [235, 240, 250].map((v) => v * f) : [255 * f, 255 * f, 255 * (1 - night * 0.45)];
     const T: Record<string, HTMLCanvasElement | null> = {};
-    for (const k of ['grass', 'beach', 'water', 'barren'] as const) {
+    for (const k of ['grass', 'beach', 'barren'] as const) {
       const im = imgs[k];
       T[k] = im ? (this.edgeTiles[k] = tintInto(this.edgeTiles[k], im, tint)) : null;
     }
@@ -1257,11 +1284,15 @@ export class Renderer {
       c.drawImage(img, x % img.width, 0, 1, h, x, y, 1, h);
     };
     const floorAt = (x: number) => this.lay.sectionTop + this.section.topD[x];
+    const shine = c.createLinearGradient(0, sea, 0, sea + 8);
+    shine.addColorStop(0, rgb(170 * f, 205 * f, 220 * (1 - night * 0.45), 0.3));
+    shine.addColorStop(1, rgb(170 * f, 205 * f, 220 * (1 - night * 0.45), 0));
     for (let x = 0; x < WW; x++) {
       const gy = this.gy[x];
       if (g.water.col[x >> 1] === 1 && gy > sea + 1) {
-        // under water: the surface strip of the water itself (ripples and glints go on top)
-        col(T.water, x, sea - 1, Math.min(1, (gy - sea) / 4) * 0.8, gy);
+        // under water: a soft light just under the surface that fades into the deep (the painted strip with its
+        // reflected hills ended in hard edges — a rectangle under the surface); ripples and glints go on top
+        if (shine) { c.globalAlpha = Math.min(1, (gy - sea) / 4); c.fillStyle = shine; c.fillRect(x, sea, 1, Math.min(8, gy - sea)); }
         continue;
       }
       const lw = this.edgeW.land[x];
@@ -2203,9 +2234,16 @@ export class Renderer {
     if (golden > 0) { c.fillStyle = rgb(255, 140, 60, 0.45 * golden); c.fillRect(0, 0, WW, lay.sectionTop); }
     c.globalCompositeOperation = 'lighter';
     if (night > 0.5) {
+      // the moonlit air and water: fades out downward into the strata (no hard bottom edge)
+      const y0 = lay.waterLevel - 20, y1 = lay.sectionTop + 24;
+      const nt = c.createLinearGradient(0, y0, 0, y1);
+      nt.addColorStop(0, rgb(60, 70, 110, 0.12 * night));
+      nt.addColorStop(0.55, rgb(60, 70, 110, 0.12 * night));
+      nt.addColorStop(1, 'rgba(60,70,110,0)');
+      c.fillStyle = nt;
+      c.fillRect(0, y0, WW, y1 - y0);
       c.fillStyle = rgb(60, 70, 110, 0.12 * night);
-      c.fillRect(0, lay.waterLevel - 20, WW, lay.sectionTop - lay.waterLevel + 20);
-      this.fillAboveBand(lay.waterLevel - 20);
+      this.fillAboveBand(y0);
     }
     // the section is lit evenly, as in the prototype (no shadow of the far layers): the thing only glows
     const xs = g.mods.shards ? g.shardXs() : [WW / 2];
