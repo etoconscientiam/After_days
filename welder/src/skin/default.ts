@@ -1,6 +1,9 @@
 /**
  * Skin manifest: colours, materials, lights, post-processing. The view reads only this; sim never does.
  * A new skin is a new object of the same shape.
+ *
+ * Look: 80/20. Cold grey-blue stone, soot, dark wood and wet metal; warm only around the lamp and the stove.
+ * The bright 20% is the arc (blue-white), hot metal (white → yellow → cherry) and sparks.
  */
 export const SKIN = {
   res: { w: 426, h: 240 },
@@ -12,38 +15,38 @@ export const SKIN = {
     dither: 1,
   },
   palette: {
-    soot: '#120f0d',
-    stone: '#4a423a',
-    stoneDark: '#2a2420',
-    mortar: '#1a1612',
-    wood: '#5a3e28',
-    woodDark: '#2e2016',
-    iron: '#3a3a3e',
-    steel: '#62646a',
-    steelDark: '#2c2d31',
-    copper: '#7a5a42',
-    rust: '#5c3420',
+    soot: '#101114',
+    stone: '#5d636c',
+    stoneDark: '#3a3e45',
+    mortar: '#15171b',
+    floor: '#3e3c3a',
+    wood: '#5a4532',
+    woodDark: '#2c2119',
+    iron: '#3c3e42',
+    steel: '#6a6d72',
+    steelDark: '#2e3034',
+    copper: '#b06a36',
+    rust: '#7a3e1c',
     slag: '#3a3029',
     bead: '#55575d',
-    leather: '#4a3020',
-    cloth: '#3c342c',
-    paper: '#b8aa8c',
+    leather: '#6c5844',
+    cloth: '#2e2a26',
+    paper: '#d6c9a6',
     glassGreen: '#1e3a24',
-    acid: '#4a6a3a',
-    sky: ['#3a4c6c', '#141c2e', '#06080e'] as [string, string, string],
-    skyNight: ['#141c30', '#080c16', '#020306'] as [string, string, string],
-    cityWall: '#1a1e28',
-    snow: '#c4d0e0',
-    water: '#0e1622',
-    hills: '#10141c',
+    acid: '#9ab08a',
+    sky: ['#2c3c5c', '#121a2c', '#05070d'] as [string, string, string],
+    cityWall: '#181c26',
+    snow: '#c8d4e6',
+    water: '#0c1422',
+    hills: '#0e121a',
   },
   light: {
-    ambient: { sky: '#4c4842', ground: '#16130f', intensity: 1.7 },
-    window: { color: '#7a98d0', intensity: 9, night: 1.6 },
-    lamp: { color: '#ffc896', intensity: 4.5 },
-    stove: { color: '#ff7a3a', intensity: 2.2 },
-    arc: { color: '#d4e4ff', intensity: 2.2, jitterMM: 1.6 },
-    appArc: { color: '#c8dcff', intensity: 0.9 },
+    ambient: { sky: '#3c4658', ground: '#121110', intensity: 1.5 },
+    window: { color: '#6c90dc', intensity: 14, night: 3.5 },
+    lamp: { color: '#ffb46e', intensity: 3.2 },
+    stove: { color: '#ff6a2a', intensity: 2.4 },
+    arc: { color: '#c8dcff', intensity: 2.6, jitterMM: 1.6 },
+    appArc: { color: '#c8dcff', intensity: 1.2 },
   },
   glow: {
     /** Emissive multiplier of hot metal. */
@@ -54,10 +57,12 @@ export const SKIN = {
     shell: [0.006, 0.005, 0.004] as [number, number, number],
   },
   post: {
-    exposure: 1.0,
-    vignette: 0.35,
+    exposure: 1.05,
+    vignette: 0.55,
     glare: 0.86,
     afterColor: [0.55, 0.35, 0.8] as [number, number, number],
+    bloomThreshold: 1.1,
+    bloom: 0.9,
   },
 };
 

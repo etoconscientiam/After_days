@@ -7,6 +7,7 @@ export const en = {
   lang: 'Русский',
   controls: 'LMB strike & weld · wheel or W/S arc length · SPACE mask · RMB look around',
 
+  'sign.shelf': 'UPGRADES',
   'hint.take': 'take the job',
   'hint.strike': 'scratch the rod here',
   'hint.gap': 'not welded yet',

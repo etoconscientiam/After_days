@@ -50,28 +50,55 @@ html, body {
   mix-blend-mode: difference;
   display: none;
 }
+/* Money: a cream enamel plate with a dark rim, like a shop sign. */
 #money {
   position: absolute;
-  left: calc(var(--px) * 6);
+  left: calc(var(--px) * 5);
   top: calc(var(--px) * 5);
   display: flex;
   align-items: center;
   gap: calc(var(--px) * 3);
-  font-size: calc(var(--px) * 8);
+  padding: calc(var(--px) * 2) calc(var(--px) * 5);
+  font-size: calc(var(--px) * 9);
   font-weight: bold;
-  color: #e8c878;
-  text-shadow: var(--px) var(--px) 0 #000;
+  color: #2a1e14;
+  background: #e6dabb;
+  border: calc(var(--px) * 1.2) solid #2a1e14;
+  box-shadow: inset calc(var(--px) * -1) calc(var(--px) * -1) 0 #b8a884, inset var(--px) var(--px) 0 #fff6dc, calc(var(--px) * 1.2) calc(var(--px) * 1.2) 0 rgba(0, 0, 0, 0.6);
   opacity: 0;
   transition: opacity 0.4s;
 }
 #money i {
-  width: calc(var(--px) * 6);
-  height: calc(var(--px) * 6);
-  background: #c89a3a;
-  border: var(--px) solid #6a4a1a;
+  order: 2;
+  width: calc(var(--px) * 7);
+  height: calc(var(--px) * 7);
+  background: #8c8880;
+  border: var(--px) solid #4a4640;
   border-radius: 50%;
+  box-shadow: inset var(--px) var(--px) 0 #c0bcb4;
 }
-#money.bump b { color: #fff4d0; }
+#money.bump { animation: bump 0.25s; }
+@keyframes bump { 50% { transform: translateY(calc(var(--px) * -1.5)); } }
+#hint.edge-l::before { content: '◀ '; }
+#hint.edge-r::after { content: ' ▶'; position: static; border: 0; margin: 0; }
+#ctrl {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--px) * 5);
+  transform: translateX(-50%);
+  display: none;
+  align-items: center;
+  gap: calc(var(--px) * 4);
+  color: #e6dabb;
+  text-shadow: var(--px) var(--px) 0 #000;
+  font-weight: bold;
+}
+#ctrl .k {
+  padding: 0 calc(var(--px) * 1.5);
+  border: var(--px) solid #e6dabb;
+  box-shadow: var(--px) var(--px) 0 #000;
+}
+#ctrl svg { width: calc(var(--px) * 12); height: calc(var(--px) * 12); image-rendering: pixelated; filter: drop-shadow(var(--px) var(--px) 0 #000); }
 .label {
   position: absolute;
   padding: calc(var(--px) * 1.5) calc(var(--px) * 3);

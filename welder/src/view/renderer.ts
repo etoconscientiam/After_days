@@ -12,6 +12,8 @@ void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }
  */
 const POST_FRAG = `
 uniform sampler2D tScene;
+uniform sampler2D tBloom;
+uniform float uBloom;
 uniform vec2 uRes;
 uniform float uExposure;
 uniform float uMaskPos;
@@ -49,7 +51,9 @@ vec3 aces(vec3 x) {
 void main() {
   vec2 pix = floor(vUv * uRes);
   vec2 src = clamp(pix + uShake, vec2(0.0), uRes - 1.0);
-  vec3 c = texture2D(tScene, (src + 0.5) / uRes).rgb * uExposure;
+  vec3 c = texture2D(tScene, (src + 0.5) / uRes).rgb;
+  c += texture2D(tBloom, (src + 0.5) / uRes).rgb * uBloom;
+  c *= uExposure;
 
   float aspect = uRes.x / uRes.y;
   vec2 q = (vUv - 0.5) * vec2(aspect, 1.0);
@@ -90,6 +94,35 @@ void main() {
 }
 `;
 
+const BRIGHT_FRAG = `
+uniform sampler2D tSrc;
+uniform vec2 uTexel;
+uniform float uThreshold;
+varying vec2 vUv;
+void main() {
+  vec3 c = vec3(0.0);
+  c += texture2D(tSrc, vUv + uTexel * vec2(-0.5, -0.5)).rgb;
+  c += texture2D(tSrc, vUv + uTexel * vec2(0.5, -0.5)).rgb;
+  c += texture2D(tSrc, vUv + uTexel * vec2(-0.5, 0.5)).rgb;
+  c += texture2D(tSrc, vUv + uTexel * vec2(0.5, 0.5)).rgb;
+  c *= 0.25;
+  float l = max(c.r, max(c.g, c.b));
+  gl_FragColor = vec4(c * max(0.0, l - uThreshold) / max(l, 1e-4), 1.0);
+}`;
+
+const BLUR_FRAG = `
+uniform sampler2D tSrc;
+uniform vec2 uDir;
+varying vec2 vUv;
+void main() {
+  vec3 c = texture2D(tSrc, vUv).rgb * 0.227;
+  c += texture2D(tSrc, vUv + uDir * 1.38).rgb * 0.316;
+  c += texture2D(tSrc, vUv - uDir * 1.38).rgb * 0.316;
+  c += texture2D(tSrc, vUv + uDir * 3.23).rgb * 0.07;
+  c += texture2D(tSrc, vUv - uDir * 3.23).rgb * 0.07;
+  gl_FragColor = vec4(c, 1.0);
+}`;
+
 export class LowRes {
   readonly renderer: THREE.WebGLRenderer;
   readonly rt: THREE.WebGLRenderTarget;
@@ -98,6 +131,13 @@ export class LowRes {
   readonly post: THREE.ShaderMaterial;
   private postScene = new THREE.Scene();
   private postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  /** Bloom at half resolution: bright pass, then a separable blur, twice. */
+  private blurA: THREE.WebGLRenderTarget;
+  private blurB: THREE.WebGLRenderTarget;
+  private bright: THREE.ShaderMaterial;
+  private blur: THREE.ShaderMaterial;
+  private passScene = new THREE.Scene();
+  private passMesh: THREE.Mesh;
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', stencil: false });
@@ -113,6 +153,23 @@ export class LowRes {
       depthBuffer: true,
       generateMipmaps: false,
     });
+    const half = { type: THREE.HalfFloatType, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, depthBuffer: false, generateMipmaps: false };
+    this.blurA = new THREE.WebGLRenderTarget(Math.ceil(this.w / 2), Math.ceil(this.h / 2), half);
+    this.blurB = new THREE.WebGLRenderTarget(Math.ceil(this.w / 2), Math.ceil(this.h / 2), half);
+    this.bright = new THREE.ShaderMaterial({
+      vertexShader: POST_VERT,
+      fragmentShader: BRIGHT_FRAG,
+      depthTest: false,
+      depthWrite: false,
+      uniforms: { tSrc: { value: this.rt.texture }, uTexel: { value: new THREE.Vector2(1 / this.w, 1 / this.h) }, uThreshold: { value: SKIN.post.bloomThreshold } },
+    });
+    this.blur = new THREE.ShaderMaterial({
+      vertexShader: POST_VERT,
+      fragmentShader: BLUR_FRAG,
+      depthTest: false,
+      depthWrite: false,
+      uniforms: { tSrc: { value: null }, uDir: { value: new THREE.Vector2() } },
+    });
     this.post = new THREE.ShaderMaterial({
       vertexShader: POST_VERT,
       fragmentShader: POST_FRAG,
@@ -120,6 +177,8 @@ export class LowRes {
       depthWrite: false,
       uniforms: {
         tScene: { value: this.rt.texture },
+        tBloom: { value: this.blurA.texture },
+        uBloom: { value: SKIN.post.bloom },
         uRes: { value: new THREE.Vector2(this.w, this.h) },
         uExposure: { value: SKIN.post.exposure },
         uMaskPos: { value: 0 },
@@ -146,6 +205,9 @@ export class LowRes {
     const m = new THREE.Mesh(tri, this.post);
     m.frustumCulled = false;
     this.postScene.add(m);
+    this.passMesh = new THREE.Mesh(tri, this.bright);
+    this.passMesh.frustumCulled = false;
+    this.passScene.add(this.passMesh);
   }
 
   get u() {
@@ -156,6 +218,23 @@ export class LowRes {
     this.renderer.info.reset();
     this.renderer.setRenderTarget(this.rt);
     this.renderer.render(scene, camera);
+    // Bloom.
+    const r = this.renderer;
+    const bw = this.blurA.width, bh = this.blurA.height;
+    this.passMesh.material = this.bright;
+    r.setRenderTarget(this.blurA);
+    r.render(this.passScene, this.postCam);
+    this.passMesh.material = this.blur;
+    for (let i = 0; i < 2; i++) {
+      this.blur.uniforms.tSrc.value = this.blurA.texture;
+      this.blur.uniforms.uDir.value.set((1 + i) / bw, 0);
+      r.setRenderTarget(this.blurB);
+      r.render(this.passScene, this.postCam);
+      this.blur.uniforms.tSrc.value = this.blurB.texture;
+      this.blur.uniforms.uDir.value.set(0, (1 + i) / bh);
+      r.setRenderTarget(this.blurA);
+      r.render(this.passScene, this.postCam);
+    }
     this.renderer.setRenderTarget(null);
     this.renderer.render(this.postScene, this.postCam);
   }

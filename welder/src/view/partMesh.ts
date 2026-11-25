@@ -223,11 +223,17 @@ let shared: Mats | null = null;
 export function partMaterials(tx: Textures): Mats {
   if (shared) return shared;
   const P = SKIN.palette;
+  const fine = tx.iron.clone();
+  fine.repeat.set(4, 4);
+  fine.needsUpdate = true;
+  const fineSteel = tx.steel.clone();
+  fineSteel.repeat.set(3, 3);
+  fineSteel.needsUpdate = true;
   shared = {
-    iron: lambert({ map: tx.iron, color: '#a4a2a0' }),
+    iron: lambert({ map: fine, color: '#a4a2a0' }),
     dark: lambert({ color: P.iron }),
     copper: lambert({ color: P.copper }),
-    steel: lambert({ map: tx.steel, color: '#c8c8cc' }),
+    steel: lambert({ map: fineSteel, color: '#c8c8cc' }),
   };
   return shared;
 }

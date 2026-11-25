@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 
+const Y_AXIS = new THREE.Vector3(0, 1, 0);
+
 export type CamMode = 'room' | 'work' | 'inspect' | 'end';
 
 /**
@@ -15,16 +17,19 @@ export class CameraRig {
   private tLook = new THREE.Vector3();
   private vPos = new THREE.Vector3();
   private vLook = new THREE.Vector3();
-  private fov = 55;
-  private tFov = 55;
+  private fov = 62;
+  private tFov = 62;
   /** Room pose, set once from the layout. */
-  readonly roomPos = new THREE.Vector3(0.1, 1.72, 1.55);
-  readonly roomLook = new THREE.Vector3(0.05, 0.98, -0.9);
+  readonly roomPos = new THREE.Vector3(0.05, 1.55, 0.55);
+  readonly roomLook = new THREE.Vector3(0.0, 1.02, -1.0);
+  /** Head turn in the room, from the mouse near the screen edges. */
+  private yaw = 0;
+  private pitch = 0;
   private nudge = new THREE.Vector2();
   private tmp = new THREE.Vector3();
 
   constructor(aspect: number) {
-    this.cam = new THREE.PerspectiveCamera(55, aspect, 0.02, 80);
+    this.cam = new THREE.PerspectiveCamera(62, aspect, 0.015, 80);
     this.pos.copy(this.roomPos);
     this.look.copy(this.roomLook);
     this.tPos.copy(this.roomPos);
@@ -35,16 +40,16 @@ export class CameraRig {
     this.mode = 'room';
     this.tPos.copy(this.roomPos);
     this.tLook.copy(this.roomLook);
-    this.tFov = 55;
+    this.tFov = 62;
   }
 
   /** Look down at the bench so that `frameMM` of the part fits across the screen. */
   work(center: THREE.Vector3, frameMM: number): void {
     this.mode = 'work';
-    const fov = 38;
-    const w = (frameMM * 1.25) / 1000;
+    const fov = 44;
+    const w = (frameMM * 1.3) / 1000;
     const dist = w / (2 * Math.tan(THREE.MathUtils.degToRad(fov / 2)) * this.cam.aspect) + 0.02;
-    const pitch = THREE.MathUtils.degToRad(58);
+    const pitch = THREE.MathUtils.degToRad(52);
     this.tLook.copy(center);
     this.tPos.set(center.x, center.y + Math.sin(pitch) * dist, center.z + Math.cos(pitch) * dist);
     this.tFov = fov;
@@ -82,12 +87,17 @@ export class CameraRig {
     spring(this.pos, this.vPos, this.tPos);
     spring(this.look, this.vLook, this.tLook);
     this.fov += (this.tFov - this.fov) * Math.min(1, dt * 7);
+    // Turn the head toward the edge the mouse is pushing against.
+    const ax = Math.abs(this.nudge.x);
+    const yawT = this.mode === 'room' ? -Math.sign(this.nudge.x) * Math.max(0, ax - 0.55) / 0.45 * 0.62 : 0;
+    const pitchT = this.mode === 'room' ? Math.max(-0.12, Math.min(0.16, this.nudge.y * 0.14)) : 0;
+    this.yaw += (yawT - this.yaw) * Math.min(1, dt * 4);
+    this.pitch += (pitchT - this.pitch) * Math.min(1, dt * 4);
     this.cam.position.copy(this.pos);
-    if (this.mode === 'room') {
-      this.cam.position.x += this.nudge.x * 0.06;
-      this.cam.position.y += this.nudge.y * 0.03;
-    }
-    this.cam.lookAt(this.look);
+    const d = this.tmp.copy(this.look).sub(this.pos);
+    d.applyAxisAngle(Y_AXIS, this.yaw);
+    d.y += this.pitch * d.length();
+    this.cam.lookAt(d.add(this.pos));
     if (this.cam.fov !== this.fov) {
       this.cam.fov = this.fov;
       this.cam.updateProjectionMatrix();

@@ -6,7 +6,7 @@ export type Stats = Record<StatId, number>;
 /** Base values before upgrades. */
 export function baseStats(): Stats {
   return {
-    maskTransmission: 0.022,
+    maskTransmission: 0.03,
     maskWindow: 0.7,
     strikeMul: 1,
     spatterMul: 1,

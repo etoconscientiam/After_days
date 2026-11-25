@@ -9,6 +9,7 @@ export const ru: Strings = {
   lang: 'English',
   controls: 'ЛКМ зажечь и вести шов · колесо или W/S длина дуги · ПРОБЕЛ маска · ПКМ осмотреться',
 
+  'sign.shelf': 'УЛУЧШЕНИЯ',
   'hint.take': 'взять работу',
   'hint.strike': 'чиркни электродом здесь',
   'hint.gap': 'тут не проварено',

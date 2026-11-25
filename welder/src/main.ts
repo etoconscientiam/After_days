@@ -69,6 +69,7 @@ function boot(): void {
       () => {
         const next: Lang = getLang() === 'en' ? 'ru' : 'en';
         setLang(next);
+        view.relabel();
         try {
           localStorage.setItem(LANG_KEY, next);
         } catch {

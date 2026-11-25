@@ -27,7 +27,7 @@ export class View {
   readonly rig: CameraRig;
   readonly bead = new BeadView();
   readonly fx = new Effects();
-  readonly tools = new Tools();
+  readonly tools: Tools;
   readonly ui: UI;
   private part: PartMesh | null = null;
   private pileMesh: THREE.Group | null = null;
@@ -60,6 +60,7 @@ export class View {
   private endSrc: BeadSource | null = null;
   private time = 0;
   private lastMode = '';
+  private lastMask = false;
   private pickList: THREE.Object3D[] = [];
   private hits: THREE.Intersection[] = [];
   private plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -77,11 +78,14 @@ export class View {
   constructor(private game: Game, private canvas: HTMLCanvasElement, uiRoot: HTMLElement, private stage: HTMLElement) {
     this.lr = new LowRes(canvas);
     this.tx = makeTextures();
-    this.ws = buildWorkshop(this.tx, game.data);
+    this.ws = buildWorkshop(this.tx, game.data, t('sign.shelf'));
+    this.tools = new Tools(this.tx);
     this.rig = new CameraRig(this.lr.w / this.lr.h);
     this.partRoot.position.copy(BENCH);
     this.partRoot.add(this.bead.group);
-    this.ws.scene.add(this.partRoot, this.fx.group, this.tools.group);
+    this.ws.scene.add(this.partRoot, this.fx.group, this.tools.group, this.rig.cam);
+    this.tools.attach(this.rig.cam);
+    this.lastPartTip.copy(BENCH);
     this.ui = new UI(uiRoot, game);
     this.ui.onTake = (uid) => game.queue({ type: 'takeOrder', uid });
     this.ui.onBoardClose = () => (this.suppress = true);
@@ -486,13 +490,18 @@ export class View {
     }
     if (this.rig.mode === 'room' && this.mouse.in) this.rig.setNudge((this.mouse.x / this.cssW) * 2 - 1, -((this.mouse.y / this.cssH) * 2 - 1));
     this.rig.update(dt);
-    if (this.rig.mode !== this.lastMode) {
+    if (this.rig.mode !== this.lastMode || this.lastMask !== this.game.mask.down) {
       this.lastMode = this.rig.mode;
+      this.lastMask = this.game.mask.down;
       this.applyFocus();
+      this.ui.setCtrl(this.started && this.rig.mode === 'work', this.game.mask.down);
     }
 
     // Hover in the room: highlight + shelf tooltip.
-    if (this.started && this.rig.mode === 'room' && !this.ui.boardOpen && (this.mouseMoved || !this.rig.settled())) {
+    const canHover = this.started && this.rig.mode === 'room' && !this.ui.boardOpen;
+    if (canHover && !this.mouseMoved && this.rig.settled()) {
+      // Nothing moved: keep whatever is hovered.
+    } else if (canHover) {
       this.mouseMoved = false;
       const id = this.pick();
       if (id !== this.hover) {
@@ -541,18 +550,15 @@ export class View {
     const stage = b.stage;
     const holding = working && stage === 'weld';
     this.tools.hammer.visible = working && stage === 'chip';
-    if (holding) {
-      let yaw = 0.3;
-      if (a.lit && a.seam >= 0 && b.seams[a.seam]) {
-        b.seams[a.seam].pointAt(a.s, this.pt);
-        yaw = Math.atan2(-this.pt.tz * a.dir, this.pt.tx * a.dir) + Math.PI;
-      }
-      this.tools.placeHolder(tip, yaw * 0.15, b.swap > 0 ? 0 : b.electrode);
-    } else this.tools.rest(this.v3b.set(0.3, TABLE + 0.012, BENCH.z + 0.18));
-    if (this.tools.hammer.visible) this.tools.placeHammer(tip, dt);
+    this.tools.holder.visible = !this.tools.hammer.visible;
+    if (holding) this.tools.placeHolder(tip, this.rig.cam, b.swap > 0 ? 0 : b.electrode);
+    else this.tools.rest(this.rig.cam);
+    if (this.tools.hammer.visible) this.tools.placeHammer(tip, this.rig.cam, dt);
+    this.tools.placeHud(this.rig.cam, I, this.started && !g.showEnd);
 
     const lit = a.lit && holding;
     this.tools.arcGlow.visible = lit;
+    this.tools.arcStar.visible = lit;
     this.tools.bolt.visible = lit;
     this.tools.pool.visible = lit && a.onSeam && a.pool > 0.8;
     const arcLight = this.ws.lights.arc;
@@ -570,6 +576,12 @@ export class View {
       this.tools.arcGlow.quaternion.copy(this.rig.cam.quaternion);
       const sz = (3 + a.L * 1.2) * MM * (0.8 + 0.4 * r.next());
       this.tools.arcGlow.scale.set(sz, sz, sz);
+      this.tools.arcStar.position.copy(this.tools.arcGlow.position);
+      this.tools.arcStar.quaternion.copy(this.rig.cam.quaternion);
+      const ss = (0.035 + 0.02 * r.next()) * k;
+      this.tools.arcStar.scale.set(ss, ss, ss);
+      this.tools.arcStar.rotation.z = 0;
+      if (a.onSeam) this.fx.fumes(tip.x, surfY, tip.z, dt, 10);
       this.v3b.set(tip.x, surfY, tip.z);
       this.tools.setBolt(tip, this.v3b, (0.4 + a.L * 0.35) * MM, r);
       if (this.tools.pool.visible) {
@@ -606,7 +618,7 @@ export class View {
     } else ap.intensity = 0;
 
     // Particles: land on the part, the bench or the floor.
-    this.fx.update(dt, this.floorAt);
+    this.fx.update(dt, this.floorAt, arcOn);
 
     // Post: mask, glare, afterimage, shake.
     const u = this.lr.u;
@@ -670,7 +682,25 @@ export class View {
       return;
     }
     w.project(this.rig.cam);
+    // Off screen (the head is turned away): pin the hint to the edge with an arrow.
+    let edge = '';
+    if (w.z > 1) {
+      w.x = -w.x;
+      w.y = -w.y;
+    }
+    if (w.z > 1 || Math.abs(w.x) > 0.92) {
+      edge = w.x < 0 ? 'l' : 'r';
+      w.x = Math.sign(w.x) * 0.8;
+    }
+    w.y = Math.max(-0.85, Math.min(0.9, w.y));
+    this.ui.hintEdge(edge);
     this.ui.placeHint((w.x * 0.5 + 0.5) * this.cssW, (-w.y * 0.5 + 0.5) * this.cssH - 4 * this.scale);
+  }
+
+  /** Repaint lettering that lives in the world (after a language change). */
+  relabel(): void {
+    this.ws.relabel(t('sign.shelf'));
+    this.applyFocus();
   }
 
   start(): void {
