@@ -1107,11 +1107,13 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
       geo.setAttribute('position', new THREE.BufferAttribute(base.slice(), 3).setUsage(THREE.DynamicDrawUsage));
       const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: z.color, size: 1, sizeAttenuation: false, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
       pts.frustumCulled = false;
+      pts.visible = SKIN.dust;
       scene.add(pts);
       dustSets.push({ pts, base });
     }
   }
   const tickAir = (t: number) => {
+    if (!SKIN.dust) return;
     for (const d of dustSets) {
       const a = d.pts.geometry.attributes.position as THREE.BufferAttribute;
       const arr = a.array as Float32Array;

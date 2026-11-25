@@ -69,6 +69,8 @@ export const SKIN = {
   },
   /** Falling snow outside the window. */
   snow: false,
+  /** Dust hanging in the light beams. */
+  dust: false,
   post: {
     exposure: 1.45,
     vignette: 0.55,
