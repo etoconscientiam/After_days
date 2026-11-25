@@ -406,3 +406,16 @@ html, body {
 #gauges .needle { position: absolute; left: calc(var(--px) * -1.5); right: calc(var(--px) * -1.5); height: var(--px); background: #fff0c0; box-shadow: 0 0 calc(var(--px) * 2) #ffd070; }
 #gauges .g.off .needle { background: #ff7a50; box-shadow: 0 0 calc(var(--px) * 2) #ff5030; }
 #gauges span { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: var(--px); font-size: 0.65em; color: #c8b898; text-shadow: 0 0 var(--px) #000; }
+
+#lang-btn {
+  position: absolute;
+  right: calc(var(--px) * 5);
+  top: calc(var(--px) * 5);
+  padding: calc(var(--px) * 1) calc(var(--px) * 3);
+  color: #f0e0b8;
+  background: rgba(12, 9, 7, 0.75);
+  border: var(--px) solid #5a4834;
+  cursor: pointer;
+  font-weight: bold;
+}
+#lang-btn:empty { display: none; }

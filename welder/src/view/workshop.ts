@@ -1219,9 +1219,11 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
     pickables: pick,
     hiMats,
     relabel: (s: string) => {
-      signMat.map?.dispose();
-      signMat.map = signTex(s);
-      signMat.needsUpdate = true;
+      // The highlight swaps the sign's material for a copy: repaint the one it actually wears.
+      const m = sign.material as THREE.MeshLambertMaterial;
+      m.map?.dispose();
+      m.map = signTex(s);
+      m.needsUpdate = true;
     },
     floorAt,
     setMoney,

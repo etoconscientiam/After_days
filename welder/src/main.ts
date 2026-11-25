@@ -21,13 +21,16 @@ function readSave(): SaveData | null {
 }
 
 function boot(): void {
+  // Language: ?lang= in the address, else the last choice, else the browser's language.
+  const params = new URLSearchParams(location.search);
+  let chosen: string | null = params.get('lang');
   try {
-    const l = localStorage.getItem(LANG_KEY);
-    if (l === 'ru' || l === 'en') setLang(l as Lang);
+    chosen ??= localStorage.getItem(LANG_KEY);
   } catch {
     /* storage may be blocked */
   }
-  const params = new URLSearchParams(location.search);
+  if (chosen === 'ru' || chosen === 'en') setLang(chosen);
+  else if ((navigator.language || '').toLowerCase().startsWith('ru')) setLang('ru');
   const seed = Number(params.get('seed')) || 1;
   let game = new Game(DATA, seed);
   const saved = params.has('fresh') ? null : readSave();
@@ -41,6 +44,17 @@ function boot(): void {
   const sound = new Sound();
   view.onStep = () => sound.step();
   view.onSfx = (k, v) => sound.sfx(k, v ?? 0);
+  // RU / EN switch in the corner, at any time.
+  view.ui.onLang = () => {
+    const next: Lang = getLang() === 'en' ? 'ru' : 'en';
+    setLang(next);
+    view.relabel();
+    try {
+      localStorage.setItem(LANG_KEY, next);
+    } catch {
+      /* ignore */
+    }
+  };
 
   game.bus.on('save', () => {
     try {

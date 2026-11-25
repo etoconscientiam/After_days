@@ -47,6 +47,8 @@ export class UI {
   craftOpen = false;
   onBuy: (id: string) => void = () => {};
   onCraftBtn: () => void = () => {};
+  onLang: () => void = () => {};
+  private langBtn = el('div', 'lang-btn', 'pe');
   onTourNext: () => void = () => {};
 
   /** Any panel over the game that takes the mouse. */
@@ -66,7 +68,7 @@ export class UI {
     this.root = root;
     this.money.append(el('i'), this.moneyVal);
     this.endEl.style.display = 'none';
-    root.append(this.money, this.craftBtn, this.stagesEl, this.jobEl, this.craftEl, this.tourEl, this.ctrl, this.promptEl, this.whyEl, this.appStatus, this.hint, this.tip, this.stampEl, this.toasts, this.board, this.endEl, this.start, this.cursor);
+    root.append(this.money, this.langBtn, this.craftBtn, this.stagesEl, this.jobEl, this.craftEl, this.tourEl, this.ctrl, this.promptEl, this.whyEl, this.appStatus, this.hint, this.tip, this.stampEl, this.toasts, this.board, this.endEl, this.start, this.cursor);
   }
 
   /** Bottom strip: how to act in the current mode. At the bench, the mask and which way SPACE moves it. */
@@ -255,6 +257,22 @@ export class UI {
   }
 
   // ---------------------------------------------------------------- craft book
+
+  /** Language plate in the top-right corner: shows the other language, switches on click. */
+  setLangButton(cur: string): void {
+    this.langBtn.textContent = cur === 'ru' ? 'EN' : 'RU';
+    this.langBtn.onpointerdown = (e) => {
+      e.stopPropagation();
+      this.onLang();
+    };
+  }
+
+  /** Everything drawn from text: repaint after a language change. */
+  relabelAll(): void {
+    this.stagesHtml = '';
+    this.renderCraft();
+    this.renderBoard();
+  }
 
   /** The small plate under the money that opens the craft book (shown once the book is open to you). */
   setCraftButton(show: boolean, glow: boolean): void {

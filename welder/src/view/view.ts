@@ -16,7 +16,7 @@ import { Tools } from './tools';
 import { CameraRig } from './camera';
 import { UI } from './ui';
 import { Rng } from '../core/rng';
-import { t } from '../i18n';
+import { t, getLang } from '../i18n';
 import { seamPoint } from '../sim/seam';
 
 /** Part-local units are millimetres; inside partRoot one unit of geometry is a metre. */
@@ -1371,11 +1371,17 @@ export class View {
   /** Repaint lettering that lives in the world (after a language change). */
   relabel(): void {
     this.ws.relabel(t('sign.shelf'));
+    this.ui.relabelAll();
+    this.ui.setLangButton(getLang());
+    this.lastCam = '';
+    this.syncWorld();
     this.applyFocus();
+    this.ui.updateStages();
   }
 
   start(): void {
     this.started = true;
+    this.ui.setLangButton(getLang());
     this.lr.u.uFade.value = 1;
     this.syncWorld();
     this.syncPile();
