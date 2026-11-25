@@ -29,6 +29,7 @@ uniform vec3 uAfterColor;
 uniform vec2 uShake;
 uniform float uFade;
 uniform float uLevels;
+uniform float uDither;
 uniform float uVignette;
 uniform float uGlareMax;
 varying vec2 vUv;
@@ -95,7 +96,7 @@ void main() {
   c *= vig;
   c *= 1.0 - uFade;
 
-  float d = bayer4(pix) - 0.5;
+  float d = (bayer4(pix) - 0.5) * uDither;
   c = floor(c * uLevels + 0.5 + d) / uLevels;
   gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
 }
@@ -202,6 +203,7 @@ export class LowRes {
         uShake: { value: new THREE.Vector2(0, 0) },
         uFade: { value: 0 },
         uLevels: { value: Math.pow(2, SKIN.ps1.colorBits) - 1 },
+        uDither: { value: SKIN.ps1.dither },
         uVignette: { value: SKIN.post.vignette },
       },
     });

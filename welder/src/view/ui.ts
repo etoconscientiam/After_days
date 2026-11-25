@@ -55,6 +55,14 @@ export class UI {
     this.ctrl.innerHTML = `<span class="k">◉</span>${mask}<span>${maskDown ? '▲' : '▼'}</span><span class="k">SPACE</span><span class="k">E</span><span>${t('ctrl.leave')}</span>`;
   }
 
+  get promptShown(): boolean {
+    return this.promptEl.style.display === 'block';
+  }
+
+  muteHint(m: boolean): void {
+    this.hint.style.visibility = m ? 'hidden' : '';
+  }
+
   /** "E · take the job" under the crosshair while walking. */
   setPrompt(text: string): void {
     this.promptEl.textContent = text;

@@ -822,6 +822,8 @@ export class View {
     if (this.rig.mode === 'walk') this.ui.placeCursor(this.cssW / 2, this.cssH / 2, this.started && !this.ui.boardOpen);
     else this.ui.placeCursor(this.mouse.x, this.mouse.y, this.started && this.mouse.in && !this.ui.boardOpen && !overJob);
     this.ui.placePrompt(this.cssW / 2, this.cssH / 2 + 12 * this.scale);
+    // Walking: the prompt under the crosshair already says it; don't repeat it over the bench.
+    this.ui.muteHint(this.rig.mode === 'walk' && this.ui.promptShown);
     if (!this.ui.hintVisible) return;
     let w: THREE.Vector3 | null = null;
     if (this.rig.mode === 'walk') {

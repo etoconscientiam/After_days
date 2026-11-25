@@ -7,12 +7,19 @@
  */
 export const SKIN = {
   res: { w: 426, h: 240 },
+  /**
+   * Retro tricks, all off for the pixel-3D look of the references (low resolution, hard pixels, pixel-art
+   * textures, stable geometry). Turn them on for a PlayStation-style wobble.
+   */
   ps1: {
-    /** Vertex snap grid as a fraction of the render resolution (0.5 = 213x120 grid). */
-    snap: 0.5,
-    affine: true,
-    colorBits: 6,
-    dither: 1,
+    /** Vertex snap grid as a fraction of the render resolution (0 = off, 0.5 = 213x120 grid). */
+    snap: 0,
+    /** Affine (not perspective-correct) texture mapping. */
+    affine: false,
+    /** Colour depth per channel after tone mapping. */
+    colorBits: 8,
+    /** Ordered dithering strength, 0..1. */
+    dither: 0,
   },
   palette: {
     soot: '#101114',

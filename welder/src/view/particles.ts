@@ -238,21 +238,15 @@ void main() {
   gl_Position = projectionMatrix * mv;
   gl_PointSize = aAlpha > 0.0 ? clamp(aSize * uScale / -mv.z, 2.0, 48.0) : 0.0;
 }`;
-// Screen-door transparency through an ordered-dither pattern: the dotted smoke of old hardware.
+// Soft round puffs with a hard pixel edge.
 const SMOKE_FRAG = `
 varying float vAlpha;
 uniform vec3 uColor;
-float bayer(vec2 p) {
-  vec2 q = mod(floor(p), 4.0);
-  float v = mod(q.x * 2.0 + q.y * 3.0, 4.0) * 4.0 + mod(q.x + q.y * 2.0, 4.0);
-  return (v + 0.5) / 16.0;
-}
 void main() {
   vec2 d = gl_PointCoord - 0.5;
   float r = dot(d, d) * 4.0;
-  float a = vAlpha * (1.0 - r);
-  if (a <= bayer(gl_FragCoord.xy)) discard;
-  gl_FragColor = vec4(uColor * (0.8 + 0.4 * (0.5 - d.y)), 1.0);
+  if (r > 1.0) discard;
+  gl_FragColor = vec4(uColor * (0.85 + 0.3 * (0.5 - d.y)), vAlpha * (0.7 - 0.35 * r));
 }`;
 
 /** Rising welding fumes. */
@@ -284,6 +278,8 @@ export class Smoke {
       vertexShader: SMOKE_VERT,
       fragmentShader: SMOKE_FRAG,
       uniforms: { uScale: { value: 300 }, uColor: { value: new THREE.Color(0.12, 0.12, 0.13) } },
+      transparent: true,
+      depthWrite: false,
     });
     this.color = mat.uniforms.uColor.value;
     this.points = new THREE.Points(this.geo, mat);

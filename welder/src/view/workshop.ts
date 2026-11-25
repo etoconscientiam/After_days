@@ -31,6 +31,8 @@ export const PART_ROT = 0;
 export const PART_SPAN = 0.62;
 
 const BACK_Z = -1.15;
+/** Largest polygon edge on textured surfaces, metres. */
+const CELL = 0.3;
 const P = SKIN.palette;
 
 export interface Workshop {
@@ -90,7 +92,9 @@ function boxAt(w: number, h: number, d: number, m: THREE.Material, x: number, y:
 
 /** Box whose texture repeats by world size, so planks and stones keep their scale on every face. */
 function texBox(w: number, h: number, d: number, m: THREE.Material, x: number, y: number, z: number, tile: number, shadow = false): THREE.Mesh {
-  const g = new THREE.BoxGeometry(w, h, d);
+  // Cut big faces into ~30 cm cells: affine texture mapping (as on the PS1) only stays straight on small triangles.
+  const seg = (v: number) => Math.min(16, Math.max(1, Math.ceil(v / CELL)));
+  const g = new THREE.BoxGeometry(w, h, d, seg(w), seg(h), seg(d));
   const uv = g.attributes.uv as THREE.BufferAttribute;
   const pos = g.attributes.position as THREE.BufferAttribute;
   const nrm = g.attributes.normal as THREE.BufferAttribute;
@@ -104,6 +108,13 @@ function texBox(w: number, h: number, d: number, m: THREE.Material, x: number, y
     uv.setXY(i, u / tile, v / tile);
   }
   return mesh(g, m, x, y, z, shadow);
+}
+
+/** Stretch a plane's 0..1 UVs so its texture repeats every `tile` metres. */
+function tileUV(g: THREE.BufferGeometry, w: number, h: number, tile: number): THREE.BufferGeometry {
+  const uv = g.attributes.uv as THREE.BufferAttribute;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, (uv.getX(i) * w) / tile, (uv.getY(i) * h) / tile);
+  return g;
 }
 
 function tag(o: THREE.Object3D, pick: string): THREE.Object3D {
@@ -142,7 +153,6 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
 
   const stone = lambert({ map: tx.stone, color: '#c4c8d0' });
   const floorM = lambert({ map: tx.floor, color: '#8a8682' });
-  tx.floor.repeat.set(4, 4);
   const wood = lambert({ map: tx.wood, color: '#c8b8a4' });
   const woodD = lambert({ map: tx.woodDark, color: '#b0a294' });
   const iron = lambert({ map: tx.iron, color: '#a8a4a0' });
@@ -158,10 +168,11 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
   // --- Room: a stone workshop about 4.4 x 3.6 m; the bench stands against the north wall ------
   const RX = 2.2; // inner faces of the side walls at x = ±RX
   const FZ = 2.4; // inner face of the wall behind the bench
-  const floor = mesh(new THREE.PlaneGeometry(2 * RX + 0.5, FZ - BACK_Z + 0.5), floorM, 0, 0, (FZ + BACK_Z) / 2);
+  const FW = 2 * RX + 0.5, FD = FZ - BACK_Z + 0.5;
+  const floor = mesh(tileUV(new THREE.PlaneGeometry(FW, FD, Math.ceil(FW / CELL), Math.ceil(FD / CELL)), FW, FD, 1.2), floorM, 0, 0, (FZ + BACK_Z) / 2);
   floor.rotation.x = -Math.PI / 2;
   scene.add(floor);
-  const ceil = mesh(new THREE.PlaneGeometry(2 * RX + 0.5, FZ - BACK_Z + 0.5), woodD, 0, 2.5, (FZ + BACK_Z) / 2);
+  const ceil = mesh(tileUV(new THREE.PlaneGeometry(FW, FD, Math.ceil(FW / CELL), Math.ceil(FD / CELL)), FW, FD, 0.6), woodD, 0, 2.5, (FZ + BACK_Z) / 2);
   ceil.rotation.x = Math.PI / 2;
   scene.add(ceil);
   // North wall (in front of the bench) with a window hole (x -1.02..-0.48, y 1.0..1.75).
@@ -197,7 +208,7 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
   // Window frame, bars, snow on the sill.
   scene.add(texBox(0.64, 0.08, 0.3, woodD, -0.75, 0.97, BACK_Z - 0.05, 0.4));
   // Tool rail: what a welder keeps within reach.
-  scene.add(texBox(0.3, 0.04, 0.03, woodD, -0.05, 1.24, BACK_Z + 0.03, 0.3));
+  scene.add(texBox(0.24, 0.04, 0.03, woodD, -0.16, 1.24, BACK_Z + 0.03, 0.3));
   const hang = (o: THREE.Object3D, x: number) => {
     o.position.set(x, 1.22, BACK_Z + 0.05);
     scene.add(o);
@@ -210,23 +221,22 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
       b.rotation.z = s * 0.05;
       tongs.add(b);
     }
-    hang(tongs, -0.17);
+    hang(tongs, -0.25);
     const file = new THREE.Group();
     file.add(boxAt(0.012, 0.16, 0.004, iron, 0, -0.1, 0, true));
     file.add(boxAt(0.016, 0.06, 0.012, wood, 0, -0.01, 0, true));
-    hang(file, -0.11);
+    hang(file, -0.2);
     const ham = new THREE.Group();
     ham.add(boxAt(0.012, 0.2, 0.012, wood, 0, -0.1, 0, true));
     ham.add(boxAt(0.07, 0.022, 0.022, iron, 0.0, -0.2, 0, true));
-    hang(ham, -0.05);
+    hang(ham, -0.145);
     const coil = new THREE.Group();
     const cc = mesh(new THREE.TorusGeometry(0.045, 0.01, 4, 10), copper, 0, -0.06, 0, true);
     coil.add(cc);
-    hang(coil, 0.02);
+    hang(coil, -0.08);
     const brush = new THREE.Group();
     brush.add(boxAt(0.012, 0.15, 0.01, wood, 0, -0.075, 0, true));
     brush.add(boxAt(0.03, 0.045, 0.016, dark, 0, -0.17, 0.004, true));
-    hang(brush, 0.08);
   }
   // A notice nailed by the window, and a few hooks with scrap wire.
   scene.add(mesh(new THREE.PlaneGeometry(0.09, 0.12), paper, -0.41, 1.04, BACK_Z + 0.015));
