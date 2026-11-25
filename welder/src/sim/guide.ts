@@ -74,30 +74,37 @@ export function computeGuide(g: Game, out: Guide): Guide {
         out.hint = 'maskUp';
         return out;
       }
-      // Point at the first unwelded stretch, preferring one that faces you already.
-      const order: number[] = [];
-      for (let i = 0; i < b.seams.length; i++) {
+      // Point at the first unwelded stretch you can reach as the work lies; if none, the first gap (turn it).
+      const fill = BALANCE.weld.fillMin;
+      let best = -1, bestS = 0;
+      for (let i = 0; i < b.seams.length && best < 0; i++) {
         const sr = b.seams[i];
-        const gap = sr.firstGap(BALANCE.weld.fillMin);
-        if (gap >= 0 && canReach(b, i, sr.count > 0 ? gap : sr.closed ? 0 : Math.min(sr.len, 3))) order.push(i);
+        for (let k = sr.edge; k < sr.n - sr.edge; k++)
+          if (sr.metal[k] < fill && !sr.hole[k] && canReach(b, i, (k + 0.5) * sr.cell)) {
+            best = i;
+            bestS = (k + 0.5) * sr.cell;
+            break;
+          }
       }
-      for (let i = 0; i < b.seams.length; i++) if (!order.includes(i)) order.push(i);
-      for (const i of order) {
-        const sr = b.seams[i];
-        const gap = sr.firstGap(BALANCE.weld.fillMin);
-        if (gap < 0) continue;
-        const anyMetal = sr.count > 0;
-        const at = anyMetal ? gap : sr.closed ? 0 : Math.min(sr.len, 3);
-        sr.pointAt(at, pt);
+      const reach = best >= 0;
+      if (!reach)
+        for (let i = 0; i < b.seams.length; i++) {
+          const g = b.seams[i].firstGap(fill);
+          if (g >= 0) {
+            best = i;
+            bestS = g;
+            break;
+          }
+        }
+      if (best >= 0) {
+        const sr = b.seams[best];
+        sr.pointAt(bestS, pt);
         out.target = 'seam';
-        // A joint that faces away has to be turned to first.
-        const reach = canReach(b, i, at) || (sr.len > 40 && canReach(b, i, Math.min(sr.len, at + 20)));
-        out.hint = !reach ? (learning || c.reachMiss > 0 ? 'turn' : '') : early ? (anyMetal ? 'gap' : 'strike') : '';
+        out.hint = !reach ? (learning || c.reachMiss > 0 ? 'turn' : '') : early ? (sr.count > 0 ? 'gap' : 'strike') : '';
         out.x = pt.x;
         out.y = pt.y;
         out.z = pt.z;
-        out.seam = i;
-        return out;
+        out.seam = best;
       }
       return out;
     }

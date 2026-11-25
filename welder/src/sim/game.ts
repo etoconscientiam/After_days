@@ -347,9 +347,10 @@ export class Game {
           }
       } else s = sr.len / 2;
       if (s < 0) continue;
-      // Face the middle of what's left of a short joint, the start of the gap on a long one.
-      const at = sr.len < 60 ? sr.len / 2 : Math.min(sr.len, s + 10);
-      faceSeam(b, i, at);
+      // Short joints: face the middle. Long ones: face the way the next stretch of the gap looks on average.
+      if (sr.len < 60) faceSeam(b, i, sr.len / 2);
+      else if (sr.count === 0 && sr.def.turn !== 'roll') faceSeam(b, i, 0, sr.len);
+      else faceSeam(b, i, s, Math.min(sr.closed ? sr.len * 0.4 : sr.len - s, 70));
       this.faceIdx = i;
       return;
     }

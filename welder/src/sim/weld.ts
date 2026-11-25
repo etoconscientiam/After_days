@@ -185,11 +185,23 @@ export function canReach(b: Bench, seam: number, s: number): boolean {
  * bench, then tip it toward you if that's not enough. A seam marked `turn: 'roll'` (a ring round a spear,
  * the underside of a handle) is rolled about the left-right axis instead.
  */
-export function faceSeam(b: Bench, seam: number, s: number): void {
+export function faceSeam(b: Bench, seam: number, s: number, span = 0): void {
   const sr = b.seams[seam];
   if (!sr) return;
-  sr.pointAt(s, pt);
-  const n = qRot(b.rot, pt.nx, pt.ny, pt.nz, [0, 0, 0]);
+  // Over a stretch (a patch loop, a ring), face the average way it looks, not one corner of it.
+  let nx = 0, ny = 0, nz = 0;
+  const k = span > 0 ? 8 : 1;
+  for (let i = 0; i < k; i++) {
+    sr.pointAt(s + (span * i) / Math.max(1, k - 1), pt);
+    nx += pt.nx;
+    ny += pt.ny;
+    nz += pt.nz;
+  }
+  const n = qRot(b.rot, nx, ny, nz, [0, 0, 0]);
+  const nl = Math.hypot(n[0], n[1], n[2]) || 1;
+  n[0] /= nl;
+  n[1] /= nl;
+  n[2] /= nl;
   const aimX = Math.atan2(REACH[1], REACH[2]);
   let q: Q = qIdent();
   if (sr.def.turn === 'roll' && Math.hypot(n[1], n[2]) > 0.45) {

@@ -31,6 +31,10 @@ export class CameraRig {
   /** Head turn is allowed (not while the hand is busy welding). */
   turnable = true;
   private tmp = new THREE.Vector3();
+  private tmp2 = new THREE.Vector3();
+  /** Head offsets at the bench: the wheel zoom, and the lean while welding. */
+  private zoomOff = new THREE.Vector3();
+  private leanOff = new THREE.Vector3();
   private bob = 0;
   readonly fill = new THREE.PointLight('#ffd8b0', 0.25, 0.9, 2);
 
@@ -48,9 +52,8 @@ export class CameraRig {
   station(): void {
     if (this.mode === 'walk') this.blend = 0.45;
     this.mode = 'station';
-    this.tPos.copy(this.eye);
-    this.tLook.copy(this.ahead);
     this.tFov = 58;
+    this.applyOff();
   }
 
   /**
@@ -59,17 +62,54 @@ export class CameraRig {
    * hand on the mouse doesn't jump; everything around it just gets bigger.
    */
   lean(at: THREE.Vector3 | null, k: number): void {
+    this.leanOff.set(0, 0, 0);
+    // A hand zoom already brings the work close: don't lean on top of it.
+    if (at && k > 0 && this.zoomOff.lengthSq() < 0.0025) this.leanOff.copy(at).sub(this.eye).multiplyScalar(k);
+    this.applyOff();
+  }
+
+  /**
+   * Zoom with the wheel toward the point under the cursor (steps > 0 in, < 0 out). Same trick as leaning: the
+   * head moves along the line of sight to that point, so it stays under the cursor.
+   */
+  zoomAt(at: THREE.Vector3 | null, steps: number): void {
     if (this.mode !== 'station') return;
-    this.tPos.copy(this.eye);
-    this.tLook.copy(this.ahead);
-    if (!at || k <= 0) return;
-    const d = this.tmp.copy(at).sub(this.eye).multiplyScalar(k);
-    this.tPos.add(d);
-    this.tLook.add(d);
+    const cur = this.tmp.copy(this.eye).add(this.zoomOff);
+    if (steps > 0 && at) {
+      for (let i = 0; i < steps; i++) {
+        const d = this.tmp2.copy(at).sub(cur);
+        if (d.length() < 0.28) break;
+        d.multiplyScalar(0.16);
+        this.zoomOff.add(d);
+        cur.add(d);
+      }
+    } else if (steps < 0) {
+      this.zoomOff.multiplyScalar(Math.pow(0.72, -steps));
+      if (this.zoomOff.lengthSq() < 1e-4) this.zoomOff.set(0, 0, 0);
+    }
+    this.applyOff();
+  }
+
+  resetZoom(): void {
+    this.zoomOff.set(0, 0, 0);
+    this.leanOff.set(0, 0, 0);
+    this.applyOff();
+  }
+
+  get zoomed(): boolean {
+    return this.zoomOff.lengthSq() > 1e-4;
+  }
+
+  private applyOff(): void {
+    if (this.mode !== 'station') return;
+    this.tPos.copy(this.eye).add(this.zoomOff).add(this.leanOff);
+    this.tLook.copy(this.ahead).add(this.zoomOff).add(this.leanOff);
   }
 
   /** Step back from the bench and walk. */
   walk(): void {
+    this.zoomOff.set(0, 0, 0);
+    this.leanOff.set(0, 0, 0);
     this.mode = 'walk';
     this.body.set(this.eye.x, 0, this.eye.z + 0.4);
     this.walkYaw = 0;

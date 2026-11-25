@@ -81,6 +81,7 @@ export class View {
   private strikeAcc = 0;
   private leanT = 0;
   private leanAt = new THREE.Vector3();
+  private zoomP = new THREE.Vector3();
   private whyT = 0;
   private v3q = new THREE.Quaternion();
   private v3 = new THREE.Vector3();
@@ -233,15 +234,20 @@ export class View {
       'wheel',
       (e) => {
         e.preventDefault();
-        const step = BALANCE.arc.wheelStep;
-        if (e.deltaMode === 1 || Math.abs(e.deltaY) >= 50) this.dL += -Math.sign(e.deltaY) * step;
+        // Notches: a mouse wheel gives one per event, a touchpad many small deltas.
+        let notches = 0;
+        if (e.deltaMode === 1 || Math.abs(e.deltaY) >= 50) notches = -Math.sign(e.deltaY);
         else {
           this.wheelAcc += e.deltaY;
           while (Math.abs(this.wheelAcc) >= 40) {
-            this.dL += -Math.sign(this.wheelAcc) * step;
+            notches += -Math.sign(this.wheelAcc);
             this.wheelAcc -= Math.sign(this.wheelAcc) * 40;
           }
         }
+        if (!notches) return;
+        // While the arc burns the wheel feeds the rod; otherwise it zooms on the point under the cursor.
+        if (this.game.player.arc.lit) this.dL += notches * BALANCE.arc.wheelStep;
+        else if (this.rig.mode === 'station') this.rig.zoomAt(this.cursorPoint(), notches);
       },
       { passive: false },
     );
@@ -433,6 +439,21 @@ export class View {
     out.z = this.v3b.z;
   }
 
+  /** The world point under the cursor at the bench (the job, or anything else in the room), for zooming. */
+  private cursorPoint(): THREE.Vector3 | null {
+    if (!this.mouse.in) return null;
+    this.setRay();
+    this.hits.length = 0;
+    const objs = this.pickList;
+    objs.length = 0;
+    if (this.part) objs.push(...this.part.meshes);
+    for (const o of this.ws.pickables) if (o.visible) objs.push(o);
+    const h = this.ray.intersectObjects(objs, true, this.hits);
+    if (h.length) return this.zoomP.copy(h[0].point);
+    this.plane.set(Y_UP, -BENCH.y);
+    return this.ray.ray.intersectPlane(this.plane, this.zoomP);
+  }
+
   /** Input for one frame; the arc-length request is handed to the first sim step only. */
   frameInput(dt: number): TorchIn {
     const tr = this.torch;
@@ -594,6 +615,7 @@ export class View {
 
   private setPart(id: string): void {
     this.clearPart();
+    this.rig.resetZoom();
     const def = this.game.data.parts[id];
     this.part = buildPart(def, this.tx);
     // Every job is drawn to fill the middle of the view.
@@ -895,6 +917,9 @@ export class View {
       if (this.leanT <= 0 && this.rig.mode === 'station') this.rig.lean(null, 0);
     }
     this.updateAim(dt);
+    // A glint runs along the joint to weld next while nothing is burning.
+    const gf = g.guide;
+    this.bead.setGlint(this.part && b.stage === 'weld' && !lit && gf.target === 'seam' && this.rig.mode !== 'walk' ? gf.seam : -1, dt);
     const arcLight = this.ws.lights.arc;
     let arcOn = 0;
     if (lit) {

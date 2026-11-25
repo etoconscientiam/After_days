@@ -74,6 +74,12 @@ export class BeadView {
   readonly mark: THREE.Group;
   private markMat: THREE.MeshBasicMaterial;
   private markFill: THREE.Mesh;
+  /** Chalk dashes either side of each joint, drawn when the job comes in. */
+  private chalk: THREE.Mesh[] = [];
+  private chalkMat = new THREE.MeshLambertMaterial({ color: '#ece6d6', polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  /** A glint that runs along the joint to weld next. */
+  readonly glint: THREE.Mesh;
+  private glintT = 0;
   readonly glowK = { value: SKIN.glow.k };
   private tmpM = new THREE.Matrix4();
   private tmpQ = new THREE.Quaternion();
@@ -155,7 +161,64 @@ export class BeadView {
     this.mark.add(new THREE.Mesh(ring, this.markMat), this.markFill);
     this.mark.traverse((o) => (o.renderOrder = 20));
     this.mark.visible = false;
-    this.group.add(this.pool, this.tail, this.mark);
+    this.glint = new THREE.Mesh(new THREE.SphereGeometry(1, 8, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 0.9, 0.7).multiplyScalar(3), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    this.glint.visible = false;
+    this.group.add(this.pool, this.tail, this.mark, this.glint);
+  }
+
+  /** Chalk: short dashes along both sides of the joint, laid onto the surface. */
+  private chalkFor(sr: SeamRun): THREE.BufferGeometry {
+    const pos: number[] = [];
+    const p = this.pt;
+    const A = new THREE.Vector3(), N = new THREE.Vector3(), T = new THREE.Vector3(), B = new THREE.Vector3();
+    const step = 7, dash = 4, half = 0.8;
+    const n = Math.max(1, Math.floor(sr.len / step));
+    const pitch = sr.len / n;
+    for (let i = 0; i < n; i++) {
+      const s = (i + 0.5) * pitch;
+      sr.pointAt(s, p);
+      for (const side of [-1, 1]) {
+        const off = side * 6.5;
+        A.set(p.x + p.bx * off, p.y + p.by * off, p.z + p.bz * off);
+        N.set(p.nx, p.ny, p.nz);
+        this.snap(A, N);
+        A.addScaledVector(N, 0.35);
+        T.set(p.tx, p.ty, p.tz).multiplyScalar(dash / 2);
+        B.set(p.bx, p.by, p.bz).multiplyScalar(half);
+        const q = [
+          [A.x - T.x - B.x, A.y - T.y - B.y, A.z - T.z - B.z],
+          [A.x + T.x - B.x, A.y + T.y - B.y, A.z + T.z - B.z],
+          [A.x + T.x + B.x, A.y + T.y + B.y, A.z + T.z + B.z],
+          [A.x - T.x + B.x, A.y - T.y + B.y, A.z - T.z + B.z],
+        ];
+        for (const k of [0, 1, 2, 0, 2, 3]) pos.push(q[k][0] * MM, q[k][1] * MM, q[k][2] * MM);
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.computeVertexNormals();
+    return g;
+  }
+
+  /** Run a glint along the joint to weld next (seam -1 hides it). */
+  setGlint(seam: number, dt: number): void {
+    const sr = seam >= 0 ? this.src?.seams[seam] : undefined;
+    if (!sr) {
+      this.glint.visible = false;
+      this.glintT = 0;
+      return;
+    }
+    this.glintT += dt;
+    const speed = 110;
+    const cycle = sr.len / speed + 1.2;
+    const t = this.glintT % cycle;
+    const s = t * speed;
+    this.glint.visible = s <= sr.len;
+    if (!this.glint.visible) return;
+    sr.pointAt(s, this.pt);
+    const p = this.pt;
+    this.glint.position.set((p.x + p.nx * 1.5) * MM, (p.y + p.ny * 1.5) * MM, (p.z + p.nz * 1.5) * MM);
+    this.glint.scale.setScalar(2.6 * MM);
   }
 
   /** Put a point of seam `seam` at (s, d) and its frame into this.pt; returns false if there's no such seam. */
@@ -213,6 +276,11 @@ export class BeadView {
       this.group.remove(g);
       g.geometry.dispose();
     }
+    for (const g of this.chalk) {
+      this.group.remove(g);
+      g.geometry.dispose();
+    }
+    this.chalk = [];
     this.grooves = [];
     this.hi = [];
     this.src = src;
@@ -232,6 +300,10 @@ export class BeadView {
       h.renderOrder = 2;
       this.hi.push(h);
       this.group.add(h);
+      const c = new THREE.Mesh(this.chalkFor(sr), this.chalkMat);
+      c.receiveShadow = true;
+      this.chalk.push(c);
+      this.group.add(c);
     }
   }
 
@@ -367,6 +439,7 @@ export class BeadView {
         this.dots.setMatrixAt(kd++, M);
       }
     }
+    for (const c of this.chalk) c.visible = src.stage === 'weld' || src.stage === 'chip';
     this.ripples.count = k;
     this.holes.count = kh;
     this.dots.count = kd;
