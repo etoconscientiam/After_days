@@ -1242,7 +1242,6 @@ export class Renderer {
         if (fm > -0.3) { c.fillStyle = rgb(240, 246, 250, 0.55 + fm * 0.35); c.fillRect(x, sea + (fm > 0.5 ? 0 : 1), 1, 1); }
       }
     }
-    this.drawTraces(g);
     const vfx = r.active.find((a) => a.id === 'volcanoFx');
     if (vfx && vfx.x !== undefined) {
       const gy = this.gy[Math.max(0, Math.min(WW - 1, vfx.x))];
@@ -1303,30 +1302,6 @@ export class Renderer {
     c.globalAlpha = 1;
   }
   private edgeTiles: Record<string, HTMLCanvasElement | undefined> = {};
-
-  private drawTraces(g: Game): void {
-    const r = g.run;
-    const T = CFG.story.traces;
-    if (g.meta.prestiges > 0 || r.year >= T.endYear) return;
-    const c = this.ctx;
-    for (let i = 0; i < T.count; i++) {
-      const erase = CFG.startYear + ((i + 1) / T.count) * (T.endYear - CFG.startYear);
-      const a = Math.max(0, Math.min(1, (erase - r.year) / 1800)) * 0.8;
-      if (a <= 0) continue;
-      const x0 = Math.round(r.waterEnd + 10 + hash2(i, 31) * (WW - r.waterEnd - 34));
-      const len = Math.round(8 + hash2(i, 32) * 18);
-      const yb = this.gy[Math.min(WW - 1, x0)] + 3 + Math.round(hash2(i, 33) * 16);
-      if (i % 3 === 0) {
-        const w = Math.round(len * 0.6);
-        c.fillStyle = rgb(176, 170, 160, a);
-        c.fillRect(x0, yb - 3, w, 1); c.fillRect(x0, yb - 3, 1, 3); c.fillRect(x0 + w - 1, yb - 3, 1, 3);
-      } else {
-        c.fillStyle = rgb(120, 120, 118, a); c.fillRect(x0, yb, len, 1);
-        c.fillStyle = rgb(210, 206, 190, a * 0.6);
-        for (let x = x0 + 1; x < x0 + len; x += 4) c.fillRect(x, yb, 2, 1);
-      }
-    }
-  }
 
   private segments(g: Game): { zi: number; x0: number; x1: number }[] {
     const segs: { zi: number; x0: number; x1: number }[] = [];
