@@ -21,6 +21,8 @@ import type { SeamPoint } from '../sim/seam';
 const MM = 0.001;
 /** Things you click instead of welding on them. */
 const TOOLS_OF_THE_ROOM = new Set(['pile', 'board', 'electrodes', 'door', 'done']);
+/** Guide targets that live on the bench: while walking, the hint just says to go back to it. */
+const AT_BENCH = new Set(['seam', 'bead', 'arc', 'mask', 'electrodes', 'door']);
 
 /**
  * Everything the player sees, from one station at the bench (Dish Pit style). Reads sim state each frame,
@@ -49,7 +51,11 @@ export class View {
   private suppress = false;
   private wheelAcc = 0;
   private dL = 0;
-  private keys = { up: false, down: false };
+  private keys = { up: false, down: false, left: false, right: false };
+  /** Called on every footstep (for the sound). */
+  onStep: () => void = () => {};
+  private stepT = 0;
+  private locked = false;
   private hover = '';
   private torch: TorchIn = emptyTorch();
   private rng = new Rng(77);
@@ -68,6 +74,7 @@ export class View {
   private pt: SeamPoint = { x: 0, z: 0, tx: 1, tz: 0 };
   private endSrc: BeadSource | null = null;
   private lastMask = false;
+  private lastCam = '';
   private spotI = 0;
   private spotT = 0;
   private lastStage = '';
@@ -148,12 +155,28 @@ export class View {
       this.mouse.in = this.mouse.x >= 0 && this.mouse.y >= 0 && this.mouse.x <= r.width && this.mouse.y <= r.height;
       this.mouseMoved = true;
     };
-    c.addEventListener('pointermove', pos);
+    c.addEventListener('pointermove', (e) => {
+      // Walking: look around with the mouse (pointer lock, or right-drag where the lock is refused).
+      if (this.rig.mode === 'walk' && (this.locked || e.buttons & 2)) {
+        this.rig.turn(e.movementX, e.movementY);
+        this.mouseMoved = true;
+        return;
+      }
+      pos(e);
+    });
+    document.addEventListener('pointerlockchange', () => (this.locked = document.pointerLockElement === c));
     c.addEventListener('pointerleave', () => (this.mouse.in = false));
     c.addEventListener('contextmenu', (e) => e.preventDefault());
     c.addEventListener('pointerdown', (e) => {
       pos(e);
       if (!this.started) return;
+      if (this.rig.mode === 'walk') {
+        if (e.button === 0) {
+          if (!this.locked) this.lockPointer();
+          this.interact();
+        }
+        return;
+      }
       c.setPointerCapture(e.pointerId);
       if (e.button !== 0) return;
       this.lmb = true;
@@ -189,13 +212,75 @@ export class View {
         if (!e.repeat) this.game.queue({ type: 'mask' });
       } else if (e.code === 'KeyW' || e.code === 'ArrowUp') this.keys.up = true;
       else if (e.code === 'KeyS' || e.code === 'ArrowDown') this.keys.down = true;
-      else if (e.code === 'KeyE' || e.code === 'KeyR') this.game.queue({ type: 'newElectrode' });
-      else if (e.code === 'Escape' && this.ui.boardOpen) this.ui.closeBoard();
+      else if (e.code === 'KeyA' || e.code === 'ArrowLeft') this.keys.left = true;
+      else if (e.code === 'KeyD' || e.code === 'ArrowRight') this.keys.right = true;
+      else if (e.code === 'KeyR') this.game.queue({ type: 'newElectrode' });
+      else if (e.code === 'KeyE' && !e.repeat) {
+        if (this.ui.boardOpen) this.ui.closeBoard();
+        else if (this.rig.mode === 'station' || this.rig.mode === 'inspect') this.leaveBench();
+        else if (this.rig.mode === 'walk') this.interact();
+      } else if (e.code === 'Escape' && this.ui.boardOpen) this.ui.closeBoard();
     });
     addEventListener('keyup', (e) => {
       if (e.code === 'KeyW' || e.code === 'ArrowUp') this.keys.up = false;
       if (e.code === 'KeyS' || e.code === 'ArrowDown') this.keys.down = false;
+      if (e.code === 'KeyA' || e.code === 'ArrowLeft') this.keys.left = false;
+      if (e.code === 'KeyD' || e.code === 'ArrowRight') this.keys.right = false;
     });
+    addEventListener('blur', () => (this.keys.up = this.keys.down = this.keys.left = this.keys.right = false));
+  }
+
+  private lockPointer(): void {
+    try {
+      const r = this.canvas.requestPointerLock() as unknown as Promise<void> | undefined;
+      r?.catch?.(() => {});
+    } catch {
+      /* not allowed here: right-drag looks around instead */
+    }
+  }
+
+  private unlockPointer(): void {
+    if (document.pointerLockElement) document.exitPointerLock();
+  }
+
+  /** Step back from the bench to walk around the workshop. */
+  private leaveBench(): void {
+    const a = this.game.player.arc;
+    if (a.lit || this.lmb) return;
+    this.rig.walk();
+    this.ui.hideTip();
+    this.hover = '';
+    this.lockPointer();
+    this.applyFocus();
+  }
+
+  private toBench(): void {
+    this.unlockPointer();
+    this.rig.station();
+    this.suppress = true;
+    this.ui.setPrompt('');
+    this.applyFocus();
+  }
+
+  /** What E or a click does to the thing in the middle of the view while walking. */
+  private interact(): void {
+    const g = this.game;
+    const id = this.pick();
+    if (!id) return;
+    if (id === 'pile') {
+      if (g.pile && g.player.stage === 'empty') {
+        g.queue({ type: 'takePile' });
+        this.toBench();
+      } else if (g.flags.board) {
+        this.unlockPointer();
+        this.ui.openBoard();
+      } else this.toBench();
+    } else if (id === 'board' && g.flags.board) {
+      this.unlockPointer();
+      this.ui.openBoard();
+    } else if (id.startsWith('shelf:')) g.queue({ type: 'buy', id: id.slice(6) });
+    else if (id === 'door') g.queue({ type: 'handOver' });
+    else if (id === 'bench' || id === 'part' || id === 'done' || id === 'electrodes') this.toBench();
   }
 
   private onClick(): void {
@@ -230,13 +315,15 @@ export class View {
   }
 
   private setRay(): void {
-    this.ndc.set((this.mouse.x / this.cssW) * 2 - 1, -(this.mouse.y / this.cssH) * 2 + 1);
+    if (this.rig.mode === 'walk') this.ndc.set(0, 0);
+    else this.ndc.set((this.mouse.x / this.cssW) * 2 - 1, -(this.mouse.y / this.cssH) * 2 + 1);
     this.ray.setFromCamera(this.ndc, this.rig.cam);
+    this.ray.far = this.rig.mode === 'walk' ? 2.6 : Infinity;
   }
 
   /** What the mouse points at. */
   private pick(): string {
-    if (!this.mouse.in) return '';
+    if (!this.mouse.in && this.rig.mode !== 'walk') return '';
     this.setRay();
     const objs = this.pickList;
     objs.length = 0;
@@ -275,12 +362,13 @@ export class View {
   /** Input for one frame; the arc-length request is handed to the first sim step only. */
   frameInput(dt: number): TorchIn {
     const tr = this.torch;
-    const active = this.started && !this.ui.boardOpen && !this.ui.endOpen && this.rig.mode !== 'end';
+    const active = this.started && !this.ui.boardOpen && !this.ui.endOpen && (this.rig.mode === 'station' || this.rig.mode === 'inspect');
     if (active) this.aimOnPart(tr);
     else tr.has = false;
     tr.press = active && (this.lmb || this.latch) && !this.suppress && this.mouse.in;
     const kr = BALANCE.arc.keyRate * dt;
-    tr.dL = this.dL + (this.keys.up ? kr : 0) - (this.keys.down ? kr : 0);
+    const atBench = this.rig.mode !== 'walk';
+    tr.dL = this.dL + (atBench && this.keys.up ? kr : 0) - (atBench && this.keys.down ? kr : 0);
     this.dL = 0;
     tr.forceL = NaN;
     return tr;
@@ -499,8 +587,9 @@ export class View {
       for (const m of this.ws.hiMats[k]) m.emissive.set(on ? '#3a2a1a' : '#000000');
     }
     this.bead.highlight(f.target === 'seam' ? f.seam : -1, 1);
-    const hint = f.hint ? t('hint.' + f.hint) : '';
-    this.ui.setHint(hint, f.target === 'mask');
+    let hint = f.hint ? t('hint.' + f.hint) : '';
+    if (this.rig.mode === 'walk' && AT_BENCH.has(f.target)) hint = this.game.player.stage !== 'empty' ? t('hint.toBench') : '';
+    this.ui.setHint(hint, f.target === 'mask' && this.rig.mode !== 'walk');
   }
 
   // ------------------------------------------------------------------ frame
@@ -518,13 +607,26 @@ export class View {
       if (this.inspectT <= 0 && this.rig.mode === 'inspect') this.rig.station();
     }
     this.rig.turnable = !this.lmb && !a.lit && !this.ui.boardOpen;
-    if (this.mouse.in) this.rig.setNudge((this.mouse.x / this.cssW) * 2 - 1);
+    if (this.mouse.in && this.rig.mode !== 'walk') this.rig.setNudge((this.mouse.x / this.cssW) * 2 - 1);
+    if (this.rig.mode === 'walk' && !this.ui.boardOpen) {
+      const k = this.keys;
+      const moved = this.rig.move((k.up ? 1 : 0) - (k.down ? 1 : 0), (k.right ? 1 : 0) - (k.left ? 1 : 0), dt, this.ws.blocked);
+      if (moved) {
+        this.mouseMoved = true;
+        this.stepT -= dt;
+        if (this.stepT <= 0) {
+          this.stepT = 0.42;
+          this.onStep();
+        }
+      } else this.stepT = 0.1;
+    }
     this.rig.update(dt);
-    if (this.lastMask !== g.mask.down || this.lastStage !== b.stage) {
+    if (this.lastMask !== g.mask.down || this.lastStage !== b.stage || this.lastCam !== this.rig.mode) {
       this.lastMask = g.mask.down;
       this.lastStage = b.stage;
+      this.lastCam = this.rig.mode;
       this.applyFocus();
-      this.ui.setCtrl(this.started && (b.stage === 'weld' || b.stage === 'chip'), g.mask.down);
+      this.ui.setCtrl(!this.started ? '' : this.rig.mode === 'walk' ? 'walk' : 'bench', g.mask.down);
     }
 
     // Hover: highlight and the shelf tooltip.
@@ -535,8 +637,11 @@ export class View {
       if (id !== this.hover) {
         this.hover = id;
         this.applyFocus();
-        if (id.startsWith('shelf:')) this.ui.showTip(id.slice(6), this.mouse.x, this.mouse.y + 10 * this.scale);
+        const tx = this.rig.mode === 'walk' ? this.cssW / 2 : this.mouse.x;
+        const ty = this.rig.mode === 'walk' ? this.cssH / 2 : this.mouse.y;
+        if (id.startsWith('shelf:')) this.ui.showTip(id.slice(6), tx, ty + 10 * this.scale);
         else this.ui.hideTip();
+        this.ui.setPrompt(this.rig.mode === 'walk' ? this.promptFor(id) : '');
       }
     } else if (!canHover && this.hover) {
       this.hover = '';
@@ -577,6 +682,7 @@ export class View {
     this.tools.hammer.visible = chipping;
     this.ws.restHammer.visible = !chipping;
     this.tools.holder.visible = !chipping;
+    this.tools.group.visible = this.rig.mode !== 'walk';
     if (this.part && stage === 'weld') this.tools.placeHolder(tip, this.rig.cam, b.swap > 0 ? 0 : b.electrode);
     else this.tools.placeHolder(this.restTip, this.rig.cam, b.electrode);
     if (chipping) this.tools.placeHammer(tip, this.rig.cam, dt);
@@ -712,15 +818,18 @@ export class View {
     const g = this.game;
     const f = g.guide;
     const overJob = !!this.part && this.torch.has && (this.hover === 'part' || this.hover === 'bench' || this.hover === '') && g.player.stage === 'weld';
-    this.ui.placeCursor(this.mouse.x, this.mouse.y, this.started && this.mouse.in && !this.ui.boardOpen && !overJob);
+    if (this.rig.mode === 'walk') this.ui.placeCursor(this.cssW / 2, this.cssH / 2, this.started && !this.ui.boardOpen);
+    else this.ui.placeCursor(this.mouse.x, this.mouse.y, this.started && this.mouse.in && !this.ui.boardOpen && !overJob);
+    this.ui.placePrompt(this.cssW / 2, this.cssH / 2 + 12 * this.scale);
     if (!this.ui.hintVisible) return;
     let w: THREE.Vector3 | null = null;
-    if (f.target === 'mask') {
+    if (this.rig.mode === 'walk' && AT_BENCH.has(f.target)) {
+      w = this.v3.copy(this.ws.anchors.bench);
+    } else if (f.target === 'mask') {
       this.ui.hintEdge('');
       this.ui.placeHint(this.cssW / 2, this.cssH * 0.14);
       return;
-    }
-    if ((f.target === 'seam' || f.target === 'bead') && this.part) w = this.p2w(f.x, this.part.heightAt(f.x, f.z) + 3, f.z, this.v3);
+    } else if ((f.target === 'seam' || f.target === 'bead') && this.part) w = this.p2w(f.x, this.part.heightAt(f.x, f.z) + 3, f.z, this.v3);
     else if (f.target === 'arc' || (f.target === 'electrodes' && this.part)) w = this.v3.copy(this.lastPartTip).add(this.v3b.set(0, 0.02, 0));
     else if (this.ws.anchors[f.target]) w = this.v3.copy(this.ws.anchors[f.target]);
     if (!w) {
@@ -741,6 +850,17 @@ export class View {
     w.y = Math.max(-0.85, Math.min(0.9, w.y));
     this.ui.hintEdge(edge);
     this.ui.placeHint((w.x * 0.5 + 0.5) * this.cssW, (-w.y * 0.5 + 0.5) * this.cssH - 4 * this.scale);
+  }
+
+  private promptFor(id: string): string {
+    const g = this.game;
+    if (!id) return '';
+    if (id === 'pile') return g.pile && g.player.stage === 'empty' ? t('act.take') : g.flags.board ? t('act.board') : t('act.bench');
+    if (id === 'board') return g.flags.board ? t('act.board') : '';
+    if (id.startsWith('shelf:')) return t('act.buy');
+    if (id === 'door') return g.player.stage === 'ready' ? t('act.door') : '';
+    if (id === 'bench' || id === 'part' || id === 'done' || id === 'electrodes') return t('act.bench');
+    return '';
   }
 
   /** Repaint lettering that lives in the world (after a language change). */

@@ -39,6 +39,7 @@ function boot(): void {
   const stage = document.getElementById('stage')!;
   const view = new View(game, canvas, uiRoot, stage);
   const sound = new Sound();
+  view.onStep = () => sound.step();
 
   game.bus.on('save', () => {
     try {

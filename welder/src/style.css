@@ -244,3 +244,14 @@ html, body {
 #end td { padding: calc(var(--px) * 0.8) 0; }
 #end td:last-child { text-align: right; color: #e8c878; }
 #end .go { margin-top: calc(var(--px) * 5); color: #f0e0b8; cursor: pointer; text-decoration: underline; }
+
+#prompt {
+  position: absolute;
+  transform: translateX(-50%);
+  display: none;
+  padding: calc(var(--px) * 1) calc(var(--px) * 3);
+  color: #f0e0b8;
+  background: rgba(12, 9, 7, 0.75);
+  border: var(--px) solid #5a4834;
+  white-space: nowrap;
+}

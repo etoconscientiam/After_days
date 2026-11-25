@@ -26,6 +26,7 @@ export class UI {
   private board = el('div', 'board', 'pe');
   private appStatus = el('div', 'app-status');
   private ctrl = el('div', 'ctrl');
+  private promptEl = el('div', 'prompt');
   private start = el('div', 'start', 'pe');
   private endEl = el('div', 'end');
   private stampT = 0;
@@ -39,15 +40,31 @@ export class UI {
     this.root = root;
     this.money.append(el('i'), this.moneyVal);
     this.endEl.style.display = 'none';
-    root.append(this.money, this.ctrl, this.appStatus, this.hint, this.tip, this.stampEl, this.toasts, this.board, this.endEl, this.start, this.cursor);
+    root.append(this.money, this.ctrl, this.promptEl, this.appStatus, this.hint, this.tip, this.stampEl, this.toasts, this.board, this.endEl, this.start, this.cursor);
   }
 
-  /** Bottom strip at the bench: the mouse, and the mask with which way SPACE will move it. */
-  setCtrl(show: boolean, maskDown: boolean): void {
-    this.ctrl.style.display = show ? 'flex' : 'none';
-    if (!show) return;
+  /** Bottom strip: how to act in the current mode. At the bench, the mask and which way SPACE moves it. */
+  setCtrl(mode: string, maskDown: boolean): void {
+    this.ctrl.style.display = mode ? 'flex' : 'none';
+    if (!mode) return;
+    if (mode === 'walk') {
+      this.ctrl.innerHTML = `<span class="k">WASD</span><span class="k">◉</span><span class="k">E</span><span>${t('ctrl.walk')}</span>`;
+      return;
+    }
     const mask = `<svg viewBox="0 0 12 12" shape-rendering="crispEdges"><rect x="2" y="1" width="8" height="10" fill="#4a4640"/><rect x="3" y="2" width="6" height="8" fill="#6a665e"/><rect x="3" y="4" width="6" height="3" fill="${maskDown ? '#1e3a24' : '#2a2620'}"/><rect x="4" y="5" width="4" height="1" fill="${maskDown ? '#5a9a5a' : '#3a3630'}"/></svg>`;
-    this.ctrl.innerHTML = `<span class="k">◉</span>${mask}<span>${maskDown ? '▲' : '▼'}</span><span class="k">SPACE</span>`;
+    this.ctrl.innerHTML = `<span class="k">◉</span>${mask}<span>${maskDown ? '▲' : '▼'}</span><span class="k">SPACE</span><span class="k">E</span><span>${t('ctrl.leave')}</span>`;
+  }
+
+  /** "E · take the job" under the crosshair while walking. */
+  setPrompt(text: string): void {
+    this.promptEl.textContent = text;
+    this.promptEl.style.display = text ? 'block' : 'none';
+  }
+
+  placePrompt(x: number, y: number): void {
+    if (this.promptEl.style.display === 'none') return;
+    this.promptEl.style.left = x + 'px';
+    this.promptEl.style.top = y + 'px';
   }
 
   setScale(px: number): void {

@@ -282,6 +282,13 @@ export class Sound {
 
   // ------------------------------------------------------------- one-shots
 
+  /** A footstep on stone flags. */
+  step(): void {
+    if (!this.ok) return;
+    this.burst(220 + this.rng.next() * 80, 0.8, 0.09, 0.07, 'lowpass');
+    this.tone(70 + this.rng.next() * 15, 0.05, 0.06, 'sine', 0.6);
+  }
+
   private env(g: GainNode, peak: number, a: number, d: number): void {
     const t = this.ctx.currentTime;
     g.gain.setValueAtTime(0, t);
