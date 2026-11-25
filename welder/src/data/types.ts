@@ -2,19 +2,45 @@
 
 export type GradeId = 'clean' | 'fair' | 'rough' | 'bad';
 
-/** A seam is a polyline on the part's top surface, in part-local millimetres (x right, z toward the welder). */
+/**
+ * A seam is the joint between two pieces: a polyline in part-local millimetres (y up, x right, z toward the
+ * welder when the part lies as it arrives) with, at every point, the direction from which it is welded.
+ * The part has to be turned until that direction faces the welder.
+ */
 export interface SeamDef {
   id: string;
-  pts: [number, number][];
+  pts: [number, number, number][];
+  nrm: [number, number, number][];
+  /** A ring that closes on itself (around a pipe, a bucket bottom). */
+  closed?: boolean;
+  /** How hands bring it round: spin on the bench (default) or roll about the left-right axis. */
+  turn?: 'spin' | 'roll';
+}
+
+export type PieceMat = 'iron' | 'dark' | 'steel' | 'rust' | 'wood' | 'copper' | 'leather';
+
+/**
+ * One piece of the job, for the view only. Kinds (all sizes in mm, centred on `pos`):
+ *   box {w,h,d} · cyl {r, h, r2?, seg?} along y · tube {r, h, t, r2?, seg?, phi0?, phiLen?} along y, open ends ·
+ *   lathe pts=[[r, y]...] {seg?, phi0?, phiLen?} · torus {R, r, arc?} in the xz plane ·
+ *   cone {r, h, seg?} · plate pts=[[x, z]...] {t} flat outline extruded up · sphere {r}
+ */
+export interface PieceDef {
+  kind: 'box' | 'cyl' | 'tube' | 'lathe' | 'torus' | 'cone' | 'plate' | 'sphere';
+  p?: Record<string, number>;
+  pts?: [number, number][];
+  pos?: [number, number, number];
+  /** Euler angles in degrees (three.js 'XYZ' order: the Z turn is applied first). */
+  rot?: [number, number, number];
+  mat?: PieceMat;
 }
 
 export interface PartDef {
   id: string;
-  /** Key of the mesh builder in view/partMesh.ts. */
-  shape: string;
-  /** Shape parameters in mm, read only by the view. */
-  params: Record<string, number>;
+  pieces: PieceDef[];
   seams: SeamDef[];
+  /** How the part lies when it is brought to the bench (Euler degrees, as `rot`). */
+  rest?: [number, number, number];
   /** Heat sink: 1 = plain sheet. Thicker parts need slower travel or more current. */
   thick: number;
   /** Heat at which the metal burns through. */

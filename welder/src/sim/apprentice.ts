@@ -1,6 +1,7 @@
 import { BALANCE } from '../data/balance';
 import type { Bench, TorchIn } from './weld';
-import type { SeamPoint } from './seam';
+import { canReach, faceSeam, facing } from './weld';
+import { seamPoint } from './seam';
 
 const AP = BALANCE.apprentice;
 
@@ -74,13 +75,19 @@ export class Replayer {
   seam = 0;
   s = 0;
   pause = 0;
-  private pt: SeamPoint = { x: 0, z: 0, tx: 1, tz: 0 };
+  private pt = seamPoint();
+
+  /** Where the current stretch started, and the scratching clock. */
+  from = 0;
+  scr = 0;
 
   reset(): void {
     this.t = 0;
     this.seam = 0;
     this.s = 0;
     this.pause = 0;
+    this.from = 0;
+    this.scr = 0;
   }
 
   drive(b: Bench, h: Habit, dt: number, out: TorchIn): void {
@@ -95,14 +102,26 @@ export class Replayer {
       out.press = false;
       return;
     }
+    const ahead = (k: number) => (sr!.closed ? this.s + k : Math.min(sr!.len, this.s + k));
     if (this.pause > 0) {
       this.pause -= dt;
       out.press = false;
+    } else if (!canReach(b, this.seam, ahead(3))) {
+      // The joint ahead faces away: stop and turn the work.
+      if (!b.rotT) faceSeam(b, this.seam, ahead(8));
+      this.pause = 0.15;
+      out.press = false;
     } else {
       out.press = h.p[i] === 1;
-      if (out.press) this.s += Math.max(1.5, h.v[i]) * dt;
+      // Scratch on the spot until the arc catches, then travel at the learned pace.
+      if (out.press && b.arc.lit) this.s += Math.max(1.5, h.v[i]) * dt;
+      else if (out.press) this.scr += dt;
+      // Round a ring he keeps the rod going and turns the work under it.
+      if (!b.rotT && facing(b, this.seam, ahead(8)) < 0.5) faceSeam(b, this.seam, ahead(16));
     }
-    if (this.s >= sr.len - 0.5) {
+    // Ran into metal laid earlier (going back for a missed stretch): this stretch is done.
+    const filledAhead = b.arc.lit && this.s > this.from + 6 && sr.metal[sr.cellAt(ahead(3))] >= W.fillMin && sr.metal[sr.cellAt(ahead(7))] >= W.fillMin;
+    if (this.s >= sr.len - 0.5 || filledAhead) {
       // End of this joint: move to the next gap anywhere on the part.
       let next = -1, gap = -1;
       for (let k = 0; k < b.seams.length; k++) {
@@ -115,7 +134,8 @@ export class Replayer {
       }
       if (next >= 0) {
         this.seam = next;
-        this.s = Math.max(0, gap - 4);
+        this.s = Math.max(0, gap - 3);
+        this.from = this.s;
         this.pause = 0.4;
         out.press = false;
         sr = b.seams[next];
@@ -124,10 +144,12 @@ export class Replayer {
         out.press = false;
       }
     }
-    sr.pointAt(this.s, this.pt);
+    const p = sr.pointAt(this.s, this.pt);
     const d = h.d[i];
-    out.x = this.pt.x - this.pt.tz * d;
-    out.z = this.pt.z + this.pt.tx * d;
+    const sc = b.arc.lit ? 0 : Math.sin(this.scr * 38) * 4;
+    out.x = p.x + p.bx * d + p.tx * sc;
+    out.y = p.y + p.by * d + p.ty * sc;
+    out.z = p.z + p.bz * d + p.tz * sc;
     out.forceL = h.L[i];
   }
 }

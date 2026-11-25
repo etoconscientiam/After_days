@@ -4,7 +4,7 @@ import { BALANCE } from '../data/balance';
 import type { GameData, GradeId } from '../data/types';
 import type { SimEvents } from './events';
 import { Stats, computeStats, checkCond, unmet, Reason, CondCtx } from './stats';
-import { Bench, TorchIn, WeldCtx, emptyTorch, stepBench, newElectrode, reveal } from './weld';
+import { Bench, TorchIn, WeldCtx, emptyTorch, stepBench, newElectrode, reveal, faceSeam } from './weld';
 import { Power } from './power';
 import { Order, makeOrder, rollBoardOrder } from './orders';
 import { Recorder, Replayer, Habit } from './apprentice';
@@ -20,7 +20,11 @@ export type Command =
   | { type: 'handOver' }
   | { type: 'mask'; down?: boolean }
   | { type: 'buy'; id: string }
-  | { type: 'dismissEnd' };
+  | { type: 'dismissEnd' }
+  /** Turn the part on the bench so the next unwelded joint faces you. */
+  | { type: 'faceNext' }
+  /** Turn a given joint to face you (scripts; the apprentice turns his own work). */
+  | { type: 'face'; seam: number; s: number };
 
 export interface FrameInput {
   torch: TorchIn;
@@ -78,10 +82,10 @@ export class Game {
   replayer = new Replayer();
   private appTorch: TorchIn = emptyTorch();
 
-  guide: Guide = { target: '', hint: '', x: 0, z: 0, seam: -1 };
-  private guideTmp: Guide = { target: '', hint: '', x: 0, z: 0, seam: -1 };
+  guide: Guide = { target: '', hint: '', x: 0, y: 0, z: 0, seam: -1 };
+  private guideTmp: Guide = { target: '', hint: '', x: 0, y: 0, z: 0, seam: -1 };
   /** Timers used by the guide (how long a condition has held). */
-  cond = { maskUpLit: 0, long: 0, short: 0, fast: 0, slow: 0, maskDownDark: 0, idle: 0 };
+  cond = { maskUpLit: 0, long: 0, short: 0, fast: 0, slow: 0, maskDownDark: 0, idle: 0, reachMiss: 0 };
 
   finaleSeams: SeamRun[] | null = null;
   finalePart = '';
@@ -103,12 +107,15 @@ export class Game {
   };
 
   private cmds: Command[] = [];
-  private lastCursor = { x: 0, z: 0, has: false };
+  private lastCursor = { x: 0, y: 0, z: 0, has: false };
   private saveT = 0;
   private ctx: WeldCtx;
 
   constructor(data: GameData, seed = 1) {
     this.data = data;
+    this.bus.on('cantReach', (e) => {
+      if (e.bench === 'player') this.cond.reachMiss = 4;
+    });
     this.seed = seed >>> 0;
     this.rng = new RngStreams(this.seed);
     this.stats = computeStats(data, this.owned);
@@ -196,9 +203,11 @@ export class Game {
 
     // Player bench.
     const torch = input.torch;
-    const cs = torch.has && this.lastCursor.has ? Math.hypot(torch.x - this.lastCursor.x, torch.z - this.lastCursor.z) / dt : 0;
-    this.lastCursor.x = torch.x;
-    this.lastCursor.z = torch.z;
+    const lc = this.lastCursor;
+    const cs = torch.has && lc.has ? Math.hypot(torch.x - lc.x, torch.y - lc.y, torch.z - lc.z) / dt : 0;
+    lc.x = torch.x;
+    lc.y = torch.y;
+    lc.z = torch.z;
     this.lastCursor.has = torch.has;
     const wasLit = this.player.arc.lit;
     stepBench(this.player, torch, this.ctx);
@@ -216,6 +225,7 @@ export class Game {
     this.guide.target = g.target;
     this.guide.hint = g.hint;
     this.guide.x = g.x;
+    this.guide.y = g.y;
     this.guide.z = g.z;
     this.guide.seam = g.seam;
     if (changed) this.bus.emit('focus', { target: g.target, hint: g.hint });
@@ -251,6 +261,7 @@ export class Game {
     c.slow = tick(c.slow, a.lit && a.onSeam && a.v < vI * 0.4);
     c.maskDownDark = tick(c.maskDownDark, !a.lit && this.mask.down && this.player.stage === 'weld');
     c.idle = tick(c.idle, !a.lit);
+    c.reachMiss = Math.max(0, c.reachMiss - dt);
   }
 
   /** Travel speed that gives a good bead on this bench's part with the current current. */
@@ -303,10 +314,51 @@ export class Game {
       case 'dismissEnd':
         this.showEnd = false;
         break;
+      case 'faceNext':
+        this.faceNext();
+        break;
+      case 'face':
+        if (this.player.stage !== 'empty' && !this.player.arc.lit) faceSeam(this.player, c.seam, c.s);
+        break;
     }
   }
 
+  /**
+   * Turn to the next joint that still needs work: the first gap after the one in view (round-robin), so
+   * repeated presses step through the seams.
+   */
+  private faceNext(): void {
+    const b = this.player;
+    if (b.stage === 'empty' || b.arc.lit) return;
+    const fill = BALANCE.weld.fillMin;
+    const n = b.seams.length;
+    if (!n) return;
+    const cur = this.faceIdx % n;
+    for (let k = 1; k <= n; k++) {
+      const i = (cur + k) % n;
+      const sr = b.seams[i];
+      let s = -1;
+      if (b.stage === 'weld') s = sr.firstGap(fill);
+      else if (b.stage === 'chip') {
+        for (let c = 0; c < sr.n; c++)
+          if (sr.slag[c] > 0) {
+            s = (c + 0.5) * sr.cell;
+            break;
+          }
+      } else s = sr.len / 2;
+      if (s < 0) continue;
+      // Face the middle of what's left of a short joint, the start of the gap on a long one.
+      const at = sr.len < 60 ? sr.len / 2 : Math.min(sr.len, s + 10);
+      faceSeam(b, i, at);
+      this.faceIdx = i;
+      return;
+    }
+  }
+
+  private faceIdx = -1;
+
   private load(o: Order): void {
+    this.faceIdx = -1;
     const part = this.data.parts[o.part];
     this.player.load(o, part);
     if (o.simple) this.recorder.begin();

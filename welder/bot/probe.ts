@@ -1,8 +1,9 @@
 /**
  * Weld one seam at a fixed speed multiple and arc length and print what comes out.
- *   npm run probe -- bars        (I=0.8 also: I=0.8 npm run probe -- axle)
+ *   npm run probe -- spade        (I=0.8 also: I=0.8 npm run probe -- wheel)
  */
-import { Bench, emptyTorch, stepBench, WeldCtx } from '../src/sim/weld';
+import { Bench, emptyTorch, stepBench, WeldCtx, snapFace } from '../src/sim/weld';
+import { seamPoint } from '../src/sim/seam';
 import { DATA } from '../src/data';
 import { BALANCE } from '../src/data/balance';
 import { Bus } from '../src/core/bus';
@@ -21,13 +22,16 @@ export function probe(partId: string, vMul: number, L: number, I = 1, lat = 0) {
   const t = emptyTorch();
   const v = idealSpeed(part.thick, I) * vMul;
   let s = -6;
-  const pt = { x: 0, z: 0, tx: 1, tz: 0 };
+  const pt = seamPoint();
   let maxH = 0, steps = 0;
   t.has = true; t.press = true; t.forceL = L;
   while (s < sr.len + 2 && steps < 60 * 120) {
     if (b.arc.lit) s += v * ctx.dt; else s += 25 * ctx.dt;
-    sr.pointAt(Math.min(s, sr.len), pt);
-    t.x = pt.x - pt.tz * lat; t.z = pt.z + pt.tx * lat;
+    const sc = Math.max(0, Math.min(s, sr.len));
+    snapFace(b, 0, sc);
+    sr.pointAt(sc, pt);
+    const scr = b.arc.lit ? 0 : Math.sin(steps * 1.3) * 5;
+    t.x = pt.x + pt.bx * lat + pt.tx * scr; t.y = pt.y + pt.by * lat + pt.ty * scr; t.z = pt.z + pt.bz * lat + pt.tz * scr;
     stepBench(b, t, ctx);
     if (b.arc.pool > maxH) maxH = b.arc.pool;
     steps++;
@@ -40,7 +44,7 @@ export function probe(partId: string, vMul: number, L: number, I = 1, lat = 0) {
   return { v: v.toFixed(1), pool: b.arc.pool.toFixed(2), maxH: maxH.toFixed(2), metal: m.toFixed(2), fuse: f.toFixed(2), holes, gaps: sr.gaps(BALANCE.weld.fillMin), ripples: sr.count, q: q.toFixed(2) };
 }
 
-const part = process.argv[2] ?? 'bars';
+const part = process.argv[2] ?? 'spade';
 const Is = process.env.I ? [+process.env.I] : [1, 0.8];
 for (const I of Is)
   for (const L of [2.5, 4.2, 1.3])

@@ -36,6 +36,13 @@ export const BALANCE = {
     speedTau: 0.16,
     rippleCap: 1400,
     spatterDotCap: 160,
+    /** Direction from the bench to the welder's eye; a joint is reachable while it faces this way. */
+    reachDir: [0, 0.66, 0.75] as [number, number, number],
+    /** Least facing (cosine) at which the rod reaches the joint. */
+    reachMin: 0.12,
+    /** How fast the hands turn the part to a joint (rad/s), and by keys. */
+    turnRate: 3.2,
+    keyTurn: 1.7,
   },
 
   arc: {

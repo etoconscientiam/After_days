@@ -5,7 +5,8 @@ import type { Bus } from '../core/bus';
 import type { SimEvents, BenchId, ArcOutReason } from './events';
 import type { Stats } from './stats';
 import type { Order } from './orders';
-import { SeamRun, Proj, SeamPoint, F_PORE, F_COLD, F_HOT, F_LONG, F_SHORT, F_OFF, F_BACK } from './seam';
+import { Q, qIdent, qEuler, qMul, qAxis, qRot, qNorm, qTurnToward, V3 } from '../core/quat';
+import { SeamRun, Proj, seamPoint, F_PORE, F_COLD, F_HOT, F_LONG, F_SHORT, F_OFF, F_BACK } from './seam';
 import { partQuality, gradeOf, countHoles, countPores } from './quality';
 
 const W = BALANCE.weld;
@@ -15,10 +16,14 @@ export type BenchStage = 'empty' | 'weld' | 'chip' | 'inspect' | 'ready';
 
 /** What drives a bench this step: the player's mouse, or the apprentice's replayed habit. */
 export interface TorchIn {
-  /** Cursor is over the part (x, z valid). */
+  /** Cursor is on the part (x, y, z valid, part-local mm). */
   has: boolean;
   x: number;
+  y: number;
   z: number;
+  /** Turn the part this step: radians about the bench's left-right axis and about the vertical. */
+  turnX: number;
+  turnY: number;
   press: boolean;
   /** Arc length change requested this step (mm). */
   dL: number;
@@ -27,7 +32,7 @@ export interface TorchIn {
 }
 
 export function emptyTorch(): TorchIn {
-  return { has: false, x: 0, z: 0, press: false, dL: 0, forceL: NaN };
+  return { has: false, x: 0, y: 0, z: 0, turnX: 0, turnY: 0, press: false, dL: 0, forceL: NaN };
 }
 
 export class Arc {
@@ -40,9 +45,11 @@ export class Arc {
   v = 0;
   dir = 1;
   x = 0;
+  y = 0;
   z = 0;
   scratch = 0;
   lastX = 0;
+  lastY = 0;
   lastZ = 0;
   hadPos = false;
   rip = 0;
@@ -87,6 +94,11 @@ export class Bench {
   prevPress = false;
   /** Increments whenever the bead geometry changes (new ripple, hole, chip) so the view can skip work. */
   rev = 0;
+  /** How the part is turned on the bench (part-local → bench frame), and where it is being turned to. */
+  rot: Q = qIdent();
+  rotT: Q | null = null;
+  /** The last press was refused because the joint faces away (one event per press). */
+  reachWarned = false;
 
   constructor(id: BenchId) {
     this.id = id;
@@ -105,6 +117,10 @@ export class Bench {
     this.slagLeft = 1;
     this.arc = new Arc();
     this.timer = 0;
+    const r = part.rest ?? [0, 0, 0];
+    const k = Math.PI / 180;
+    this.rot = qEuler(r[0] * k, r[1] * k, r[2] * k);
+    this.rotT = null;
     this.rev++;
   }
 
@@ -134,15 +150,77 @@ export class Bench {
 
 const proj: Proj = { s: 0, d: 0, dist: 0, seam: -1 };
 const tmpP: Proj = { s: 0, d: 0, dist: 0, seam: -1 };
-const pt: SeamPoint = { x: 0, z: 0, tx: 1, tz: 0 };
+const pt = seamPoint();
+const v3: V3 = [0, 0, 0];
+const REACH: V3 = (() => {
+  const r = W.reachDir;
+  const l = Math.hypot(r[0], r[1], r[2]);
+  return [r[0] / l, r[1] / l, r[2] / l];
+})();
 
-/** Nearest joint to (x, z) across all seams; the current seam gets a small preference so crossings don't flip. */
-export function nearestSeam(b: Bench, x: number, z: number, prefer: number, out: Proj): void {
+/** How squarely the joint at s faces the welder: 1 = straight at him, 0 = edge-on, < 0 = turned away. */
+export function facing(b: Bench, seam: number, s: number): number {
+  const sr = b.seams[seam];
+  if (!sr) return 0;
+  sr.pointAt(s, pt);
+  qRot(b.rot, pt.nx, pt.ny, pt.nz, v3);
+  return v3[0] * REACH[0] + v3[1] * REACH[1] + v3[2] * REACH[2];
+}
+
+export function canReach(b: Bench, seam: number, s: number): boolean {
+  return facing(b, seam, s) >= W.reachMin;
+}
+
+/**
+ * Start turning the part so that the joint at s faces the welder, the way hands do it: spin it round on the
+ * bench, then tip it toward you if that's not enough. A seam marked `turn: 'roll'` (a ring round a spear,
+ * the underside of a handle) is rolled about the left-right axis instead.
+ */
+export function faceSeam(b: Bench, seam: number, s: number): void {
+  const sr = b.seams[seam];
+  if (!sr) return;
+  sr.pointAt(s, pt);
+  const n = qRot(b.rot, pt.nx, pt.ny, pt.nz, [0, 0, 0]);
+  const aimX = Math.atan2(REACH[1], REACH[2]);
+  let q: Q = qIdent();
+  if (sr.def.turn === 'roll' && Math.hypot(n[1], n[2]) > 0.45) {
+    q = qAxis(1, 0, 0, -(aimX - Math.atan2(n[1], n[2])));
+  } else {
+    const h = Math.hypot(n[0], n[2]);
+    if (h > 0.2) {
+      q = qAxis(0, 1, 0, -Math.atan2(n[0], n[2]));
+      n[0] = 0;
+      n[2] = h;
+    }
+    if (n[1] * REACH[1] + n[2] * REACH[2] < 0.55) q = qMul(qAxis(1, 0, 0, -(aimX - Math.atan2(n[1], n[2]))), q);
+  }
+  b.rotT = qNorm(qMul(q, b.rot));
+}
+
+/** Same, at once (scripts and tests). */
+export function snapFace(b: Bench, seam: number, s: number): void {
+  faceSeam(b, seam, s);
+  if (b.rotT) b.rot = b.rotT;
+  b.rotT = null;
+}
+
+/** Turn the part by hand (radians about the bench's x axis, then the vertical). */
+export function turnPart(b: Bench, ax: number, ay: number): void {
+  if (!ax && !ay) return;
+  b.rotT = null;
+  let q = b.rot;
+  if (ax) q = qMul(qAxis(1, 0, 0, ax), q);
+  if (ay) q = qMul(qAxis(0, 1, 0, ay), q);
+  b.rot = qNorm(q);
+}
+
+/** Nearest joint to (x, y, z) across all seams; the current seam gets a small preference so crossings don't flip. */
+export function nearestSeam(b: Bench, x: number, y: number, z: number, prefer: number, out: Proj): void {
   let best = Infinity;
   out.dist = Infinity;
   out.seam = -1;
   for (let i = 0; i < b.seams.length; i++) {
-    b.seams[i].project(x, z, tmpP);
+    b.seams[i].project(x, y, z, tmpP);
     const score = tmpP.dist - (i === prefer ? 3 : 0);
     if (score < best) {
       best = score;
@@ -168,6 +246,10 @@ export function stepBench(b: Bench, inp: TorchIn, ctx: WeldCtx): void {
   const dt = ctx.dt;
   for (let i = 0; i < b.seams.length; i++) b.seams[i].stepHeat(dt, W.cool, W.diffuse);
   if (b.hammerCd > 0) b.hammerCd -= dt;
+  if (b.stage !== 'empty') {
+    if (inp.turnX || inp.turnY) turnPart(b, inp.turnX, inp.turnY);
+    else if (b.rotT && qTurnToward(b.rot, b.rotT, W.turnRate * dt)) b.rotT = null;
+  }
 
   switch (b.stage) {
     case 'weld':
@@ -209,6 +291,7 @@ function stepWeld(b: Bench, inp: TorchIn, ctx: WeldCtx): void {
     return;
   }
 
+  if (!inp.press) b.reachWarned = false;
   if (!inp.press || !inp.has) {
     if (a.lit) extinguish(b, inp.press ? 'off' : 'release', ctx);
     a.scratch = 0;
@@ -217,11 +300,13 @@ function stepWeld(b: Bench, inp: TorchIn, ctx: WeldCtx): void {
     return;
   }
 
-  const moved = a.hadPos ? Math.hypot(inp.x - a.lastX, inp.z - a.lastZ) : 0;
+  const moved = a.hadPos ? Math.hypot(inp.x - a.lastX, inp.y - a.lastY, inp.z - a.lastZ) : 0;
   a.lastX = inp.x;
+  a.lastY = inp.y;
   a.lastZ = inp.z;
   a.hadPos = true;
   a.x = inp.x;
+  a.y = inp.y;
   a.z = inp.z;
 
   if (!a.lit) {
@@ -232,9 +317,18 @@ function stepWeld(b: Bench, inp: TorchIn, ctx: WeldCtx): void {
       }
       return;
     }
-    nearestSeam(b, inp.x, inp.z, a.seam, proj);
+    nearestSeam(b, inp.x, inp.y, inp.z, a.seam, proj);
     if (proj.seam < 0 || proj.dist > W.strikeRadius) {
       a.scratch = 0;
+      return;
+    }
+    // A joint that faces away can't be reached with the rod: the part has to be turned first.
+    if (!canReach(b, proj.seam, proj.s)) {
+      a.scratch = 0;
+      if (!b.reachWarned) {
+        b.reachWarned = true;
+        ctx.bus.emit('cantReach', { bench: b.id, seam: proj.seam });
+      }
       return;
     }
     const sr = b.seams[proj.seam];
@@ -249,7 +343,7 @@ function stepWeld(b: Bench, inp: TorchIn, ctx: WeldCtx): void {
       a.v = 0;
       a.rip = 0;
       a.litTime = 0;
-      ctx.bus.emit('arcStrike', { bench: b.id, x: inp.x, z: inp.z });
+      ctx.bus.emit('arcStrike', { bench: b.id, x: inp.x, y: inp.y, z: inp.z });
     }
     return;
   }
@@ -292,8 +386,13 @@ function stepWeld(b: Bench, inp: TorchIn, ctx: WeldCtx): void {
     return;
   }
 
-  nearestSeam(b, inp.x, inp.z, a.seam, proj);
+  nearestSeam(b, inp.x, inp.y, inp.z, a.seam, proj);
   const onSeam = proj.seam >= 0 && proj.dist <= W.captureMM;
+  // Turned away mid-run (round a ring, or the part was turned): the rod can't follow.
+  if (onSeam && facing(b, proj.seam, proj.s) < W.reachMin - 0.08) {
+    extinguish(b, 'reach', ctx);
+    return;
+  }
   a.onSeam = onSeam;
 
   const L = a.L;
@@ -306,8 +405,8 @@ function stepWeld(b: Bench, inp: TorchIn, ctx: WeldCtx): void {
     a.v += (0 - a.v) * (1 - Math.exp(-dt / W.speedTau));
     a.pool = 0;
     // Spatter sticks where the arc wanders.
-    if (b.seams.length && ctx.spatter.chance(a.spatterRate * BALANCE.spatter.stickChance * dt)) {
-      b.seams[0].addSpatter(inp.x + ctx.spatter.signed() * 12, inp.z + ctx.spatter.signed() * 12);
+    if (proj.seam >= 0 && proj.dist < 40 && ctx.spatter.chance(a.spatterRate * BALANCE.spatter.stickChance * dt)) {
+      b.seams[proj.seam].addSpatter(proj.s + ctx.spatter.signed() * 12, Math.max(-30, Math.min(30, proj.d + ctx.spatter.signed() * 12)));
       b.rev++;
     }
     return;
@@ -315,7 +414,7 @@ function stepWeld(b: Bench, inp: TorchIn, ctx: WeldCtx): void {
 
   const sr = b.seams[proj.seam];
   let ds = 0;
-  if (proj.seam === a.seam) ds = proj.s - a.s;
+  if (proj.seam === a.seam) ds = sr.delta(a.s, proj.s);
   else a.seam = proj.seam;
   if (Math.abs(ds) > 30) ds = 0; // jumped across a corner or onto another stretch
   const inst = Math.abs(ds) / dt;
@@ -330,8 +429,8 @@ function stepWeld(b: Bench, inp: TorchIn, ctx: WeldCtx): void {
   const depEff = 1 - 0.08 * Math.max(0, L - 3.4);
   const depRate = W.deposit * W.vIdeal * I * depEff;
   const off = Math.exp(-(proj.d * proj.d) / (2 * W.lateralSigma * W.lateralSigma));
-  const s0 = ds !== 0 ? a.s : proj.s;
   const s1 = proj.s;
+  const s0 = ds !== 0 ? s1 - ds : s1;
   const k = Math.max(1, Math.min(10, Math.ceil(Math.abs(s1 - s0) / 1.5)));
   const adev = Math.abs(proj.d);
   for (let j = 0; j < k; j++) {
@@ -345,8 +444,12 @@ function stepWeld(b: Bench, inp: TorchIn, ctx: WeldCtx): void {
   if (sr.maxHeat < sr.heat[sr.cellAt(s1)]) sr.maxHeat = sr.heat[sr.cellAt(s1)];
   // Fusion: the hottest the joint got under the filler (off-centre arcs heat the joint less).
   {
-    const ca = Math.max(0, sr.cellAt(Math.min(s0, s1)) - 3), cb = Math.min(sr.n - 1, sr.cellAt(Math.max(s0, s1)) + 3);
-    for (let c = ca; c <= cb; c++) if (sr.metal[c] > 0.05 && sr.heat[c] > sr.peak[c]) sr.peak[c] = sr.heat[c];
+    const ca = sr.cellAt(Math.min(s0, s1)) - 3, cb = sr.cellAt(Math.max(s0, s1)) + 3;
+    for (let cc = ca; cc <= cb; cc++) {
+      const c = sr.closed ? ((cc % sr.n) + sr.n) % sr.n : cc;
+      if (c < 0 || c >= sr.n) continue;
+      if (sr.metal[c] > 0.05 && sr.heat[c] > sr.peak[c]) sr.peak[c] = sr.heat[c];
+    }
   }
   a.s = proj.s;
   a.d = proj.d;
@@ -354,13 +457,14 @@ function stepWeld(b: Bench, inp: TorchIn, ctx: WeldCtx): void {
   a.pool = sr.heat[cHere];
 
   // Burn-through.
-  const c0 = Math.max(0, cHere - 4), c1 = Math.min(sr.n - 1, cHere + 4);
-  for (let c = c0; c <= c1; c++) {
+  for (let cc = cHere - 4; cc <= cHere + 4; cc++) {
+    const c = sr.closed ? ((cc % sr.n) + sr.n) % sr.n : cc;
+    if (c < 0 || c >= sr.n) continue;
     if (!sr.hole[c] && sr.heat[c] > part.burn) {
       sr.hole[c] = 1;
       b.rev++;
       sr.pointAt((c + 0.5) * sr.cell, pt);
-      ctx.bus.emit('burnThrough', { bench: b.id, seam: proj.seam, s: (c + 0.5) * sr.cell, x: pt.x, z: pt.z });
+      ctx.bus.emit('burnThrough', { bench: b.id, seam: proj.seam, s: (c + 0.5) * sr.cell, x: pt.x, y: pt.y, z: pt.z });
     }
   }
 
@@ -401,8 +505,7 @@ function stepWeld(b: Bench, inp: TorchIn, ctx: WeldCtx): void {
   if (ctx.spatter.chance(a.spatterRate * BALANCE.spatter.stickChance * dt)) {
     const r = 5 + ctx.spatter.next() * (12 + longX * 8);
     const ang = ctx.spatter.next() * Math.PI * 2;
-    sr.pointAt(a.s, pt);
-    sr.addSpatter(pt.x + Math.cos(ang) * r, pt.z + Math.sin(ang) * r);
+    sr.addSpatter(a.s + Math.cos(ang) * r, Math.sin(ang) * r);
     b.rev++;
   }
 
@@ -434,9 +537,9 @@ function checkDone(b: Bench, ctx: WeldCtx): void {
 function hammer(b: Bench, inp: TorchIn, ctx: WeldCtx): void {
   if (b.hammerCd > 0 || !inp.has) return;
   b.hammerCd = BALANCE.chip.cooldown;
-  nearestSeam(b, inp.x, inp.z, -1, proj);
+  nearestSeam(b, inp.x, inp.y, inp.z, -1, proj);
   if (proj.seam < 0 || proj.dist > BALANCE.chip.radius) {
-    ctx.bus.emit('hammerMiss', { bench: b.id, x: inp.x, z: inp.z, onMetal: true });
+    ctx.bus.emit('hammerMiss', { bench: b.id, x: inp.x, y: inp.y, z: inp.z, onMetal: true });
     return;
   }
   const sr = b.seams[proj.seam];
@@ -444,18 +547,21 @@ function hammer(b: Bench, inp: TorchIn, ctx: WeldCtx): void {
   const ease = 0.7 + 0.8 * b.quality;
   const a = ctx.weld.range(BALANCE.chip.chunkMin, BALANCE.chip.chunkMax) * ease;
   const c = ctx.weld.range(BALANCE.chip.chunkMin, BALANCE.chip.chunkMax) * ease;
-  const s0 = Math.max(0, proj.s - a), s1 = Math.min(sr.len, proj.s + c);
+  const s0 = sr.closed ? proj.s - a : Math.max(0, proj.s - a);
+  const s1 = sr.closed ? proj.s + c : Math.min(sr.len, proj.s + c);
   let amount = 0;
-  for (let i = sr.cellAt(s0); i <= sr.cellAt(s1); i++) {
+  const i0 = Math.floor(s0 / sr.cell), i1 = Math.floor(s1 / sr.cell);
+  for (let ii = i0; ii <= i1; ii++) {
+    const i = sr.closed ? ((ii % sr.n) + sr.n) % sr.n : Math.min(sr.n - 1, Math.max(0, ii));
     amount += sr.slag[i];
     sr.slag[i] = 0;
   }
   if (amount <= 0) {
-    ctx.bus.emit('hammerMiss', { bench: b.id, x: inp.x, z: inp.z, onMetal: true });
+    ctx.bus.emit('hammerMiss', { bench: b.id, x: inp.x, y: inp.y, z: inp.z, onMetal: true });
     return;
   }
   b.rev++;
-  ctx.bus.emit('slagChip', { bench: b.id, seam: proj.seam, s0, s1, x: inp.x, z: inp.z, amount });
+  ctx.bus.emit('slagChip', { bench: b.id, seam: proj.seam, s0, s1, x: inp.x, y: inp.y, z: inp.z, amount });
   let left = 0;
   for (const s of b.seams) left += s.slagTotal();
   b.slagLeft = left / b.slag0;

@@ -1,6 +1,7 @@
 import { BALANCE } from '../data/balance';
 import type { Game } from './game';
-import type { SeamPoint } from './seam';
+import { seamPoint } from './seam';
+import { canReach } from './weld';
 
 /**
  * What to highlight next and which short hint to show beside it. No menus, no tutorial text walls:
@@ -11,16 +12,18 @@ export interface Guide {
   hint: string;
   /** Anchor on the part (mm) when the target is on the part. */
   x: number;
+  y: number;
   z: number;
   seam: number;
 }
 
-const pt: SeamPoint = { x: 0, z: 0, tx: 1, tz: 0 };
+const pt = seamPoint();
 
 export function computeGuide(g: Game, out: Guide): Guide {
   out.target = '';
   out.hint = '';
   out.x = 0;
+  out.y = 0;
   out.z = 0;
   out.seam = -1;
   if (!g.started || g.showEnd) return out;
@@ -71,16 +74,27 @@ export function computeGuide(g: Game, out: Guide): Guide {
         out.hint = 'maskUp';
         return out;
       }
-      // Point at the first unwelded stretch.
+      // Point at the first unwelded stretch, preferring one that faces you already.
+      const order: number[] = [];
       for (let i = 0; i < b.seams.length; i++) {
+        const sr = b.seams[i];
+        const gap = sr.firstGap(BALANCE.weld.fillMin);
+        if (gap >= 0 && canReach(b, i, sr.count > 0 ? gap : sr.closed ? 0 : Math.min(sr.len, 3))) order.push(i);
+      }
+      for (let i = 0; i < b.seams.length; i++) if (!order.includes(i)) order.push(i);
+      for (const i of order) {
         const sr = b.seams[i];
         const gap = sr.firstGap(BALANCE.weld.fillMin);
         if (gap < 0) continue;
         const anyMetal = sr.count > 0;
-        sr.pointAt(anyMetal ? gap : 0, pt);
+        const at = anyMetal ? gap : sr.closed ? 0 : Math.min(sr.len, 3);
+        sr.pointAt(at, pt);
         out.target = 'seam';
-        out.hint = early ? (anyMetal ? 'gap' : 'strike') : '';
+        // A joint that faces away has to be turned to first.
+        const reach = canReach(b, i, at) || (sr.len > 40 && canReach(b, i, Math.min(sr.len, at + 20)));
+        out.hint = !reach ? (learning || c.reachMiss > 0 ? 'turn' : '') : early ? (anyMetal ? 'gap' : 'strike') : '';
         out.x = pt.x;
+        out.y = pt.y;
         out.z = pt.z;
         out.seam = i;
         return out;
@@ -101,6 +115,7 @@ export function computeGuide(g: Game, out: Guide): Guide {
           if (sr.slag[k] > 0) {
             sr.pointAt((k + 0.5) * sr.cell, pt);
             out.x = pt.x;
+            out.y = pt.y;
             out.z = pt.z;
             out.seam = i;
             return out;

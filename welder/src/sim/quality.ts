@@ -17,7 +17,7 @@ export function seamQuality(sr: SeamRun, thick = 1): number {
   const mI = (W.deposit * W.vIdeal) / idealSpeed(thick, 1);
   let sum = 0;
   let cnt = 0;
-  for (let c = SeamRun.EDGE; c < sr.n - SeamRun.EDGE; c++) {
+  for (let c = sr.edge; c < sr.n - sr.edge; c++) {
     cnt++;
     if (sr.hole[c]) continue;
     const m = sr.metal[c];
@@ -36,7 +36,7 @@ export function seamQuality(sr: SeamRun, thick = 1): number {
     let ms = 0, n = 0;
     const sp = new Float32Array(sr.count);
     for (let i = 1; i < sr.count; i++) {
-      const d = Math.abs(sr.rS[i] - sr.rS[i - 1]);
+      const d = Math.abs(sr.delta(sr.rS[i - 1], sr.rS[i]));
       if (d < 8) {
         sp[n++] = d;
         ms += d;

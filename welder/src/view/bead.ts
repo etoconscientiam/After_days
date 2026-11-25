@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import type { SeamRun, SeamPoint } from '../sim/seam';
+import type { SeamRun } from '../sim/seam';
+import { seamPoint } from '../sim/seam';
 import { F_COLD, F_HOT, F_LONG, F_PORE, F_BACK, F_OFF } from '../sim/seam';
 import { SKIN } from '../skin/default';
 
@@ -58,7 +59,8 @@ export class BeadView {
   private hiMat: THREE.MeshBasicMaterial;
   private hi: THREE.Mesh[] = [];
   private src: BeadSource | null = null;
-  private heightAt: (x: number, z: number) => number = () => 0;
+  /** Moves a point (part-local mm) along -n onto the part's surface; used for spatter on curved parts. */
+  private snap: (p: THREE.Vector3, n: THREE.Vector3) => void = () => {};
   private rev = -1;
   private stage = '';
   readonly glowK = { value: SKIN.glow.k };
@@ -68,9 +70,12 @@ export class BeadView {
   private tmpP = new THREE.Vector3();
   private tmpS = new THREE.Vector3();
   private tmpC = new THREE.Color();
-  private up = new THREE.Vector3(0, 1, 0);
   private side = new THREE.Vector3(0, 0, 1);
-  private pt: SeamPoint = { x: 0, z: 0, tx: 1, tz: 0 };
+  private pt = seamPoint();
+  private ax = new THREE.Vector3();
+  private ay = new THREE.Vector3();
+  private az = new THREE.Vector3();
+  private nv = new THREE.Vector3();
   private metal = new THREE.Color(SKIN.palette.bead);
   private slag = new THREE.Color(SKIN.palette.slag);
   private straw = new THREE.Color('#9a7a4a');
@@ -117,12 +122,12 @@ export class BeadView {
     this.pores.count = 0;
     this.pores.frustumCulled = false;
 
-    this.grooveMat = new THREE.MeshBasicMaterial({ color: '#050403' });
-    this.hiMat = new THREE.MeshBasicMaterial({ color: '#c89a70', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
+    this.grooveMat = new THREE.MeshBasicMaterial({ color: '#050403', side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    this.hiMat = new THREE.MeshBasicMaterial({ color: '#c89a70', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
     this.group.add(this.ripples, this.holes, this.dots, this.pores);
   }
 
-  attach(src: BeadSource | null, heightAt: (x: number, z: number) => number): void {
+  attach(src: BeadSource | null, snap: (p: THREE.Vector3, n: THREE.Vector3) => void = () => {}): void {
     for (const g of this.grooves) {
       this.group.remove(g);
       g.geometry.dispose();
@@ -134,33 +139,33 @@ export class BeadView {
     this.grooves = [];
     this.hi = [];
     this.src = src;
-    this.heightAt = heightAt;
+    this.snap = snap;
     this.rev = -1;
     this.ripples.count = this.holes.count = this.dots.count = this.pores.count = 0;
     if (!src) return;
     for (const sr of src.seams) {
-      const g = new THREE.Mesh(this.ribbon(sr, 2.4, 0.12), this.grooveMat);
+      const g = new THREE.Mesh(this.ribbon(sr, 2.2, 0.5), this.grooveMat);
       g.renderOrder = 1;
       this.grooves.push(g);
       this.group.add(g);
-      const h = new THREE.Mesh(this.ribbon(sr, 5, 0.25), this.hiMat);
+      const h = new THREE.Mesh(this.ribbon(sr, 5, 0.8), this.hiMat);
       h.renderOrder = 2;
       this.hi.push(h);
       this.group.add(h);
     }
   }
 
-  /** Thin strip along the joint (the crack or gap to be welded). */
+  /** Thin strip along the joint (the crack or gap to be welded), lifted off the surface along its normal. */
   private ribbon(sr: SeamRun, width: number, lift: number): THREE.BufferGeometry {
     const n = Math.max(2, Math.ceil(sr.len / 2));
     const pos: number[] = [];
     const idx: number[] = [];
+    const p = this.pt;
     for (let i = 0; i <= n; i++) {
-      sr.pointAt((sr.len * i) / n, this.pt);
-      const nx = -this.pt.tz, nz = this.pt.tx;
-      for (const s of [-1, 1]) {
-        const x = this.pt.x + nx * s * width * 0.5, z = this.pt.z + nz * s * width * 0.5;
-        pos.push(x * MM, (this.heightAt(x, z) + lift) * MM, z * MM);
+      sr.pointAt((sr.len * i) / n - (sr.closed && i === n ? 0.001 : 0), p);
+      for (const k of [-1, 1]) {
+        const w = k * width * 0.5;
+        pos.push((p.x + p.bx * w + p.nx * lift) * MM, (p.y + p.by * w + p.ny * lift) * MM, (p.z + p.bz * w + p.nz * lift) * MM);
       }
       if (i < n) idx.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
     }
@@ -187,16 +192,26 @@ export class BeadView {
     this.updateGlow();
   }
 
+  /** Orientation of a ripple: x along travel, y out of the joint, z across. */
+  private frame(dir: number, Q: THREE.Quaternion): THREE.Quaternion {
+    const p = this.pt;
+    this.ax.set(p.tx * dir, p.ty * dir, p.tz * dir);
+    this.ay.set(p.nx, p.ny, p.nz);
+    this.az.crossVectors(this.ax, this.ay);
+    this.tmpM.makeBasis(this.ax, this.ay, this.az);
+    return Q.setFromRotationMatrix(this.tmpM);
+  }
+
   private rebuild(): void {
     const src = this.src!;
     let k = 0, kh = 0, kd = 0, kp = 0;
     const M = this.tmpM, P = this.tmpP, S = this.tmpS, Q = this.tmpQ, C = this.tmpC;
+    const p = this.pt;
     this.ranges.length = 0;
     for (const sr of src.seams) {
       const start = k;
       for (let i = 0; i < sr.count && k < CAP; i++, k++) {
-        sr.pointAt(sr.rS[i], this.pt);
-        const tx = this.pt.tx, tz = this.pt.tz;
+        sr.pointAt(sr.rS[i], p);
         const d = sr.rD[i];
         const f = sr.rF[i];
         const dir = f & F_BACK ? -1 : 1;
@@ -204,10 +219,13 @@ export class BeadView {
         const c = sr.cellAt(sr.rS[i]);
         const slag = sr.slag[c];
         const len = Math.max(1.4, Math.min(w * 0.5, 2.2 + sr.rV[i] * 0.09));
-        const x = this.pt.x - tz * d - tx * dir * len * 0.35;
-        const z = this.pt.z + tx * d - tz * dir * len * 0.35;
-        P.set(x * MM, (this.heightAt(x, z) - h * 0.15) * MM, z * MM);
-        Q.setFromAxisAngle(this.up, Math.atan2(-tz * dir, tx * dir));
+        const back = -dir * len * 0.35, sink = -h * 0.15;
+        P.set(
+          (p.x + p.bx * d + p.tx * back + p.nx * sink) * MM,
+          (p.y + p.by * d + p.ty * back + p.ny * sink) * MM,
+          (p.z + p.bz * d + p.tz * back + p.nz * sink) * MM,
+        );
+        this.frame(dir, Q);
         this.tmpQ2.setFromAxisAngle(this.side, 0.22);
         Q.multiply(this.tmpQ2);
         const hs = slag > 0 ? 1.25 : 1;
@@ -226,12 +244,12 @@ export class BeadView {
         }
         this.ripples.setColorAt(k, C);
         if (f & F_PORE && slag === 0 && kp < 400) {
-          const px = this.pt.x - tz * (d + (hash(i, 3) - 0.5) * w * 0.4);
-          const pz = this.pt.z + tx * (d + (hash(i, 3) - 0.5) * w * 0.4);
-          P.set(px * MM, (this.heightAt(px, pz) + h * 0.75) * MM, pz * MM);
+          const dd = d + (hash(i, 3) - 0.5) * w * 0.4;
+          const up = h * 0.75;
+          P.set((p.x + p.bx * dd + p.nx * up) * MM, (p.y + p.by * dd + p.ny * up) * MM, (p.z + p.bz * dd + p.nz * up) * MM);
           const r = 0.5 + 0.5 * hash(i, 4);
           S.set(r * MM, 1, r * MM);
-          M.compose(P, this.tmpQ.identity(), S);
+          M.compose(P, this.frame(1, this.tmpQ2), S);
           this.pores.setMatrixAt(kp++, M);
         }
         void (f & F_OFF);
@@ -239,16 +257,20 @@ export class BeadView {
       this.ranges.push([start, k]);
       for (let c = 0; c < sr.n && kh < 256; c++) {
         if (!sr.hole[c]) continue;
-        sr.pointAt((c + 0.5) * sr.cell, this.pt);
-        P.set(this.pt.x * MM, (this.heightAt(this.pt.x, this.pt.z) + 2.2) * MM, this.pt.z * MM);
+        sr.pointAt((c + 0.5) * sr.cell, p);
+        P.set((p.x + p.nx * 2.2) * MM, (p.y + p.ny * 2.2) * MM, (p.z + p.nz * 2.2) * MM);
         const r = 2.2 + 1.4 * hash(c, 5);
         S.set(r * MM, 1, r * MM * 0.8);
-        M.compose(P, this.tmpQ.setFromAxisAngle(this.up, Math.atan2(-this.pt.tz, this.pt.tx)), S);
+        M.compose(P, this.frame(1, this.tmpQ2), S);
         this.holes.setMatrixAt(kh++, M);
       }
       for (let i = 0; i < sr.spN && kd < 400; i++) {
-        const x = sr.spX[i], z = sr.spZ[i];
-        P.set(x * MM, (this.heightAt(x, z) + 0.4) * MM, z * MM);
+        sr.pointAt(sr.spS[i], p);
+        const d = sr.spD[i];
+        P.set(p.x + p.bx * d, p.y + p.by * d, p.z + p.bz * d);
+        this.nv.set(p.nx, p.ny, p.nz);
+        this.snap(P, this.nv);
+        P.addScaledVector(this.nv, 0.4).multiplyScalar(MM);
         const r = 0.5 + 0.7 * hash(i, 6);
         S.set(r * MM, r * 0.7 * MM, r * MM);
         M.compose(P, this.tmpQ.identity(), S);

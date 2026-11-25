@@ -15,12 +15,13 @@ import { CameraRig } from './camera';
 import { UI } from './ui';
 import { Rng } from '../core/rng';
 import { t } from '../i18n';
-import type { SeamPoint } from '../sim/seam';
+import { seamPoint } from '../sim/seam';
 
 /** Part-local units are millimetres; inside partRoot one unit of geometry is a metre. */
 const MM = 0.001;
 /** Things you click instead of welding on them. */
 const TOOLS_OF_THE_ROOM = new Set(['pile', 'board', 'electrodes', 'door', 'done']);
+const Y_UP = new THREE.Vector3(0, 1, 0);
 
 /**
  * Everything the player sees, from one station at the bench (Dish Pit style). Reads sim state each frame,
@@ -49,7 +50,10 @@ export class View {
   private suppress = false;
   private wheelAcc = 0;
   private dL = 0;
-  private keys = { up: false, down: false, left: false, right: false };
+  /** Keys held down, by code. */
+  private held = new Set<string>();
+  /** Turning the job by right-drag, radians accumulated since the last sim step. */
+  private turn = { x: 0, y: 0 };
   /** Called on every footstep (for the sound). */
   onStep: () => void = () => {};
   private stepT = 0;
@@ -65,11 +69,24 @@ export class View {
   private cssH = 1;
   private scale = 1;
   private lastPartTip = new THREE.Vector3();
+  private lastSurf = new THREE.Vector3();
+  private v3q = new THREE.Quaternion();
   private v3 = new THREE.Vector3();
   private v3b = new THREE.Vector3();
   private v3c = new THREE.Vector3();
   private v3d = new THREE.Vector3();
-  private pt: SeamPoint = { x: 0, z: 0, tx: 1, tz: 0 };
+  private pt = seamPoint();
+  /** Where the cursor lands on the job (world) and the surface normal there. */
+  private surfW = new THREE.Vector3();
+  private normW = new THREE.Vector3(0, 1, 0);
+  /** Last turn of the job applied to partRoot, and what was worked out from it. */
+  private rotKey = '';
+  private rotStill = 0;
+  private lift = 0;
+  private hmap = { ok: false, x0: 0, z0: 0, dx: 1, dz: 1, h: new Float32Array(16 * 16) };
+  private grip = new THREE.Vector3();
+  private box = new THREE.Box3();
+  private q3 = new THREE.Quaternion();
   private endSrc: BeadSource | null = null;
   private lastMask = false;
   private lastCam = '';
@@ -86,11 +103,13 @@ export class View {
 
   /** Where particles land: the job, the bench top, or the floor. */
   private floorAt = (x: number, z: number): number => {
-    const part = this.part;
-    if (part) {
-      this.v3d.set(x, BENCH.y, z);
-      this.w2p(this.v3d, this.v3d);
-      if (Math.abs(this.v3d.x) < part.half[0] && Math.abs(this.v3d.z) < part.half[1]) return BENCH.y + part.heightAt(this.v3d.x, this.v3d.z) * MM * this.S;
+    const m = this.hmap;
+    if (this.part && m.ok) {
+      const i = Math.floor((x - m.x0) / m.dx), j = Math.floor((z - m.z0) / m.dz);
+      if (i >= 0 && i < 16 && j >= 0 && j < 16) {
+        const h = m.h[j * 16 + i];
+        if (h > -1) return h;
+      }
     }
     return this.ws.floorAt(x, z);
   };
@@ -160,6 +179,12 @@ export class View {
         this.mouseMoved = true;
         return;
       }
+      // At the bench: right-drag turns the job in the hands.
+      if (this.rig.mode !== 'walk' && e.buttons & 2 && this.part) {
+        this.turn.y += e.movementX * 0.012;
+        this.turn.x += e.movementY * 0.012;
+        return;
+      }
       pos(e);
     });
     document.addEventListener('pointerlockchange', () => (this.locked = document.pointerLockElement === c));
@@ -176,6 +201,11 @@ export class View {
         return;
       }
       c.setPointerCapture(e.pointerId);
+      if (e.button === 1) {
+        e.preventDefault();
+        this.game.queue({ type: 'faceNext' });
+        return;
+      }
       if (e.button !== 0) return;
       this.lmb = true;
       this.latch = true;
@@ -208,11 +238,13 @@ export class View {
       if (e.code === 'Space') {
         e.preventDefault();
         if (!e.repeat) this.game.queue({ type: 'mask' });
-      } else if (e.code === 'KeyW' || e.code === 'ArrowUp') this.keys.up = true;
-      else if (e.code === 'KeyS' || e.code === 'ArrowDown') this.keys.down = true;
-      else if (e.code === 'KeyA' || e.code === 'ArrowLeft') this.keys.left = true;
-      else if (e.code === 'KeyD' || e.code === 'ArrowRight') this.keys.right = true;
-      else if (e.code === 'KeyR') this.game.queue({ type: 'newElectrode' });
+      } else if (e.code === 'Tab') {
+        e.preventDefault();
+        if (!e.repeat && this.rig.mode !== 'walk') this.game.queue({ type: 'faceNext' });
+      } else if (/^(Key[WASD]|Arrow)/.test(e.code)) {
+        this.held.add(e.code);
+        if (e.code.startsWith('Arrow')) e.preventDefault();
+      } else if (e.code === 'KeyR') this.game.queue({ type: 'newElectrode' });
       else if (e.code === 'KeyE' && !e.repeat) {
         if (this.ui.boardOpen) this.ui.closeBoard();
         else if (this.rig.mode === 'station' || this.rig.mode === 'inspect') this.leaveBench();
@@ -220,12 +252,9 @@ export class View {
       } else if (e.code === 'Escape' && this.ui.boardOpen) this.ui.closeBoard();
     });
     addEventListener('keyup', (e) => {
-      if (e.code === 'KeyW' || e.code === 'ArrowUp') this.keys.up = false;
-      if (e.code === 'KeyS' || e.code === 'ArrowDown') this.keys.down = false;
-      if (e.code === 'KeyA' || e.code === 'ArrowLeft') this.keys.left = false;
-      if (e.code === 'KeyD' || e.code === 'ArrowRight') this.keys.right = false;
+      this.held.delete(e.code);
     });
-    addEventListener('blur', () => (this.keys.up = this.keys.down = this.keys.left = this.keys.right = false));
+    addEventListener('blur', () => this.held.clear());
   }
 
   private lockPointer(): void {
@@ -341,22 +370,54 @@ export class View {
     return '';
   }
 
-  /** Mouse → part-local millimetres on the job's surface. */
+  /**
+   * Mouse → part-local millimetres on the job's surface. Off the metal (a thin rod, an edge), the joint nearest
+   * on screen catches the cursor in the plane it faces, so thin seams can still be followed.
+   */
   private aimOnPart(out: TorchIn): void {
     out.has = false;
     if (!this.part || !this.mouse.in) return;
     this.setRay();
     this.hits.length = 0;
-    const hits = this.ray.intersectObject(this.part.group, true, this.hits);
-    let p: THREE.Vector3 | null = hits.length ? hits[0].point : null;
-    if (!p) {
-      this.plane.constant = -(BENCH.y + this.part.top * 0.6 * MM * this.S);
-      p = this.ray.ray.intersectPlane(this.plane, this.v3) ?? null;
+    const hits = this.ray.intersectObjects(this.part.meshes, false, this.hits);
+    if (hits.length) {
+      const h = hits[0];
+      this.surfW.copy(h.point);
+      if (h.face) this.normW.copy(h.face.normal).transformDirection(h.object.matrixWorld);
+      if (this.normW.dot(this.ray.ray.direction) > 0) this.normW.negate();
+      this.w2p(h.point, this.v3b);
+      out.has = true;
+      out.x = this.v3b.x;
+      out.y = this.v3b.y;
+      out.z = this.v3b.z;
+      return;
     }
-    if (!p) return;
-    this.w2p(p, this.v3b);
+    const b = this.game.player;
+    let best = 0.07, bs = -1, bseam = -1;
+    const cam = this.rig.cam;
+    for (let i = 0; i < b.seams.length; i++) {
+      const sr = b.seams[i];
+      for (let s = 0; s <= sr.len; s += 3) {
+        sr.pointAt(s, this.pt);
+        this.p2w(this.pt.x, this.pt.y, this.pt.z, this.v3).project(cam);
+        const d = Math.hypot(this.v3.x - this.ndc.x, (this.v3.y - this.ndc.y) * 0.56);
+        if (d < best) {
+          best = d;
+          bs = s;
+          bseam = i;
+        }
+      }
+    }
+    if (bseam < 0) return;
+    const p = b.seams[bseam].pointAt(bs, this.pt);
+    this.p2w(p.x, p.y, p.z, this.v3);
+    this.normW.set(p.nx, p.ny, p.nz).transformDirection(this.partRoot.matrixWorld);
+    this.plane.setFromNormalAndCoplanarPoint(this.normW, this.v3);
+    if (!this.ray.ray.intersectPlane(this.plane, this.surfW)) return;
+    this.w2p(this.surfW, this.v3b);
     out.has = true;
     out.x = this.v3b.x;
+    out.y = this.v3b.y;
     out.z = this.v3b.z;
   }
 
@@ -368,9 +429,14 @@ export class View {
     else tr.has = false;
     tr.press = active && (this.lmb || this.latch) && !this.suppress && this.mouse.in;
     const kr = BALANCE.arc.keyRate * dt;
-    const atBench = this.rig.mode !== 'walk';
-    tr.dL = this.dL + (atBench && this.keys.up ? kr : 0) - (atBench && this.keys.down ? kr : 0);
+    const k = (c: string) => (this.held.has(c) ? 1 : 0);
+    tr.dL = this.dL + (active ? (k('ArrowUp') - k('ArrowDown')) * kr : 0);
     this.dL = 0;
+    // Turning the job: right-drag, A/D (also ←/→) about the vertical, W/S toward or away from you.
+    const kt = BALANCE.weld.keyTurn * dt;
+    tr.turnY = active && this.part ? this.turn.y + (k('KeyD') + k('ArrowRight') - k('KeyA') - k('ArrowLeft')) * kt : 0;
+    tr.turnX = active && this.part ? this.turn.x + (k('KeyS') - k('KeyW')) * kt : 0;
+    this.turn.x = this.turn.y = 0;
     tr.forceL = NaN;
     return tr;
   }
@@ -378,6 +444,7 @@ export class View {
   /** After the first sim step of a frame the one-shot part of the input is spent. */
   consumeOneShot(): void {
     this.torch.dL = 0;
+    this.torch.turnX = this.torch.turnY = 0;
     if (this.latch) {
       this.latch = false;
       this.torch.press = this.lmb && !this.suppress && this.torch.press;
@@ -415,7 +482,7 @@ export class View {
     b.on('orderTaken', (e) => {
       if (e.bench !== 'player') return;
       this.setPart(e.part);
-      this.bead.attach(g.player, this.part!.heightAt);
+      this.bead.attach(g.player, this.snapToPart);
       this.setCustomer(g.player.order?.customer ?? 'neighbour');
       this.ui.closeBoard();
       this.syncWorld();
@@ -441,7 +508,7 @@ export class View {
       if (e.bench !== 'player') return;
       this.tools.strike();
       this.shakeT = 0.09;
-      this.p2w(e.x, (this.part?.heightAt(e.x, e.z) ?? 0) + 2, e.z, this.v3);
+      this.p2w(e.x, e.y, e.z, this.v3).addScaledVector(this.normW, 2 * MM * this.S);
       this.fx.slag(this.v3.x, this.v3.y, this.v3.z, e.amount);
     });
     b.on('hammerMiss', (e) => {
@@ -453,12 +520,12 @@ export class View {
     b.on('burnThrough', (e) => {
       if (e.bench !== 'player') return;
       this.shakeT = 0.12;
-      this.p2w(e.x, (this.part?.heightAt(e.x, e.z) ?? 0) + 1, e.z, this.v3);
+      this.p2w(e.x, e.y, e.z, this.v3);
       this.fx.burst(this.v3.x, this.v3.y, this.v3.z);
     });
     b.on('arcStrike', (e) => {
       if (e.bench !== 'player') return;
-      this.p2w(e.x, (this.part?.heightAt(e.x, e.z) ?? 0) + 1, e.z, this.v3);
+      this.p2w(e.x, e.y, e.z, this.v3);
       this.fx.spatter(this.v3.x, this.v3.y, this.v3.z, 16, 0.4);
     });
     b.on('apprentice', (e) => {
@@ -473,7 +540,7 @@ export class View {
     b.on('finaleEnd', () => {
       // Keep the gate on the bench and show it with the player's seams.
       this.endSrc = { seams: g.finaleSeams ?? [], rev: 1, stage: 'ready' };
-      this.bead.attach(this.endSrc, this.part?.heightAt ?? (() => 0));
+      this.bead.attach(this.endSrc, this.snapToPart);
       this.rig.end(this.v3.copy(BENCH));
       const L = g.log;
       const avg = L.qualities.length ? L.qualities.reduce((a, q) => a + q, 0) / L.qualities.length : 0;
@@ -508,7 +575,7 @@ export class View {
     for (const s of b.seams) if (s.len > best.len) best = s;
     if (!best || !this.part) return;
     best.pointAt(best.len * 0.5, this.pt);
-    this.p2w(this.pt.x, this.part.heightAt(this.pt.x, this.pt.z), this.pt.z, this.v3);
+    this.p2w(this.pt.x, this.pt.y, this.pt.z, this.v3);
     this.rig.inspect(this.v3, 22);
     this.inspectT = BALANCE.chip.inspectTime;
   }
@@ -520,14 +587,92 @@ export class View {
     // Every job is drawn to fill the middle of the view.
     this.S = PART_SPAN / (def.frame * MM);
     this.partRoot.scale.setScalar(this.S);
-    this.partRoot.updateMatrixWorld(true);
     this.partRoot.add(this.part.group);
+    this.rotKey = '';
+    this.placePart(0);
   }
+
+  /**
+   * Follow the sim's turn of the job: orient partRoot, rest the lowest point on the bench, and once it has
+   * stopped turning, work out where sparks land on it and where the tongs grip it.
+   */
+  private placePart(dt: number): void {
+    if (!this.part) return;
+    const q = this.game.player.rot;
+    const key = q.map((v) => v.toFixed(4)).join();
+    if (key !== this.rotKey) {
+      this.rotKey = key;
+      this.rotStill = 0;
+      this.hmap.ok = false;
+      this.q3.set(q[0], q[1], q[2], q[3]);
+      const h = this.part.hull;
+      let minY = Infinity;
+      for (let i = 0; i < h.length; i += 3) {
+        const y = this.v3.set(h[i], h[i + 1], h[i + 2]).applyQuaternion(this.q3).y;
+        if (y < minY) minY = y;
+      }
+      this.lift = -minY;
+      this.partRoot.quaternion.copy(this.q3);
+      if (PART_ROT) this.partRoot.quaternion.premultiply(this.v3q.setFromAxisAngle(Y_UP, PART_ROT));
+      this.partRoot.position.copy(BENCH).add(this.v3.set(0, this.lift * MM * this.S, 0));
+      this.partRoot.updateMatrixWorld(true);
+      this.box.setFromObject(this.part.group);
+      this.grip.set(Math.max(this.box.min.x, BENCH.x - 0.34), (this.box.min.y + this.box.max.y) / 2, Math.min(this.box.max.z, BENCH.z + 0.06));
+      return;
+    }
+    this.rotStill += dt;
+    if (!this.hmap.ok && this.rotStill > 0.2) this.buildHeightMap();
+  }
+
+  private buildHeightMap(): void {
+    const m = this.hmap, b = this.box;
+    m.x0 = b.min.x;
+    m.z0 = b.min.z;
+    m.dx = Math.max(1e-4, (b.max.x - b.min.x) / 16);
+    m.dz = Math.max(1e-4, (b.max.z - b.min.z) / 16);
+    const rc = this.ray;
+    const far = rc.far;
+    rc.far = Infinity;
+    for (let j = 0; j < 16; j++)
+      for (let i = 0; i < 16; i++) {
+        rc.ray.origin.set(m.x0 + (i + 0.5) * m.dx, b.max.y + 0.05, m.z0 + (j + 0.5) * m.dz);
+        rc.ray.direction.set(0, -1, 0);
+        this.hits.length = 0;
+        const hit = rc.intersectObjects(this.part!.meshes, false, this.hits);
+        m.h[j * 16 + i] = hit.length ? hit[0].point.y : -2;
+      }
+    rc.far = far;
+    m.ok = true;
+    // Tongs: grip the leftmost metal at middle height.
+    rc.ray.origin.set(BENCH.x - 0.5, (b.min.y + b.max.y) / 2, BENCH.z + 0.02);
+    rc.ray.direction.set(1, 0, 0);
+    this.hits.length = 0;
+    const g = rc.intersectObjects(this.part!.meshes, false, this.hits);
+    if (g.length && g[0].point.x < BENCH.x) this.grip.copy(g[0].point);
+  }
+
+  /** Bead helper: slide a point (part-local mm) along -n onto the job's surface. */
+  private snapToPart = (p: THREE.Vector3, n: THREE.Vector3): void => {
+    if (!this.part) return;
+    const o = this.p2w(p.x + n.x * 20, p.y + n.y * 20, p.z + n.z * 20, this.v3d);
+    const d = this.v3c.set(n.x, n.y, n.z).transformDirection(this.partRoot.matrixWorld).negate();
+    const rc = this.ray;
+    rc.ray.origin.copy(o);
+    rc.ray.direction.copy(d);
+    const far = rc.far;
+    rc.far = 60 * MM * this.S;
+    this.hits.length = 0;
+    const h = rc.intersectObjects(this.part.meshes, false, this.hits);
+    rc.far = far;
+    if (h.length) this.w2p(h[0].point, p);
+  };
+
 
   private clearPart(): void {
     if (this.part) this.partRoot.remove(this.part.group);
     this.part = null;
-    this.bead.attach(null, () => 0);
+    this.hmap.ok = false;
+    this.bead.attach(null);
   }
 
   private setCustomer(id: string): void {
@@ -551,10 +696,18 @@ export class View {
     this.pileMesh = null;
     const o = this.game.pile;
     if (!o) return;
-    const pm = buildPart(this.game.data.parts[o.part], this.tx);
+    const def = this.game.data.parts[o.part];
+    const pm = buildPart(def, this.tx);
     pm.group.traverse((c) => (c.userData.pick = 'pile'));
-    pm.group.scale.setScalar(0.3 / (pm.half[0] * 2 * MM));
-    pm.group.position.y = 0;
+    const r = def.rest ?? [0, 0, 0];
+    const k = Math.PI / 180;
+    pm.group.rotation.set(r[0] * k, r[1] * k, r[2] * k);
+    pm.group.updateMatrixWorld(true);
+    const bb = new THREE.Box3().setFromObject(pm.group);
+    const size = Math.max(bb.max.x - bb.min.x, bb.max.z - bb.min.z, 1e-3);
+    const sc = 0.3 / size;
+    pm.group.scale.setScalar(sc);
+    pm.group.position.y = -bb.min.y * sc;
     this.pileMesh = pm.group;
     this.ws.pileSlot.add(pm.group);
   }
@@ -610,8 +763,13 @@ export class View {
     this.rig.turnable = !this.lmb && !a.lit && !this.ui.boardOpen;
     if (this.mouse.in && this.rig.mode !== 'walk') this.rig.setNudge((this.mouse.x / this.cssW) * 2 - 1);
     if (this.rig.mode === 'walk' && !this.ui.boardOpen) {
-      const k = this.keys;
-      const moved = this.rig.move((k.up ? 1 : 0) - (k.down ? 1 : 0), (k.right ? 1 : 0) - (k.left ? 1 : 0), dt, this.ws.blocked);
+      const k = (c: string) => (this.held.has(c) ? 1 : 0);
+      const moved = this.rig.move(
+        Math.min(1, k('KeyW') + k('ArrowUp')) - Math.min(1, k('KeyS') + k('ArrowDown')),
+        Math.min(1, k('KeyD') + k('ArrowRight')) - Math.min(1, k('KeyA') + k('ArrowLeft')),
+        dt,
+        this.ws.blocked,
+      );
       if (moved) {
         this.mouseMoved = true;
         this.stepT -= dt;
@@ -671,13 +829,14 @@ export class View {
     this.ws.customer.visible = b.stage !== 'empty';
 
     // The job, the hands and the arc.
+    this.placePart(dt);
     this.bead.update();
     const tip = this.v3c;
     if (this.part && this.torch.has) {
-      const surf = this.part.heightAt(this.torch.x, this.torch.z);
       const hover = b.stage === 'weld' ? (a.lit ? a.L * 1.4 : this.lmb ? 0.4 : 7) : 0;
-      this.p2w(this.torch.x, surf + hover, this.torch.z, tip);
+      tip.copy(this.surfW).addScaledVector(this.normW, hover * MM * S);
       this.lastPartTip.copy(tip);
+      this.lastSurf.copy(this.surfW);
     } else tip.copy(this.lastPartTip);
 
     const stage = b.stage;
@@ -689,7 +848,7 @@ export class View {
     if (this.part && stage === 'weld') this.tools.placeHolder(tip, this.rig.cam, b.swap > 0 ? 0 : b.electrode);
     else this.tools.placeHolder(this.restTip, this.rig.cam, b.electrode);
     if (chipping) this.tools.placeHammer(tip, this.rig.cam, dt);
-    if (this.part) this.tools.placeLeft(this.p2w(-this.part.half[0] * 0.92, this.part.heightAt(-this.part.half[0] * 0.92, 0) + 2, this.part.half[1] * 0.2, this.v3d), this.rig.cam);
+    if (this.part) this.tools.placeLeft(this.grip, this.rig.cam);
     else this.tools.placeLeft(this.restLeft, this.rig.cam);
 
     const lit = a.lit && !!this.part && stage === 'weld';
@@ -700,17 +859,17 @@ export class View {
     const arcLight = this.ws.lights.arc;
     let arcOn = 0;
     if (lit) {
-      const surfY = this.p2w(this.torch.x, this.part!.heightAt(this.torch.x, this.torch.z) + 0.3, this.torch.z, this.v3b).y;
+      const surf = this.lastSurf;
       const flick = 0.75 + 0.5 * r.next();
       const longK = Math.max(0, a.L - 3.4);
       let k = flick * Math.pow(Math.min(1.5, I), 1.5) * (1 + longK * 0.4 * (r.next() - 0.3));
       if (a.unstable > 0 && r.chance(a.unstable * 0.5)) k *= 0.2;
       const jit = SKIN.light.arc.jitterMM * MM * S;
-      const midY = (tip.y + surfY) / 2;
-      arcLight.position.set(tip.x + r.signed() * jit, midY + 0.006, tip.z + r.signed() * jit);
+      const mid = this.v3b.copy(tip).add(surf).multiplyScalar(0.5);
+      arcLight.position.set(mid.x + r.signed() * jit, mid.y + 0.006, mid.z + r.signed() * jit);
       arcLight.intensity = L.arc.intensity * k;
       arcOn = k;
-      this.tools.arcGlow.position.set(tip.x, midY, tip.z);
+      this.tools.arcGlow.position.copy(mid);
       this.tools.arcGlow.quaternion.copy(this.rig.cam.quaternion);
       const sz = (3 + a.L * 1.2) * MM * S * (0.8 + 0.4 * r.next());
       this.tools.arcGlow.scale.set(sz, sz, sz);
@@ -718,18 +877,18 @@ export class View {
       this.tools.arcStar.quaternion.copy(this.rig.cam.quaternion);
       const ss = (0.08 + 0.04 * r.next()) * k;
       this.tools.arcStar.scale.set(ss, ss, ss);
-      this.v3b.set(tip.x, surfY, tip.z);
-      this.tools.setBolt(tip, this.v3b, (0.4 + a.L * 0.35) * MM * S, r);
+      this.tools.setBolt(tip, surf, (0.4 + a.L * 0.35) * MM * S, r);
       if (this.tools.pool.visible) {
         const ps = (2 + Math.min(4, a.pool * 2)) * MM * S;
-        this.tools.pool.position.set(tip.x, surfY + 0.0004, tip.z);
+        this.tools.pool.position.copy(surf).addScaledVector(this.normW, 0.0004);
+        this.tools.pool.quaternion.setFromUnitVectors(Y_UP, this.normW);
         this.tools.pool.scale.set(ps, 1, ps * 0.8);
       }
-      if (a.onSeam) this.fx.fumes(tip.x, surfY, tip.z, dt, 10);
+      if (a.onSeam) this.fx.fumes(surf.x, surf.y, surf.z, dt, 10);
       this.sparkAcc += a.spatterRate * dt * 2.2;
       const n = Math.min(16, Math.floor(this.sparkAcc));
       this.sparkAcc -= n;
-      if (n > 0) this.fx.spatter(tip.x, surfY + 0.002, tip.z, n, longK * 0.5 + a.unstable);
+      if (n > 0) this.fx.spatter(surf.x, surf.y + 0.002, surf.z, n, longK * 0.5 + a.unstable);
     } else {
       arcLight.intensity = 0;
       this.sparkAcc = 0;
@@ -834,7 +993,7 @@ export class View {
       this.ui.hintEdge('');
       this.ui.placeHint(this.cssW / 2, this.cssH * 0.14);
       return;
-    } else if ((f.target === 'seam' || f.target === 'bead') && this.part) w = this.p2w(f.x, this.part.heightAt(f.x, f.z) + 3, f.z, this.v3);
+    } else if ((f.target === 'seam' || f.target === 'bead') && this.part) w = this.p2w(f.x, f.y, f.z, this.v3).add(this.v3b.set(0, 0.012, 0));
     else if (f.target === 'arc' || (f.target === 'electrodes' && this.part)) w = this.v3.copy(this.lastPartTip).add(this.v3b.set(0, 0.02, 0));
     else if (this.ws.anchors[f.target]) w = this.v3.copy(this.ws.anchors[f.target]);
     if (!w) {
