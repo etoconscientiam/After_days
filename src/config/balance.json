@@ -231,13 +231,15 @@
    "unit": { "coal": 1, "oil": 1, "amber": 0.5, "diamond": 0.1 }
   },
   "lifeBurial": {
-   "_comment": "A tapped pile that lands on rooted life buries some of it (core/sources.ts buryLife): of each species listed, units × (pile width / zone width) × share, at most maxPerPile, the wild ones first. Each unit leaves `per` particles of `mat` on the surface under the pile, sealed (fast burial: they do not rot): a buried forest becomes peat, lignite and coal, buried mats oil. People are never buried (they step aside); shells and bones already are remains.",
+   "_comment": "A tapped pile that lands on rooted life buries some of it (core/sources.ts buryLife): of each species listed, units × (pile width / zone width) × share, at most maxPerPile, the wild ones first. Each unit leaves `per` particles of `mat` on the surface under the pile, sealed (fast burial: they do not rot): a buried forest becomes peat, lignite and coal, buried mats oil, buried beasts bones (a species may have its own share: beasts cannot root, but a pile is quicker than they are). People are never buried (they step aside); shells and bones already are remains.",
    "share": 0.12,
    "maxPerPile": 3,
    "species": {
     "trees": { "mat": "orgLand", "per": 4 },
     "mosses": { "mat": "orgLand", "per": 1 },
-    "mats": { "mat": "biomat", "per": 2 }
+    "mats": { "mat": "biomat", "per": 2 },
+    "herds": { "mat": "bone", "per": 2, "share": 0.5 },
+    "predators": { "mat": "bone", "per": 2, "share": 0.5 }
    }
   },
   "lenses": {

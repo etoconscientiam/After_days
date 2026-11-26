@@ -240,11 +240,11 @@ function buryLife(g: Game, x: number, zi: number, n: number): void {
   const r = g.run, grid = g.grid;
   const half = Math.max(2, Math.round(Math.sqrt(n / Math.PI) * 1.5));
   const zoneCols = Math.max(1, g.zoneWidth[zi] / 2);
-  for (const [id, d] of Object.entries(B.species) as [string, { mat: string; per: number }][]) {
+  for (const [id, d] of Object.entries(B.species) as [string, { mat: string; per: number; share?: number }][]) {
     const sp = CFG.speciesById[id];
     const p = r.pop[id];
     if (!sp || !p || p[zi] <= 0 || !g.habitatZones(sp).includes(zi)) continue;
-    const expect = (p[zi] * Math.min(1, (half * 2) / zoneCols)) * B.share;
+    const expect = (p[zi] * Math.min(1, (half * 2) / zoneCols)) * (d.share ?? B.share);
     let k = Math.floor(expect) + (g.rng.next() < expect - Math.floor(expect) ? 1 : 0);
     k = Math.min(k, B.maxPerPile, p[zi]);
     if (k <= 0) continue;
