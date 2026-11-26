@@ -37,6 +37,8 @@ for (const [k, v] of Object.entries(THEME)) if (!k.startsWith('_')) document.doc
 const INTRO = !(navigator.webdriver && !/[?&]menu\b/.test(location.search));
 /** the game stands still while the menu is up (the world behind it still breathes: sky, water, light) */
 let paused = INTRO;
+// an automated test goes straight in: no loader over the world to catch its first taps
+if (!INTRO) document.getElementById('boot')?.remove();
 
 let game: Game;
 const loaded = loadLocal();
@@ -544,8 +546,9 @@ requestAnimationFrame(frame);
 
 // ---------- the loader, then the main menu ----------
 const menu = new Menu();
-// the skin of the menu, to compare the three (?skin=a|b|c in the address)
-menu.setSkin(new URLSearchParams(location.search).get('skin') ?? '');
+// the skin of the menu: «c» (stone tiles, amber for the main action) is the game's; ?skin=a|b|none in the address to compare
+const skinQ = new URLSearchParams(location.search).get('skin');
+menu.setSkin(skinQ === 'none' ? '' : skinQ ?? 'c');
 let menuSettings = false;
 /** the loader has let go (the menu may open) */
 let bootDone = !INTRO;

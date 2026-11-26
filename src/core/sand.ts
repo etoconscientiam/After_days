@@ -37,13 +37,16 @@ export function stepFull(g: Grid, rng: Rng, water: Water | null, tick: number): 
       if (kind === K_SOLID) continue;
       if (!g.blockAwake(x, y)) continue;
       const wet = inWater(water, x, y);
-      if (wet && tick % S.waterFallEvery !== 0) { g.wake(x, y); continue; }
+      // in water a grain moves only every Nth step; a grain still on its way counts as motion in the others too
+      // (else «nothing moves» could come on an off step while grains still sink)
+      if (wet && tick % S.waterFallEvery !== 0) { g.wake(x, y); if (!mat[below + x]) moved++; continue; }
       if (!mat[below + x]) {
         // in water a sinking grain wanders a little: now aside down a diagonal, now just aside (a swirl), now it
         // hangs a moment; a pile sinks as a loose cloud, unevenly, and spreads wider on the bottom (as silt does)
         if (wet) {
           const u = rng.next();
-          if (u < WD.hold) { g.wake(x, y); continue; }
+          // a pause is still motion: the grain has not landed (so «nothing moves» never comes while it hangs)
+          if (u < WD.hold) { g.wake(x, y); moved++; continue; }
           if (u < WD.hold + WD.side + WD.swirl) {
             const d = rng.next() < 0.5 ? -1 : 1, xx = x + d;
             if (xx >= 0 && xx < GW && !mat[row + xx]) {
@@ -177,6 +180,9 @@ export interface PileSpec {
   y0?: number;
   /** called for every particle placed (flags of resin, glow…) */
   decorate?: (i: number, m: number) => void;
+  /** a particle whose cell was taken (by the pile of the tap before, still falling): it is handed over to be poured
+   *  in a moment later (Game.spillStep), so a quick run of taps loses no grain */
+  spill?: (x: number, m: number) => void;
 }
 
 /** Cells of a pile blob around (cx, y0) and the material of each, top to bottom. */
@@ -218,6 +224,7 @@ export function dropPile(g: Grid, rng: Rng, water: Water | null, spec: PileSpec,
       const i = cells[k];
       const j = g.put(i % GW, (i / GW) | 0, mats[k], look(), spec.birth);
       if (j >= 0) { placed++; spec.decorate?.(j, mats[k]); }
+      else spec.spill?.(i % GW, mats[k]);
     }
     return placed;
   }

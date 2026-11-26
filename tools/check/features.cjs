@@ -29,10 +29,12 @@ const { chromium, devices } = require('playwright');
   await p.waitForTimeout(800);
 
   await check('tap: a pile falls where the finger is, energy comes', async () => {
-    const before = await ev(() => ({ n: window.__strata.game.grid.particles(), e: window.__strata.game.run.energy }));
+    // particles on the field plus the rows the conveyor took meanwhile (they left the field, not the world)
+    const count = () => ev(() => { const g = window.__strata.game; return { n: g.grid.particles() + g.run.sink.rows * g.grid.W, e: g.run.energy }; });
+    const before = await count();
     for (let k = 0; k < 3; k++) { await p.mouse.click(200, 300); await p.waitForTimeout(100); }
     await p.waitForTimeout(1500);
-    const after = await ev(() => ({ n: window.__strata.game.grid.particles(), e: window.__strata.game.run.energy }));
+    const after = await count();
     return after.n > before.n + 100 && after.e > before.e ? `+${after.n - before.n} particles` : false;
   });
   await check('press: hold on the strata', async () => {

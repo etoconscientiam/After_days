@@ -497,6 +497,28 @@ export class Game {
   lensT = 8;
   eruptT = 0;
 
+  /** grains of a pile that found their cell taken (a quick run of taps): poured in from the top as room frees */
+  spill: { x: number; m: number; birth: number }[] = [];
+  private spillStep(): void {
+    if (!this.spill.length) return;
+    const grid = this.grid;
+    let left = 40;
+    for (let k = 0; k < this.spill.length && left > 0; k++) {
+      const s = this.spill[k];
+      // the first free cell in the top rows of its column or a neighbour
+      for (const dx of [0, -1, 1, -2, 2]) {
+        const x = Math.max(0, Math.min(GW - 1, s.x + dx));
+        let done = false;
+        for (let y = 0; y < 6; y++) {
+          if (grid.mat[y * GW + x]) continue;
+          if (grid.put(x, y, s.m, (this.rng.next() * 256) | 0, s.birth) >= 0) { this.run.layers++; done = true; }
+          break;
+        }
+        if (done) { this.spill.splice(k, 1); k--; left--; break; }
+      }
+    }
+  }
+
   strataStep(dt: number): void {
     const r = this.run;
     if (!this.headless) {
@@ -504,6 +526,7 @@ export class Game {
       this.physAcc = Math.min(this.physAcc + dt, step * 6);
       const t0 = performance.now();
       fingerPush(this);
+      this.spillStep();
       while (this.physAcc >= step) {
         this.physAcc -= step;
         this.moving = stepFull(this.grid, this.rng, this.water, this.physTick++);

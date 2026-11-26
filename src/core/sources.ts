@@ -272,6 +272,7 @@ export function tapPile(g: Game, X: number, n: number): number {
   const placed = dropPile(g.grid, g.rng, g.water, {
     cx: x, n, mix: pileMix(g, zi), birth: g.run.year, y0: pileTop(g, x),
     decorate: (i, m) => { if (m === M.resin && g.rng.next() < 0.06 * (insects > 0 ? 3 : 1)) g.grid.flags[i] |= P_INSECT; },
+    spill: (sx, m) => { if (g.spill.length < 600) g.spill.push({ x: sx, m, birth: g.run.year }); },
   }, g.headless);
   g.run.layers += placed;
   // the carcass pools go down with the pile (with no drizzle the taps are the only burial)
