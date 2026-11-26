@@ -231,16 +231,22 @@
    "unit": { "coal": 1, "oil": 1, "amber": 0.5, "diamond": 0.1 }
   },
   "lifeBurial": {
-   "_comment": "A tapped pile that lands on rooted life buries some of it (core/sources.ts buryLife): of each species listed, units × (pile width / zone width) × share, at most maxPerPile, the wild ones first. Each unit leaves `per` particles of `mat` on the surface under the pile, sealed (fast burial: they do not rot): a buried forest becomes peat, lignite and coal, buried mats oil, buried beasts bones (a species may have its own share: beasts cannot root, but a pile is quicker than they are). People are never buried (they step aside); shells and bones already are remains.",
+   "_comment": "A tapped pile that lands on rooted life buries some of it (core/sources.ts buryLife): of each species listed, units × (pile width / zone width) × share, at most maxPerPile, the wild ones first. Each unit leaves `per` particles of `mat` on the surface under the pile, sealed (fast burial: they do not rot): a buried forest becomes peat, lignite and coal, buried mats oil. People: walkerBurial; shells and bones already are remains.",
    "share": 0.12,
    "maxPerPile": 3,
    "species": {
     "trees": { "mat": "orgLand", "per": 4 },
     "mosses": { "mat": "orgLand", "per": 1 },
-    "mats": { "mat": "biomat", "per": 2 },
-    "herds": { "mat": "bone", "per": 2, "share": 0.5 },
-    "predators": { "mat": "bone", "per": 2, "share": 0.5 }
+    "mats": { "mat": "biomat", "per": 2 }
    }
+  },
+  "walkerBurial": {
+   "_comment": "People walk, so they have no place in the core: the renderer sees a pile come down where it draws one (the ground there rose by more than a few pixels) and buries one unit of that species (core/sources.ts buryUnits), leaving `per` sealed particles of `mat` on the surface there — never the last unit of a species in its zone (the era goals count them). The buried one is gone in a puff of dust; another walks in elsewhere later. Not in the headless run.",
+   "fossor": { "mat": "bone", "per": 2 },
+   "vigil": { "mat": "bone", "per": 2 },
+   "litoralis": { "mat": "bone", "per": 2 },
+   "lapis": { "mat": "bone", "per": 2 },
+   "tribe": { "mat": "bone", "per": 2 }
   },
   "lenses": {
    "_comment": "Buried water and geysers (core/fluids.ts). Every about every seconds (randomised ±50 %) a stretch of shallow water (1..shallowRows deep, wMin..wMax columns) leaves a lens of water particles on its floor (1 row at the edges, 2 in the middle) for the next laminae to bury; at most maxParticles water particles in the strata. A lens of at least minLens particles with a particle at least eruptDepth rows under the surface breaks out with the chance eruptChance a second (+ per extra row eruptPerRow): its whole lens goes up through the vent above its top as a geyser, the empty lens collapses, and sinterPer particles of sinter (one per sinterPer water particles, at most sinterMax) fall around the vent. Not in the headless run (no effect on the balance).",

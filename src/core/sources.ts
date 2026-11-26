@@ -263,6 +263,30 @@ function buryLife(g: Game, x: number, zi: number, n: number): void {
   }
 }
 
+/** A pile came down on a person where they walked (the renderer sees it: core cannot, people have no place in the
+ *  core): k units of species id in zone zi are buried at world column X, each leaving `per` sealed particles of
+ *  `mat` (bones) on the surface there. Returns the number buried. */
+export function buryUnits(g: Game, id: string, zi: number, k: number, X: number): number {
+  const d = (CFG.B.sand.walkerBurial as unknown as Record<string, { mat: string; per: number } | undefined>)[id];
+  const p = g.run.pop[id];
+  if (!d || !p || zi < 0 || zi > 2) return 0;
+  k = Math.min(k, p[zi] - 1);   // never the last one in the zone: the era goals count them
+  if (k <= 0) return 0;
+  const grid = g.grid, W = (g.run.wild ??= {});
+  const x = Math.max(0, Math.min(GW - 1, Math.floor(X / 2)));
+  for (let q = 0; q < k; q++) {
+    p[zi]--;
+    if ((W[id] ?? 0) > 0) W[id]--;
+    for (let s = 0; s < d.per; s++) {
+      const xx = Math.max(0, Math.min(GW - 1, x + Math.round((g.rng.next() * 2 - 1) * 2)));
+      grid.put(xx, grid.surf[xx] - 1, mat(d.mat), (g.rng.next() * 256) | 0, g.run.year, P_FAST);
+    }
+  }
+  g.statsDirty = true;
+  g.bus.emit('lifeBuried', { id, n: k, x });
+  return k;
+}
+
 export function tapPile(g: Game, X: number, n: number): number {
   const x = Math.max(2, Math.min(GW - 3, Math.floor(X / 2)));
   const zi = g.zoneMap[wx(x)];

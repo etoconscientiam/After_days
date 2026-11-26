@@ -1394,6 +1394,10 @@ export class Renderer {
   /** Each drawn plant or person: its generation (a new one after a burial), its ground, when it was born, until
    *  when it lies buried. */
   private lifeAt = new Map<string, { gen: number; y0: number; born: number; until: number; scare?: number }>();
+  /** the ground of each column a moment ago (eased over about a second): where the ground is now well above it, a
+   *  pile has just come down — a person walking there is buried */
+  private groundRef = new Float32Array(WW).fill(-1);
+  private lifeT = -1;
 
   /** A puff of dust where a pile buried something living. */
   private burialPuff(x: number, y: number): void {
@@ -1436,6 +1440,17 @@ export class Renderer {
       }
       return -1;
     };
+    // the ground a moment ago, per column
+    const ldt = this.lifeT < 0 ? 0 : Math.min(0.25, Math.max(0, t - this.lifeT));
+    this.lifeT = t;
+    const fresh = new Float32Array(WW);
+    for (let x = 0; x < WW; x++) {
+      const raw = lay.sectionTop + this.section.topD[x];
+      const ref = this.groundRef[x];
+      if (ref < 0 || raw > ref) this.groundRef[x] = raw;
+      else this.groundRef[x] = ref + (raw - ref) * Math.min(1, ldt * 1.2);
+      fresh[x] = Math.max(0, this.groundRef[x] - raw);
+    }
     for (const pass of [0, 1]) for (const sp of CFG.species) {
       if ((sp.sprite === 'predator') !== (pass === 1)) continue;
       // a thousand years a second: no single fish or deer stays long enough to be seen; the sea, the sky and the
@@ -1541,8 +1556,15 @@ export class Renderer {
               st.gen++;
               this.burialPuff(ax, st.y0);
               continue;
+            } else if (walker && fresh[ax] > 3 && g.buryWalker(sp.id, zi, 1, ax) > 0) {
+              // a pile came down on a person: buried where they stood (bones under the pile) — a puff of dust, gone;
+              // later another walks in elsewhere
+              st.until = t + 6 + h * 6;
+              st.gen++;
+              this.burialPuff(ax, st.y0);
+              continue;
             } else if (walker && raw < st.y0 - 4) {
-              // a pile came down by a person: they jump aside and climb onto it — people are never buried
+              // a pile came down by the last of their kind here: they jump aside and climb onto it
               st.scare = t;
               st.y0 = raw;
             } else if (raw > st.y0 || walker) st.y0 = raw;

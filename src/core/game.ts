@@ -9,7 +9,7 @@ import { BandLine, captureRow, pushBand } from './absorb';
 import { fluidStep } from './fluids';
 import { Surface, newSurface, readSurface, wildStep, nicheOpen, wildOf } from './niche';
 import { coat, lens } from './beds';
-import { drizzle, reliefRow, tapPile, zoneSourcesBase } from './sources';
+import { drizzle, reliefRow, tapPile, zoneSourcesBase, buryUnits } from './sources';
 import { geoTickGame } from './geology';
 import type { GeoReport } from './pressure';
 import { EventBus } from './events';
@@ -583,6 +583,9 @@ export class Game {
   /** A tap in the world: Energy as before, and a pile falls into that column. */
   /** Particles in a tapped pile. */
   pileSize(): number { return Math.round(SAND.pile.base + SAND.pile.perLevel * this.stats.pileSize); }
+
+  /** A pile came down on a person the renderer draws at world column X: bury k units of that species. */
+  buryWalker(id: string, zi: number, k: number, X: number): number { return buryUnits(this, id, zi, k, X); }
 
   tap(X: number, shard = -1, pile = true): number {
     const e = this.click(shard);
