@@ -8,6 +8,7 @@
 @font-face { font-family: "Gran001"; src: url(data:font/woff2;base64,{{WOFF2OLD}}) format("woff2"); font-display: block; }
 @font-face { font-family: "Gran002"; src: url(data:font/woff2;base64,{{WOFF2OLD2}}) format("woff2"); font-display: block; }
 @font-face { font-family: "Gran003"; src: url(data:font/woff2;base64,{{WOFF2OLD3}}) format("woff2"); font-display: block; }
+@font-face { font-family: "Gran004"; src: url(data:font/woff2;base64,{{WOFF2OLD4}}) format("woff2"); font-display: block; }
 :root {
   --paper: #f2f3f1;
   --sheet: #fbfbfa;
@@ -151,7 +152,7 @@ footer { padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
 <div class="wrap">
   <header class="hero">
     <div class="hero-top">
-      <span class="mono">Gran · рабочее имя · прототип 0.04 «Строгая»</span>
+      <span class="mono">Gran · рабочее имя · прототип 0.05 · гротеск по образцу</span>
       <span class="mono">оси: opsz 12–33 · SERF 0–100 · 7 знаков + капитель</span>
     </div>
     <div class="controls">
@@ -173,7 +174,7 @@ footer { padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
     </div>
     <div class="cap mono lupa"><span>Лупа: тот же оптический размер, крупно</span><output id="lupav">×10</output></div>
     <div class="stage" id="stage">НОЖ дао<br>Hanna <span class="sc">НОЖ</span></div>
-    <p class="lede">Вариативная суперсемья для кириллицы и латиницы: гротеск и антиква в одном файле, с оптическими размерами для текста (12 px) и заголовков (33 px). Версия 0.04 строгая: качество рисунка прежде всего, характер в двух деталях.</p>
+    <p class="lede">Вариативная суперсемья для кириллицы и латиницы: гротеск и антиква в одном файле, с оптическими размерами для текста (12 px) и заголовков (33 px). Версия 0.05: гротеск построен по образцу, который выбрал заказчик (DM Sans), антиква — строгая пара к нему.</p>
   </header>
 
   <section>
@@ -227,14 +228,23 @@ footer { padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
   </section>
 
   <section>
+    <div class="label">Образец</div>
+    <div class="body">
+      <h2>Гротеск по образцу DM Sans</h2>
+      <p>Присланный образец набран DM Sans (Colophon Foundry): геометрический гротеск с почти круглыми o и O, широкой n, двухъярусной a с горизонтальным срезом и плотным спейсингом на крупном кегле. Я измерил DM Sans на оптических размерах 14 и 33 и перестроил гротеск Gran по этим замерам. Контуры нарисованы заново, не скопированы: совпадают пропорции, вес, кривые и апроши, расхождение на H, O, n, o, a — в пределах нескольких единиц из 1000. Кириллицы в DM Sans нет, поэтому Ж и д нарисованы в той же геометрической логике — это то, что Gran добавляет.</p>
+      <figure class="study"><img src="data:image/png;base64,{{DMCMP}}" alt="DM Sans и Gran на одних словах, ниже кириллица Gran" width="1150" height="385"></figure>
+    </div>
+  </section>
+
+  <section>
     <div class="label">Концепция</div>
     <div class="body">
       <h2>Строгая: сначала безупречная основа</h2>
       <p>Три первые попытки строились от идеи: грань, нож, лубок. Основа при этом оставалась любительской: строчные на 8–10% шире нормы, тесный спейсинг, склеенные узлы, приклеенные засечки. В 0.04 порядок обратный. Пропорции, толщины, нависания и апроши откалиброваны по эталонам профессионального уровня (Inter для гротеска, Source Serif 4 для антиквы), каждый знак перерисован цельным контуром. Характер оставлен в двух деталях.</p>
       <div class="rules">
-        <div class="rule"><div><h3>Плечо n</h3><p>Дуга отходит от штамба высоко (на 0,86 высоты строчных) и сужается в узле, внутренний изгиб приходит в штамб на 0,62. В антикве узел тоньше, а верх штамба срезан и продолжается флажковой засечкой — первая деталь характера.</p></div>
+        <div class="rule"><div><h3>Плечо n</h3><p>В гротеске дуга геометрическая: отходит от штамба на 0,83 высоты строчных, внутренний изгиб приходит в штамб на 0,57, штамб чуть сужается к вырезу у плеча. В антикве узел тоньше, а верх штамба срезан и продолжается флажковой засечкой.</p></div>
           <div class="dets">{{D_N}}</div></div>
-        <div class="rule"><div><h3>Концевой элемент a</h3><p>Вторая деталь характера: в гротеске конец крюка срезан под 24°, это даёт строке лёгкий наклон без курсива. В антикве на том же месте классическая капля. Чаша тонеет у штамба, просвет держит форму.</p></div>
+        <div class="rule"><div><h3>Концевой элемент a</h3><p>В гротеске, как в образце, крюк срезан горизонтально на 0,70 высоты строчных, верх чаши плоский, штамб сужается к основанию. В антикве на месте среза классическая капля.</p></div>
           <div class="dets">{{D_A}}</div></div>
         <div class="rule"><div><h3>Круглые</h3><p>Внешний контур круглее внутреннего, поэтому на диагоналях овал не темнеет. Круглые на 3–6% толще прямых и выходят за линии на 10–15 единиц. В антикве ось контраста наклонена на 8° в тексте и 12° на дисплее.</p></div>
           <div class="dets">{{D_O}}</div></div>
@@ -250,23 +260,23 @@ footer { padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
     <div class="label">Сверка</div>
     <div class="body">
       <h2>Наложение на эталоны</h2>
-      <p>Серым — Gran, красным — эталон в том же масштабе: по высоте строчных для строчных и по высоте прописных для прописных. Это проверка качества, а не копирование: свои отличия видны сразу (Ж без горизонтальной перемычки, другие засечки, капля, срез концевого элемента). Совпадать должны пропорции, вес и спокойствие кривых.</p>
-      <figure class="study"><img src="data:image/png;base64,{{CALIB}}" alt="Наложение знаков Gran на Inter и Source Serif 4" width="1500" height="1480"></figure>
+      <p>Гротеск сверяется с DM Sans, антиква с Source Serif 4. Серым — Gran, красным — эталон в том же масштабе: по высоте строчных для строчных и по высоте прописных для прописных. Это проверка качества, а не копирование: свои отличия видны сразу (Ж без горизонтальной перемычки, другие засечки, капля, срез концевого элемента). Совпадать должны пропорции, вес и спокойствие кривых.</p>
+      <figure class="study"><img src="data:image/png;base64,{{CALIB}}" alt="Наложение знаков Gran на Inter и Source Serif 4" width="1500" height="1476"></figure>
     </div>
   </section>
 
   <section>
     <div class="label">Было → стало</div>
     <div class="body">
-      <h2>Четыре попытки на одном тексте</h2>
+      <h2>Пять версий на одном тексте</h2>
       <p>Знаки и метрики те же. Набрано дисплейной антиквой и дисплейным гротеском.</p>
       <div class="ba">
         <div class="baw"><span class="mono">0.01 «Грань»</span><span class="bag old" style="font-family:'Gran001';font-variation-settings:'opsz' 33,'SERF' 100">Жад НОЖ</span></div>
         <div class="baw"><span class="mono">0.02 «Резец»</span><span class="bag old" style="font-family:'Gran002';font-variation-settings:'opsz' 33,'SERF' 100">Жад НОЖ</span></div>
         <div class="baw"><span class="mono">0.03 «Лубок»</span><span class="bag old" style="font-family:'Gran003';font-variation-settings:'opsz' 33,'SERF' 100,'wght' 400">Жад НОЖ</span></div>
-        <div class="baw"><span class="mono">0.04 «Строгая» · антиква</span><span class="bag" style="font-variation-settings:'opsz' 33,'SERF' 100">Жад НОЖ</span></div>
-        <div class="baw"><span class="mono">0.03 «Лубок» · гротеск</span><span class="bag old" style="font-family:'Gran003';font-variation-settings:'opsz' 33,'SERF' 0,'wght' 400">Жад НОЖ</span></div>
-        <div class="baw"><span class="mono">0.04 «Строгая» · гротеск</span><span class="bag" style="font-variation-settings:'opsz' 33,'SERF' 0">Жад НОЖ</span></div>
+        <div class="baw"><span class="mono">0.04 «Строгая»</span><span class="bag old" style="font-family:'Gran004';font-variation-settings:'opsz' 33,'SERF' 100">Жад НОЖ</span></div>
+        <div class="baw"><span class="mono">0.04 «Строгая» · гротеск</span><span class="bag old" style="font-family:'Gran004';font-variation-settings:'opsz' 33,'SERF' 0">Жад НОЖ</span></div>
+        <div class="baw"><span class="mono">0.05 · гротеск по образцу</span><span class="bag" style="font-variation-settings:'opsz' 33,'SERF' 0">Жад НОЖ</span></div>
       </div>
     </div>
   </section>
@@ -381,7 +391,7 @@ footer { padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
     </div>
   </section>
 
-  <footer>Gran 0.04. Шрифт на этой странице встроен прямо в неё: 7 знаков, капитель для Н О Ж, четыре мастера, 2 оси. Обзоры трендов от маркетплейсов — рекламные источники, их прогнозы стоит воспринимать как мнение.</footer>
+  <footer>Gran 0.05. Шрифт на этой странице встроен прямо в неё: 7 знаков, капитель для Н О Ж, четыре мастера, 2 оси. Обзоры трендов от маркетплейсов — рекламные источники, их прогнозы стоит воспринимать как мнение.</footer>
 </div>
 
 <script>

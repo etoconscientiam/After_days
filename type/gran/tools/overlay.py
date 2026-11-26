@@ -13,6 +13,17 @@ PAIRS = [
     ("Display Antiqua / Source Serif 4 opsz 36", dict(opsz=33, SERF=100), "source-serif-4-5.3.1/package/files/source-serif-4-%s-standard-normal.woff2", dict(opsz=36, wght=400)),
 ]
 CH = "HOnoaЖд"
+if len(sys.argv) > 3 and sys.argv[3] == "mix":
+    PAIRS = [
+        ("Text Grotesk / DM Sans opsz 14", dict(opsz=12, SERF=0), "dm-sans-5.3.0/package/files/dm-sans-%s-standard-normal.woff2", dict(opsz=14, wght=400)),
+        ("Display Grotesk / DM Sans opsz 33", dict(opsz=33, SERF=0), "dm-sans-5.3.0/package/files/dm-sans-%s-standard-normal.woff2", dict(opsz=33, wght=400)),
+    ] + PAIRS[2:]
+elif len(sys.argv) > 3 and sys.argv[3] == "dm":
+    PAIRS = [
+        ("Text Grotesk / DM Sans opsz 14", dict(opsz=12, SERF=0), "dm-sans-5.3.0/package/files/dm-sans-%s-standard-normal.woff2", dict(opsz=14, wght=400)),
+        ("Display Grotesk / DM Sans opsz 33", dict(opsz=33, SERF=0), "dm-sans-5.3.0/package/files/dm-sans-%s-standard-normal.woff2", dict(opsz=33, wght=400)),
+    ]
+    CH = "HOnoa"
 def d_of(P, sx, sy, dx):
     s = ''
     for p in P:
@@ -27,8 +38,13 @@ for label, gl, refpat, rl in PAIRS:
     html += f'<div>{label}</div><div style="display:flex;gap:4px;flex-wrap:wrap">'
     for ch in CH:
         cyr = ord(ch) > 0x400
-        rf = load(os.path.join(R, refpat % ('cyrillic' if cyr else 'latin')), rl)
+        rpath = os.path.join(R, refpat % ('cyrillic' if cyr else 'latin'))
+        if not os.path.exists(rpath):
+            continue
+        rf = load(rpath, rl)
         rcm = rf.getBestCmap()
+        if ord(ch) not in rcm:
+            continue
         ro = rcm.get(ord('о')) or rcm.get(ord('o'))
         rxh = bounds(polys(rf, ro)[0])[3]
         rH = rcm.get(ord('Н')) or rcm.get(ord('H'))
