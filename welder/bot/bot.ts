@@ -214,6 +214,30 @@ if (partArg) {
   process.exit(0);
 }
 
+if (args.includes('--econ')) {
+  // Economy trace: money, earnings and every purchase over time, per skill, as JSON for charts.
+  const out: Record<string, unknown> = {};
+  for (const n of which) {
+    const samples: [number, number, number][] = [];
+    const buys: [number, string, number][] = [];
+    const jobs: [number, string, number][] = [];
+    let next = 0;
+    run(SKILLS[n], seed, false, (g) => {
+      g.bus.on('bought', (e) => buys.push([g.t, e.id, DATA.upgrades.find((u) => u.id === e.id)!.cost]));
+      g.bus.on('handedOver', (e) => jobs.push([g.t, e.bench === 'player' ? e.part : 'app:' + e.part, e.pay]));
+    }, (g) => {
+      if (g.t >= next) {
+        samples.push([+g.t.toFixed(1), g.money, g.log.earned]);
+        next += 5;
+      }
+      return false;
+    });
+    out[n] = { samples, buys, jobs };
+  }
+  console.log(JSON.stringify(out));
+  process.exit(0);
+}
+
 if (args.includes('--mirror')) {
   // Does the apprentice weld like the one he watched? Board open, apprentice hired from the start.
   console.log('apprentice mirror test: player quality on simple jobs vs apprentice quality');

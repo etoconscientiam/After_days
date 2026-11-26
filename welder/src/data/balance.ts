@@ -128,6 +128,12 @@ export const BALANCE = {
     nightAt: 340,
   },
 
+  /** Each order handed over raises what new orders pay (the workshop's name), up to a cap. */
+  reputation: {
+    perOrder: 0.07,
+    maxOrders: 12,
+  },
+
   board: {
     size: 4,
     arriveEvery: 17,

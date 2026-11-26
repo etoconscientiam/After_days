@@ -3,10 +3,10 @@ import type { OrderTemplate } from './types';
 /** The first jobs arrive one at a time, in this order, on the scrap heap by the door. */
 export const INTRO: OrderTemplate[] = [
   { part: 'spade', customer: 'northerner', reward: [4, 4], minPay: 3 },
-  { part: 'pan', customer: 'neighbour', reward: [4, 4] },
-  { part: 'wheel', customer: 'carter', reward: [5, 5] },
-  { part: 'kettle', customer: 'northwoman', reward: [6, 6] },
-  { part: 'spear', customer: 'guard', reward: [6, 6] },
+  { part: 'pan', customer: 'neighbour', reward: [5, 5] },
+  { part: 'wheel', customer: 'carter', reward: [6, 6] },
+  { part: 'kettle', customer: 'northwoman', reward: [7, 7] },
+  { part: 'spear', customer: 'guard', reward: [8, 8] },
 ];
 
 /** If the intro runs out before the board opens, walk-ins keep the heap busy. */

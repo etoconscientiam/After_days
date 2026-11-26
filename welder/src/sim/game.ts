@@ -155,6 +155,12 @@ export class Game {
     this.bus.emit('milestone', { id, t: this.t });
   }
 
+  /** What the workshop's name adds to new orders' pay: grows with every order handed over, up to a cap. */
+  repMul(): number {
+    const R = BALANCE.reputation;
+    return 1 + R.perOrder * Math.min(this.ordersDone, R.maxOrders);
+  }
+
   // ---------------------------------------------------------------- shop
 
   /** Why an upgrade cannot be bought right now (empty = can buy). */
@@ -495,11 +501,10 @@ export class Game {
     if (this.flags.board) return;
     // After the first job the next waits until you've joined the guild.
     if (this.introIndex >= 1 && !this.owned.guild) return;
-    const tpl =
-      this.introIndex < this.data.intro.length
-        ? this.data.intro[this.introIndex++]
-        : this.rng.get('orders').pick(this.data.pools.walkin);
-    this.pile = makeOrder(this.data, tpl, this.uid++, this.rng.get('orders'));
+    // The intro jobs pay what they say (they already climb); walk-ins pay with the workshop's name.
+    const intro = this.introIndex < this.data.intro.length;
+    const tpl = intro ? this.data.intro[this.introIndex++] : this.rng.get('orders').pick(this.data.pools.walkin);
+    this.pile = makeOrder(this.data, tpl, this.uid++, this.rng.get('orders'), false, intro ? 1 : this.repMul());
     this.bus.emit('pileChanged', { has: true });
   }
 
@@ -509,7 +514,7 @@ export class Game {
     if (this.nextArrival <= 0) {
       this.nextArrival = BALANCE.board.arriveEvery;
       if (this.board.length < BALANCE.board.size) {
-        this.board.push(rollBoardOrder(this.data, this.board, this.uid++, this.rng.get('orders')));
+        this.board.push(rollBoardOrder(this.data, this.board, this.uid++, this.rng.get('orders'), this.repMul()));
         this.bus.emit('boardChanged', { count: this.board.length });
       }
     }
@@ -527,7 +532,7 @@ export class Game {
         this.pile = null;
         this.bus.emit('pileChanged', { has: false });
         for (let i = 0; i < BALANCE.board.startOrders; i++)
-          this.board.push(rollBoardOrder(this.data, this.board, this.uid++, this.rng.get('orders')));
+          this.board.push(rollBoardOrder(this.data, this.board, this.uid++, this.rng.get('orders'), this.repMul()));
         this.nextArrival = BALANCE.board.arriveEvery;
         this.bus.emit('boardChanged', { count: this.board.length });
       }
