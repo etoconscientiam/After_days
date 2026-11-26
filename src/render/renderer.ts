@@ -658,6 +658,7 @@ export class Renderer {
     this.drawEcho(dt);
     this.drawSection(g);
     this.drawGround(g, sky);
+    this.updateGround();
     this.drawBackdropLife(g, sky);
     this.drawSurfaceBones(g, sky);
     this.drawLife(g);
@@ -1060,6 +1061,21 @@ export class Renderer {
     const beast = (x: number, kind: 'herd' | 'pred', i: number) => {
       if (x < x0 || x > x1) return;
       const xi = Math.round(x), gy = this.gy[xi] - 1;
+      // a pile that comes down on the line buries the one it hits (the two units it stands for, bones under the pile):
+      // a puff of dust, and the line walks on without it for a while
+      const key = (kind === 'herd' ? 'h' : 'p') + i;
+      const gone = this.beastGone.get(key) ?? 0;
+      if (t < gone) return;
+      let rise = 0;
+      for (let d = -2; d <= 2; d++) rise = Math.max(rise, this.fresh[Math.max(0, Math.min(WW - 1, xi + d))]);
+      if (rise > 3) {
+        const zi = g.zoneMap[xi];
+        if (g.buryWalker(kind === 'herd' ? 'herds' : 'predators', zi, 2, xi) > 0) {
+          this.beastGone.set(key, t + 8 + hash2(i, 77) * 6);
+          this.burialPuff(xi, gy);
+          return;
+        }
+      }
       const step = Math.sin(t * (kind === 'pred' ? 9 : 6) * startled + i * 1.7) > 0;
       c.fillStyle = rgb(col[0], col[1], col[2], 0.95);
       if (kind === 'herd') {
@@ -1398,6 +1414,23 @@ export class Renderer {
    *  pile has just come down — a person walking there is buried */
   private groundRef = new Float32Array(WW).fill(-1);
   private lifeT = -1;
+  /** how far the ground of each column is above where it was a moment ago (px) */
+  private fresh = new Float32Array(WW);
+  /** silhouettes of the migrating herd (h0..) and its hunters (p0..) lying buried until then */
+  private beastGone = new Map<string, number>();
+
+  private updateGround(): void {
+    const t = this.t;
+    const ldt = this.lifeT < 0 ? 0 : Math.min(0.25, Math.max(0, t - this.lifeT));
+    this.lifeT = t;
+    for (let x = 0; x < WW; x++) {
+      const raw = this.lay.sectionTop + this.section.topD[x];
+      const ref = this.groundRef[x];
+      if (ref < 0 || raw > ref) this.groundRef[x] = raw;
+      else this.groundRef[x] = ref + (raw - ref) * Math.min(1, ldt * 1.2);
+      this.fresh[x] = Math.max(0, this.groundRef[x] - raw);
+    }
+  }
 
   /** A puff of dust where a pile buried something living. */
   private burialPuff(x: number, y: number): void {
@@ -1440,17 +1473,7 @@ export class Renderer {
       }
       return -1;
     };
-    // the ground a moment ago, per column
-    const ldt = this.lifeT < 0 ? 0 : Math.min(0.25, Math.max(0, t - this.lifeT));
-    this.lifeT = t;
-    const fresh = new Float32Array(WW);
-    for (let x = 0; x < WW; x++) {
-      const raw = lay.sectionTop + this.section.topD[x];
-      const ref = this.groundRef[x];
-      if (ref < 0 || raw > ref) this.groundRef[x] = raw;
-      else this.groundRef[x] = ref + (raw - ref) * Math.min(1, ldt * 1.2);
-      fresh[x] = Math.max(0, this.groundRef[x] - raw);
-    }
+    const fresh = this.fresh;
     for (const pass of [0, 1]) for (const sp of CFG.species) {
       if ((sp.sprite === 'predator') !== (pass === 1)) continue;
       // a thousand years a second: no single fish or deer stays long enough to be seen; the sea, the sky and the

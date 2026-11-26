@@ -658,7 +658,9 @@
       "vigil": "Buried people leave their bones in the strata",
       "litoralis": "Buried people leave their bones in the strata",
       "lapis": "Buried people leave their bones in the strata",
-      "tribe": "Buried people leave their bones in the strata"
+      "tribe": "Buried people leave their bones in the strata",
+      "herds": "A buried herd leaves its bones in the strata",
+      "predators": "Buried predators leave their bones in the strata"
     },
     "wildBorn": "Arose on its own: {s}",
     "wildDied": "Niche gone, died out: {s}",
