@@ -59,9 +59,13 @@ function beadMaterial(glowK: { value: number }) {
         .replace(
           '#include <color_fragment>',
           `#include <color_fragment>
-  // Each ripple: a bright crest that falls away into a narrow dark trough behind it.
-  float saw = fract((vRip.x * vRip.z + vRip.y * vRip.y * 0.2) / 1.7);
-  diffuseColor.rgb *= 0.8 + 0.28 * smoothstep(0.0, 0.75, saw) - 0.22 * smoothstep(0.8, 1.0, saw);`,
+  // Each ripple: a bright crest that falls away into a narrow dark trough behind it. Faded out as the
+  // ripples get finer than a screen pixel, so the bead reads the same at any distance instead of breaking
+  // into dark blocks and light flecks (aliasing) that change with the zoom.
+  float ph = (vRip.x * vRip.z + vRip.y * vRip.y * 0.2) / 1.7;
+  float saw = fract(ph);
+  float aa = 1.0 - smoothstep(0.25, 0.5, fwidth(ph));
+  diffuseColor.rgb *= 1.0 + aa * (0.28 * smoothstep(0.0, 0.75, saw) - 0.22 * smoothstep(0.8, 1.0, saw) - 0.2);`,
         )
         .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += glowRamp(vGlow) * uGlowK;');
   };
@@ -665,7 +669,8 @@ export class BeadView {
         this.dots.setMatrixAt(kd++, M);
       }
     }
-    for (const c of this.chalk) c.visible = src.stage === 'weld';
+    // Chalk marks a joint still to weld: gone from each seam once it is closed.
+    this.chalk.forEach((c, i) => (c.visible = src.stage === 'weld' && !src.seams[i]?.filled));
     this.holes.count = kh;
     this.dots.count = kd;
     this.pores.count = kp;
