@@ -116,12 +116,17 @@ void main() {
   float dust = max(step(0.9988 - 0.006 * deep, h21(gp + 17.0)), step(0.9992 - 0.005 * deep, h21(floor(gp * 0.5) + 31.0)) * 0.8);
   float lumc = dot(c, vec3(0.3, 0.6, 0.1));
   lumc = lumc / (1.0 + lumc);
-  vec3 haze = vec3(0.9, 1.0, 0.92) * wear * (0.035 + 0.18 * lumc + 0.15 * halo) + dust * halo * 0.15;
+  vec3 haze = vec3(0.9, 1.0, 0.92) * wear * (0.035 + 0.06 * lumc + 0.08 * halo) + dust * halo * 0.08;
   // Vignette: the eye sits deep in the hood, the rim of the window falls off into its dark.
   float gv = mix(0.12, 1.0, rim * rim) * (1.0 - 0.55 * deep * deep);
   // Through the glass: the arc and hot metal at the glass's transmission, plus a dim, compressed view of the
   // rest so the work stays readable (a lighter glass shows more of it).
-  vec3 seen = (((c + halo * 0.35) * uMaskT + c / (1.0 + c) * uMaskSee) * gv * (1.0 - 0.6 * dust) + haze * (1.0 - 0.5 * dust)) * uMaskTint;
+  // What the arc lights up is held back hard (that is what the glass is for): the room seen through it is
+  // compressed by its own brightness, so a lit plate stays dim while the dark corners keep their shape; only
+  // the arc itself and white-hot metal come through, at the glass's transmission.
+  float cl = dot(c, vec3(0.3, 0.6, 0.1));
+  vec3 dimmed = c / (1.0 + 5.0 * cl) * 1.25;
+  vec3 seen = (((c + halo * 0.2) * uMaskT + dimmed * uMaskSee) * gv * (1.0 - 0.6 * dust) + haze * (1.0 - 0.5 * dust)) * uMaskTint;
   vec3 world = c + halo * (0.6 + 1.2 * uGlare);
   c = mix(world, mix(uShell + lip * vec3(0.05, 0.045, 0.04), seen, inWin), covered);
 

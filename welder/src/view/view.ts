@@ -108,6 +108,10 @@ export class View {
   private zoomP = new THREE.Vector3();
   private whyT = 0;
   private v3q = new THREE.Quaternion();
+  private strayAcc = 0;
+  private strayP = new THREE.Vector3();
+  private strayNrm = new THREE.Vector3();
+  private strayQ = new THREE.Quaternion();
   private v3 = new THREE.Vector3();
   private v3b = new THREE.Vector3();
   private v3c = new THREE.Vector3();
@@ -1172,6 +1176,17 @@ export class View {
     this.tools.bolt.visible = lit;
     this.tools.pool.visible = false;
     this.bead.setPool(lit && a.onSeam, a.seam, a.s, a.d, a.pool, a.dir, 0.85 + 0.3 * r.next());
+    // The arc off the joint still melts the rod: drops fall where it burns, on any part of the work.
+    if (lit && !a.onSeam && this.torch.has) {
+      this.strayAcc += dt;
+      if (this.strayAcc >= 0.07) {
+        this.strayAcc = 0;
+        const p = this.w2p(this.surfW, this.strayP);
+        this.partRoot.getWorldQuaternion(this.strayQ);
+        const n = this.strayNrm.copy(this.normW).applyQuaternion(this.strayQ.invert()).normalize();
+        this.bead.addStray(p, n, 1.4 + 0.8 * r.next());
+      }
+    } else this.strayAcc = 0.07;
     // Lean in over the work while the arc burns; straighten up a moment after it goes out.
     if (lit && this.rig.mode === 'station') {
       if (this.leanT <= 0) this.leanAt.copy(this.lastSurf);
@@ -1197,7 +1212,9 @@ export class View {
       const mid = this.v3b.copy(tip).add(surf).multiplyScalar(0.5);
       // Just off the surface along its normal, so it floods the part, the rod and the glove.
       arcLight.position.set(mid.x + r.signed() * jit, mid.y, mid.z + r.signed() * jit).addScaledVector(this.normW, 0.018);
-      arcLight.intensity = L.arc.intensity * k;
+      // Through the welding glass the light the arc throws on the work is cut far more than the arc and the
+      // white-hot pool themselves (that is the glass's job): the lit plate stays dim, the pool reads.
+      arcLight.intensity = L.arc.intensity * k * (1 - 0.85 * Math.min(1, this.maskX));
       arcOn = k;
       this.tools.arcGlow.position.copy(mid);
       this.tools.arcGlow.quaternion.copy(this.rig.cam.quaternion);
