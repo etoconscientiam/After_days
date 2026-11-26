@@ -1,29 +1,72 @@
-"""Gran glyph constructions. Each function takes the master params and
-returns (contours, advance). Every construction produces the same point
-structure in every master; features that a genre lacks collapse to zero.
+"""Gran v0.02 glyph constructions ("Резец": one knife, one pen).
+
+Every function returns (contours, advance) with the same point structure in
+every master. Features a master lacks collapse to zero size.
 """
 import math
-from geom import (C, poly, rect, oval, trap, serif, mirror, norm, add, sub,
-                  mul, line_x, intersect)
+from geom import (C, poly, rect, oval, mirror, norm, add, sub, mul,
+                  pen_width, expand_loop, expand_open, cap_points, knife,
+                  blade_serif)
 
 
-def stem_serifs(p, x0, x1, y_bot, y_top, caps=True, bottom=True, top=True,
-                which=("l", "r")):
-    """Serifs on a vertical stem [x0, x1]."""
-    proj, tt, bh = ((p["proj"], p["tt"], p["bh"]) if caps
-                    else (p["lproj"], p["ltt"], p["lbh"]))
+def rad(d):
+    return math.radians(d)
+
+
+def pen(p, thick, thin):
+    return pen_width(thick, thin, p["phi"], p["kpen"])
+
+
+def serifs_v(p, x0, x1, y, top, caps=True, sides=("l", "r"), k=1.0):
+    """Blade serifs on a vertical stem end at height y."""
+    if caps:
+        pr, tt, bh = p["proj"] * k, p["tt"] * k, p["bh"] * k
+    else:
+        pr, tt, bh = p["lproj"] * k, p["ltt"] * k, p["lbh"] * k
+    e = (0, -1) if top else (0, 1)
     out = []
-    if bottom:
-        if "l" in which:
-            out.append(serif((x0, y_bot), (0, 1), -1, proj, tt, bh, p["fk"], p["cut"]))
-        if "r" in which:
-            out.append(serif((x1, y_bot), (0, 1), +1, proj, tt, bh, p["fk"], p["cut"]))
-    if top:
-        if "l" in which:
-            out.append(serif((x0, y_top), (0, -1), -1, proj, tt, bh, p["fk"], p["cut"]))
-        if "r" in which:
-            out.append(serif((x1, y_top), (0, -1), +1, proj, tt, bh, p["fk"], p["cut"]))
+    if "l" in sides:
+        out.append(blade_serif((x0, y), e, -1, pr, tt, bh, p["cut"]))
+    if "r" in sides:
+        out.append(blade_serif((x1, y), e, +1, pr, tt, bh, p["cut"]))
     return out
+
+
+def loop_centerline(x0, y0, x1, y1, k):
+    o = oval(x0, y0, x1, y1, k)
+    segs, prev = [], o["start"]
+    for s in o["segs"]:
+        segs.append((prev, s[1], s[2], s[3]))
+        prev = s[3]
+    return segs
+
+
+def round_letter(p, w, h, ov, thick, thin, sb):
+    """O/o: smooth outer superellipse; the counter is a squarer oval turned
+    by the pen angle, which moves the thin points to 11 and 5 o'clock in
+    the Antiqua and keeps them at 12 and 6 in the Grotesk."""
+    x0, x1 = sb, sb + w
+    y0, y1 = -ov, h + ov
+    cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+    outer = oval(x0, y0, x1, y1, p["tens"])
+    phi = math.radians(p["oTilt"])
+    # a turned counter reaches wider: shrink it so the sides keep weight
+    X = w / 2 - thick
+    Y = (y1 - y0) / 2 - thin
+    c2, s2 = math.cos(phi) ** 2, math.sin(phi) ** 2
+    a2 = (X * X * c2 - Y * Y * s2) / (c2 - s2)
+    b2 = (Y * Y * c2 - X * X * s2) / (c2 - s2)
+    iw, ih = 2 * math.sqrt(a2), 2 * math.sqrt(b2)
+    inner = oval(cx - iw / 2, cy - ih / 2, cx + iw / 2, cy + ih / 2,
+                 p["tens"] + p["tensIn"], kind="hole")
+    c, s_ = math.cos(phi), math.sin(phi)
+
+    def rot(q):
+        dx, dy = q[0] - cx, q[1] - cy
+        return (cx + dx * c - dy * s_, cy + dx * s_ + dy * c)
+    inner = {"kind": "hole", "start": rot(inner["start"]),
+             "segs": [(sg[0],) + tuple(rot(q) for q in sg[1:]) for sg in inner["segs"]]}
+    return [outer, inner], x1 + sb
 
 
 # ------------------------------------------------------------------- capitals
@@ -37,107 +80,82 @@ def H(p, cap=None, V=None, Hc=None, w=None, sbk=1.0, sk=1.0):
     L0, L1 = sb, sb + V
     R1 = sb + w
     R0 = R1 - V
-    yc = cap * 0.515
+    yc = cap * 0.52
     cs = [rect(L0, 0, L1, cap), rect(R0, 0, R1, cap),
           rect(L1 - 8, yc - Hc / 2, R0 + 8, yc + Hc / 2)]
-    q = dict(p, proj=p["proj"] * sk, tt=p["tt"] * sk, bh=p["bh"] * sk)
-    cs += stem_serifs(q, L0, L1, 0, cap)
-    cs += stem_serifs(q, R0, R1, 0, cap)
+    for x0, x1 in ((L0, L1), (R0, R1)):
+        cs += serifs_v(p, x0, x1, 0, False, k=sk)
+        cs += serifs_v(p, x0, x1, cap, True, k=sk)
     return cs, R1 + sb
 
 
 def O(p, cap=None, V=None, Hc=None, w=None, ov=None, sbk=1.0):
     cap = cap or p["cap"]
-    V = (V or p["V"]) * 1.05          # round strokes are heavier than straight
-    Hc = (Hc or p["Hc"]) * 1.04
+    V = (V or p["V"]) * 1.06
+    Hc = (Hc or p["Hc"]) * 1.05
     w = w or p["wO"]
     ov = p["ov"] if ov is None else ov
-    sb = p["sb"] * 0.60 * sbk
-    x0, x1 = sb, sb + w
-    y0, y1 = -ov, cap + ov
-    cs = [oval(x0, y0, x1, y1, p["ko"]),
-          oval(x0 + V, y0 + Hc, x1 - V, y1 - Hc, p["ki"], kind="hole")]
-    return cs, x1 + sb
+    return round_letter(p, w, cap, ov, V, Hc, p["sb"] * 0.58 * sbk)
 
 
-def _zhe_side(p, x0, xc, W, cap, V, thinA, thickL, gap):
-    """Right half of Zhe: arm (to the top right) and leg (to the bottom
-    right), meeting at a point just off the stem, with ink traps in the
-    three crotches. Returns (arm, leg, stem_edge_points_top_to_bottom,
-    arm-end corners, leg-end corners)."""
-    xs1 = xc + V / 2
-    yj = cap * 0.50
-    Xs = (xs1 + gap, yj)
-    TRa = (W - (W - xc) * 0.045, cap)
-    da = norm(sub(TRa, Xs))
-    wa_end = thinA / math.sin(math.atan2(da[1], da[0]))
-    TLa = (TRa[0] - wa_end, cap)
-    BRl = (W, 0)
-    dl = norm(sub(BRl, Xs))
-    wl_end = thickL / math.sin(abs(math.atan2(dl[1], dl[0])))
-    BLl = (W - wl_end, 0)
-    Xu = line_x(TLa, da, xs1)
-    UpC = line_x(TLa, da, xc)
-    LowC = line_x(Xs, da, xc)
-    Xl = line_x(BLl, dl, xs1)
-    LowLC = line_x(BLl, dl, xc)
-    UpLC = line_x(Xs, dl, xc)
-
-    D, S = p["trapD"], p["trapS"]
-    ts = trap(Xs, da, dl, D, S)                 # arm = 1, leg = 2
-    tu = trap(Xu, (0, 1), da, D * 0.8, S * 0.8)  # stem = 1, arm = 2
-    tl = trap(Xl, (0, -1), dl, D * 0.8, S * 0.8)  # stem = 1, leg = 2
-
-    arm = poly([TLa, TRa, ts["A1"], ts["T"], ts["Y1"], LowC, UpC,
-                tu["Y2"], tu["T"], tu["A2"]])
-    leg = poly([BLl, tl["A2"], tl["T"], tl["Y2"], LowLC, UpLC,
-                ts["Y2"], ts["T"], ts["A2"], BRl])
-    edge = [tu["A1"], tu["T"], tu["Y1"], tl["Y1"], tl["T"], tl["A1"]]
-    return arm, leg, edge, (TLa, TRa, da), (BLl, BRl, dl)
+def _bracket(p, xa, xm, xb, cap, f, roundness):
+    """One half of Zhe as a single bow ')' : top end -> touch point -> bottom
+    end. Returns centerline segments."""
+    T = (xa, cap)
+    M = (xm, cap * 0.5)
+    B = (xb, 0)
+    h = cap * 0.5
+    d0 = norm((xm - xa, -h * 0.9))
+    d3 = norm((xb - xm, -h * 0.9))
+    s1 = (T, add(T, mul(d0, h * (0.62 - roundness * 0.35))),
+          (xm, M[1] + h * roundness), M)
+    s2 = (M, (xm, M[1] - h * roundness),
+          sub(B, mul(d3, h * (0.62 - roundness * 0.35))), B)
+    return [s1, s2]
 
 
 def Zhe(p, cap=None, V=None, w=None, sbk=1.0, sk=1.0):
+    """Zhe drawn as )|( : two bows kissing the stem. At text size they cut
+    into the stem (no clogging, short crotches); at display size the knife
+    separates them by a hairline gap."""
     cap = cap or p["cap"]
     V = V or p["V"]
     w = w or p["wZ"]
-    q = dict(p, proj=p["proj"] * sk, tt=p["tt"] * sk, bh=p["bh"] * sk)
-    sb = (p["sb"] * 0.16 + q["proj"] * 0.85) * sbk
+    sb = (p["sb"] * 0.20 + p["proj"] * 0.7 * sk) * sbk
     x0 = sb
-    xc = x0 + w / 2
     W = x0 + w
-    gap = V * p["gapZ"]
-    # right side: rising arm is a hairline in Antiqua, falling leg is heavy
-    armR, legR, edgeR, aR, lR = _zhe_side(p, x0, xc, W, cap, V,
-                                          V * p["zArmB"], V * p["zLegB"], gap)
-    # left side mirrored: falling arm heavy, rising leg thin
-    armL, legL, edgeL, aL, lL = _zhe_side(p, x0, xc, W, cap, V,
-                                          V * p["zArmA"], V * p["zLegA"], gap)
-    armL, legL = mirror(armL, xc), mirror(legL, xc)
+    xc = (x0 + W) / 2
     xs0, xs1 = xc - V / 2, xc + V / 2
-    left_edge = [(2 * xc - x, y) for (x, y) in reversed(edgeL)]
-    stem = poly([(xs0, 0)] + left_edge + [(xs0, cap), (xs1, cap)] + edgeR
-                + [(xs1, 0)])
-    cs = [stem, armR, legR, armL, legL]
-    cs += stem_serifs(q, xs0, xs1, 0, cap)
-
-    def end_serifs(corners, top, mirror_x=None):
-        a, b, d = corners
-        out = []
-        e = (-d[0], -d[1])  # back along the stroke
-        pr, t, bhh = q["proj"], q["tt"], q["bh"]
-        if top:
-            # TL: acute side, TR: obtuse side
-            out.append(serif(a, e, -1, pr * 0.7, t, 0, 0.6, q["cut"]))
-            out.append(serif(b, e, +1, pr, t, bhh, q["fk"], q["cut"]))
-        else:
-            out.append(serif(a, e, -1, pr * 0.7, t, 0, 0.6, q["cut"]))
-            out.append(serif(b, e, +1, pr, t, bhh, q["fk"], q["cut"]))
-        if mirror_x is not None:
-            out = [mirror(c, mirror_x) for c in out]
-        return out
-
-    cs += end_serifs(aR, True) + end_serifs(lR, False)
-    cs += end_serifs(aL, True, xc) + end_serifs(lL, False, xc)
+    f = pen(p, V * p["zThick"], V * p["zThin"])
+    wM = f((0, -1))
+    xmL = xs0 - wM / 2 + V * p["zOver"]
+    endL = f(norm((1, -1.2)))
+    xaL = x0 + endL * 0.55 + w * 0.035      # arms lean in a little at top
+    xbL = x0 + endL * 0.55
+    left = _bracket(p, xaL, xmL, xbL, cap, f, p["zRound"])
+    right = _bracket(p, 2 * xc - xaL, 2 * xc - xmL, 2 * xc - xbL, cap, f,
+                     p["zRound"])
+    flat = (1.0, 0.0)
+    bl = expand_open(left, f, nsub=2, cut0=flat, cut1=flat)
+    br = expand_open(right, f, nsub=2, cut0=flat, cut1=flat)
+    cs = [rect(xs0, 0, xs1, cap), bl, br]
+    q = dict(p, proj=p["proj"] * sk, tt=p["tt"] * sk, bh=p["bh"] * sk)
+    cs += serifs_v(q, xs0, xs1, 0, False)
+    cs += serifs_v(q, xs0, xs1, cap, True)
+    # outward half-serifs on the bows
+    for segs, side in ((left, -1), (right, +1)):
+        for end in (0, 1):
+            b = segs[0] if end == 0 else segs[-1]
+            t = 0.0 if end == 0 else 1.0
+            pl, pr_ = cap_points(b, t, f, 0, flat)
+            P = min(pl, pr_) if side < 0 else max(pl, pr_)
+            # direction along the outer edge into the stroke
+            if end == 0:
+                e = norm(sub(b[1], b[0]))
+            else:
+                e = norm(sub(b[2], b[3]))
+            cs.append(blade_serif(P, e, side, q["proj"] * 0.85, q["tt"],
+                                  q["bh"] * 0.8, q["cut"]))
     return cs, W + sb
 
 
@@ -150,58 +168,56 @@ def n(p):
     L0, L1 = sbl, sbl + v
     R1 = sbl + p["wn"]
     R0 = R1 - v
-    slope = p["slope"]
-    yTL = xh - slope * v                 # facet: stem top is cut at an angle
-    yJo = xh - 0.165 * xh                # arch leaves the stem (outer)
-    yX = yJo - v * 0.64                  # crotch (inner)
-    yR = xh * 0.50
-    xt = L1 + (R1 - L1) * 0.40
-    xti = xt + (R0 - L1) * 0.10
+    s = p["slope"]
+    yTL = xh - s * v                       # knife cut of the stem top
+    yJo = xh - 0.15 * xh                   # arch leaves the stem (outer)
+    X = (L1, yJo - v * p["join"])          # crotch (inner)
+    yR = xh * 0.47
     yTop = xh + ovl
+    xt = L1 + (R1 - L1) * 0.42
+    xti = xt + (R0 - L1) * 0.12
     yTi = yTop - hl * 1.02
-    u2 = norm((0.42, 1.0))
-    tr = trap((L1, yX), (0, -1), u2, p["trapD"], p["trapS"])  # stem=1, arch=2
+    u2 = norm((0.52, 1.0))                 # inner edge leaving the crotch
+    T, A1 = knife(X, (-u2[0], -u2[1]), (0, -1), v * p["knifeD"], p["knifeM"])
 
-    stem = poly([(L0, 0), (L0, yTL), (L1, xh), tr["Y1"], tr["T"], tr["A1"],
-                 (L1, 0)])
+    stem = poly([(L0, 0), (L0, yTL), (L1, xh), X, T, A1, (L1, 0)])
     rstem = rect(R0, 0, R1, yR + 6)
-
-    a = C((L1 - v * 0.5, yJo))
+    Lm = min(T[0], L1 - v * 0.5) - 6
+    a = C((Lm, yJo))
     a.L((L1, yJo))
-    a.arc((xt, yTop), norm((0.55, 1.0)), (1, 0), (yTop - yJo) * 0.62,
-          (xt - L1) * 0.55)
-    a.arc((R1, yR), (1, 0), (0, -1), (R1 - xt) * 0.60, (yTop - yR) * 0.56)
+    a.arc((xt, yTop), norm((0.50, 1.0)), (1, 0), (yTop - yJo) * 0.62,
+          (xt - L1) * 0.50)
+    a.arc((R1, yR), (1, 0), (0, -1), (R1 - xt) * p["tensR"],
+          (yTop - yR) * 0.60)
     a.L((R0, yR))
-    a.arc((xti, yTi), (0, 1), (-1, 0), (yTi - yR) * 0.56, (R0 - xti) * 0.62)
-    A2 = tr["A2"]
-    a.arc(A2, (-1, 0), (-u2[0], -u2[1]), (xti - A2[0]) * 0.62,
-          (yTi - A2[1]) * 0.40)
-    a.L(tr["T"])
-    a.L(tr["Y2"])
-    a.L((L1 - v * 0.5, tr["Y2"][1]))
+    a.arc((xti, yTi), (0, 1), (-1, 0), (yTi - yR) * 0.60, (R0 - xti) * 0.60)
+    a.arc(X, (-1, 0), (-u2[0], -u2[1]), (xti - X[0]) * 0.62,
+          (yTi - X[1]) * 0.42)
+    a.L(T)
+    a.L((Lm, T[1]))
     arch = a.close()
 
-    # head serif (flag): continues the stem's facet slope to the left
+    # head serif: a blade that continues the knife cut of the stem top
     hp, htt, hbh = p["hp"], p["htt"], p["hbh"]
-    yB = xh - slope * (L1 - (L0 - hp + p["cut"]))
-    B = (L0 - hp + p["cut"], yB)
-    Cc = (L0 - hp, yB - htt)
-    D = (L0, Cc[1] - hbh)
-    head = poly([(L1, xh), B, Cc, D, (L0 + 12, D[1]), (L0 + 12, yTL - 6)])
+    yTip = yTL - s * hp
+    tipTop = (L0 - hp + p["cut"], yTip + s * p["cut"])
+    tipBot = (L0 - hp, yTip - htt)
+    D = (L0, tipBot[1] - hbh)
+    hc = C((L0 + 14, yTL + s * 14 - 1))
+    hc.L(tipTop)
+    hc.L(tipBot)
+    hc.Cu((tipBot[0] + hp * 0.55, tipBot[1]), (L0, D[1] + hbh * 0.45), D)
+    hc.L((L0 + 14, D[1]))
+    head = hc.close()
     cs = [stem, rstem, arch, head]
-    cs += stem_serifs(p, L0, L1, 0, xh, caps=False, top=False)
-    cs += stem_serifs(p, R0, R1, 0, xh, caps=False, top=False)
+    cs += serifs_v(p, L0, L1, 0, False, caps=False)
+    cs += serifs_v(p, R0, R1, 0, False, caps=False)
     return cs, R1 + sbr
 
 
 def o(p):
-    xh, v, hl, ovl = p["xh"], p["v"] * 1.05, p["hl"] * 1.04, p["ovl"]
-    sb = p["sb"] * 0.60
-    x0, x1 = sb, sb + p["wo"]
-    y0, y1 = -ovl, xh + ovl
-    cs = [oval(x0, y0, x1, y1, p["ko"]),
-          oval(x0 + v, y0 + hl, x1 - v, y1 - hl, p["ki"], kind="hole")]
-    return cs, x1 + sb
+    return round_letter(p, p["wo"], p["xh"], p["ovl"], p["v"] * 1.06,
+                        p["hl"] * 1.05, p["sb"] * 0.58)
 
 
 def a(p):
@@ -211,106 +227,119 @@ def a(p):
     Ra1 = x0 + wa
     Ra0 = Ra1 - v
     sbr = p["sbStem"] * 0.62
-    # --- hook
-    yS = xh * 0.55
-    yC = xh * 0.63
-    TopO = (x0 + wa * 0.50, xh + ovl)
-    hk = hl * 1.02
-    TopI = (TopO[0] + wa * 0.035, xh + ovl - hk)
-    Eo = (x0 + wa * 0.085, xh * 0.745)
-    Ei = add(Eo, mul(norm((1.0, 0.34)), hk * 1.16))  # facet cut, ~19 deg
-    if p["beak"] > 0:
-        Bk = add(Eo, (p["beak"] * 0.05, -p["beak"]))
-    else:
-        Bk = ((Eo[0] + Ei[0]) / 2, (Eo[1] + Ei[1]) / 2)
-    h = C(Eo)
-    h.arc(TopO, norm((0.30, 1.0)), (1, 0), (TopO[1] - Eo[1]) * 0.58,
-          (TopO[0] - Eo[0]) * 0.56)
-    h.arc((Ra1, yS), (1, 0), (0, -1), (Ra1 - TopO[0]) * 0.58,
-          (TopO[1] - yS) * 0.55)
-    h.L((Ra0, yS))
-    h.L((Ra0, yC))
-    h.arc(TopI, (0, 1), (-1, 0), (TopI[1] - yC) * 0.55, (Ra0 - TopI[0]) * 0.58)
-    h.arc(Ei, (-1, 0), norm((-0.40, -1.0)), (TopI[0] - Ei[0]) * 0.52,
-          (TopI[1] - Ei[1]) * 0.50)
-    h.L(Bk)
-    hook = h.close()
 
-    # --- bowl
-    yBt = xh * 0.585
-    yCt = yBt - hl * 0.80
-    yBb = xh * 0.11
-    yCb = yBb + hl * 1.30
-    yBm = yBt * 0.47
+    # --- bowl with a knife top: a straight line that slices into the stem
+    tb = p["aTop"]                          # slope of the bowl top
+    yBt = xh * 0.60
+    lt = (Ra0 - x0) * 0.40
+    P1 = (Ra0 - lt, yBt - lt * tb)
+    yBm = yBt * 0.44
     bxm = x0 + (Ra0 - x0) * 0.50
-    vb = v * 0.97
-    hlb = hl * 1.02
+    yBb = xh * 0.11
     b = C((Ra0 + v * 0.45, yBt))
     b.L((Ra0, yBt))
-    b.arc((x0, yBm), (-1, 0), (0, -1), (Ra0 - x0) * 0.56, (yBt - yBm) * 0.56)
+    b.L(P1)
+    b.arc((x0, yBm), norm((-1, -tb)), (0, -1), (P1[0] - x0) * 0.62,
+          (P1[1] - yBm) * 0.56)
     b.arc((bxm, -ovl), (0, -1), (1, 0), (yBm + ovl) * 0.56, (bxm - x0) * 0.58)
-    b.arc((Ra0, yBb), (1, 0), norm((0.50, 1.0)), (Ra0 - bxm) * 0.52,
+    b.arc((Ra0, yBb), (1, 0), norm((0.45, 1.0)), (Ra0 - bxm) * 0.52,
           (yBb + ovl) * 0.70)
     b.L((Ra0 + v * 0.45, yBb))
     bowl = b.close()
 
-    X = (Ra0, yCt)
-    u2 = norm((-1.0, -0.10))
-    tr = trap(X, (0, -1), u2, p["trapD"], p["trapS"])     # stem=1, counter=2
+    htop = hl * (0.92 if p["genre"] == "G" else 1.05)
+    X = (Ra0, yBt - htop)
+    u_in = norm((1.0, tb))
+    T, A1 = knife(X, u_in, (0, -1), v * p["knifeD"], p["knifeM"])
+    vb = v * 0.98
+    hlb = hl * 1.04
     cy0 = -ovl + hlb
-    yCm = (yCt + cy0) * 0.46
+    lti = lt * 0.85
+    Q1 = (Ra0 - lti, X[1] - lti * tb)
+    yCm = (X[1] + cy0) * 0.45
     CL = (x0 + vb, yCm)
-    cbx = bxm + (Ra0 - bxm) * 0.08
-    k = C(tr["A2"], kind="hole")
-    k.arc(CL, u2, (0, -1), (tr["A2"][0] - CL[0]) * 0.58, (tr["A2"][1] - yCm) * 0.56)
+    cbx = bxm + (Ra0 - bxm) * 0.10
+    yCb = yBb + hl * 1.30
+    k = C(X, kind="hole")
+    k.L(Q1)
+    k.arc(CL, norm((-1, -tb)), (0, -1), (Q1[0] - CL[0]) * 0.62,
+          (Q1[1] - yCm) * 0.56)
     k.arc((cbx, cy0), (0, -1), (1, 0), (yCm - cy0) * 0.56, (cbx - CL[0]) * 0.60)
     k.arc((Ra0, yCb), (1, 0), norm((0.55, 1.0)), (Ra0 - cbx) * 0.52,
           (yCb - cy0) * 0.62)
-    k.L(tr["A1"])
-    k.L(tr["T"])
+    k.L(A1)
+    k.L(T)
     counter = k.close()
 
-    stem = poly([(Ra0, 0), tr["A1"], tr["T"], tr["Y1"], (Ra0, yS + 8),
-                 (Ra1, yS + 8), (Ra1, 0)])
-    cs = [stem, hook, bowl, counter]
-    cs.append(serif((Ra1, 0), (0, 1), +1, p["lproj"] * 0.95, p["ltt"],
-                    p["lbh"], p["fk"], p["cut"]))
+    # --- hook: one pen stroke from a knife-cut terminal into the stem
+    f = pen(p, v * 0.98, hl)
+    w_top = f((1, 0))
+    yS = max(T[1], X[1]) + 26
+    E = (x0 + wa * 0.15, xh * 0.70)
+    Top = (x0 + wa * 0.53, xh + ovl - w_top / 2)
+    R = (Ra0 + v / 2, yS)
+    s1 = (E, add(E, mul(norm((0.26, 1.0)), (Top[1] - E[1]) * 0.62)),
+          (Top[0] - (Top[0] - E[0]) * 0.56, Top[1]), Top)
+    s2 = (Top, (Top[0] + (R[0] - Top[0]) * 0.64, Top[1]),
+          (R[0], R[1] + (Top[1] - R[1]) * 0.56), R)
+    cutA = rad(p["termCut"])
+    cutv = (math.cos(cutA), math.sin(cutA))
+    hook = expand_open([s1, s2], f, nsub=2, cut0=cutv, cut1=None)
+    l0, r0 = cap_points(s1, 0.0, f, 0, cutv)
+    outer = l0 if l0[0] < r0[0] else r0
+    inner = r0 if outer is l0 else l0
+    if p["beak"] > 0:
+        tip = add(outer, mul(norm((-0.30, -1.0)), p["beak"]))
+    else:
+        tip = ((outer[0] + inner[0]) / 2, (outer[1] + inner[1]) / 2)
+    beak = poly([outer, inner, tip])
+
+    # --- stem, with a knife-cut foot in the grotesk
+    yST = yS + 34
+    foot = v * p["aFoot"]
+    stem = poly([(Ra0, 0), A1, T, X, (Ra0, yST), (Ra1, yST), (Ra1, foot)])
+    cs = [stem, bowl, counter, hook, beak]
+    cs.append(blade_serif((Ra1, 0), (0, 1), +1, p["lproj"] * 0.95, p["ltt"],
+                          p["lbh"], p["cut"]))
     return cs, Ra1 + sbr
 
 
 def de(p):
-    """Cyrillic de, Russian (trapezoid) form with two descenders."""
+    """Cyrillic de: Russian trapezoid form with a sabre leg and knife-cut
+    descenders."""
     xh, v, hl = p["xh"], p["v"], p["hl"]
-    x0 = p["sb"] * 0.16 + p["flare"]
+    fl = p["flare"]
+    x0 = p["sb"] * 0.16 + fl
     Xl = x0
-    Lb = Xl + v * 0.10
+    Lb = Xl + v * 0.12
     R1 = Lb + p["wd"]
     R0 = R1 - v
     Xr = R1 + v * 0.55
-    hb = hl * 1.10
+    hb = hl * 1.12
     ht = hl * 1.0
-    vd = v * 0.80
+    vd = v * 0.82
     dd = p["dd"]
-    lean = p["wd"] * 0.17
+    f = pen(p, v * 0.96, v * p["dLegThin"])
+    wtop = f((0, -1))
+    lean = p["wd"] * 0.21
     Lt = Lb + lean
-    tl = v * p["dLeg"]
-    dirL = norm((Lt - Lb, xh))
-    wl = tl / math.sin(math.atan2(dirL[1], dirL[0]))
-    leg = poly([(Lb, hb * 0.4), (Lt, xh), (Lt + wl, xh), (Lb + wl, hb * 0.4)])
-    top = rect(Lt + 4, xh - ht, R0 + 8, xh)
+    Ttop = (Lt + wtop / 2, xh)
+    dirB = norm((-0.55, -1.0))
+    wbot = f(dirB)
+    Bot = (Lb + wbot / 2, hb * 0.45)
+    hh = xh - Bot[1]
+    leg = expand_open([(Ttop, (Ttop[0], Ttop[1] - hh * 0.45),
+                        sub(Bot, mul(dirB, hh * 0.42)), Bot)], f, nsub=3)
+    top = rect(Lt + 6, xh - ht, R0 + 8, xh)
     stem = rect(R0, 0, R1, xh)
     base = rect(Xl, 0, Xr, hb)
-    fl = p["flare"]
-    dl = poly([(Xl, hb - 4), (Xl + vd, hb - 4), (Xl + vd, dd),
-               (Xl - fl, dd), (Xl, dd + fl * 1.6)])
-    dr = poly([(Xr - vd, hb - 4), (Xr, hb - 4), (Xr, dd + fl * 1.6),
-               (Xr + fl, dd), (Xr - vd, dd)])
+    dc = vd * p["descCut"]
+    dl = poly([(Xl, hb - 4), (Xl + vd, hb - 4), (Xl + vd, dd + dc), (Xl - fl, dd)])
+    dr = poly([(Xr - vd, hb - 4), (Xr, hb - 4), (Xr + fl, dd), (Xr - vd, dd + dc)])
     cs = [leg, top, stem, base, dl, dr]
-    cs.append(serif((R1, xh), (0, -1), +1, p["lproj"] * 0.9, p["ltt"],
-                    p["lbh"], p["fk"], p["cut"]))
-    eL = (-dirL[0], -dirL[1])
-    cs.append(serif((Lt, xh), eL, -1, p["lproj"] * 0.8, p["ltt"], 0,
-                    0.6, p["cut"]))
+    cs += serifs_v(p, R0, R1, xh, True, caps=False, sides=("r",), k=0.9)
+    cs.append(blade_serif((Lt, xh), (0, -1), -1, p["lproj"] * 0.75, p["ltt"],
+                          p["lbh"] * 0.6, p["cut"]))
     return cs, Xr + fl + p["sb"] * 0.16
 
 
@@ -318,7 +347,7 @@ def de(p):
 
 def sc_params(p):
     k = p["sc"] / p["cap"]
-    return dict(cap=p["sc"], V=p["v"] * 1.04, Hc=p["hl"] * 1.05, k=k)
+    return dict(cap=p["sc"], V=p["v"] * 1.04, Hc=p["hl"] * 1.06, k=k)
 
 
 def h_sc(p):
@@ -340,7 +369,6 @@ def zhe_sc(p):
 
 
 GLYPHS = [
-    # name, unicode, builder
     ("H", 0x0048, H),
     ("O", 0x004F, O),
     ("n", 0x006E, n),
@@ -353,8 +381,6 @@ GLYPHS = [
     ("zhe-cy.sc", None, zhe_sc),
 ]
 
-# Cyrillic letters that share a drawing with Latin: separate glyphs built
-# from components, so spacing and kerning can diverge later
 ALIASES = [
     ("En-cy", 0x041D, "H"),
     ("O-cy", 0x041E, "O"),

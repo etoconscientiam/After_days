@@ -207,3 +207,216 @@ def reverse(contour):
             out.append(("C", s[2], s[1], frm))
     # out now starts from start (= end of last seg) and ends at start
     return {"kind": contour["kind"], "start": start, "segs": out}
+
+
+# ------------------------------------------------------------ pen expansion
+#
+# A stroke is a chain of centerline cubics. Its width along the normal comes
+# from a pen model: thin where the stroke runs parallel to the pen edge
+# (angle phi), thick across it. phi = 0 gives vertical stress (rational,
+# grotesk); phi = 20..30 deg gives the inclined stress of a broad nib.
+# Each edge is fitted with a fixed number of cubics, so every master gets
+# the same point structure.
+
+def bz(b, t):
+    p0, p1, p2, p3 = b
+    m = 1 - t
+    return (m * m * m * p0[0] + 3 * m * m * t * p1[0] + 3 * m * t * t * p2[0] + t * t * t * p3[0],
+            m * m * m * p0[1] + 3 * m * m * t * p1[1] + 3 * m * t * t * p2[1] + t * t * t * p3[1])
+
+
+def bzd(b, t):
+    p0, p1, p2, p3 = b
+    m = 1 - t
+    return (3 * m * m * (p1[0] - p0[0]) + 6 * m * t * (p2[0] - p1[0]) + 3 * t * t * (p3[0] - p2[0]),
+            3 * m * m * (p1[1] - p0[1]) + 6 * m * t * (p2[1] - p1[1]) + 3 * t * t * (p3[1] - p2[1]))
+
+
+def pen_width(thick, thin, phi_deg, k=1.0):
+    phi = math.radians(phi_deg)
+
+    def f(d, i=0, t=0.0):
+        th = math.atan2(d[1], d[0])
+        s = abs(math.sin(th - phi)) ** k
+        return thin + (thick - thin) * s
+    return f
+
+
+def _fit(Q, T0, T3):
+    """Least-squares cubic through Q[0]..Q[-1] with fixed unit end tangents."""
+    P0, P3 = Q[0], Q[-1]
+    # chord-length parameters
+    d = [0.0]
+    for i in range(1, len(Q)):
+        d.append(d[-1] + math.hypot(Q[i][0] - Q[i - 1][0], Q[i][1] - Q[i - 1][1]))
+    L = d[-1] or 1.0
+    u = [x / L for x in d]
+    for _ in range(3):
+        c11 = c12 = c22 = x1 = x2 = 0.0
+        for uk, q in zip(u, Q):
+            m = 1 - uk
+            b0, b1, b2, b3 = m ** 3, 3 * m * m * uk, 3 * m * uk * uk, uk ** 3
+            A1 = (T0[0] * b1, T0[1] * b1)
+            A2 = (-T3[0] * b2, -T3[1] * b2)
+            r = (q[0] - (b0 + b1) * P0[0] - (b2 + b3) * P3[0],
+                 q[1] - (b0 + b1) * P0[1] - (b2 + b3) * P3[1])
+            c11 += A1[0] * A1[0] + A1[1] * A1[1]
+            c12 += A1[0] * A2[0] + A1[1] * A2[1]
+            c22 += A2[0] * A2[0] + A2[1] * A2[1]
+            x1 += A1[0] * r[0] + A1[1] * r[1]
+            x2 += A2[0] * r[0] + A2[1] * r[1]
+        det = c11 * c22 - c12 * c12
+        if abs(det) < 1e-9:
+            a = b = L / 3
+        else:
+            a = (x1 * c22 - x2 * c12) / det
+            b = (c11 * x2 - c12 * x1) / det
+        if not (0.02 * L < a < 0.9 * L) or not (0.02 * L < b < 0.9 * L):
+            a = b = L / 3
+        bez = (P0, add(P0, mul(T0, a)), sub(P3, mul(T3, b)), P3)
+        # one Newton step of reparametrisation
+        nu = []
+        for uk, q in zip(u, Q):
+            p = bz(bez, uk)
+            dp = bzd(bez, uk)
+            den = dp[0] * dp[0] + dp[1] * dp[1]
+            if den > 0:
+                uk = uk - ((p[0] - q[0]) * dp[0] + (p[1] - q[1]) * dp[1]) / den
+            nu.append(min(1.0, max(0.0, uk)))
+        nu[0], nu[-1] = 0.0, 1.0
+        u = nu
+    return bez
+
+
+def _edge(segs, wfn, side, nsub, ns=14):
+    """Offset edge of a centerline chain. side=+1 left, -1 right.
+    Returns list of cubics (sub per centerline segment)."""
+    out = []
+    for i, b in enumerate(segs):
+        for j in range(nsub):
+            t0, t1 = j / nsub, (j + 1) / nsub
+
+            def off(t):
+                d = bzd(b, t)
+                n_ = norm((-d[1], d[0]))
+                w = wfn(d, i, t)
+                c = bz(b, t)
+                return (c[0] + side * n_[0] * w / 2, c[1] + side * n_[1] * w / 2)
+
+            Q = [off(t0 + (t1 - t0) * k / ns) for k in range(ns + 1)]
+            h = (t1 - t0) * 0.01
+            T0 = norm(sub(off(t0 + h), off(t0)))
+            T3 = norm(sub(off(t1), off(t1 - h)))
+            out.append(_fit(Q, T0, T3))
+    return out
+
+
+def expand_loop(segs, wfn, nsub=2):
+    """Closed clockwise centerline -> (outer fill, inner hole)."""
+    outer = _edge(segs, wfn, +1, nsub)
+    inner = _edge(segs, wfn, -1, nsub)
+    res = []
+    for kind, e in (("fill", outer), ("hole", inner)):
+        # snap joins: average shared points so the contour closes exactly
+        n_ = len(e)
+        e = [list(x) for x in e]
+        for k in range(n_):
+            a_, b_ = e[k][3], e[(k + 1) % n_][0]
+            m_ = ((a_[0] + b_[0]) / 2, (a_[1] + b_[1]) / 2)
+            dd = sub(m_, a_)
+            e[k][3] = m_
+            e[k][2] = add(e[k][2], dd)
+            dd2 = sub(m_, b_)
+            e[(k + 1) % n_][0] = m_
+            e[(k + 1) % n_][1] = add(e[(k + 1) % n_][1], dd2)
+        c = C(e[0][0], kind)
+        for x in e:
+            c.Cu(x[1], x[2], x[3])
+        res.append({"kind": kind, "start": c.start, "segs": c.segs})
+    return res
+
+
+def _snap_chain(e):
+    e = [list(x) for x in e]
+    for k in range(len(e) - 1):
+        a_, b_ = e[k][3], e[k + 1][0]
+        m_ = ((a_[0] + b_[0]) / 2, (a_[1] + b_[1]) / 2)
+        e[k][2] = add(e[k][2], sub(m_, a_))
+        e[k][3] = m_
+        e[k + 1][1] = add(e[k + 1][1], sub(m_, b_))
+        e[k + 1][0] = m_
+    return e
+
+
+def cap_points(b, t, wfn, i, cut):
+    """End points of a stroke end cut along direction `cut` (unit vector),
+    or perpendicular when cut is None. Returns (left, right)."""
+    d = bzd(b, t)
+    n_ = norm((-d[1], d[0]))
+    w = wfn(d, i, t)
+    c = bz(b, t)
+    if cut is None:
+        return add(c, mul(n_, w / 2)), sub(c, mul(n_, w / 2))
+    dot = cut[0] * n_[0] + cut[1] * n_[1]
+    s = (w / 2) / dot
+    return add(c, mul(cut, s)), sub(c, mul(cut, s))
+
+
+def expand_open(segs, wfn, nsub=2, cut0=None, cut1=None):
+    """Open stroke -> one fill contour: left edge, end cut, right edge back,
+    start cut. cut0/cut1: unit vectors of the end cuts (None = square)."""
+    left = _snap_chain(_edge(segs, wfn, +1, nsub))
+    right = _snap_chain(_edge(segs, wfn, -1, nsub))
+    l0, r0 = cap_points(segs[0], 0.0, wfn, 0, cut0)
+    l1, r1 = cap_points(segs[-1], 1.0, wfn, len(segs) - 1, cut1)
+    # move edge ends onto the cut, keeping handle offsets
+    left[0][1] = add(left[0][1], sub(l0, left[0][0]))
+    left[0][0] = l0
+    right[0][1] = add(right[0][1], sub(r0, right[0][0]))
+    right[0][0] = r0
+    left[-1][2] = add(left[-1][2], sub(l1, left[-1][3]))
+    left[-1][3] = l1
+    right[-1][2] = add(right[-1][2], sub(r1, right[-1][3]))
+    right[-1][3] = r1
+    c = C(l0)
+    for x in left:
+        c.Cu(x[1], x[2], x[3])
+    c.L(r1)
+    for x in reversed(right):
+        c.Cu(x[2], x[1], x[0])
+    return c.close()   # closing line r0 -> l0 is the start cut
+
+
+def knife(X, u_in, mouth_dir, depth, mouth):
+    """Knife incision at a crotch X: a slit that continues the incoming edge
+    (direction u_in, pointing into the solid) for `depth`, opening by `mouth`
+    along mouth_dir on the other edge. Returns (T, A). depth 0 -> X."""
+    if depth <= 0:
+        return X, X
+    T = add(X, mul(u_in, depth))
+    A = add(X, mul(mouth_dir, mouth))
+    return T, A
+
+
+def blade_serif(P, e, side, proj, tt, bh, cut=0.0, concave=0.55, inset=12.0):
+    """Wedge serif with a concave bracket (a cubic sweeping from the tip back
+    into the stem edge). Collapses onto P when proj = tt = bh = 0."""
+    vs = 1.0 if e[1] > 0 else -1.0
+    if proj == 0 and tt == 0 and bh == 0:
+        return {"kind": "fill", "start": P,
+                "segs": [("L", P), ("L", P), ("C", P, P, P), ("L", P), ("L", P)]}
+    s0 = (P[0] - side * inset, P[1])
+    s1 = (P[0] + side * proj, P[1])
+    s2 = (P[0] + side * (proj - cut), P[1] + vs * tt)
+    L = (tt + bh) / abs(e[1])
+    s4 = add(P, mul(e, L))
+    s5 = (s4[0] - side * inset, s4[1])
+    # concave bracket: leaves the tip flat, arrives tangent to the stem
+    c1 = (s2[0] - side * (proj - cut) * concave, s2[1])
+    c2 = sub(s4, mul(e, L * concave * 0.9))
+    c = C(s0)
+    c.L(s1)
+    c.L(s2)
+    c.Cu(c1, c2, s4)
+    c.L(s5)
+    return c.close()

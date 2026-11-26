@@ -11,6 +11,7 @@ sys.path.insert(0, HERE)
 from masters import MASTERS, params  # noqa: E402
 
 data = json.load(open(os.path.join(ROOT, "build", "outlines.json")))
+woff2_old = base64.b64encode(open(os.path.join(ROOT, "fonts", "archive", "GranVF-0.01.woff2"), "rb").read()).decode()
 woff2 = base64.b64encode(open(os.path.join(ROOT, "fonts", "GranVF.woff2"), "rb").read()).decode()
 
 ORDER = [("H", "H"), ("O", "O"), ("Zhe-cy", "Ж"), ("n", "n"), ("o", "o"),
@@ -83,7 +84,8 @@ P = {m: prow(m) for m, *_ in MASTERS}
 
 
 def cell(m, k, fmt="{:.0f}"):
-    return fmt.format(P[m][k])
+    v = P[m][k]
+    return f"{v:.2f}" if isinstance(v, float) and v < 1.5 else fmt.format(v)
 
 
 table_rows = [
@@ -91,7 +93,8 @@ table_rows = [
     ("Штамб прописных V", "V"), ("Штамб строчных v", "v"),
     ("Горизонталь прописных", "Hc"), ("Горизонталь строчных", "hl"),
     ("Вынос засечки прописных", "proj"), ("Толщина засечки у кончика", "tt"),
-    ("Глубина ловушки", "trapD"), ("Апрош у штамба H", "sb"),
+    ("Глубина надреза, доля штамба", "knifeD"), ("Угол пера, °", "phi"),
+    ("Наклон просвета O, °", "oTilt"), ("Апрош у штамба H", "sb"),
 ]
 order_m = ["TextGrotesk", "TextAntiqua", "DisplayGrotesk", "DisplayAntiqua"]
 thead = "".join(f"<th>{MLABEL[m][1]}<br><span>{MLABEL[m][0]}</span></th>" for m in order_m)
@@ -122,25 +125,44 @@ def hbox(m):
 def zbox(m):
     adv = data["Zhe-cy"][m]["adv"]
     c = P[m]["cap"] / 2
-    return (adv / 2 - 190, c - 190, adv / 2 + 190, c + 190)
+    return (adv / 2 - 260, c - 260, adv / 2 + 260, c + 260)
+
+
+def facet_box(m):
+    x = P[m]["sbStem"] * 0.92
+    return (x - 90, P[m]["xh"] - 210, x + 200, P[m]["xh"] + 80)
+
+
+def de_box(m):
+    adv = data["de-cy"][m]["adv"]
+    return (-20, P[m]["dd"] - 40, adv + 20, P[m]["dd"] + adv + 60)
+
+
+def o_box(m):
+    adv = data["O"][m]["adv"]
+    return (-10, -50, adv + 10, P[m]["cap"] + 50)
 
 
 DETAILS = {
-    "TRAP": detail("n", "TextGrotesk", nbox("TextGrotesk"), "12 px: глубокая ловушка")
-    + detail("n", "DisplayGrotesk", nbox("DisplayGrotesk"), "33 px: ловушка стала гранью"),
-    "SERIF": detail("H", "TextAntiqua", hbox("TextAntiqua"), "12 px: короткая, толстая, фаска 45°")
-    + detail("H", "DisplayAntiqua", hbox("DisplayAntiqua"), "33 px: длинный клин, тонкий кончик"),
-    "ZHE": detail("Zhe-cy", "TextGrotesk", zbox("TextGrotesk"), "Гротеск: три ловушки на сторону")
-    + detail("Zhe-cy", "TextAntiqua", zbox("TextAntiqua"), "Антиква: контраст по перу"),
-    "FACET": detail("n", "TextGrotesk", (P["TextGrotesk"]["sbStem"]*0.92 - 80, P["TextGrotesk"]["xh"] - 200, P["TextGrotesk"]["sbStem"]*0.92 + 200, P["TextGrotesk"]["xh"] + 60), "Гротеск: срез 10%")
-    + detail("n", "TextAntiqua", (P["TextAntiqua"]["sbStem"]*0.92 - 80, P["TextAntiqua"]["xh"] - 200, P["TextAntiqua"]["sbStem"]*0.92 + 200, P["TextAntiqua"]["xh"] + 60), "Антиква: тот же срез вырос во флажок"),
+    "FACET": detail("n", "TextGrotesk", facet_box("TextGrotesk"), "Гротеск 12: срез 20%")
+    + detail("n", "DisplayAntiqua", facet_box("DisplayAntiqua"), "Антиква 33: срез стал клинком"),
+    "TRAP": detail("n", "TextGrotesk", nbox("TextGrotesk"), "12 px: короткий надрез-ловушка")
+    + detail("n", "DisplayGrotesk", nbox("DisplayGrotesk"), "33 px: надрез через полштамба"),
+    "ZHE": detail("Zhe-cy", "TextGrotesk", zbox("TextGrotesk"), "12 px: дуги заходят в штамб")
+    + detail("Zhe-cy", "DisplayAntiqua", zbox("DisplayAntiqua"), "33 px: нож оставил просвет"),
+    "DE": detail("de-cy", "TextGrotesk", de_box("TextGrotesk"), "Гротеск 12: срезы наружу")
+    + detail("de-cy", "DisplayAntiqua", de_box("DisplayAntiqua"), "Антиква 33: лезвия"),
+    "O": detail("O", "DisplayGrotesk", o_box("DisplayGrotesk"), "Гротеск: ось 0°")
+    + detail("O", "DisplayAntiqua", o_box("DisplayAntiqua"), "Антиква 33: просвет повёрнут на 15°"),
 }
 
 tpl = open(os.path.join(HERE, "specimen.tpl.html"), encoding="utf-8").read()
 html = (tpl.replace("{{WOFF2}}", woff2).replace("{{PROOFS}}", proof_rows)
         .replace("{{THEAD}}", thead)
-        .replace("{{D_TRAP}}", DETAILS["TRAP"]).replace("{{D_SERIF}}", DETAILS["SERIF"])
-        .replace("{{D_ZHE}}", DETAILS["ZHE"]).replace("{{D_FACET}}", DETAILS["FACET"]).replace("{{TBODY}}", tbody))
+        .replace("{{D_TRAP}}", DETAILS["TRAP"])
+        .replace("{{D_ZHE}}", DETAILS["ZHE"]).replace("{{D_FACET}}", DETAILS["FACET"])
+        .replace("{{D_DE}}", DETAILS["DE"]).replace("{{D_O}}", DETAILS["O"])
+        .replace("{{WOFF2OLD}}", woff2_old).replace("{{TBODY}}", tbody))
 out = os.path.join(ROOT, "specimen.html")
 open(out, "w", encoding="utf-8").write(html)
 print(out, len(html) // 1024, "KB")

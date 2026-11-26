@@ -5,6 +5,7 @@
 <style>
 /* Layout: a foundry proof sheet. Left margin carries labels like a ledger; the live font owns the page. */
 @font-face { font-family: "Gran"; src: url(data:font/woff2;base64,{{WOFF2}}) format("woff2"); font-display: block; }
+@font-face { font-family: "Gran001"; src: url(data:font/woff2;base64,{{WOFF2OLD}}) format("woff2"); font-display: block; }
 :root {
   --paper: #f2f3f1;
   --sheet: #fbfbfa;
@@ -94,6 +95,12 @@ svg.dz { display: block; width: 100%; height: auto; aspect-ratio: 1; }
 .sz .t { font-family: var(--f-gran); font-optical-sizing: auto; overflow-wrap: anywhere; }
 @media (max-width: 600px) { .sz { grid-template-columns: minmax(0,1fr); gap: 2px; } }
 
+.ba { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+.baw { background: var(--sheet); padding: 14px 16px; display: grid; gap: 4px; min-width: 0; }
+.baw .mono { color: var(--muted); }
+.bag { font-family: var(--f-gran); font-optical-sizing: none; font-size: clamp(34px, 6.4vw, 76px); line-height: 1.05; white-space: nowrap; }
+.bag.old { font-family: "Gran001", var(--f-text); opacity: .55; }
+@media (max-width: 600px) { .ba { grid-template-columns: minmax(0, 1fr); } }
 .scdemo { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
 .scbox { background: var(--sheet); border: 1px solid var(--rule); padding: 16px; display: grid; gap: 8px; }
 .scbox .g { font-family: var(--f-gran); font-size: 76px; line-height: 1; position: relative; font-optical-sizing: none; }
@@ -140,7 +147,7 @@ footer { padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
 <div class="wrap">
   <header class="hero">
     <div class="hero-top">
-      <span class="mono">Gran · рабочее имя · прототип 0.01</span>
+      <span class="mono">Gran · рабочее имя · прототип 0.02 «Резец»</span>
       <span class="mono">оси: opsz 12–33 · SERF 0–100 · 7 знаков + капитель</span>
     </div>
     <div class="controls">
@@ -162,7 +169,7 @@ footer { padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
     </div>
     <div class="cap mono lupa"><span>Лупа: тот же оптический размер, крупно</span><output id="lupav">×10</output></div>
     <div class="stage" id="stage">НОЖ дао<br>Hanna <span class="sc">НОЖ</span></div>
-    <p class="lede">Вариативная суперсемья для кириллицы и латиницы: гротеск и антиква в одном файле, с оптическими размерами для текста (12 px) и заголовков (33 px). Идея в том, что засечка не приклеена к гротеску. Она вырастает из той же грани, которая в гротеске работает срезом и ловушкой для краски.</p>
+    <p class="lede">Вариативная суперсемья для кириллицы и латиницы: гротеск и антиква в одном файле, с оптическими размерами для текста (12 px) и заголовков (33 px). Идея в том, что вся семья вырезана одним ножом и нарисована одним пером: в гротеске нож режет внутрь, в антикве из того же среза вырастает засечка.</p>
   </header>
 
   <section>
@@ -201,17 +208,33 @@ footer { padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
   <section>
     <div class="label">Концепция</div>
     <div class="body">
-      <h2>Грань: одна геометрия для среза, ловушки и засечки</h2>
-      <p>Арт-идея не в декоре. Это сквозное правило: каждая буква собрана из прямых штрихов и гладких кривых, а в местах напряжения появляется плоская грань. В гротеске грань режет внутрь, в антикве она выходит наружу и становится засечкой. Отсюда имя.</p>
+      <h2>Резец: один нож, одно перо</h2>
+      <p>Версия 0.01 была аккуратной, но безликой: равномерные эллипсы, приклеенные засечки, мелкие фаски, которые не читались. В 0.02 у всей семьи одна логика. Каждый срез делает один и тот же нож: верх штамба, надрез в узле, конец штриха, выносной элемент, засечку. Кривые рисует одно перо, и его угол поворачивается вдоль оси SERF. На 12 px нож тупой и работает на читаемость, на 33 px он становится выразительным средством.</p>
       <div class="rules">
-        <div class="rule"><div><h3>Срез верха штамба</h3><p>Верх строчных штамбов срезан под углом 10–15%. Это след будущей засечки, который виден уже в гротеске. На оси SERF тот же срез вытягивается во флажок антиквы, без смены конструкции.</p></div>
+        <div class="rule"><div><h3>Срез верха штамба</h3><p>Верх строчных штамбов срезан ножом: 20% наклона в тексте, 30% на дисплее. В антикве тот же срез продолжается в клинок флажковой засечки с вогнутым брюшком.</p></div>
           <div class="dets">{{D_FACET}}</div></div>
-        <div class="rule"><div><h3>Ловушка, которая становится гранью</h3><p>На 12 px узел n, a и Ж прорезан глубоко, чтобы буква не забивалась. К 33 px вырез мелеет до небольшой кристаллической фаски: функция на мелком кегле, характер на крупном.</p></div>
+        <div class="rule"><div><h3>Надрез вместо ловушки</h3><p>Там, где плечо n или верх чаши a отходит от штамба, контур не останавливается, а продолжает идти в штамб узким надрезом. На 12 px надрез короткий и широкий и работает как ловушка для краски. На 33 px он длинный и тонкий и прорезает штамб больше чем наполовину.</p></div>
           <div class="dets">{{D_TRAP}}</div></div>
-        <div class="rule"><div><h3>Гранёный бракет</h3><p>Засечка антиквы — клин с прямой фаской вместо привычной скруглённой подставки. Для текста она короткая и плотная, чтобы выдерживать мелкий кегль. Для дисплея длинная, с тонким кончиком и высоким контрастом.</p></div>
-          <div class="dets">{{D_SERIF}}</div></div>
-        <div class="rule"><div><h3>Ж по логике пера</h3><p>Ветви и ноги сходятся не к штамбу, а к точке рядом с ним. Так узел легче, а три ловушки на каждую сторону держат его открытым. В антикве контраст распределён по движению пера.</p></div>
+        <div class="rule"><div><h3>Ж как )|(</h3><p>Ветвь и нога каждой стороны собраны в одну дугу. На 12 px дуги заходят в штамб, чтобы узел не забивался. На 33 px нож отделяет их волосяным просветом. В антикве контраст распределён по перу: дуга толще там, где перо идёт вниз-вправо.</p></div>
           <div class="dets">{{D_ZHE}}</div></div>
+        <div class="rule"><div><h3>д с ногой-саблей</h3><p>Левая нога вертикальна у перекладины и уходит влево у основания, как сабля. Выносные срезаны ножом наискосок, наружу. В антикве срезы расширяются в лезвия.</p></div>
+          <div class="dets">{{D_DE}}</div></div>
+        <div class="rule"><div><h3>Поворот пера</h3><p>Внешний овал всегда гладкий, поворачивается только просвет. В гротеске ось контраста вертикальна. В антикве она наклонена на 9° в тексте и на 15° на дисплее, поэтому тонкие места уходят на 11 и 5 часов, как у широкого пера.</p></div>
+          <div class="dets">{{D_O}}</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="label">Было → стало</div>
+    <div class="body">
+      <h2>0.01 и 0.02 на одном тексте</h2>
+      <p>Слева старый прототип, справа новый. Знаки и метрики те же, изменились конструкции.</p>
+      <div class="ba">
+        <div class="baw"><span class="mono">0.01 · Display Antiqua</span><span class="bag old" style="font-variation-settings:'opsz' 33,'SERF' 100">Жад НОЖ</span></div>
+        <div class="baw"><span class="mono">0.02 · Display Antiqua</span><span class="bag" style="font-variation-settings:'opsz' 33,'SERF' 100">Жад НОЖ</span></div>
+        <div class="baw"><span class="mono">0.01 · Display Grotesk</span><span class="bag old" style="font-variation-settings:'opsz' 33,'SERF' 0">Жад НОЖ</span></div>
+        <div class="baw"><span class="mono">0.02 · Display Grotesk</span><span class="bag" style="font-variation-settings:'opsz' 33,'SERF' 0">Жад НОЖ</span></div>
       </div>
     </div>
   </section>
@@ -326,7 +349,7 @@ footer { padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
     </div>
   </section>
 
-  <footer>Gran 0.01. Шрифт на этой странице встроен прямо в неё: 7 знаков, капитель для Н О Ж, четыре мастера, 2 оси. Обзоры трендов от маркетплейсов — рекламные источники, их прогнозы стоит воспринимать как мнение.</footer>
+  <footer>Gran 0.02. Шрифт на этой странице встроен прямо в неё: 7 знаков, капитель для Н О Ж, четыре мастера, 2 оси. Обзоры трендов от маркетплейсов — рекламные источники, их прогнозы стоит воспринимать как мнение.</footer>
 </div>
 
 <script>

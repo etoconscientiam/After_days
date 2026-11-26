@@ -1,57 +1,62 @@
-"""Design parameters of the four Gran masters.
+"""Design parameters of the four Gran masters (v0.02, "Резец").
 
-Design space: opsz 12..33 (optical size in CSS px) x SERF 0..100
-(0 = Grotesk, 100 = Antiqua). Vertical metrics are shared along SERF so the
-two genres can be mixed inside one line; they change only with optical size.
+Design space: opsz 12..33 (CSS px) x SERF 0..100 (0 Grotesk, 100 Antiqua).
+Vertical metrics change with optical size only, so the genres mix in a line.
 
-Units: 1000 UPM. v/V = lowercase/capital vertical stems, hl/Hc = horizontal
-strokes. Serif sizes at 0 make the serif contours collapse (Grotesk).
+The idea of v0.02: one knife. Every cut in the family (stem tops, the slit
+where an arch leaves a stem, terminals, descenders, serifs) is made by the
+same blade. At text size the blade is blunt and functional; at display size
+it becomes the expression. Curves are drawn with a pen whose angle turns
+from 0 (rational, Grotesk) to 18-24 degrees (broad nib, Antiqua).
 """
 
 SIZE = {
-    # text size: bigger x-height, heavier and lower-contrast strokes,
-    # wider letters, looser spacing, deep ink traps
     12: dict(cap=700, xh=532, sc=552, dd=-170, ov=12, ovl=11,
-             wH=566, wO=712, wo=536, wn=474, wa=468, wd=500, wZ=830,
-             sb=66, trapD=24, trapS=22, slopeS=0.10, gapZ=0.34),
-    # display size: lower x-height, finer strokes, more contrast,
-    # narrower letters, tight spacing, traps shrink to small facets
-    33: dict(cap=700, xh=500, sc=518, dd=-152, ov=10, ovl=9,
-             wH=528, wO=676, wo=494, wn=440, wa=438, wd=466, wZ=780,
-             sb=44, trapD=9, trapS=17, slopeS=0.15, gapZ=0.20),
+             wH=566, wO=700, wo=520, wn=470, wa=470, wd=488, wZ=806,
+             sb=66),
+    33: dict(cap=700, xh=500, sc=518, dd=-150, ov=10, ovl=9,
+             wH=528, wO=666, wo=480, wn=436, wa=436, wd=456, wZ=764,
+             sb=44),
 }
 
 GENRE = {
-    (12, "G"): dict(V=96, v=90, Hc=82, hl=76, ko=0.60, ki=0.665,
-                    zArmA=0.86, zArmB=0.86, zLegA=0.92, zLegB=0.92,
-                    dLeg=0.90,
-                    proj=0, tt=0, bh=0, fk=0.5, cut=0,
-                    lproj=0, ltt=0, lbh=0, hp=0, htt=0, hbh=0, slope=None,
-                    beak=0, flare=0, trapK=1.0),
-    (12, "A"): dict(V=98, v=92, Hc=50, hl=46, ko=0.565, ki=0.60,
-                    # Antiqua contrast follows the broad pen: strokes falling
-                    # to the right are heavy, rising ones are hairlines
-                    zArmA=0.96, zArmB=0.52, zLegA=0.50, zLegB=0.98,
-                    dLeg=0.74,
-                    proj=50, tt=30, bh=26, fk=0.52, cut=6,
-                    lproj=42, ltt=26, lbh=20, hp=44, htt=28, hbh=22, slope=0.20,
-                    beak=34, flare=16, trapK=0.75),
-    (33, "G"): dict(V=88, v=82, Hc=70, hl=64, ko=0.625, ki=0.695,
-                    zArmA=0.86, zArmB=0.86, zLegA=0.93, zLegB=0.93,
-                    dLeg=0.90,
-                    proj=0, tt=0, bh=0, fk=0.5, cut=0,
-                    lproj=0, ltt=0, lbh=0, hp=0, htt=0, hbh=0, slope=None,
-                    beak=0, flare=0, trapK=1.0),
-    (33, "A"): dict(V=94, v=88, Hc=26, hl=24, ko=0.565, ki=0.585,
-                    zArmA=0.95, zArmB=0.30, zLegA=0.28, zLegB=0.97,
-                    dLeg=0.52,
-                    proj=64, tt=15, bh=42, fk=0.42, cut=9,
-                    lproj=54, ltt=14, lbh=34, hp=54, htt=15, hbh=34, slope=0.24,
-                    beak=50, flare=24, trapK=0.5),
+    (12, "G"): dict(
+        V=96, v=90, Hc=82, hl=76, phi=0, oTilt=0, kpen=1.4, tens=0.60, tensIn=0.06, tensR=0.62,
+        slope=0.20,          # stem-top cut, rise per unit of width
+        knifeD=0.26, knifeM=18,   # slit depth (x stem) and mouth
+        join=0.56,           # arch join thickness (x stem)
+        aTop=0.12, aFoot=0.20, termCut=18,
+        zOver=0.34, zRound=0.16, zThick=0.96, zThin=0.90,
+        dLegThin=0.90, descCut=0.40, flare=0,
+        proj=0, tt=0, bh=0, cut=0, lproj=0, ltt=0, lbh=0,
+        hp=0, htt=0, hbh=0, beak=0),
+    (33, "G"): dict(
+        V=88, v=82, Hc=68, hl=62, phi=0, oTilt=0, kpen=1.5, tens=0.635, tensIn=0.06, tensR=0.66,
+        slope=0.30, knifeD=0.58, knifeM=10, join=0.50,
+        aTop=0.16, aFoot=0.30, termCut=24,
+        zOver=-0.11, zRound=0.52, zThick=0.96, zThin=0.88,
+        dLegThin=0.88, descCut=0.60, flare=0,
+        proj=0, tt=0, bh=0, cut=0, lproj=0, ltt=0, lbh=0,
+        hp=0, htt=0, hbh=0, beak=0),
+    (12, "A"): dict(
+        V=98, v=92, Hc=46, hl=42, phi=18, oTilt=9, kpen=1.0, tens=0.565, tensIn=0.03, tensR=0.58,
+        slope=0.34, knifeD=0.24, knifeM=14, join=0.40,
+        aTop=0.20, aFoot=0.0, termCut=26,
+        zOver=0.26, zRound=0.20, zThick=1.00, zThin=0.42,
+        dLegThin=0.55, descCut=0.50, flare=14,
+        proj=46, tt=22, bh=30, cut=4, lproj=40, ltt=20, lbh=24,
+        hp=46, htt=18, hbh=34, beak=40),
+    (33, "A"): dict(
+        V=94, v=88, Hc=22, hl=20, phi=24, oTilt=15, kpen=0.9, tens=0.56, tensIn=0.025, tensR=0.57,
+        slope=0.42, knifeD=0.50, knifeM=8, join=0.30,
+        aTop=0.24, aFoot=0.0, termCut=32,
+        zOver=-0.07, zRound=0.55, zThick=1.00, zThin=0.22,
+        dLegThin=0.42, descCut=0.62, flare=26,
+        proj=62, tt=9, bh=46, cut=6, lproj=54, ltt=8, lbh=40,
+        hp=60, htt=8, hbh=46, beak=62),
 }
 
 MASTERS = [
-    # name, opsz, SERF, genre key
     ("TextGrotesk", 12, 0, "G"),
     ("TextAntiqua", 12, 100, "A"),
     ("DisplayGrotesk", 33, 0, "G"),
@@ -64,10 +69,5 @@ def params(opsz, genre):
     p.update(GENRE[(opsz, genre)])
     p["opsz"] = opsz
     p["genre"] = genre
-    if p["slope"] is None:
-        p["slope"] = p["slopeS"]
-    p["trapD"] *= p["trapK"]
-    p["trapS"] *= p["trapK"] if genre == "A" else 1.0
-    # Antiqua needs room for serif tips: stem sidebearing grows a little
     p["sbStem"] = p["sb"] + (0.30 * p["proj"] if genre == "A" else 0)
     return p

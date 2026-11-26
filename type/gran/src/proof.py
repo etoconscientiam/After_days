@@ -4,7 +4,7 @@ import json, os, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 data = json.load(open(os.path.join(ROOT, "build", "outlines.json")))
 MS = ["TextGrotesk", "TextAntiqua", "DisplayGrotesk", "DisplayAntiqua"]
-order = ["H", "O", "Zhe-cy", "n", "o", "a", "de-cy", "h.sc", "o.sc", "zhe-cy.sc"]
+order = os.environ.get("ORDER","H O Zhe-cy n o a de-cy h.sc o.sc zhe-cy.sc").split()
 
 def path_d(c):
     d = [f"M{c['start'][0]:.1f} {c['start'][1]:.1f}"]
