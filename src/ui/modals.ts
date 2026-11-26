@@ -44,14 +44,15 @@ export class Modals {
   away(rep: OfflineReport): void {
     const rocks = Object.entries(rep.rocks).filter(([, v]) => v >= 1).sort((a, b) => b[1] - a[1]).slice(0, 4);
     const card = h('div', { class: 'summary label' },
-      h('div', { class: 'big' }, t('away.title') + ', ' + t('away.passed', { v: fmtInt(rep.years) })),
+      h('div', { class: 'kicker' }, t('away.title')),
+      h('div', { class: 'big' }, t('away.passed', { v: fmtInt(rep.years) })),
       h('div', { class: 'rows' },
         h('div', {}, energyIcon(16), '+' + fmt(rep.energy)),
         rep.layers ? h('div', {}, t('away.layers', { v: fmtInt(rep.layers) })) : null,
         ...rocks.map(([k, v]) => h('div', {}, rockIcon(k, 16), `${t('rocks.' + k)} +${fmt(v, 0)}`)),
         rep.fossils ? h('div', {}, t('away.fossils', { v: rep.fossils })) : null,
         rep.notes.length ? h('div', {}, t('away.notes', { v: rep.notes.length })) : null),
-      h('button', { class: 'stone-btn', onclick: () => this.close() }, t('btn.continue')));
+      h('button', { class: 'stone-btn primary', onclick: () => this.close() }, t('btn.continue')));
     this.show('away', true, card);
   }
 
