@@ -183,6 +183,17 @@ export class UI {
     return m ? `${t('seam.' + m[1])} ${+m[2] + 1}` : t('seam.' + id);
   }
 
+  /** How well something came out: five stars, filled by quality. */
+  private rating(q: number): string {
+    const n = Math.max(0, Math.min(5, Math.round(q * 5)));
+    return `<span class="on">${'★'.repeat(n)}</span><span class="off">${'★'.repeat(5 - n)}</span>`;
+  }
+
+  /** A stage's name that fills with colour, left to right, as the work on it goes (0..1). */
+  private filled(text: string, k: number): string {
+    return `<span class="fill" style="--p:${Math.round(Math.max(0, Math.min(1, k)) * 100)}%">${text}</span>`;
+  }
+
   private stars(n: number): string {
     return '★'.repeat(n) + '☆'.repeat(5 - n);
   }
@@ -266,7 +277,6 @@ export class UI {
     }
     const done = b.stage !== 'weld';
     let total = 0;
-    let anyUnknown = false;
     // Which seam was closed last: its losses are the ones worth reading now.
     for (let i = 0; i < b.seams.length; i++) {
       const f = b.seams[i].filled;
@@ -282,15 +292,14 @@ export class UI {
         if (finished) {
           const pay = done ? seamProgress(b.seams, st.seam, reward).pay : p.pay;
           total += pay;
-          return { html: `<li class="ok"><s>✓</s>${n}${this.stageName(st.id)}<em>${this.coins(pay)} / ${this.coins(st.max)} ◆</em></li>`, seamDone: true, pay, max: st.max, seam: st.seam };
+          return { html: `<li class="ok"><s>✓</s>${n}${this.stageName(st.id)}<em class="q">${this.rating(b.seams[st.seam].quality)}</em></li>`, seamDone: true, pay, max: st.max, seam: st.seam };
         }
         const on = st.seam === cur;
-        const bar = `<i class="bar"><i style="width:${Math.round(p.laid * 100)}%"></i></i>`;
-        return { html: `<li class="${on ? 'on' : ''}"><s>${on ? '▶' : ''}</s>${n}${this.stageName(st.id)}${p.laid > 0.02 || on ? bar : `<em>${t('job.upTo')} ${this.coins(st.max)} ◆</em>`}</li>`, seamDone: false, pay: 0, max: st.max, seam: st.seam };
+        return { html: `<li class="${on ? 'on' : ''}"><s>${on ? '▶' : ''}</s>${this.filled(n + this.stageName(st.id), p.laid)}</li>`, seamDone: false, pay: 0, max: st.max, seam: st.seam };
       }
       const none = { seamDone: false, pay: 0, max: 0, seam: -1 };
       if (st.kind === 'chip') {
-        if (b.stage === 'chip') return { ...none, html: `<li class="on"><s>▶</s>${n}${t('stage.chip')}<i class="bar"><i style="width:${Math.round((1 - b.slagLeft) * 100)}%"></i></i></li>` };
+        if (b.stage === 'chip') return { ...none, html: `<li class="on"><s>▶</s>${this.filled(n + t('stage.chip'), 1 - b.slagLeft)}</li>` };
         if (b.stage === 'inspect' || b.stage === 'ready') return { ...none, html: `<li class="ok"><s>✓</s>${n}${t('stage.chip')}</li>` };
         return { ...none, html: `<li><s></s>${n}${t('stage.chip')}</li>` };
       }
@@ -298,7 +307,6 @@ export class UI {
     });
     const causesOf = (seam: number) => {
       const c = this.causes(seam);
-      if (c.includes('unk')) anyUnknown = true;
       return c ? `<li class="causes">${c}</li>` : '';
     };
     const rows: string[] = [];
@@ -311,7 +319,10 @@ export class UI {
       const seams = items.filter((it) => it.seam >= 0).length;
       if (fin.length) {
         const pay = fin.reduce((a, it) => a + it.pay, 0), max = fin.reduce((a, it) => a + it.max, 0);
-        rows.push(`<li class="ok"><s>✓</s>${t('job.seamsDone', { n: fin.length, m: seams })}<em>${this.coins(pay)} / ${this.coins(max)} ◆</em></li>`);
+        const q = fin.reduce((a, it) => a + b.seams[it.seam].quality, 0) / fin.length;
+        void pay;
+        void max;
+        rows.push(`<li class="ok"><s>✓</s>${t('job.seamsDone', { n: fin.length, m: seams })}<em class="q">${this.rating(q)}</em></li>`);
         const last = fin.find((it) => it.seam === this.lastFilled) ?? fin[fin.length - 1];
         rows.push(causesOf(last.seam));
       }
@@ -321,8 +332,11 @@ export class UI {
       for (const it of ordered.slice(0, 3)) rows.push(it.html);
       if (ordered.length > 3) rows.push(`<li class="more"><s></s>${t('job.more', { n: ordered.length - 3 })}</li>`);
     }
-    const sum = done ? `<div class="sum"><span>${t('job.total')}</span><em>${this.coins(payForSeams(b.seams, reward))} / ${reward} ◆</em></div>` : total > 0 ? `<div class="sum"><span>${t('job.sofar')}</span><em>${this.coins(total)} ◆</em></div>` : '';
-    const legend = anyUnknown ? `<div class="legend">${t('cause.unknown')}</div>` : '';
+    // The whole job so far: how well (stars over the seams closed) and what it will bring, in whole coins.
+    const closed = b.seams.filter((x) => x.filled || done);
+    const qAll = closed.length ? closed.reduce((a, x) => a + x.quality, 0) / closed.length : 0;
+    const coinsNow = Math.round(done ? payForSeams(b.seams, reward) : total);
+    const sum = closed.length ? `<div class="sum"><span>${t(done ? 'job.total' : 'job.sofar')}</span><span class="q">${this.rating(qAll)}</span><em>◆ ${coinsNow}</em></div>` : '';
     // «Next»: leave the rest of the seam in hand (or of the chipping) once two thirds of it are done.
     let next = '';
     const W = BALANCE.weld.fillMin;
@@ -333,7 +347,7 @@ export class UI {
       const ok = 1 - b.slagLeft >= SKIP_AT;
       next = `<div class="next${ok ? '' : ' off'}" data-seam="-1">${t(ok ? 'job.next' : 'job.nextAt')}</div>`;
     }
-    const html = `<b>${t('part.' + b.order.part)}</b> <span class="stars">${this.stars(s.stars)}</span><ol>${rows.join('')}</ol>${sum}${legend}${next}`;
+    const html = `<b>${t('part.' + b.order.part)}</b><ol>${rows.join('')}</ol>${sum}${next}`;
     if (html !== this.stagesHtml) {
       this.stagesHtml = html;
       this.stagesEl.innerHTML = html;

@@ -607,3 +607,17 @@ body.ui-modal #game { cursor: var(--cur); }
 /* «Next» on the job card: leave the rest of the stage once two thirds are done. */
 #stages .next { display: inline-block; margin-top: 0.4em; padding: 0 calc(var(--px) * 3); white-space: nowrap; color: #ffe6a8; pointer-events: auto; cursor: var(--cur-hot); }
 #stages .next.off { color: #7a6a54; cursor: var(--cur); }
+
+/* Job card: a stage's name fills with colour as the work on it goes; quality as five stars. */
+#stages .fill {
+  background-image: linear-gradient(90deg, #e8a040 var(--p), #6e6250 var(--p));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+#stages li.on .fill { background-image: linear-gradient(90deg, #ffc860 var(--p), #6e6250 var(--p)); }
+#stages .q { letter-spacing: 0.05em; }
+#stages .q .on { color: #f0c050; }
+#stages .q .off { color: #4a4034; }
+#stages .sum .q { margin-left: auto; }
+#stages .sum .q + em { margin-left: 0.8em; padding-left: 0; }
