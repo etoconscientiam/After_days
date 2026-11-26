@@ -148,6 +148,8 @@ export const ru: Strings = {
   'job.seamsDone': 'готово швов: {n} из {m}',
   'job.more': 'ещё {n}',
   'tip.ready': 'Готово',
+  'job.next': 'далее ▸',
+  'job.nextAt': 'далее · с ⅔',
   'job.total': 'стоит',
   'job.sofar': 'пока',
   'stage.chip': 'отбить шлак',

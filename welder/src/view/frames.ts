@@ -39,6 +39,8 @@ const RULES: Rule[] = [
   ['#stamp.bad', 'bad', null, true],
   ['#craft-btn, #lang-btn, #craft .buy, #job .take, #start .go, #end .go', 'btn', 'hot', false],
   ['#craft-btn.glow', 'hot', null, false],
+  ['#stages .next', 'btn', 'hot', false],
+  ['#stages .next.off', 'dark', null, false],
   ['#job .later, #board .close, #craft .close, #start .links span, #craft .x, #board .x, #dbg .lvl', 'dark', 'btn', false],
   ['#ctrl .k', 'key', null, false],
 ];

@@ -146,6 +146,8 @@ export const en = {
   'job.seamsDone': 'seams done: {n} of {m}',
   'job.more': '{n} more',
   'tip.ready': 'Done',
+  'job.next': 'next ▸',
+  'job.nextAt': 'next · from ⅔',
   'job.total': 'worth',
   'job.sofar': 'so far',
   'stage.chip': 'knock off the slag',

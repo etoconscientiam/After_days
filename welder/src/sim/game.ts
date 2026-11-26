@@ -4,7 +4,7 @@ import { BALANCE } from '../data/balance';
 import type { GameData, GradeId } from '../data/types';
 import type { SimEvents } from './events';
 import { Stats, computeStats, checkCond, unmet, Reason, CondCtx } from './stats';
-import { Bench, TorchIn, WeldCtx, emptyTorch, stepBench, newElectrode, reveal, faceSeam } from './weld';
+import { Bench, TorchIn, WeldCtx, emptyTorch, stepBench, newElectrode, reveal, faceSeam, skipStage } from './weld';
 import { Power } from './power';
 import { Order, makeOrder, rollBoardOrder } from './orders';
 import { Recorder, Replayer, Habit } from './apprentice';
@@ -24,7 +24,9 @@ export type Command =
   /** Turn the part on the bench so the next unwelded joint faces you. */
   | { type: 'faceNext' }
   /** Turn a given joint to face you (scripts; the apprentice turns his own work). */
-  | { type: 'face'; seam: number; s: number };
+  | { type: 'face'; seam: number; s: number }
+  /** Leave the rest of the current stage (a seam, or the chipping) and move on, once SKIP_AT of it is done. */
+  | { type: 'skip'; seam: number };
 
 export interface FrameInput {
   torch: TorchIn;
@@ -307,6 +309,9 @@ export class Game {
         break;
       case 'handOver':
         this.handOver();
+        break;
+      case 'skip':
+        skipStage(this.player, c.seam, this.ctx);
         break;
       case 'buy':
         this.buy(c.id);

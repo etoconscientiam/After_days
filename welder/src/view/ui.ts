@@ -9,6 +9,8 @@ import { jobSheet, payAtGrade, seamProgress, JobSheet } from '../sim/jobs';
 /** The close button in a window's corner: a pixel cross on a small plate, which stays put while the window scrolls. */
 const CLOSE_X = `<div class="x" title="Esc"><svg viewBox="0 0 7 7" aria-hidden="true">${[0, 1, 2, 3, 4, 5, 6].map((i) => `<rect x="${i}" y="${i}" width="1" height="1"/><rect x="${6 - i}" y="${i}" width="1" height="1"/>`).join('')}</svg></div>`;
 import { payForSeams, seamLosses } from '../sim/quality';
+import { SKIP_AT } from '../sim/weld';
+import { BALANCE } from '../data/balance';
 
 function el(tag: string, id?: string, cls?: string): HTMLElement {
   const e = document.createElement(tag);
@@ -49,6 +51,8 @@ export class UI {
   /** Debug panel (the ` key): jump the progression to one of three levels. */
   private dbgEl = el('div', 'dbg', 'pe');
   onDebugLevel: (level: 1 | 2 | 3) => void = () => {};
+  /** The «next» button on the job card: leave the rest of this seam (or of the chipping). */
+  onSkip: (seam: number) => void = () => {};
   /** Seams seen closed on this job, and the one closed last (its losses are shown on a long job's card). */
   private filledSeen = new Set<number>();
   private lastFilled = -1;
@@ -86,6 +90,12 @@ export class UI {
     this.hudL.append(this.money, this.craftBtn, this.rodEl, this.stagesEl);
     root.append(this.hudL, this.langBtn, this.jobEl, this.craftEl, this.tourEl, this.ctrl, this.promptEl, this.whyEl, this.appStatus, this.hint, this.tip, this.stampEl, this.toasts, this.board, this.endEl, this.start, this.dbgEl, this.cursor);
     this.dbgEl.style.display = 'none';
+    this.stagesEl.addEventListener('pointerdown', (e) => {
+      const n = (e.target as HTMLElement).closest<HTMLElement>('.next');
+      if (!n) return;
+      e.stopPropagation();
+      if (!n.classList.contains('off')) this.onSkip(+n.dataset.seam!);
+    });
   }
 
   /** Bottom strip: how to act in the current mode. At the bench, the mask and which way SPACE moves it. */
@@ -313,7 +323,17 @@ export class UI {
     }
     const sum = done ? `<div class="sum"><span>${t('job.total')}</span><em>${this.coins(payForSeams(b.seams, reward))} / ${reward} ◆</em></div>` : total > 0 ? `<div class="sum"><span>${t('job.sofar')}</span><em>${this.coins(total)} ◆</em></div>` : '';
     const legend = anyUnknown ? `<div class="legend">${t('cause.unknown')}</div>` : '';
-    const html = `<b>${t('part.' + b.order.part)}</b> <span class="stars">${this.stars(s.stars)}</span><ol>${rows.join('')}</ol>${sum}${legend}`;
+    // «Next»: leave the rest of the seam in hand (or of the chipping) once two thirds of it are done.
+    let next = '';
+    const W = BALANCE.weld.fillMin;
+    if (b.stage === 'weld' && cur >= 0 && !b.seams[cur].filled) {
+      const ok = b.seams[cur].coverage(W) >= SKIP_AT;
+      next = `<div class="next${ok ? '' : ' off'}" data-seam="${cur}">${t(ok ? 'job.next' : 'job.nextAt')}</div>`;
+    } else if (b.stage === 'chip') {
+      const ok = 1 - b.slagLeft >= SKIP_AT;
+      next = `<div class="next${ok ? '' : ' off'}" data-seam="-1">${t(ok ? 'job.next' : 'job.nextAt')}</div>`;
+    }
+    const html = `<b>${t('part.' + b.order.part)}</b> <span class="stars">${this.stars(s.stars)}</span><ol>${rows.join('')}</ol>${sum}${legend}${next}`;
     if (html !== this.stagesHtml) {
       this.stagesHtml = html;
       this.stagesEl.innerHTML = html;

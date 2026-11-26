@@ -450,7 +450,7 @@ html, body {
  * frame pixels (--fu). The border only keeps the content clear of the rim.
  * ---------------------------------------------------------------------------------------------- */
 #tip, #tour, .toast, #app-status, #craft-btn, #lang-btn, #ctrl .k, #craft .buy, #job .btns span,
-#board .close, #craft .close, #start .go, #end .go, #start .links span, #rod, #craft .x, #board .x, #dbg .lvl {
+#board .close, #craft .close, #start .go, #end .go, #start .links span, #rod, #craft .x, #board .x, #dbg .lvl, #stages .next {
   border: calc(var(--fu, 3px) * 3) solid transparent !important;
 }
 #money, #job, #craft, #board, #stages, #end .panel, #stamp, #craft .item, #board .card, #dbg {
@@ -603,3 +603,7 @@ body.ui-modal #game { cursor: var(--cur); }
 
 /* The «done» note over a finished job: as wide as its words. */
 #tip.ready { width: auto; white-space: nowrap; }
+
+/* «Next» on the job card: leave the rest of the stage once two thirds are done. */
+#stages .next { display: inline-block; margin-top: 0.4em; padding: 0 calc(var(--px) * 3); white-space: nowrap; color: #ffe6a8; pointer-events: auto; cursor: var(--cur-hot); }
+#stages .next.off { color: #7a6a54; cursor: var(--cur); }

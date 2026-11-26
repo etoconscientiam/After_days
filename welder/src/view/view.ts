@@ -697,6 +697,7 @@ export class View {
       this.syncPile();
       this.syncWorld();
     });
+    this.ui.onSkip = (seam) => this.game.queue({ type: 'skip', seam });
     this.ui.onDebugLevel = (lv) => {
       g.devLevel(lv);
       this.ui.showMoney(g.money);

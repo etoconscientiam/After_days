@@ -572,9 +572,36 @@ function stepWeld(b: Bench, inp: TorchIn, ctx: WeldCtx): void {
   }
 }
 
+/** How much of a stage must be done before you may move on and leave the rest (the «next» button). */
+export const SKIP_AT = 2 / 3;
+
+/**
+ * Leave the rest of a stage and move on: a seam laid at least SKIP_AT of the way is closed as it is (its
+ * gaps cost it in quality, so in pay); a job chipped at least SKIP_AT clean is shown as it is.
+ */
+export function skipStage(b: Bench, seam: number, ctx: WeldCtx): boolean {
+  if (b.stage === 'weld') {
+    const sr = b.seams[seam];
+    if (!sr || sr.filled || sr.coverage(W.fillMin) < SKIP_AT) return false;
+    if (b.arc.lit && b.arc.seam === seam) extinguish(b, 'release', ctx);
+    sr.filled = true;
+    sr.quality = seamQuality(sr, b.part!.thick);
+    b.rev++;
+    ctx.bus.emit('seamFilled', { bench: b.id, seam, quality: sr.quality });
+    checkDone(b, ctx);
+    return true;
+  }
+  if (b.stage === 'chip' && 1 - b.slagLeft >= SKIP_AT) {
+    reveal(b, ctx);
+    return true;
+  }
+  return false;
+}
+
 function checkDone(b: Bench, ctx: WeldCtx): void {
   if (b.stage !== 'weld') return;
-  for (const sr of b.seams) if (sr.gaps(W.fillMin) > 0) return;
+  // Every seam closed: filled end to end, or left as it is with the «next» button.
+  for (const sr of b.seams) if (!sr.filled && sr.gaps(W.fillMin) > 0) return;
   b.quality = partQuality(b.seams, b.part!.thick);
   b.grade = gradeOf(b.quality);
   b.holes = countHoles(b.seams);
