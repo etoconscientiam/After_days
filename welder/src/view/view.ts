@@ -139,6 +139,7 @@ export class View {
   private plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
   private mouseMoved = true;
   private restTip = new THREE.Vector3(0.2, TABLE + 0.04, -0.62);
+  private restLeft = new THREE.Vector3(-0.24, TABLE + 0.02, -0.62);
   started = false;
 
   /** Where particles land: the job, the bench top, or the floor. */
@@ -1209,8 +1210,8 @@ export class View {
     else this.tools.placeHolder(this.restTip, this.rig.cam, b.electrode);
     if (chipping) this.tools.placeHammer(tip, this.rig.cam, dt, this.torch.has ? this.normW : undefined);
     if (this.part) this.tools.placeLeft(this.grip, this.rig.cam);
-    // Nothing on the bench: the left hand has nothing to hold, it stays out of view.
-    else this.tools.placeLeft(null, this.rig.cam);
+    // Nothing on the bench: the left hand rests on it, tongs in hand.
+    else this.tools.placeLeft(this.restLeft, this.rig.cam);
 
     const lit = a.lit && !!this.part && stage === 'weld';
     this.tools.arcGlow.visible = lit;

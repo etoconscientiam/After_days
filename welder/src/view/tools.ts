@@ -231,8 +231,8 @@ export class Tools {
   placeLeft(at: THREE.Vector3 | null, cam: THREE.Camera): void {
     this.left.visible = !!at;
     if (!at) return;
-    // The left hand only steadies the job: a little smaller, so it never crowds the work.
-    this.left.scale.setScalar(1 + (this.kAt(cam, at) - 1) * 0.25);
+    const base = 1 + (this.kAt(cam, at) - 1) * 0.25;
+    this.left.scale.setScalar(base * this.leftShrink);
     this.left.position.copy(at);
     const distal = this.lDis.copy(this.lDist).normalize();
     const back = this.lRt.copy(this.lBack).addScaledVector(distal, -this.lBack.dot(distal)).normalize();
@@ -244,21 +244,30 @@ export class Tools {
     const y = this.tE.copy(radial).multiplyScalar(-co).addScaledVector(distal, -so);
     this.q.setFromRotationMatrix(this.mB.makeBasis(x, y, this.tZ.crossVectors(x, y)));
     this.left.quaternion.copy(cam.quaternion).multiply(this.q);
-    // When the job is held right up to the eye (a flipped pan, leaning in) the fist and forearm would come
-    // within a hand of it and fill the picture: then the left arm stays out of view, below the frame.
-    // Two thresholds, so it does not flicker at the edge.
+    // The left hand only steadies the job: it must never take over the picture. Where its forearm would look
+    // thick (the job held close, the arm coming at the eye) the hand and tongs are drawn smaller, shrinking
+    // toward the jaws on the work, until the forearm is a modest band at the edge. Eased, so it never jumps.
     this.left.updateMatrixWorld(true);
     cam.updateMatrixWorld();
-    const near = Math.max(this.viewZ(cam, 0, 0.14), this.viewZ(cam, 0.25 * co, 0.14 + 0.25 * so));
-    this.leftNear = near;
-    // And however far the fist is, the forearm must not take over the picture: how thick it looks.
-    const cover = this.screenCover(cam);
-    this.leftCover = cover;
-    const tooBig = this.leftOut ? near > -0.24 || cover > 0.35 : near > -0.19 || cover > 0.4;
-    this.leftOut = tooBig;
-    this.left.visible = !this.leftOut;
+    const T = 0.3;
+    let sh = 1;
+    for (let i = 0; i < 5; i++) {
+      this.left.scale.setScalar(base * sh);
+      this.left.updateMatrixWorld(true);
+      const cover = this.screenCover(cam);
+      if (cover <= T || sh <= 0.35) break;
+      sh = Math.max(0.35, sh * Math.max(0.55, T / cover));
+    }
+    this.leftShrink += (sh - this.leftShrink) * 0.25;
+    this.left.scale.setScalar(base * this.leftShrink);
+    this.left.updateMatrixWorld(true);
+    this.leftCover = this.screenCover(cam);
+    this.leftNear = Math.max(this.viewZ(cam, 0, 0.14), this.viewZ(cam, 0.25 * co, 0.14 + 0.25 * so));
+    this.leftOut = false;
   }
   private leftOut = false;
+  /** How much smaller than usual the left arm is drawn right now (1 = not at all), eased. */
+  private leftShrink = 1;
   leftNear = 0;
   leftCover = 0;
   /**
