@@ -949,6 +949,8 @@
     "played": "played {t}",
     "savedAgo": "saved {t} ago",
     "justNow": "just now",
-    "toMenu": "Main menu"
+    "toMenu": "Main menu",
+    "thingTitle": "What goes into the ground?",
+    "thingNote": "One thing of three. It will be found millions of years from now. The others wait for the next worlds."
   }
 }

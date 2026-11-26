@@ -5,9 +5,10 @@ import { CFG } from '../config';
 import { $, h, setText } from './dom';
 import { t, fmt, fmtTime, getLang } from './i18n';
 import { SLOTS, activeSlot, slotMeta, SlotMeta } from '../save/save';
+import { itemPicture } from '../render/items';
 
 const ROMAN = ['0', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
-type View = 'main' | 'slots' | 'new';
+type View = 'main' | 'slots' | 'new' | 'thing';
 
 /** hold-to-confirm for the destructive buttons (delete, overwrite) */
 function hold(btn: HTMLButtonElement, fill: HTMLElement, ms: number, done: () => void): void {
@@ -34,6 +35,9 @@ export class Menu {
   onLoad: (slot: number) => void = () => {};
   onDelete: (slot: number) => void = () => {};
   onSettings: () => void = () => {};
+  /** the things the new world can begin with, and the choice of one */
+  things: () => string[] = () => [];
+  onThing: (id: string) => void = () => {};
 
   constructor() {
     this.el.append(
@@ -83,6 +87,7 @@ export class Menu {
     setText(this.el.querySelector('.mn-foot') as HTMLElement, getLang() === 'ru' ? 'Слои · пре-альфа' : 'Strata · pre-alpha');
     this.body.replaceChildren();
     if (this.view === 'main') this.buildMain();
+    else if (this.view === 'thing') this.buildThing();
     else this.buildSlots(this.view === 'new');
   }
 
@@ -130,6 +135,17 @@ export class Menu {
       this.body.append(card);
     }
     this.body.append(this.btn(t('menu.back'), () => this.show('main'), 'back'));
+  }
+
+  /** The first choice of a world: which thing goes into the ground (no names: they are found out by playing). */
+  private buildThing(): void {
+    this.body.append(h('div', { class: 'mn-h2' }, t('menu.thingTitle')), h('div', { class: 'mn-note' }, t('menu.thingNote')));
+    const row = h('div', { class: 'mn-things' });
+    for (const id of this.things()) {
+      const pic = itemPicture(id, 48);
+      row.append(h('button', { class: 'mn-thing', onclick: () => this.onThing(id) }, pic));
+    }
+    this.body.append(row, this.btn(t('menu.back'), () => this.show('main'), 'back'));
   }
 
   /** The language changed (from the settings): redraw. */

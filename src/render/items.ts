@@ -133,3 +133,11 @@ export function relicIcon(id: string, have: boolean): HTMLCanvasElement {
   else { c.fillStyle = '#2a2622'; c.fillRect(4, 4, 4, 4); }
   return cv;
 }
+
+/** The thing as a small picture for the menu (a canvas of size×size px, warm as when hovered). */
+export function itemPicture(id: string, size = 48): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  c.width = size; c.height = size;
+  drawItem(c.getContext('2d')!, id, size / 2, size / 2, 32, 'hover');
+  return c;
+}

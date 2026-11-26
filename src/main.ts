@@ -530,6 +530,8 @@ function frame(now: number): void {
   ui.classList.toggle('drawer-open', !!drawer.open);
   if (ph !== 'play' && drawer.open && !menuSettings) drawer.close();
   // the settings opened from the menu: when the drawer closes, the menu comes back
+  // a world waiting for its thing (a new one, or after the finale): the choice is made in the menu
+  if (INTRO && bootDone && !menu.open && game.state.phase === 'choose') { paused = true; menu.show('thing'); }
   if (menuSettings && !drawer.open) { menuSettings = false; menu.conceal(false); ui.classList.remove('menu-settings'); menu.relabel(); }
   dev.update(dtReal);
   if (ph === 'temple') audio.choirLevel(Math.min(1, game.state.templeProgress * 1.5));
@@ -543,6 +545,8 @@ requestAnimationFrame(frame);
 // ---------- the loader, then the main menu ----------
 const menu = new Menu();
 let menuSettings = false;
+/** the loader has let go (the menu may open) */
+let bootDone = !INTRO;
 /** Leave the menu into the game; the time away is caught up (a short timelapse) if the world was already there. */
 function enterGame(catchUp: boolean): void {
   menu.hide();
@@ -558,9 +562,16 @@ menu.onContinue = () => enterGame(true);
 menu.onNew = (slot) => {
   setActiveSlot(slot);
   swapGame(freshGame());
-  paused = false;
-  save();
+  // the new world begins with the choice of the thing, in the menu (it is saved once chosen)
+  menu.show('thing');
+};
+menu.things = () => game.availableItems();
+menu.onThing = (id) => {
+  audio.unlock();
+  if (!game.chooseItem(id)) return;
+  renderer.flash = 0.5;
   enterGame(false);
+  save();
 };
 menu.onLoad = (slot) => {
   if (slot === activeSlot() && game.state.savedAt) { enterGame(true); return; }
@@ -595,10 +606,16 @@ onLangChange(() => menu.relabel());
   const fonts = (document as any).fonts?.ready ?? Promise.resolve();
   // every image of the world and the interface, and the fonts, before the loader lets go: the scene then appears
   // whole at once, not drawn in pieces
-  Promise.all([loadAllSkins((k) => boot?.progress(k * 0.95)), fonts]).then(() => new Promise((r) => setTimeout(r, 150))).then(() => {
-    if (!boot) { if (INTRO) menu.show(); return; }
-    boot.done(() => { if (INTRO) menu.show(); });
-  });
+  let let_go = false;
+  const finish = () => {
+    if (let_go) return;
+    let_go = true;
+    const open = () => { bootDone = true; if (INTRO && !menu.open) menu.show(); };
+    if (boot) boot.done(open); else open();
+  };
+  Promise.all([loadAllSkins((k) => boot?.progress(k * 0.95)), fonts]).then(() => new Promise((r) => setTimeout(r, 150))).then(finish, finish);
+  // whatever happens to a file or a font, the loader lets go after a few seconds
+  setTimeout(finish, 8000);
 }
 void energyIcon;
 (window as any).__strata = { get game() { return game; }, cfg: CFG, renderer, save, dev, drawer, input, modals, turmoil, away: (sec: number) => offline(Date.now() - sec * 1000),

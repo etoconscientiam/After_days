@@ -587,3 +587,9 @@ html[data-tremor] #ui { animation: letterTremor 0.14s steps(1) infinite; }
 #ui.menu-open #dbg-btn, #ui.menu-open #bed-btn, #ui.menu-open .geo-btn, #ui.menu-open #geo-plates, #ui.menu-open .side-tip, #ui.menu-open #era-title { visibility: hidden; }
 #ui.menu-open.menu-settings #tabbar { visibility: visible; }
 .set-menu { width: 100%; margin-bottom: 6px; }
+#menu .mn-note { text-align: center; font-size: 13px; line-height: 16px; color: var(--bone-dim); margin: -4px 8px 4px; text-shadow: 0 1px 2px #000; }
+#menu .mn-things { display: flex; gap: 10px; justify-content: center; }
+#menu .mn-thing { flex: 1; aspect-ratio: 1; border-radius: 12px; background: radial-gradient(circle at 50% 55%, rgba(242,181,74,0.16), rgba(27,24,22,0.9) 70%);
+  border: 1px solid rgba(237,227,208,0.12); display: grid; place-items: center; transition: transform 0.12s, border-color 0.2s; }
+#menu .mn-thing canvas { width: 80%; height: 80%; image-rendering: pixelated; }
+#menu .mn-thing:hover, #menu .mn-thing:active { border-color: rgba(242,181,74,0.7); transform: translateY(-2px); }

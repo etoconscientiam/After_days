@@ -453,6 +453,9 @@ export class Game {
       this.geoAcc = 0;
       this.geoYears = 0;
     }
+    // the sea: every frame (cheap): a new world, a pile above the water, a hollow cut off — the water follows at once
+    // (it used to wait for the geology tick, and a new world showed half its sea for a while)
+    this.updateWater();
     this.strataStep(dt);
     wildStep(this, dt);
     // the absorbed energy a second, eased over a few seconds (the lines come in bursts)
