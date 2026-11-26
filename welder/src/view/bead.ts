@@ -345,6 +345,30 @@ export class BeadView {
     this.rev = -1;
   }
 
+  /**
+   * Where the work has been heated by welding, for the heat tint the part's own material draws: up to
+   * out.length points along the laid bead, in world space. Returns how many.
+   */
+  heatPoints(out: THREE.Vector4[]): number {
+    const src = this.src;
+    if (!src) return 0;
+    let total = 0;
+    for (const sr of src.seams) total += sr.count;
+    const stride = Math.max(1, Math.ceil(total / out.length));
+    let n = 0;
+    const W = this.group.matrixWorld;
+    for (let si = 0; si < src.seams.length; si++) {
+      const sr = src.seams[si], at = this.dropAt[si];
+      if (!at) continue;
+      for (let i = 0; i < sr.count && n < out.length; i += stride) {
+        if (Number.isNaN(at[i * 3])) continue;
+        this.tmpP.set(at[i * 3] * MM, at[i * 3 + 1] * MM, at[i * 3 + 2] * MM).applyMatrix4(W);
+        out[n++].set(this.tmpP.x, this.tmpP.y, this.tmpP.z, 1);
+      }
+    }
+    return n;
+  }
+
   /** Where the bead covers the joint, its dark line closes to nothing (it would show through beside it). */
   private closeGroove(si: number, sr: SeamRun): void {
     const g = this.grooves[si], base = this.gBase[si];

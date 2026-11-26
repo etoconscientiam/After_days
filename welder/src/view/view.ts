@@ -9,7 +9,7 @@ import { SKIN } from '../skin/default';
 import { LowRes } from './renderer';
 import { makeTextures, Textures } from './textures';
 import { buildWorkshop, Workshop, BENCH, TABLE, PART_ROT, PART_SPAN, figure, KEY_K, LAMP_K } from './workshop';
-import { buildPart, PartMesh } from './partMesh';
+import { buildPart, PartMesh, HEAT_TINT } from './partMesh';
 import { BeadView, BeadSource } from './bead';
 import { Effects } from './particles';
 import { Tools } from './tools';
@@ -1154,6 +1154,10 @@ export class View {
     // The job, the hands and the arc.
     this.placePart(dt);
     this.bead.update(dt);
+    // Heat tint on the work round the bead (drawn by the part's material).
+    this.bead.group.updateMatrixWorld();
+    HEAT_TINT.uTintN.value = this.part ? this.bead.heatPoints(HEAT_TINT.uTintP.value) : 0;
+    HEAT_TINT.uTintR.value = 10 * MM * this.S;
     const tip = this.v3c;
     if (this.part && this.torch.has) {
       const hover = b.stage === 'weld' ? (a.lit ? a.L * 1.4 : this.lmb ? 0.4 : 7) : 0;

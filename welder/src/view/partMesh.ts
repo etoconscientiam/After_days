@@ -21,6 +21,49 @@ const D2R = Math.PI / 180;
 type Mats = Record<PieceMat, THREE.Material>;
 let shared: Mats | null = null;
 
+/**
+ * Heat tint on the work round what has been welded: the part's metal itself darkens to blue-grey beside the
+ * bead and to straw further out, fading off. Drawn by the material from points along the bead (world space,
+ * filled each frame by the view), so it lies on every face, corner and curve exactly.
+ */
+export const HEAT_TINT = {
+  uTintP: { value: Array.from({ length: 160 }, () => new THREE.Vector4()) },
+  uTintN: { value: 0 },
+  uTintR: { value: 0.01 },
+};
+
+function heatTint<T extends THREE.Material>(m: T): T {
+  const prev = m.onBeforeCompile;
+  m.onBeforeCompile = (sh, r) => {
+    prev?.call(m, sh, r);
+    sh.uniforms.uTintP = HEAT_TINT.uTintP;
+    sh.uniforms.uTintN = HEAT_TINT.uTintN;
+    sh.uniforms.uTintR = HEAT_TINT.uTintR;
+    sh.vertexShader = 'varying vec3 vTW;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\nvTW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader =
+      'varying vec3 vTW;\nuniform vec4 uTintP[160];\nuniform int uTintN;\nuniform float uTintR;\n' +
+      sh.fragmentShader.replace(
+        '#include <color_fragment>',
+        `#include <color_fragment>
+  {
+    float best = 1e9;
+    for (int i = 0; i < 160; i++) {
+      if (i >= uTintN) break;
+      vec3 d = vTW - uTintP[i].xyz;
+      best = min(best, dot(d, d));
+    }
+    float dd = sqrt(best) / uTintR;
+    float a = (1.0 - smoothstep(0.4, 1.0, dd)) * 0.75;
+    vec3 tc = mix(vec3(0.03, 0.033, 0.05), vec3(0.13, 0.075, 0.025), smoothstep(0.45, 0.85, dd));
+    diffuseColor.rgb = mix(diffuseColor.rgb, tc, a);
+  }`,
+      );
+  };
+  const key = m.customProgramCacheKey?.bind(m);
+  m.customProgramCacheKey = () => (key ? key() : '') + 'tint';
+  return m;
+}
+
 export function partMaterials(tx: Textures): Mats {
   if (shared) return shared;
   const mk = (map: THREE.Texture | null, color: string) => {
@@ -29,12 +72,13 @@ export function partMaterials(tx: Textures): Mats {
     return m;
   };
   shared = {
-    iron: mk(tx.part, '#a8a6a4'),
-    dark: mk(tx.iron, '#8a8682'),
-    steel: mk(tx.steel, '#d4d4d8'),
-    rust: mk(tx.plate, '#d8ccc0'),
+    // A shade darker than they were, so bright new metal, glowing drops and heat tint stand out on them.
+    iron: heatTint(mk(tx.part, '#94928f')),
+    dark: heatTint(mk(tx.iron, '#7c7874')),
+    steel: heatTint(mk(tx.steel, '#b8b8be')),
+    rust: heatTint(mk(tx.plate, '#c4b8ac')),
     wood: mk(tx.wood, '#e0d4c4'),
-    copper: mk(tx.steel, '#e09868'),
+    copper: heatTint(mk(tx.steel, '#e09868')),
     leather: mk(tx.leather, '#ffffff'),
   };
   return shared;

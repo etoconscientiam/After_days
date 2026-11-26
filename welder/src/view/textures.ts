@@ -416,14 +416,14 @@ export function makeTextures() {
     x.fillStyle = '#5a5c60';
     x.fillRect(0, 0, S, S);
     for (let i = 0; i < 26; i++) {
-      x.globalAlpha = 0.14;
-      x.fillStyle = shade('#5a5c60', r.range(0.8, 1.2));
+      x.globalAlpha = 0.26;
+      x.fillStyle = shade('#5a5c60', r.range(0.72, 1.3));
       const s2 = r.int(6, 16);
       x.fillRect(r.int(0, S), r.int(0, S), s2, s2);
     }
     x.globalAlpha = 1;
-    for (let i = 0; i < 4; i++) {
-      x.globalAlpha = 0.45;
+    for (let i = 0; i < 7; i++) {
+      x.globalAlpha = 0.6;
       x.fillStyle = shade(P.rust, r.range(0.8, 1.1));
       x.fillRect(r.int(0, S - 3), r.int(0, S - 3), r.int(1, 3), r.int(1, 2));
     }
