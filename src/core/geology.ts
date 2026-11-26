@@ -69,7 +69,7 @@ export function geoEnv(g: Game, dy: number): GeoEnv {
       // grain and four arms in the colour of the new rock, gone in 0.6 s
       if (g.rng.next() < 0.35 && g.glints.length < 90) {
         const m = CFG.materials[to];
-        g.glints.push({ x: x * 2 + 1, y: y * 2 + 1, t: 0.6, color: m.px?.[2] ?? m.palette[2] });
+        g.glints.push({ x: x * 2 + 1, y: y * 2 + 1, t: 0.6, color: m.px?.[2] ?? m.palette[2], d: g.rng.next() * CFG.B.time.geoTick });
       }
       if (pr) {
         const dx = x - pr.x, dyy = y - pr.y;

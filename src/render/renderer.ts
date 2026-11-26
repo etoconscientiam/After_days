@@ -1695,7 +1695,7 @@ export class Renderer {
     // a rock is born: a spark where it happened, as in the prototype — a white-hot core and arms in the colour of
     // the new rock at 0.7 of its light, fading over the last 0.3 s (low quality: none)
     for (const gl of this.quality === 'low' ? [] : g.glints) {
-      if (gl.x >= SW) continue;
+      if (gl.x >= SW || (gl.d && gl.d > 0)) continue;
       const gy = Math.round(gl.y + gdy);
       if (gy - top >= sec.cut) continue;
       const a = Math.min(1, gl.t / 0.3);

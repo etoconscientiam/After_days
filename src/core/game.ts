@@ -29,7 +29,9 @@ export interface WorldMods {
 }
 
 /** A sparkle of a new rock (world pixels). */
-export interface Glint { x: number; y: number; t: number; color: string }
+/** A spark of new rock: world px, seconds left, colour; d: seconds before it shows (the sparks of one geology tick
+ *  are spread over the tick, so they come one by one as in the prototype, never in a burst every half second). */
+export interface Glint { x: number; y: number; t: number; color: string; d?: number }
 
 const W = CFG.B.world.width;
 const SAND = CFG.B.sand;
@@ -478,7 +480,9 @@ export class Game {
       }
     }
     for (let i = this.glints.length - 1; i >= 0; i--) {
-      this.glints[i].t -= dt;
+      const gl = this.glints[i];
+      if (gl.d && gl.d > 0) { gl.d -= dt; continue; }
+      gl.t -= dt;
       if (this.glints[i].t <= 0) this.glints.splice(i, 1);
     }
   }
