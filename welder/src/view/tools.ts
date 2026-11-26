@@ -244,6 +244,21 @@ export class Tools {
     const y = this.tE.copy(radial).multiplyScalar(-co).addScaledVector(distal, -so);
     this.q.setFromRotationMatrix(this.mB.makeBasis(x, y, this.tZ.crossVectors(x, y)));
     this.left.quaternion.copy(cam.quaternion).multiply(this.q);
+    // When the job is held right up to the eye (a flipped pan, leaning in) the fist and forearm would come
+    // within a hand of it and fill the picture: then the left arm stays out of view, below the frame.
+    // Two thresholds, so it does not flicker at the edge.
+    this.left.updateMatrixWorld(true);
+    cam.updateMatrixWorld();
+    const near = Math.max(this.viewZ(cam, 0, 0.14), this.viewZ(cam, 0.25 * co, 0.14 + 0.25 * so));
+    this.leftNear = near;
+    if (this.leftOut ? near < -0.15 : near > -0.11) this.leftOut = !this.leftOut;
+    this.left.visible = !this.leftOut;
+  }
+  private leftOut = false;
+  leftNear = 0;
+  /** View-space z of a point of the tongs' frame (negative is in front of the eye). */
+  private viewZ(cam: THREE.Camera, x: number, y: number): number {
+    return this.tmp.set(x, y, 0).applyMatrix4(this.left.matrixWorld).applyMatrix4(cam.matrixWorldInverse).z;
   }
   /** The left fist in view space: where its knuckles point, and where the back of the hand faces. */
   lDist = new THREE.Vector3(0.29, -0.3, -0.91);
