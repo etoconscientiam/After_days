@@ -649,6 +649,8 @@ html[data-tremor] #ui { animation: letterTremor 0.14s steps(1) infinite; }
 .summary .big { margin-top: 6px; font-size: 32px; line-height: 34px; color: var(--amber); text-shadow: 0 0 18px rgba(242,181,74,0.25); }
 .summary .rows { display: flex; flex-direction: row; flex-wrap: wrap; gap: 8px; margin: 14px 0 16px; }
 .summary .rows div { padding: 6px 10px; border-radius: 999px; background: var(--surface-sunk); border: 1px solid var(--line); color: var(--text-1); gap: 6px; font-family: var(--num); }
+/* one face on the whole card: Strata Pixel, only the size and the colour differ */
+.summary, .summary .kicker, .summary .big, .summary .rows div, .summary .stone-btn { font-family: var(--text); font-weight: normal; letter-spacing: 0; }
 #overlay.dim { background: rgba(8, 6, 10, 0.6); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); }
 
 /* ---- buttons: one shape; amber face = the main action, stone = the rest ---- */
@@ -841,6 +843,8 @@ html[data-tremor] #ui { animation: letterTremor 0.14s steps(1) infinite; }
 .stone-btn { padding: 6px 12px; min-height: 44px; color: var(--bone); }
 .stone-btn.primary, .summary .stone-btn, .buy.ok { border-image-source: var(--tile-amber); color: #2a1a08; filter: drop-shadow(0 3px 0 #6e4a1c); }
 .stone-btn:hover, .buy:not(.ok):not(:disabled):hover { border-image-source: var(--tile-stone-hi); }
+/* the main action keeps its amber face under the pointer (only a touch brighter) */
+.stone-btn.primary:hover, .summary .stone-btn:hover { border-image-source: var(--tile-amber); filter: drop-shadow(0 3px 0 #6e4a1c) brightness(1.08); }
 .stone-btn:active, .buy:active, .buy.pressed, .tab:active { transform: translateY(3px); filter: none; }
 .stone-btn.danger { border-image-source: var(--tile-stone); color: #f0a088; }
 .buy { padding: 4px 6px; min-height: 40px; }
