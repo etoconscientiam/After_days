@@ -72,7 +72,7 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 #cond-pop { position: absolute; left: 10px; top: 84px; max-width: 270px; z-index: 6; }
 #res-row { display: flex; align-items: center; gap: 8px; margin-top: 5px; flex-wrap: nowrap; white-space: nowrap; }
 #energy { display: flex; align-items: center; gap: 5px; pointer-events: auto; text-align: left; }
-#energy .e-col { display: flex; flex-direction: row-reverse; align-items: baseline; gap: 6px; line-height: 1; }
+#energy .e-col { display: flex; flex-direction: row; align-items: baseline; gap: 6px; line-height: 1; }
 #e-ico { align-self: center; display: inline-flex; filter: drop-shadow(0 0 4px rgba(242,181,74,0.7)); }
 #energy b { font-family: var(--display);  font-size: 32px; line-height: 1; color: var(--amber); text-shadow: 0 0 12px rgba(242,181,74,0.4), 0 1px 2px #000; transition: transform 0.12s; display: inline-block; }
 #energy b.bump { transform: scale(1.08); }
