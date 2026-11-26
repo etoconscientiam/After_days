@@ -21,7 +21,7 @@ M = {
         sbaL=51, sbaR=60,
         tensO=0.572, tensI=0.572, tilt=0,
         yJo=0.825, yC=0.57, ySh=0.60, xT=0.45, joinK=1.0, xTi=0.53,
-        cut=0, armK=0.90, legK=0.98, armThin=0.90, legThin=0.98, slope=0.0,
+        cut=0, armK=0.98, legK=1.00, armThin=0.98, legThin=1.00, slope=0.0,
         aBt=0.595, aHs=0.62, aHi=0.66, aEy=0.70, aTopX=0.52, aBb=0.18, aCb=0.20,
         aBm=0.28, aBx=0.50, aSlope=0.0, aFlat=0.95, aCorner=0.76, aFlatC=0.95, aCornerC=0.80, aTaper=0.14,
         nTaper=0.10, nLeftK=0.34, nJoK=0.80, nShK=0.68, nShV=0.62, aShK=0.66, aShV=0.60,
@@ -35,7 +35,7 @@ M = {
         sbaL=39, sbaR=45,
         tensO=0.572, tensI=0.572, tilt=0,
         yJo=0.825, yC=0.57, ySh=0.60, xT=0.45, joinK=1.0, xTi=0.53,
-        cut=0, armK=0.90, legK=0.98, armThin=0.90, legThin=0.98, slope=0.0,
+        cut=0, armK=0.98, legK=1.00, armThin=0.98, legThin=1.00, slope=0.0,
         aBt=0.595, aHs=0.62, aHi=0.66, aEy=0.70, aTopX=0.52, aBb=0.18, aCb=0.20,
         aBm=0.28, aBx=0.50, aSlope=0.0, aFlat=0.95, aCorner=0.76, aFlatC=0.95, aCornerC=0.80, aTaper=0.14,
         nTaper=0.10, nLeftK=0.34, nJoK=0.80, nShK=0.68, nShV=0.62, aShK=0.66, aShV=0.60,
@@ -81,8 +81,21 @@ def wght_of(genre):
     return 400
 
 
+import json as _json
+import os as _os
+_FIT = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "fitted.json")
+
+
+def fitted():
+    try:
+        return _json.load(open(_FIT))
+    except (OSError, ValueError):
+        return {}
+
+
 def params(opsz, genre):
     p = dict(M[f"{genre[0]}{opsz}"])
+    p.update(fitted().get(f"{genre[0]}{opsz}", {}))
     p["opsz"] = opsz
     p["genre"] = genre[0]
     if p["topK"] is None:

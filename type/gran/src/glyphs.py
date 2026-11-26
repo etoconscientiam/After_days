@@ -50,13 +50,15 @@ def turned_counter(cx, cy, X, Y, tens, tilt_deg):
             "segs": [(g[0],) + tuple(rot(q) for q in g[1:]) for g in inner["segs"]]}
 
 
-def round_glyph(p, w, h, ov, side, top, sb):
+def round_glyph(p, w, h, ov, side, top, sb, lc=False):
     x0, x1 = sb, sb + w
     y0, y1 = -ov, h + ov
-    outer = oval(x0, y0, x1, y1, p["tensO"])
+    tO = p.get("tensOo", p["tensO"]) if lc else p["tensO"]
+    tI = p.get("tensIo", p["tensI"]) if lc else p["tensI"]
+    outer = oval(x0, y0, x1, y1, tO)
     inner = turned_counter((x0 + x1) / 2, (y0 + y1) / 2,
                            w / 2 - side, (y1 - y0) / 2 - top,
-                           p["tensI"], p["tilt"])
+                           tI, p["tilt"])
     return [outer, inner], x1 + sb
 
 
@@ -71,7 +73,7 @@ def H(p, cap=None, V=None, Hc=None, w=None, sbk=1.0, sk=1.0):
     L0, L1 = sb, sb + V
     R1 = sb + w
     R0 = R1 - V
-    yc = cap * (0.51 if p["genre"] == "G" else 0.515)
+    yc = cap * p.get("hY", 0.51 if p["genre"] == "G" else 0.515)
     cs = [rect(L0, 0, L1, cap), rect(R0, 0, R1, cap),
           rect(L1 - 6, yc - Hc / 2, R0 + 6, yc + Hc / 2)]
     q = dict(p, proj=p["proj"] * sk, tt=p["tt"] * sk, bh=p["bh"] * sk)
@@ -84,9 +86,9 @@ def H(p, cap=None, V=None, Hc=None, w=None, sbk=1.0, sk=1.0):
 def O(p, cap=None, V=None, Hc=None, w=None, ov=None, sbk=1.0):
     cap = cap or p["cap"]
     V = V or p["V"]
-    side = V * p["sideK"]
+    side = V * p.get("sideKO", p["sideK"])
     if p["genre"] == "G":
-        top = side * p["topK"]
+        top = side * p.get("topKO", p["topK"])
     else:
         top = (Hc or p["Hc"]) * 1.05
     return round_glyph(p, w or p["wO"], cap, p["ov"] if ov is None else ov,
@@ -216,82 +218,98 @@ def n(p):
 def o(p):
     side = p["v"] * p["sideK"]
     top = side * p["topK"] if p["genre"] == "G" else p["hl"] * 1.05
-    return round_glyph(p, p["wo"], p["xh"], p["ovl"], side, top, p["sbo"])
+    side = side * p.get("oSideK", 1.0)
+    return round_glyph(p, p["wo"], p["xh"], p["ovl"], side, top, p["sbo"], lc=True)
 
 
 def a(p):
     xh, v, hl, ov = p["xh"], p["v"], p["hl"], p["ovl"]
     G = p["genre"] == "G"
+    q = lambda k, d: p.get(k, d)  # noqa: E731
     x0 = p["sbaL"] if p.get("sbaL") else p["sbo"] * 0.90
     wa = p["wa"]
     Ra1 = x0 + wa
     Ra0 = Ra1 - v
     top = xh + ov
+    tp = v * q("aTaper", 0.0)               # stem narrows toward the foot
+    yBt = xh * p["aBt"]
+
+    def Rx(y):                              # left edge of the stem at y
+        return Ra0 + tp * max(0.0, 1 - y / yBt)
 
     # hook ---------------------------------------------------------------
-    yHs = xh * p["aHs"]                  # hook meets the stem (outer)
-    yHi = xh * p["aHi"]                  # and its inner edge
-    hk = hl * (0.98 if G else 1.15)
+    yHs = xh * p["aHs"]
+    yHi = xh * p["aHi"]
+    hk = hl * q("aHk", 0.98 if G else 1.15)
     TopO = (x0 + wa * p["aTopX"], top)
-    TopI = (TopO[0] + wa * 0.035, top - hk)
-    dS = norm((0.30, 1.0))               # stroke direction at the terminal
-    wT = v * (1.0 if G else 0.62)        # terminal weight across the stroke
+    TopI = (TopO[0] + wa * q("aTix", 0.035), top - hk)
+    dS = norm((q("aDs", 0.30), 1.0))
+    wT = v * (1.0 if G else 0.62)
     cutv = (math.cos(rad(p["cut"])), math.sin(rad(p["cut"])))
-    Eo = (x0 + wa * 0.03, xh * p["aEy"])
-    nS = (dS[1], -dS[0])                 # points to the inside of the hook
+    Eo = (x0 + wa * q("aEx", 0.03), xh * p["aEy"])
+    nS = (dS[1], -dS[0])
     cosang = abs(cutv[0] * nS[0] + cutv[1] * nS[1])
     Ei = add(Eo, mul(cutv, wT / max(cosang, 0.3)))
     h = C(Eo)
-    h.Cu(add(Eo, mul(dS, (top - Eo[1]) * 0.66)),
-         (TopO[0] - (TopO[0] - Eo[0]) * 0.56, top), TopO)
-    h.Cu((TopO[0] + (Ra1 - TopO[0]) * p.get("aShK", 0.58), top),
-         (Ra1, yHs + (top - yHs) * p.get("aShV", 0.56)), (Ra1, yHs))
+    h.Cu(add(Eo, mul(dS, (top - Eo[1]) * q("aO1", 0.66))),
+         (TopO[0] - (TopO[0] - Eo[0]) * q("aO2", 0.56), top), TopO)
+    h.Cu((TopO[0] + (Ra1 - TopO[0]) * q("aShK", 0.58), top),
+         (Ra1, yHs + (top - yHs) * q("aShV", 0.56)), (Ra1, yHs))
     h.L((Ra0, yHs))
     h.L((Ra0, yHi))
-    h.Cu((Ra0, yHi + (TopI[1] - yHi) * 0.55),
-         (TopI[0] + (Ra0 - TopI[0]) * 0.58, TopI[1]), TopI)
-    h.Cu((TopI[0] - (TopI[0] - Ei[0]) * 0.56, TopI[1]),
-         add(Ei, mul(dS, (TopI[1] - Ei[1]) * 0.55)), Ei)
+    h.Cu((Ra0, yHi + (TopI[1] - yHi) * q("aI1", 0.55)),
+         (TopI[0] + (Ra0 - TopI[0]) * q("aI2", 0.58), TopI[1]), TopI)
+    h.Cu((TopI[0] - (TopI[0] - Ei[0]) * q("aI3", 0.56), TopI[1]),
+         add(Ei, mul(dS, (TopI[1] - Ei[1]) * q("aI4", 0.55))), Ei)
     hook = h.close()
-    # Antiqua: a teardrop terminal; in the Grotesk it shrinks to a point
     r = v * (0.0 if G else (0.50 if p["opsz"] == 12 else 0.45))
     Bc = add(Eo, (r * 0.92, -r * 0.02))
     ball = oval(Bc[0] - r, Bc[1] - r * 1.08, Bc[0] + r, Bc[1] + r * 0.92, 0.56)
 
     # bowl ---------------------------------------------------------------
-    yBt = xh * p["aBt"]
     yBm = xh * p["aBm"]
     yBb = xh * p["aBb"]
     bxm = x0 + (Ra0 - x0) * p["aBx"]
     dT = norm((-1.0, -p["aSlope"]))
+    Pb = (Rx(yBb) + 1, yBb)
     b = C((Ra0 + v * 0.45, yBt))
     b.L((Ra0, yBt))
-    b.Cu(add((Ra0, yBt), mul(dT, (Ra0 - x0) * p["aFlat"])),
-         (x0, yBm + (yBt - yBm) * p["aCorner"]), (x0, yBm))
-    b.Cu((x0, yBm - (yBm + ov) * 0.56), (bxm - (bxm - x0) * 0.58, -ov), (bxm, -ov))
-    b.Cu((bxm + (Ra0 - bxm) * 0.55, -ov),
-         add((Ra0, yBb), mul(norm((-0.55, -1.0)), (yBb + ov) * 0.75)), (Ra0, yBb))
+    # bowl top: from the stem to its highest point, then round to the left
+    Tb = (x0 + (Ra0 - x0) * q("aTbx", 0.55), yBt + xh * q("aTbdy", 0.0))
+    b.Cu((Ra0 - (Ra0 - Tb[0]) * q("aT1", 0.40), yBt + (Tb[1] - yBt) * q("aT1y", 0.9)),
+         (Tb[0] + (Ra0 - Tb[0]) * q("aT2", 0.40), Tb[1]), Tb)
+    b.Cu((Tb[0] - (Tb[0] - x0) * q("aL1", 0.56), Tb[1]),
+         (x0, yBm + (Tb[1] - yBm) * q("aL2", 0.56)), (x0, yBm))
+    b.Cu((x0, yBm - (yBm + ov) * q("aB2a", 0.56)),
+         (bxm - (bxm - x0) * q("aB2b", 0.58), -ov), (bxm, -ov))
+    b.Cu((bxm + (Ra0 - bxm) * q("aB3a", 0.55), -ov),
+         add(Pb, mul(norm((-q("aB3d", 0.55), -1.0)), (yBb + ov) * q("aB3b", 0.75))), Pb)
     b.L((Ra0 + v * 0.45, yBb))
     bowl = b.close()
 
-    htop = hl * (1.0 if G else 0.95)
-    vb = v * (1.0 if G else 1.04)
-    hlb = hl * (1.0 if G else 1.25)
-    X = (Ra0, yBt - htop)
+    htop = hl * q("aHtop", 1.0 if G else 0.95)
+    vb = v * q("aVb", 1.0 if G else 1.04)
+    hlb = hl * q("aHlb", 1.0 if G else 1.25)
+    yCt = yBt - htop
+    X = (Rx(yCt), yCt)
     cy0 = -ov + hlb
-    yCm = yBm + hl * 0.10
+    yCm = yBm + hl * q("aCmy", 0.10)
     CL = (x0 + vb, yCm)
-    cbx = bxm + (Ra0 - bxm) * 0.06
+    cbx = bxm + (Ra0 - bxm) * q("aCbx", 0.06)
     yCb = xh * p["aCb"] if p.get("aCb") else yBb + hl * 1.20
+    Pc = (Rx(yCb), yCb)
     k = C(X, kind="hole")
-    k.Cu(add(X, mul(dT, (X[0] - CL[0]) * p.get("aFlatC", p["aFlat"]))),
-         (CL[0], yCm + (X[1] - yCm) * p.get("aCornerC", p["aCorner"])), CL)
-    k.Cu((CL[0], yCm - (yCm - cy0) * 0.56), (cbx - (cbx - CL[0]) * 0.58, cy0), (cbx, cy0))
-    k.Cu((cbx + (Ra0 - cbx) * 0.55, cy0),
-         add((Ra0, yCb), mul(norm((-0.55, -1.0)), (yCb - cy0) * 0.70)), (Ra0, yCb))
+    Tc = (x0 + vb + (X[0] - x0 - vb) * q("aTcx", 0.50), yCt + xh * q("aTcdy", 0.0))
+    k.Cu((X[0] - (X[0] - Tc[0]) * q("aTc1", 0.40), yCt + (Tc[1] - yCt) * q("aTc1y", 0.9)),
+         (Tc[0] + (X[0] - Tc[0]) * q("aTc2", 0.40), Tc[1]), Tc)
+    k.Cu((Tc[0] - (Tc[0] - CL[0]) * q("aCL1", 0.56), Tc[1]),
+         (CL[0], yCm + (Tc[1] - yCm) * q("aCL2", 0.56)), CL)
+    k.Cu((CL[0], yCm - (yCm - cy0) * q("aC2a", 0.56)),
+         (cbx - (cbx - CL[0]) * q("aC2b", 0.58), cy0), (cbx, cy0))
+    k.Cu((cbx + (Ra0 - cbx) * q("aC3a", 0.55), cy0),
+         add(Pc, mul(norm((-q("aC3d", 0.55), -1.0)), (yCb - cy0) * q("aC3b", 0.70))), Pc)
     counter = k.close()
 
-    tp = v * p.get("aTaper", 0.0)          # stem narrows toward the foot
     stem = poly([(Ra0 + tp, 0), (Ra0, yBt), (Ra0, yHs + 10), (Ra1, yHs + 10), (Ra1, 0)])
     cs = [stem, hook, ball, bowl, counter]
     cs.append(blade_serif((Ra1, 0), (0, 1), +1, p["lproj"] * 0.85, p["ltt"],
