@@ -6,7 +6,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(os.path.dirname(HERE), 'src'))
 from measure import load, polys, runs_h, runs_v
-import masters, glyphs
+import masters, glyphs, letters, re
 
 REF = sys.argv[-1]
 
@@ -55,12 +55,13 @@ def main():
     names = sys.argv[4].split(',')
     ref = load(REF, dict(opsz=ropsz, wght=400))
     RP, _ = polys(ref, ref.getBestCmap()[ord(gname)])
-    fn = dict(H=glyphs.H, O=glyphs.O, n=glyphs.n, o=glyphs.o, a=glyphs.a)[gname]
+    fn = dict(H=glyphs.H, O=glyphs.O, n=glyphs.n, o=glyphs.o, a=glyphs.a)
+    fn.update({g: f for g, _, f in letters.EXTRA})
+    fn = fn[gname]
     genre, opsz = mkey[0], int(mkey[1:])
     base = masters.M[mkey]
-    top = 720 if gname.isupper() else 530
-    ys = list(range(-14, top, 6))
-    xs = list(range(0, 760, 8))
+    ys = list(range(-240, 740, 6))
+    xs = list(range(0, 1000, 8))
     RA, RB = profile(RP, ys, xs)
 
     def cost(p):
@@ -79,9 +80,23 @@ def main():
                     tensOo=0.572, tensIo=0.572, oSideK=1.0, sideKO=1.025, topKO=0.85, hY=0.51,
                     aTbx=0.55, aTbdy=0.0, aT1=0.40, aT1y=0.9, aT2=0.40, aL1=0.56, aL2=0.56,
                     aTcx=0.50, aTcdy=0.0, aTc1=0.40, aTc1y=0.9, aTc2=0.40, aCL1=0.56, aCL2=0.56)
+    src = open(os.path.join(os.path.dirname(HERE), 'src', 'letters.py')).read()
+    for m_ in re.finditer(r'q\(p, "(\w+)", (-?[0-9.]+)\)', src):
+        defaults.setdefault(m_.group(1), float(m_.group(2)))
+    bowl_def = {m_.group(1): float(m_.group(2)) for m_ in re.finditer(r'k\("(\w+)", (-?[0-9.]+)\)', src)}
+    bowl_def.update(Jt=0.83, Jb=0.17, Ct=0.62, Cb=0.32)
+    defaults.setdefault('rJo', mp['yJo']); defaults.setdefault('rC', mp['yC'])
+    defaults.setdefault('rHa', 1.0); defaults.setdefault('pJt', 0.83)
+    for pre in 'ce':
+        defaults.setdefault(pre + 'To', mp.get('tensOo', mp['tensO'])); defaults.setdefault(pre + 'Ti', mp.get('tensIo', mp['tensI']))
     for k in names:
         if cur[k] is None:
-            cur[k] = defaults[k]
+            if k in defaults:
+                cur[k] = defaults[k]
+            elif k[1:] in bowl_def:
+                cur[k] = bowl_def[k[1:]]
+            else:
+                raise SystemExit('no default for ' + k)
     best = cost(cur)
     print('start', round(best))
     step = {k: max(0.02, abs(cur[k]) * 0.12) for k in names}

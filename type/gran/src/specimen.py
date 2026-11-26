@@ -16,13 +16,13 @@ woff2_old2 = base64.b64encode(open(os.path.join(ROOT, "fonts", "archive", "GranV
 woff2_old3 = base64.b64encode(open(os.path.join(ROOT, "fonts", "archive", "GranVF-0.03.woff2"), "rb").read()).decode()
 woff2_old4 = base64.b64encode(open(os.path.join(ROOT, "fonts", "archive", "GranVF-0.04.woff2"), "rb").read()).decode()
 dmcmp = base64.b64encode(open(os.path.join(ROOT, "research", "dm-sans-vs-gran.png"), "rb").read()).decode()
+sent = base64.b64encode(open(os.path.join(ROOT, "research", "dm-sans-line.png"), "rb").read()).decode()
 calib = base64.b64encode(open(os.path.join(ROOT, "research", "calibration-overlay.png"), "rb").read()).decode()
 study = base64.b64encode(open(os.path.join(ROOT, "research", "velvetyne-study.png"), "rb").read()).decode()
 woff2 = base64.b64encode(open(os.path.join(ROOT, "fonts", "GranVF.woff2"), "rb").read()).decode()
 
-ORDER = [("H", "H"), ("O", "O"), ("Zhe-cy", "Ж"), ("n", "n"), ("o", "o"),
-         ("a", "a"), ("de-cy", "д"), ("h.sc", "н·sc"), ("o.sc", "о·sc"),
-         ("zhe-cy.sc", "ж·sc")]
+ORDER = [(g, g) for g in "H O W n o a h m u r i l d p g c e s t f v".split()] + [
+         ("Zhe-cy", "Ж"), ("de-cy", "д"), ("h.sc", "н·sc"), ("o.sc", "о·sc"), ("zhe-cy.sc", "ж·sc")]
 MLABEL = {"TextGrotesk": ("12 px", "Гротеск"), "TextAntiqua": ("12 px", "Антиква"),
           "DisplayGrotesk": ("33 px", "Гротеск"), "DisplayAntiqua": ("33 px", "Антиква"),
           "TextGroteskBlack": ("12 px", "Гротеск Black"), "TextAntiquaBlack": ("12 px", "Антиква Black"),
@@ -188,7 +188,7 @@ html = (tpl.replace("{{WOFF2}}", woff2).replace("{{PROOFS}}", proof_rows)
         .replace("{{D_DE}}", DETAILS["DE"])
         .replace("{{WOFF2OLD}}", woff2_old).replace("{{WOFF2OLD2}}", woff2_old2)
         .replace("{{WOFF2OLD3}}", woff2_old3).replace("{{WOFF2OLD4}}", woff2_old4)
-        .replace("{{DMCMP}}", dmcmp)
+        .replace("{{DMCMP}}", dmcmp).replace("{{SENT}}", sent)
         .replace("{{STUDY}}", study).replace("{{CALIB}}", calib))
 out = os.path.join(ROOT, "specimen.html")
 open(out, "w", encoding="utf-8").write(html)

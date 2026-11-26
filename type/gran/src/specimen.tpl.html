@@ -106,6 +106,8 @@ svg.dz { display: block; width: 100%; height: auto; aspect-ratio: 1; }
 .study { margin: 0; border: 1px solid var(--rule); background: #fff; overflow: hidden; }
 .study img { display: block; width: 100%; height: auto; }
 @media (max-width: 600px) { .ba { grid-template-columns: minmax(0, 1fr); } }
+.line { font-family: var(--f-gran); font-size: min(4.25vw, 49px); line-height: 1.15; text-align: center; background: #fff; color: #111; border: 1px solid var(--rule); padding: 10px 12px; font-optical-sizing: none; overflow-wrap: anywhere; }
+.line.small { font-size: 12px; text-align: left; }
 .scdemo { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
 .scbox { background: var(--sheet); border: 1px solid var(--rule); padding: 16px; display: grid; gap: 8px; }
 .scbox .g { font-family: var(--f-gran); font-size: 76px; line-height: 1; position: relative; font-optical-sizing: none; }
@@ -152,8 +154,8 @@ footer { padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
 <div class="wrap">
   <header class="hero">
     <div class="hero-top">
-      <span class="mono">Gran · рабочее имя · прототип 0.05 · гротеск по образцу</span>
-      <span class="mono">оси: opsz 12–33 · SERF 0–100 · 7 знаков + капитель</span>
+      <span class="mono">Gran · рабочее имя · прототип 0.06 · гротеск по образцу</span>
+      <span class="mono">оси: opsz 12–33 · SERF 0–100 · 23 буквы + капитель</span>
     </div>
     <div class="controls">
       <div class="ctl"><label for="opsz">Размер и оптика, px <output id="opszv">12</output></label>
@@ -170,10 +172,10 @@ footer { padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
     </div>
     <div class="realbox">
       <div class="cap mono"><span>Реальный размер</span><output id="realv">12 px</output></div>
-      <div class="real" id="real">НОЖ дао ода Hanna anon noon nano HOnoaЖд <span class="sc">НОЖ</span> НОЖ дао ода Hanna anon noon nano</div>
+      <div class="real" id="real">Whereas disregard and contempt for human rights have resulted. Нож, дао, ода, оно, роса, нос, сор, пора, пресс <span class="sc">НОЖ</span></div>
     </div>
     <div class="cap mono lupa"><span>Лупа: тот же оптический размер, крупно</span><output id="lupav">×10</output></div>
-    <div class="stage" id="stage">НОЖ дао<br>Hanna <span class="sc">НОЖ</span></div>
+    <div class="stage" id="stage">Whereas<br>НОЖ дао <span class="sc">НОЖ</span></div>
     <p class="lede">Вариативная суперсемья для кириллицы и латиницы: гротеск и антиква в одном файле, с оптическими размерами для текста (12 px) и заголовков (33 px). Версия 0.05: гротеск построен по образцу, который выбрал заказчик (DM Sans), антиква — строгая пара к нему.</p>
   </header>
 
@@ -233,6 +235,12 @@ footer { padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
       <h2>Гротеск по образцу DM Sans</h2>
       <p>Присланный образец набран DM Sans (Colophon Foundry): геометрический гротеск с почти круглыми o и O, широкой n, двухъярусной a с горизонтальным срезом и плотным спейсингом на крупном кегле. Я измерил DM Sans на оптических размерах 14 и 33, а затем подогнал параметры построения Gran под его профиль: программа сравнивает обе буквы по десяткам горизонтальных и вертикальных срезов и подбирает изгибы, узлы и толщины (tools/fit.py, результат в src/fitted.json). Контуры строит генератор Gran, они не скопированы; при наложении H, O, n, o, a совпадают в пределах толщины линии. Кириллицы в DM Sans нет, поэтому Ж и д нарисованы в той же геометрической логике — это то, что Gran добавляет.</p>
       <figure class="study"><img src="data:image/png;base64,{{DMCMP}}" alt="DM Sans и Gran на одних словах, ниже кириллица Gran" width="1150" height="385"></figure>
+      <h2>Ваша строка</h2>
+      <p>Сверху картинка DM Sans, ниже та же строка, набранная Gran прямо на странице: гротеском и антиквой. Для неё дорисованы W, h, e, r, s, d, i, g, c, t, m, p, f, u, v, l; кириллические с, е, р собраны из тех же знаков.</p>
+      <figure class="study"><img src="data:image/png;base64,{{SENT}}" alt="Строка DM Sans" width="1150" height="160"></figure>
+      <div class="line g" style="font-variation-settings:'opsz' 33,'SERF' 0">Whereas disregard and contempt for human rights have resulted</div>
+      <div class="line g" style="font-variation-settings:'opsz' 33,'SERF' 100">Whereas disregard and contempt for human rights have resulted</div>
+      <div class="line g small" style="font-variation-settings:'opsz' 12,'SERF' 0">Whereas disregard and contempt for human rights have resulted. Роса, пора, сор, нос, оса — 12 px, текстовый гротеск</div>
     </div>
   </section>
 
@@ -260,8 +268,8 @@ footer { padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
     <div class="label">Сверка</div>
     <div class="body">
       <h2>Наложение на эталоны</h2>
-      <p>Гротеск сверяется с DM Sans, антиква с Source Serif 4. Серым — Gran, красным — эталон в том же масштабе: по высоте строчных для строчных и по высоте прописных для прописных. Это проверка качества, а не копирование: свои отличия видны сразу (Ж без горизонтальной перемычки, другие засечки, капля, срез концевого элемента). Совпадать должны пропорции, вес и спокойствие кривых.</p>
-      <figure class="study"><img src="data:image/png;base64,{{CALIB}}" alt="Наложение знаков Gran на Inter и Source Serif 4" width="1500" height="1476"></figure>
+      <p>Все нарисованные латинские буквы гротеска наложены на DM Sans (12 и 33 px). Антиква сверялась с Source Serif 4. Серым — Gran, красным — эталон в том же масштабе: по высоте строчных для строчных и по высоте прописных для прописных. Это проверка качества, а не копирование: свои отличия видны сразу (Ж без горизонтальной перемычки, другие засечки, капля, срез концевого элемента). Совпадать должны пропорции, вес и спокойствие кривых.</p>
+      <figure class="study"><img src="data:image/png;base64,{{CALIB}}" alt="Наложение знаков Gran на Inter и Source Serif 4" width="1500" height="1740"></figure>
     </div>
   </section>
 
@@ -391,7 +399,7 @@ footer { padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
     </div>
   </section>
 
-  <footer>Gran 0.05. Шрифт на этой странице встроен прямо в неё: 7 знаков, капитель для Н О Ж, четыре мастера, 2 оси. Обзоры трендов от маркетплейсов — рекламные источники, их прогнозы стоит воспринимать как мнение.</footer>
+  <footer>Gran 0.06. Шрифт на этой странице встроен прямо в неё: 7 знаков, капитель для Н О Ж, четыре мастера, 2 оси. Обзоры трендов от маркетплейсов — рекламные источники, их прогнозы стоит воспринимать как мнение.</footer>
 </div>
 
 <script>

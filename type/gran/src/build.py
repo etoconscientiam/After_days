@@ -22,7 +22,7 @@ from fontTools import varLib
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from geom import reverse, signed_area  # noqa: E402
-from glyphs import ALIASES, GLYPHS  # noqa: E402
+from letters import ALIASES, GLYPHS  # noqa: E402
 from masters import MASTERS, params  # noqa: E402
 
 ROOT = os.path.dirname(HERE)

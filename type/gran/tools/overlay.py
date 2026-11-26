@@ -23,7 +23,7 @@ elif len(sys.argv) > 3 and sys.argv[3] == "dm":
         ("Text Grotesk / DM Sans opsz 14", dict(opsz=12, SERF=0), "dm-sans-5.3.0/package/files/dm-sans-%s-standard-normal.woff2", dict(opsz=14, wght=400)),
         ("Display Grotesk / DM Sans opsz 33", dict(opsz=33, SERF=0), "dm-sans-5.3.0/package/files/dm-sans-%s-standard-normal.woff2", dict(opsz=33, wght=400)),
     ]
-    CH = "HOnoa"
+    CH = os.environ.get("CH", "HOnoa")
 def d_of(P, sx, sy, dx):
     s = ''
     for p in P:

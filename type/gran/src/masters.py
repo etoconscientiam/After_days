@@ -52,7 +52,7 @@ M = {
         xTi=0.06, sbaL=None, sbaR=None,
         aBt=0.56, aHs=0.60, aHi=0.63, aEy=0.715, aTopX=0.50, aBb=0.11, aCb=None,
         aBm=0.245, aBx=0.56, aSlope=0.10, aFlat=0.52, aCorner=0.56,
-        proj=62, tt=22, bh=36, lproj=50, ltt=20, lbh=30, hp=48, htt=20, hbh=34,
+        sThick=0.86, sThin=1.7, sK=1.3, sk3=0.70, proj=62, tt=22, bh=36, lproj=50, ltt=20, lbh=30, hp=48, htt=20, hbh=34,
         flare=14),
     "A33": dict(
         cap=700, xh=496, dd=-148, ov=15, ovl=13,
@@ -65,7 +65,7 @@ M = {
         xTi=0.06, sbaL=None, sbaR=None,
         aBt=0.56, aHs=0.60, aHi=0.63, aEy=0.715, aTopX=0.50, aBb=0.11, aCb=None,
         aBm=0.245, aBx=0.56, aSlope=0.10, aFlat=0.52, aCorner=0.56,
-        proj=70, tt=12, bh=44, lproj=56, ltt=10, lbh=38, hp=56, htt=11, hbh=42,
+        sThick=0.86, sThin=2.1, sK=1.3, sk3=0.72, proj=70, tt=12, bh=44, lproj=56, ltt=10, lbh=38, hp=56, htt=11, hbh=42,
         flare=20),
 }
 
