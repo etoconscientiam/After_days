@@ -1,5 +1,7 @@
 {
   "_comment": "Echoes: small wordless pictures over the sky with their own quiet sound. picture = procedural id in render/echoes.ts (placeholder art). trigger = core event; 'random' ones are drawn by the echo timer. group: common | ring | key | wand.",
+  "on": false,
+  "_on": "Off for now: the game first, these pictures later as an extra (Dima, 2026-11-26).",
   "duration": 3.2,
   "personalShare": 0.33,
   "interval": { "base": 45, "perEra": 22, "jitter": 0.5 },

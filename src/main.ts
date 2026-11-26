@@ -248,6 +248,8 @@ function bind(g: Game): void {
   bus.on('prestigeStart', () => { turmoil.hit(SEVERITY.epochShift); drawer.close(); renderer.beginShift(); });
   bus.on('prestige', (e) => { hud.notify('prestige', t('toast.prestige', { n: e.gain }), '#B9A6E8'); audio.whoosh(); audio.rumble(2.5); save(); });
   bus.on('echo', (e) => {
+    // the echoes are off for now (config/echoes.json «on»): they come back later as an extra
+    if (!(CFG.echoes as { on?: boolean }).on) return;
     const def = CFG.echoes.echoes.find((x) => x.id === e.id);
     if (!def) return;
     renderer.showEcho(def.picture, e.alpha);
