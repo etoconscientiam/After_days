@@ -48,6 +48,7 @@ setLang(game.state.settings.lang);
 
 const canvas = $('#world') as HTMLCanvasElement;
 const renderer = new Renderer(canvas);
+renderer.lightCanvas = $('#light') as HTMLCanvasElement;
 const hud = new Hud(() => game);
 const pileMix = new PileMix(() => game);
 const info = new InfoPanel(() => game, hud);

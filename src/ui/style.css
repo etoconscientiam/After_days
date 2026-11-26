@@ -31,6 +31,7 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 #ambi { position: fixed; inset: -10%; width: 120%; height: 120%; filter: blur(60px) saturate(1.2); opacity: 0.32; transition: opacity 2s; pointer-events: none; }
 #column { position: relative; width: 360px; height: 640px; box-shadow: 0 0 0 1px rgba(0,0,0,0.6), 0 30px 90px rgba(0,0,0,0.75); border-radius: 6px; overflow: hidden; }
 #world { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; display: block; touch-action: none; }
+#light { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; mix-blend-mode: screen; }
 #world.pointer { cursor: pointer; }
 #pline.press-hint { color: #ffe6a8; opacity: 1; animation: pressHint 1.6s ease-in-out infinite; }
 @keyframes pressHint { 50% { opacity: 0.55; } }

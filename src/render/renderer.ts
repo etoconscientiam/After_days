@@ -159,6 +159,14 @@ export class Renderer {
   skyTop = 66;
   /** a tap landed in the world here (a small flash where the finger touched) */
   private taps: { x: number; y: number; t: number }[] = [];
+  /** Soft lights (the thing's glow) drawn smooth at screen resolution over the pixel world: a radial gradient in
+   *  the 180×320 world turns into blocks and bands once scaled up. World coordinates, collected each frame. */
+  lightCanvas: HTMLCanvasElement | null = null;
+  private lights: { x: number; y: number; r: number; sy: number; c: [number, number, number]; a: number }[] = [];
+  private lightCtx: CanvasRenderingContext2D | null = null;
+  private bloomBig = document.createElement('canvas');
+  private bloomBigCtx: CanvasRenderingContext2D | null = null;
+  private bloomReady = false;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -630,7 +638,7 @@ export class Renderer {
     this.section.cut = this.lay.drawer > 1 ? WH - CFG.B.layout.tabBarH - this.lay.drawer - RIBBON_H - this.lay.sectionTop : Infinity;
     this.section.maybeRender(g, this.lay, now, this.reveal, dt);
     this.lay.artifactY = this.ayAt(WW / 2);
-    if (g.state.phase === 'choose') { this.drawChoose(g); this.drawSink(dt); return; }
+    if (g.state.phase === 'choose') { this.drawChoose(g); this.drawSink(dt); this.drawLights(); return; }
 
     // the camera leans in on the temple during the finale
     const tz = g.state.phase === 'temple' ? 1 + 0.32 * ease(Math.min(1, Math.max(0, (g.state.templeProgress - 0.4) / 0.5))) : g.state.phase === 'newWorld' || g.state.phase === 'end' ? 1.32 : 1;
@@ -671,6 +679,7 @@ export class Renderer {
     this.drawVision(g);
     this.drawFlyers(dt);
     this.drawVignette(sky);
+    this.drawLights();
   }
 
   // ---------- sky ----------
@@ -2399,7 +2408,8 @@ export class Renderer {
     c.globalCompositeOperation = 'multiply';
     const nc = lerp3([255, 255, 255], [90, 100, 150], night * 0.85);
     c.fillStyle = rgb(nc[0], nc[1], nc[2]);
-    const fade0 = lay.sectionTop - 10, fade1 = lay.sectionTop + 24;
+    // (from the top of the strata down: starting above it left a lighter strip of sky over the horizon)
+    const fade0 = lay.sectionTop + 2, fade1 = lay.sectionTop + 30;
     c.fillRect(0, lay.surfaceTop - 60, WW, fade0 - lay.surfaceTop + 60);
     // a pile that rises above that band gets the same night (column by column, from its real top)
     this.fillAboveBand(lay.surfaceTop - 60);
@@ -2425,18 +2435,18 @@ export class Renderer {
       c.fillStyle = rgb(60, 70, 110, 0.12 * night);
       this.fillAboveBand(y0);
     }
-    // the section is lit evenly, as in the prototype (no shadow of the far layers): the thing only glows
+    // the section is lit evenly, as in the prototype (no shadow of the far layers): the thing only glows —
+    // smooth, at screen resolution (drawLights); a slow uneven breath, not a metronome
     const xs = g.mods.shards ? g.shardXs() : [WW / 2];
-    c.globalCompositeOperation = 'lighter';
-    const boost = Math.min(1, g.run.boost / 3);
+    const boost = Math.min(1, g.run.boost / 3), fed = Math.min(1, this.fed);
+    const breath = 0.5 * Math.sin(this.t * 1.3) + 0.3 * Math.sin(this.t * 2.9 + 1.7) + 0.2 * Math.sin(this.t * 5.1 + 0.4);
+    const amp = 1 + breath * 0.06 + this.flash * 0.35 + fed * 0.3;
     for (const x of xs) {
-      const a = this.ayAt(x);
-      const R = 30 + boost * 14 + Math.sin(this.t * 2.2) * 2 + Math.min(1, this.fed) * 5;
-      const grd = c.createRadialGradient(x, a, 1, x, a, R);
-      grd.addColorStop(0, rgb(242, 181, 74, 0.5 + this.flash * 0.3 + Math.min(1, this.fed) * 0.22));
-      grd.addColorStop(0.4, rgb(200, 120, 40, 0.15));
-      grd.addColorStop(1, 'rgba(0,0,0,0)');
-      c.fillStyle = grd; c.fillRect(x - R, a - R, R * 2, R * 2);
+      const a = this.ayAt(x) - 1;
+      // a broad warm halo that spreads along the surface, and a small hot core
+      this.light(x, a + 2, (70 + boost * 16) * (1 + breath * 0.02), 0.28, [220, 130, 50], 0.28 * amp);
+      this.light(x, a, (40 + boost * 14 + fed * 6) * (1 + breath * 0.03), 0.65, [236, 150, 62], 0.62 * amp);
+      this.light(x, a, 11 + fed * 3, 0.8, [255, 222, 150], 0.7 * amp);
     }
     // a line just absorbed: the thing glows in its colour for a moment
     if (this.absorb) {
@@ -2445,14 +2455,7 @@ export class Renderer {
       // it rises with the chunks taken in and ebbs with them (this.fed), never cut off: no dip, no snap
       const f = Math.min(1, this.fed * (ab.long ? 1.2 : 1)) * ab.k;
       if (ab.t > 0.5 && f < 0.01) this.absorb = null;
-      else {
-        const a = this.ayAt(WW / 2) - 3, R = 12 + 10 * ab.k;
-        const grd = c.createRadialGradient(WW / 2, a, 1, WW / 2, a, R);
-        const [cr, cg, cb] = hex3(ab.color);
-        grd.addColorStop(0, rgb(cr, cg, cb, 0.55 * f));
-        grd.addColorStop(1, 'rgba(0,0,0,0)');
-        c.fillStyle = grd; c.fillRect(WW / 2 - R, a - R, R * 2, R * 2);
-      }
+      else this.light(WW / 2, this.ayAt(WW / 2) - 3, 14 + 12 * ab.k, 0.8, hex3(ab.color) as [number, number, number], 0.5 * f);
     }
     {
       const grid = g.grid;
@@ -2550,6 +2553,45 @@ export class Renderer {
   }
 
   /** Bloom: a blurred copy of the bright pixels, added on top. */
+  /** Queue a soft light (world coords; sy squashes it vertically). The zoom of the finale is applied here. */
+  private light(x: number, y: number, r: number, sy: number, c: [number, number, number], a: number): void {
+    if (a <= 0.005) return;
+    const z = this.zoom, fx = WW / 2, fy = this.lay.groundBase;
+    this.lights.push({ x: fx + (x - fx) * z, y: fy + (y - fy) * z, r: r * z, sy, c, a: Math.min(1, a) });
+  }
+
+  /** The soft lights on their own canvas over the world, at the screen's resolution (blended as screen in CSS). */
+  private drawLights(): void {
+    const lc = this.lightCanvas;
+    if (!lc) { this.lights.length = 0; return; }
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const w = Math.max(1, Math.round(lc.clientWidth * dpr)), h = Math.max(1, Math.round(lc.clientHeight * dpr));
+    if (lc.width !== w || lc.height !== h) { lc.width = w; lc.height = h; }
+    const c = this.lightCtx ?? (this.lightCtx = lc.getContext('2d')!);
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.clearRect(0, 0, w, h);
+    const k = w / WW;
+    c.globalCompositeOperation = 'lighter';
+    if (this.bloomReady) {
+      c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
+      c.globalAlpha = 0.55; c.drawImage(this.bloomBig, 0, 0, w, h); c.globalAlpha = 1;
+      this.bloomReady = false;
+    }
+    for (const L of this.lights) {
+      c.setTransform(k, 0, 0, k * L.sy, L.x * k, L.y * k);
+      const g = c.createRadialGradient(0, 0, 0, 0, 0, L.r);
+      // a light's natural falloff (about 1/(1+d²)), faded to nothing at the edge: no rim, no disc
+      for (let i = 0; i <= 8; i++) {
+        const d = i / 8, f = (1 / (1 + 10 * d * d) - 1 / 11) / (1 - 1 / 11);
+        g.addColorStop(d, rgb(L.c[0], L.c[1], L.c[2], L.a * f));
+      }
+      c.fillStyle = g;
+      c.fillRect(-L.r, -L.r, L.r * 2, L.r * 2);
+    }
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    this.lights.length = 0;
+  }
+
   private drawBloom(): void {
     if (this.quality === 'low') return;
     const b = this.bloomCtx;
@@ -2566,14 +2608,20 @@ export class Renderer {
     }
     b.putImageData(img, 0, 0);
     const c = this.ctx;
-    c.save();
-    c.imageSmoothingEnabled = true;
-    c.globalCompositeOperation = 'lighter';
-    c.globalAlpha = 0.55;
-    c.filter = 'blur(2px)';
-    c.drawImage(this.bloomSmall, 0, 0, WW, WH);
-    c.restore();
-    c.imageSmoothingEnabled = false;
+    // blurred at the world's size, then drawn smooth on the light canvas (in the pixel world it turned to blocks)
+    const bc = this.bloomBigCtx ?? (this.bloomBigCtx = this.bloomBig.getContext('2d')!);
+    if (this.bloomBig.width !== WW) { this.bloomBig.width = WW; this.bloomBig.height = WH; }
+    bc.globalCompositeOperation = 'copy';
+    bc.imageSmoothingEnabled = true;
+    bc.filter = 'blur(2px)';
+    bc.drawImage(this.bloomSmall, 0, 0, WW, WH);
+    bc.filter = 'none';
+    this.bloomReady = true;
+    if (!this.lightCanvas) {
+      const c = this.ctx;
+      c.save(); c.imageSmoothingEnabled = true; c.globalCompositeOperation = 'lighter'; c.globalAlpha = 0.55;
+      c.drawImage(this.bloomBig, 0, 0); c.restore(); c.imageSmoothingEnabled = false;
+    }
   }
 
   /** Vignette over the whole world (about 18 %). */
