@@ -87,6 +87,7 @@ def main():
     tile('#1d1916', '#3a322a', '#100d0b').save(OUT / 'tile_panel.png')       # windows, tips, cards of layers
     tile('#2a241f', '#3c342c', '#191512').save(OUT / 'tile_row.png')         # rows in the drawer
     tile('#2a241f', '#e8ad4c', '#191512').save(OUT / 'tile_row_ok.png')      # a row you can afford: an amber rim
+    tile('#26211c', '#26211c', '#26211c').save(OUT / 'tile_flat.png')        # cards in the drawer: an even face, no rims
     print('frames: slab, slab_amber, slab_sunk, grain, tile_*')
 
 

@@ -895,3 +895,16 @@ html[data-tremor] #ui { animation: letterTremor 0.14s steps(1) infinite; }
 }
 @media (prefers-reduced-motion: reduce) { .note-plate, .note-plate.out { animation-duration: 0.01s; } }
 #notes { max-width: 300px; }
+
+/* fixes after a look on the phone:
+   - a press moves a tile down by whole pixels only (a scale cut seams into the pixel frame: stripes on top and below);
+   - the tab bar is a little taller, so a medallion and its label fit inside the tile;
+   - cards in the drawer are flat tiles (no light and dark rims, no amber rim for an affordable one: the amber button says it) */
+.buy:active, .buy.pressed, .buy.sink, .stone-btn:active, .tab:active { transform: translateY(2px) !important; filter: none !important; }
+.buy.sink { filter: brightness(1.12) !important; }
+.tab.active { transform: none; filter: drop-shadow(0 3px 0 #120e0b); }
+#tabbar { height: 60px; padding: 3px 8px 4px; }
+#drawer { bottom: 60px; }
+#pile-mix { bottom: 66px; }
+.tab { justify-content: center; gap: 2px; line-height: 14px; }
+.row, .life-row, .card, .row.afford, .life-row.afford, .card.afford { border-image-source: url('../../assets/ui/frames/tile_flat.png'); filter: none; }
