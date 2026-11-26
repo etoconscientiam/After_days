@@ -1693,8 +1693,9 @@ export class Renderer {
       c.fillRect(z.pts[i], top + z.pts[i + 1], 1, 1);
     }
     // a rock is born: a spark where it happened, as in the prototype — a white-hot core and arms in the colour of
-    // the new rock at 0.7 of its light, fading over the last 0.3 s (low quality: none)
-    for (const gl of this.quality === 'low' ? [] : g.glints) {
+    // the new rock at 0.7 of its light, fading over the last 0.3 s (also in low quality: at most 90 sparks of 5 px,
+    // and a slow phone drops to low quality by itself — the change of the strata must not go dark with it)
+    for (const gl of g.glints) {
       if (gl.x >= SW || (gl.d && gl.d > 0)) continue;
       const gy = Math.round(gl.y + gdy);
       if (gy - top >= sec.cut) continue;
