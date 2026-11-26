@@ -761,3 +761,35 @@ html[data-tremor] #ui { animation: letterTremor 0.14s steps(1) infinite; }
 #menu[data-skin="a"] .mn-slot { padding: 0 2px; }
 #menu[data-skin="a"] .mn-slot .mn-slot-a { margin-top: 2px; gap: 6px; }
 #menu[data-skin="a"] .mn-slot .mn-small { padding: 0 4px; }
+
+/* ---- C, made closer to the world (the chosen skin): the tiles are beds of the strata — colours of its rocks
+   (amber, clay, sea, moss), a grain of sediment over them, a light rim on top, a hard shadow under; the title
+   casts its shadow in layers like strata ---- */
+#menu[data-skin="c"] {
+  --t-amber: #e8a944; --t-amber-d: #8a5a1a;
+  --t-clay: #a9583e;  --t-clay-d: #5e2e20;
+  --t-sea: #3e7480;   --t-sea-d: #1f3c44;
+  --t-moss: #66804a;  --t-moss-d: #34442a;
+  --t-stone: #3a332c; --t-stone-d: #17130f;
+  --grain: url('../../assets/ui/frames/grain.png');
+}
+#menu[data-skin="c"] .mn-veil { background: linear-gradient(rgba(14,12,16,0.9) 0 22%, rgba(14,12,16,0.62) 22% 30%, rgba(14,12,16,0.42) 30% 58%, rgba(14,12,16,0.72) 58%); }
+#menu[data-skin="c"] .mn-title { color: var(--t-amber); text-shadow: 0 4px 0 #9a6e52, 0 8px 0 #4f3a28, 0 10px 0 #120e0b; letter-spacing: 8px; }
+#menu[data-skin="c"] .mn-btn, #menu[data-skin="c"] .mn-small, #menu[data-skin="c"] .mn-slot, #menu[data-skin="c"] .mn-thing {
+  background-image: var(--grain); background-size: 32px 32px; image-rendering: pixelated; border-radius: 4px; }
+#menu[data-skin="c"] .mn-btn { background-color: var(--t-sea); font-size: 20px; color: #f4ecdc; text-shadow: 0 2px 0 rgba(0,0,0,0.45);
+  box-shadow: inset 0 2px 0 rgba(255,245,225,0.22), inset 0 -2px 0 rgba(0,0,0,0.18), 0 6px 0 var(--t-sea-d), 0 8px 0 rgba(0,0,0,0.5); }
+#menu[data-skin="c"] .mn-btn:nth-of-type(2) { background-color: var(--t-clay); box-shadow: inset 0 2px 0 rgba(255,245,225,0.22), inset 0 -2px 0 rgba(0,0,0,0.18), 0 6px 0 var(--t-clay-d), 0 8px 0 rgba(0,0,0,0.5); }
+#menu[data-skin="c"] .mn-btn:nth-of-type(4) { background-color: var(--t-moss); box-shadow: inset 0 2px 0 rgba(255,245,225,0.22), inset 0 -2px 0 rgba(0,0,0,0.18), 0 6px 0 var(--t-moss-d), 0 8px 0 rgba(0,0,0,0.5); }
+#menu[data-skin="c"] .mn-btn.primary { background-color: var(--t-amber); color: #2a1a08; text-shadow: 0 1px 0 rgba(255,240,200,0.4);
+  box-shadow: inset 0 2px 0 rgba(255,250,225,0.45), inset 0 -2px 0 rgba(0,0,0,0.15), 0 6px 0 var(--t-amber-d), 0 8px 0 rgba(0,0,0,0.5); }
+#menu[data-skin="c"] .mn-btn:active { transform: translateY(6px); box-shadow: inset 0 2px 0 rgba(255,245,225,0.2), 0 2px 0 rgba(0,0,0,0.5); }
+#menu[data-skin="c"] .mn-btn.back { background: transparent; box-shadow: none; }
+#menu[data-skin="c"] .mn-slot, #menu[data-skin="c"] .mn-thing { background-color: var(--t-stone);
+  box-shadow: inset 0 2px 0 rgba(255,245,225,0.1), 0 4px 0 var(--t-stone-d), 0 6px 0 rgba(0,0,0,0.45); }
+#menu[data-skin="c"] .mn-slot.active { background-color: #47392a; box-shadow: inset 0 0 0 2px var(--t-amber), 0 4px 0 var(--t-stone-d), 0 6px 0 rgba(0,0,0,0.45); }
+#menu[data-skin="c"] .mn-small { background-color: #574c42; color: #f4ecdc; box-shadow: inset 0 2px 0 rgba(255,245,225,0.18), 0 4px 0 #241e19; }
+#menu[data-skin="c"] .mn-small.go { background-color: var(--t-amber); color: #2a1a08; box-shadow: inset 0 2px 0 rgba(255,250,225,0.45), 0 4px 0 var(--t-amber-d); }
+#menu[data-skin="c"] .mn-small.danger { background-color: var(--t-clay); color: #f4ecdc; box-shadow: inset 0 2px 0 rgba(255,245,225,0.2), 0 4px 0 var(--t-clay-d); }
+#menu[data-skin="c"] .mn-btn:not(.back), #menu[data-skin="c"] .mn-small, #menu[data-skin="c"] .mn-slot, #menu[data-skin="c"] .mn-thing {
+  background-image: var(--grain) !important; background-size: 32px 32px !important; }

@@ -51,7 +51,18 @@ def main():
     slab('#2c2622', '#352e28', '#241f1b', '#6e604e', '#1f1a17', '#15110f', seed=3).save(OUT / 'slab.png')
     slab('#3a2c1e', '#45341f', '#30241a', '#f2b54a', '#8a5a24', '#2a1c10', vein='#ffd88a', seed=5).save(OUT / 'slab_amber.png')
     slab('#1f1b18', '#26211d', '#1a1714', '#3e362e', '#151210', '#0f0c0b', seed=7).save(OUT / 'slab_sunk.png')
-    print('frames: slab, slab_amber, slab_sunk')
+    # a grain to lay over flat tiles: light and dark specks with alpha, so any colour under it reads as sediment
+    g = Image.new('RGBA', (N, N), (0, 0, 0, 0))
+    gp = g.load()
+    rnd = random.Random(11)
+    for y in range(N):
+        for x in range(N):
+            r = rnd.random()
+            if r < 0.10: gp[x, y] = (255, 245, 225, 34)
+            elif r < 0.22: gp[x, y] = (0, 0, 0, 40)
+            elif r < 0.26: gp[x, y] = (0, 0, 0, 70)
+    g.save(OUT / 'grain.png')
+    print('frames: slab, slab_amber, slab_sunk, grain')
 
 
 if __name__ == '__main__':
