@@ -607,24 +607,32 @@ export class UI {
     this.tip.style.top = y + 'px';
   }
 
-  /** Over a finished job: «Done», and what it will fetch. Follows the cursor. */
-  showReady(x: number, y: number): void {
-    const b = this.game.player;
-    const html = `<h4>${t('tip.ready')}</h4>` + (b.order ? `<div class="cost">◆ ${this.coins(payForSeams(b.seams, b.order.reward))} / ${b.order.reward}</div>` : '');
-    if (this.tipId !== 'ready' || this.tip.innerHTML !== html) this.tip.innerHTML = html;
-    this.tipId = 'ready';
+  /**
+   * A small note on a thing under the cursor at the bench: a title and a line or two of what it is now.
+   * Follows the cursor; repainted only when its words change.
+   */
+  showInfo(title: string, lines: string[], x: number, y: number): void {
+    const html = `<h4>${title}</h4>` + lines.map((l) => `<div class="cost">${l}</div>`).join('');
+    if (this.tipId !== 'info' || this.tip.innerHTML !== html) this.tip.innerHTML = html;
+    this.tipId = 'info';
     this.tip.classList.add('ready');
     this.tip.style.display = 'block';
     this.tip.style.left = x + 'px';
     this.tip.style.top = y + 'px';
   }
 
-  get readyShown(): boolean {
-    return this.tipId === 'ready';
+  get infoShown(): boolean {
+    return this.tipId === 'info';
+  }
+
+  /** What a finished job will fetch, for its note. */
+  readyLine(): string {
+    const b = this.game.player;
+    return b.order ? `◆ ${this.coins(payForSeams(b.seams, b.order.reward))} / ${b.order.reward}` : '';
   }
 
   refreshTip(): void {
-    if (this.tipId === 'ready') return;
+    if (this.tipId === 'info') return;
     if (this.tipId && this.tip.style.display === 'block') this.showTip(this.tipId, parseFloat(this.tip.style.left), parseFloat(this.tip.style.top));
   }
 

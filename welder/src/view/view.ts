@@ -961,6 +961,38 @@ export class View {
   private maskV = 0;
   private maskHit = false;
 
+  /** Title and lines for the note on a thing at the bench, or null for things that have none. */
+  private infoFor(id: string): [string, string[]] | null {
+    const g = this.game, b = g.player;
+    switch (id) {
+      case 'part': {
+        if (!b.order) return null;
+        if (b.stage === 'ready') return [t('tip.ready'), [this.ui.readyLine()]];
+        return null;
+      }
+      case 'electrodes':
+        return [t(g.owned.coated ? 'info.rods.coated' : 'info.rods.bare'), [`${t('rod.label')} ${Math.round(b.electrode * 100)}%`]];
+      case 'gauge': {
+        const a = Math.round(g.power.I * 110);
+        const low = g.power.I < g.stats.stableI;
+        return [t('info.gauge'), [`${a} A${low ? ' · ' + t('info.gauge.low') : ''}`]];
+      }
+      case 'pile':
+        return g.pile ? [t('part.' + g.pile.part), [`${t('cust.' + g.pile.customer)}`, `◆ ${g.pile.reward}`]] : null;
+      case 'board':
+        return g.flags.board ? [t('info.boardT'), [t('info.board', { n: g.board.length })]] : null;
+      case 'done':
+        return [t('info.done'), [t('info.doneN', { n: g.ordersDone })]];
+      case 'craft':
+        return g.flags.shelf ? [t('info.craftT'), [`◆ ${g.money}`]] : null;
+      case 'own:jar':
+        return [t('up.jar.name'), []];
+      case 'own:cable':
+        return [t('up.cable.name'), []];
+    }
+    return null;
+  }
+
   private snapToPart = (p: THREE.Vector3, n: THREE.Vector3): void => {
     if (!this.part) return;
     const o = this.p2w(p.x + n.x * 20, p.y + n.y * 20, p.z + n.z * 20, this.v3d);
@@ -1117,8 +1149,10 @@ export class View {
       this.ui.hideTip();
     }
     // A finished job under the cursor says so.
-    if (canHover && this.hover === 'part' && g.player.stage === 'ready' && this.rig.mode !== 'walk') this.ui.showReady(this.mouse.x, this.mouse.y + 10 * this.scale);
-    else if (this.ui.readyShown) this.ui.hideTip();
+    // A note on the thing under the cursor at the bench (not while the arc burns or the mask is down).
+    const info = canHover && this.rig.mode !== 'walk' && !g.player.arc.lit && !g.mask.down ? this.infoFor(this.hover) : null;
+    if (info) this.ui.showInfo(info[0], info[1], this.mouse.x, this.mouse.y + 10 * this.scale);
+    else if (this.ui.infoShown) this.ui.hideTip();
 
     // Lights and the world outside.
     const I = g.power.I;

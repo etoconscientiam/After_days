@@ -715,6 +715,8 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
   gauge.position.set(0.12, 1.12, BACK_Z + 0.03);
   gauge.scale.setScalar(0.92);
 
+  tag(gauge, 'gauge');
+  pick.push(gauge);
   scene.add(gauge);
   let gShown = -1;
   const setGauge = (I: number) => {
@@ -835,12 +837,16 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
   ownedJar.position.set(0.3, TABLE, -1.04);
   ownedJar.scale.setScalar(1.3);
   ownedJar.visible = false;
+  tag(ownedJar, 'own:jar');
+  pick.push(ownedJar);
   scene.add(ownedJar);
   ownedItems.jar = ownedJar;
   const ownedCable = new THREE.Group();
   ownedCable.add(boxAt(0.7, 0.018, 0.018, copper, 0.6, TABLE + 0.009, -0.95));
   ownedCable.add(boxAt(0.018, 0.018, 0.55, copper, 0.95, TABLE + 0.009, -0.7));
   ownedCable.visible = false;
+  tag(ownedCable, 'own:cable');
+  pick.push(ownedCable);
   scene.add(ownedCable);
   ownedItems.cable = ownedCable;
   glowable('board', board);
