@@ -969,6 +969,8 @@
     "absorb": "Absorption",
     "tap": "Per tap",
     "specials": "Special materials",
+    "land": "Land",
+    "forest": "Forest",
     "noSpecials": "They come when the thing absorbs coal, oil, amber or diamond",
     "pile": "Pile",
     "pileSize": "Grains in a pile",

@@ -51,7 +51,8 @@ const renderer = new Renderer(canvas);
 renderer.lightCanvas = $('#light') as HTMLCanvasElement;
 const hud = new Hud(() => game);
 const pileMix = new PileMix(() => game);
-const info = new InfoPanel(() => game, hud);
+const deskLook = (new URLSearchParams(location.search).get('desk') ?? 'a') as 'a' | 'b' | 'c';
+const info = new InfoPanel(() => game, hud, ['a', 'b', 'c'].includes(deskLook) ? deskLook : 'a');
 const drawer = new Drawer(() => game);
 pileMix.onOpen = () => drawer.openUpgradesAt('pile');
 const input = new Input(() => game, renderer);
@@ -72,7 +73,9 @@ const ambi = $('#ambi') as HTMLCanvasElement;
 let uiScale = 1;
 // ---------- the desktop layout: a wide screen with a mouse gets the world at full height between two panels —
 // the info at the left, the drawer (Life, Elements, Upgrades…) pinned open at the right ----------
-const SIDE_L = 300, SIDE_R = 400, SIDE_GAP = 20;
+// the side panels are narrow (the world is what matters): they grow a little on wide screens
+const SIDE_GAP = 12;
+let SIDE_L = 250, SIDE_R = 300;
 let desktop = false;
 const sideL = $('#side-left'), sideR = $('#side-right');
 function setDesktop(on: boolean): void {
@@ -95,9 +98,18 @@ function fit(): void {
   const s = game.state.settings;
   const vv = window.visualViewport;
   const W0 = vv ? vv.width : window.innerWidth, H0 = vv ? vv.height : window.innerHeight;
-  const wantDesk = !TOUCH && W0 >= 1000 && W0 / H0 >= 1.25;
+  const wantDesk = !TOUCH && W0 >= 900 && W0 / H0 >= 1.2;
   if (wantDesk !== desktop) setDesktop(wantDesk);
   // in the desktop layout the world takes the height, the panels the sides
+  if (desktop) {
+    // narrow panels first (the world takes what it can), then the panels share whatever is left over
+    const minL = 230, minR = 280;
+    const colW = Math.min((H0 - SIDE_GAP * 2) * (WW / WH), W0 - minL - minR - SIDE_GAP * 4);
+    const spare = Math.max(0, W0 - colW - minL - minR - SIDE_GAP * 4);
+    SIDE_L = Math.round(Math.min(330, minL + spare * 0.45));
+    SIDE_R = Math.round(Math.min(380, minR + spare * 0.55));
+    sideL.style.width = SIDE_L + 'px'; sideR.style.width = SIDE_R + 'px';
+  }
   const W = desktop ? W0 - SIDE_L - SIDE_R - SIDE_GAP * 4 : W0, H = desktop ? H0 - SIDE_GAP * 2 : H0;
   // the world is 180×320 pixels; integer scaling keeps every pixel the same size,
   // but only when that wastes little of the screen (on phones it would shrink the game to a stamp)

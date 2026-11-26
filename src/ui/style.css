@@ -915,12 +915,12 @@ html[data-tremor] #ui { animation: letterTremor 0.14s steps(1) infinite; }
    The desktop layout (html.desktop: a wide screen with a mouse): the world at full height in the middle, the info at
    the left (ui/infoPanel.ts), the drawer pinned open at the right with its tabs on top. Stone tiles as everywhere.
    ===================================================================================================================== */
-html.desktop #app { gap: 20px; }
+html.desktop #app { gap: 12px; }
 html.desktop #side-left, html.desktop #side-right { position: relative; display: flex; flex-direction: column;
   background: #15110e; box-shadow: inset 0 2px 0 #2a231e, 0 0 0 2px #0c0a09, 0 20px 60px rgba(0,0,0,0.6); z-index: 1; }
-html.desktop #side-left { width: 300px; order: 0; overflow-y: auto; padding: 12px; gap: 10px; scrollbar-width: thin; scrollbar-color: #3a322a transparent; }
+html.desktop #side-left { order: 0; overflow-y: auto; padding: 10px; gap: 8px; scrollbar-width: thin; scrollbar-color: #3a322a transparent; }
 html.desktop #column { order: 1; border-radius: 0; }
-html.desktop #side-right { width: 400px; order: 2; }
+html.desktop #side-right { order: 2; }
 html.desktop #side-left[hidden], html.desktop #side-right[hidden] { display: none; }
 /* the drawer in the side panel: tabs on top, the body takes the rest, always open */
 html.desktop #side-right #tabbar { position: relative; left: auto; right: auto; bottom: auto; height: 62px; flex: none; z-index: 2; }
@@ -955,3 +955,70 @@ html.desktop.menu-up:not(.menu-settings) #side-right { visibility: hidden; }
 .ip-mixbar { display: flex; height: 8px; overflow: hidden; background: #0f0c0a; }
 .ip-mixbar i { display: block; height: 100%; }
 .ip-note { font-size: 16px; color: var(--bone-dim); line-height: 20px; }
+
+/* ---- desktop: compact right panel (more rows in view) ---- */
+html.desktop #side-right #tabbar { height: 54px; padding: 4px 5px; gap: 3px; }
+html.desktop #side-right .tab { font-size: 13px; line-height: 14px; }
+html.desktop #side-right #drawer-head { padding: 8px 10px 2px; }
+html.desktop #side-right #drawer-title { font-size: 24px; }
+html.desktop #side-right #drawer-body { padding: 2px 8px 10px; }
+html.desktop #side-right .row { grid-template-columns: 26px 1fr auto; gap: 0 8px; padding: 6px 8px 7px; margin-bottom: 4px; }
+html.desktop #side-right .row .r-name, html.desktop #side-right .row .r-eff { font-size: 15px; line-height: 18px; }
+html.desktop #side-right .row .r-eff { font-size: 14px; }
+html.desktop #side-right .row .r-act { min-width: 64px; }
+html.desktop #side-right .row .r-ico img, html.desktop #side-right .row .r-ico canvas { width: 22px !important; height: 22px !important; }
+html.desktop #side-right .buy { min-height: 32px; padding: 4px 6px; font-size: 14px; }
+html.desktop #side-right .row .scale { margin-top: 4px; }
+html.desktop #side-right .card .name { font-size: 15px; min-height: 2.2em; }
+
+/* ---- desktop info: the widgets ---- */
+#side-left .ip-sec { padding: 8px 10px 10px; gap: 5px; }
+#side-left .ip-sec h3 { font-size: 16px; }
+#side-left .ip-row { font-size: 16px; }
+#side-left .ip-row.small { font-size: 15px; }
+#side-left .ip-goal { font-size: 16px; line-height: 19px; }
+#side-left .ip-goal.sub { font-size: 15px; }
+.ip-era-name { font-size: 26px; }
+.ip-era-sub { font-size: 14px; color: var(--bone-dim); font-family: var(--num); }
+.ip-planet { align-items: stretch; }
+.ip-globe { position: relative; display: flex; justify-content: center; padding: 4px 0 2px;
+  background: radial-gradient(closest-side, rgba(120,160,220,0.08), transparent 70%); }
+.ip-globe canvas { width: 76%; height: auto; aspect-ratio: 1; }
+.ip-chips { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 2px; }
+.ip-chip { flex: 1; text-align: center; font-size: 14px; font-family: var(--num); padding: 2px 4px; background: #0f0c0a; color: var(--bone); white-space: nowrap; }
+.ip-chip.land { box-shadow: inset 0 -2px 0 #c9b27e; }
+.ip-chip.forest { box-shadow: inset 0 -2px 0 #4f8a42; }
+.ip-chip.o2 { box-shadow: inset 0 -2px 0 #7ab8ff; }
+.ip-chart { position: relative; background: #0f0c0a; padding: 3px; }
+.ip-chart canvas { width: 100%; height: auto; display: block; }
+.ip-chart-max { position: absolute; top: 3px; right: 5px; font-size: 13px; font-family: var(--num); color: var(--bone-dim); }
+.ip-specials { display: flex; flex-wrap: wrap; gap: 6px 10px; }
+.ip-spec { display: inline-flex; align-items: center; gap: 4px; font-family: var(--num); color: var(--bone); font-size: 16px; }
+.ip-spec b { font-weight: 400; }
+/* B: the depth column beside the stack */
+.ip-split { display: flex; gap: 8px; min-height: 100%; }
+.ip-depth { position: relative; flex: none; width: 84px; padding: 6px 0 6px 18px; border: 6px solid transparent; image-rendering: pixelated;
+  border-image: url('../../assets/ui/frames/tile_sunk.png') 3 fill / 6px / 0 stretch; }
+.ip-depth canvas { width: 100%; height: 100%; display: block; }
+.ip-depth-marks { position: absolute; left: 0; top: 6px; bottom: 6px; width: 18px; }
+.ip-depth-marks span { position: absolute; left: 0; width: 16px; text-align: center; font-size: 12px; font-family: var(--num); transform: translateY(-1px); line-height: 12px; }
+.ip-depth-marks .thing { color: #ffd884; text-shadow: 0 0 6px rgba(255,200,110,0.8); transform: translateY(-50%); font-size: 11px; }
+.ip-stack { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+/* C: instruments */
+.ip-eras { display: flex; gap: 2px; margin: 4px 0 2px; }
+.ip-eras span { position: relative; flex: 1; height: 22px; background: #0f0c0a; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.ip-eras span i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--c); opacity: 0.55; }
+.ip-eras span.done i { opacity: 0.32; }
+.ip-eras span.now { box-shadow: inset 0 0 0 1px var(--c); }
+.ip-eras em { position: relative; font-style: normal; font-family: var(--num); font-size: 12px; color: var(--bone-dim); }
+.ip-eras span.now em { color: var(--bone); }
+.ip-instr { flex-direction: row !important; gap: 10px !important; align-items: stretch; }
+.ip-ring { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.ip-ring-in { display: flex; gap: 8px; align-items: center; }
+.ip-ring canvas { width: 64px; height: 64px; flex: none; }
+.ip-legend { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.ip-legend .ip-row { font-size: 13px !important; }
+.ip-legend .ip-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ip-tube { flex: none; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.ip-tube canvas { width: 14px; height: 84px; }
+.ip-tube b { font-family: var(--num); font-weight: 400; font-size: 13px; color: var(--bone); }
