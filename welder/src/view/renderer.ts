@@ -109,7 +109,7 @@ void main() {
   float dust = max(step(0.9988 - 0.006 * deep, h21(gp + 17.0)), step(0.9992 - 0.005 * deep, h21(floor(gp * 0.5) + 31.0)) * 0.8);
   float lumc = dot(c, vec3(0.3, 0.6, 0.1));
   lumc = lumc / (1.0 + lumc);
-  vec3 haze = vec3(0.9, 1.0, 0.92) * wear * (0.035 + 0.18 * lumc + 0.5 * halo) + dust * halo * 0.3;
+  vec3 haze = vec3(0.9, 1.0, 0.92) * wear * (0.035 + 0.18 * lumc + 0.15 * halo) + dust * halo * 0.15;
   // Vignette: the eye sits deep in the hood, the rim of the window falls off into its dark.
   float gv = mix(0.12, 1.0, rim * rim) * (1.0 - 0.55 * deep * deep);
   // Through the glass: the arc and hot metal at the glass's transmission, plus a dim, compressed view of the
