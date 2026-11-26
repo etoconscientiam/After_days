@@ -22,6 +22,12 @@ export class CameraRig {
   private tFov = 58;
   private yaw = 0;
   private yawT = 0;
+  /** The head following the cursor a little at the bench (yaw, pitch in radians), and where it heads. */
+  private fx = 0;
+  private fy = 0;
+  private fxT = 0;
+  private fyT = 0;
+  private side = new THREE.Vector3();
   /** Walking: where the body stands and where the head points. */
   readonly body = new THREE.Vector3(0, 0, 0.45);
   walkYaw = 0;
@@ -131,10 +137,17 @@ export class CameraRig {
     this.mode = 'end';
   }
 
-  /** Mouse position in -1..1 at the bench; only the outer edges turn the head. */
-  setNudge(x: number): void {
+  /**
+   * Mouse position in -1..1 at the bench. The head follows it a little (a few degrees, slowly), so the eye
+   * drifts toward what you point at; `follow` 0..1 damps that (held still while welding, so the aim doesn't
+   * slide under a still hand). The outer edges still turn the head properly.
+   */
+  setNudge(x: number, y = 0, follow = 1): void {
     const ax = Math.abs(x);
-    this.yawT = this.mode === 'station' && this.turnable ? -Math.sign(x) * Math.max(0, ax - 0.94) / 0.06 * 0.5 : 0;
+    const on = this.mode === 'station';
+    this.yawT = on && this.turnable ? -Math.sign(x) * Math.max(0, ax - 0.94) / 0.06 * 0.5 : 0;
+    this.fxT = on ? -x * 0.07 * follow : 0;
+    this.fyT = on ? y * 0.045 * follow : 0;
   }
 
   /** Mouse-look while walking (pixels of movement). */
@@ -172,7 +185,7 @@ export class CameraRig {
   }
 
   settled(): boolean {
-    return this.blend <= 0 && this.pos.distanceToSquared(this.tPos) < 1e-7 && Math.abs(this.fov - this.tFov) < 0.05 && Math.abs(this.yaw - this.yawT) < 0.002;
+    return this.blend <= 0 && this.pos.distanceToSquared(this.tPos) < 1e-7 && Math.abs(this.fov - this.tFov) < 0.05 && Math.abs(this.yaw - this.yawT) < 0.002 && Math.abs(this.fx - this.fxT) < 0.002 && Math.abs(this.fy - this.fyT) < 0.002;
   }
 
   update(dt: number): void {
@@ -187,9 +200,17 @@ export class CameraRig {
     this.look.lerp(this.tLook, k);
     this.fov += (this.tFov - this.fov) * (1 - Math.exp(-dt * 7));
     this.yaw += (this.yawT - this.yaw) * (1 - Math.exp(-dt * 4));
+    const kf = 1 - Math.exp(-dt * 2.2);
+    this.fx += (this.fxT - this.fx) * kf;
+    this.fy += (this.fyT - this.fy) * kf;
     this.cam.position.copy(this.pos);
     const d = this.tmp.copy(this.look).sub(this.pos);
-    if (this.mode !== 'walk') d.applyAxisAngle(Y_AXIS, this.yaw);
+    if (this.mode !== 'walk') {
+      d.applyAxisAngle(Y_AXIS, this.yaw + this.fx);
+      // Pitch about the horizontal axis across the view.
+      this.side.set(-d.z, 0, d.x).normalize();
+      d.applyAxisAngle(this.side, this.fy);
+    }
     this.cam.lookAt(d.add(this.pos));
     if (Math.abs(this.cam.fov - this.fov) > 1e-3) {
       this.cam.fov = this.fov;

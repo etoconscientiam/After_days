@@ -109,6 +109,7 @@ export class View {
   private whyT = 0;
   private v3q = new THREE.Quaternion();
   private strayAcc = 0;
+  private followK = 1;
   private strayP = new THREE.Vector3();
   private strayNrm = new THREE.Vector3();
   private strayQ = new THREE.Quaternion();
@@ -1103,7 +1104,12 @@ export class View {
       if (this.inspectT <= 0 && this.rig.mode === 'inspect') this.rig.station();
     }
     this.rig.turnable = !this.lmb && !a.lit && !this.ui.modal;
-    if (this.mouse.in && this.rig.mode !== 'walk') this.rig.setNudge((this.mouse.x / this.cssW) * 2 - 1);
+    if (this.mouse.in && this.rig.mode !== 'walk') {
+      // The head drifts after the cursor, but holds still while the arc burns or the mask is down (aiming).
+      const still = g.player.arc.lit || g.mask.down || this.lmb;
+      this.followK += ((still ? 0 : 1) - this.followK) * Math.min(1, dt * 3);
+      this.rig.setNudge((this.mouse.x / this.cssW) * 2 - 1, 1 - (this.mouse.y / this.cssH) * 2, this.followK);
+    }
     if (this.rig.mode === 'walk' && !this.ui.modal) {
       const k = (c: string) => (this.held.has(c) ? 1 : 0);
       const moved = this.rig.move(
