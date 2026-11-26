@@ -100,10 +100,13 @@ export class Hud {
     const era = g.eraDef();
     const atWall = r.year >= era.end - 1e-6 && !g.eraConditionMet() && phase === 'play';
     toggle(this.speed, 'wall', atWall);
+    toggle(this.speed, 'hurry', !atWall && g.hurrying());
     if (atWall) setText(this.speed, t('hud.wall'));
     else {
       const yps = g.yps();
-      setText(this.speed, yps >= 1 ? t('hud.yps', { v: fmt(yps, yps < 10 ? 1 : 0) }) : yps * 52 >= 1 ? t('hud.wps', { v: fmt(yps * 52, 1) }) : t('hud.dps', { v: fmt(yps * 365, 1) }));
+      const sp = yps >= 1 ? t('hud.yps', { v: fmt(yps, yps < 10 ? 1 : 0) }) : yps * 52 >= 1 ? t('hud.wps', { v: fmt(yps * 52, 1) }) : t('hud.dps', { v: fmt(yps * 365, 1) });
+      // the goal of the era is met: time hurries to its end (said, so the speed-up is not a mystery)
+      setText(this.speed, g.hurrying() ? t('hud.hurry', { v: sp }) : sp);
     }
     const k = Math.max(0, Math.min(1, (r.year - era.start) / (era.end - era.start)));
     this.eraFill.style.width = (k * 100).toFixed(1) + '%';

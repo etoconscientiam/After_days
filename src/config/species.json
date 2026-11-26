@@ -49,7 +49,7 @@
       "wild": 1, "niche": { "food": ["herds", "fish"] },
       "deposit": { "contrib": 0.002, "mats": { "soil": 0.6, "hearth": 0.3, "shards": 0.1 } }, "death": { "bone": 6, "org": 2, "orgMat": "orgLand" },
       "trait": { "temple": 0.3, "press": 0.1 }, "sprite": "hominid", "tint": "#b09090" },
-    { "id": "tribe",     "era": 6, "zone": "shoreLand", "cost": 30000000, "eps": 10000, "lifespan": 40, "groups": ["animal", "tribe"],
+    { "id": "tribe",     "era": 6, "zone": "shoreLand", "cost": 15000000, "eps": 10000, "lifespan": 40, "groups": ["animal", "tribe"],
       "wild": 1, "niche": { "food": ["fossor", "vigil", "litoralis", "lapis"] },
       "deposit": { "contrib": 0.002, "mats": { "soil": 0.6, "hearth": 0.3, "shards": 0.1 } }, "death": { "bone": 5, "org": 2, "orgMat": "orgLand" },
       "digs": true, "sprite": "tribe", "tint": "#f2c14e" }

@@ -908,3 +908,4 @@ html[data-tremor] #ui { animation: letterTremor 0.14s steps(1) infinite; }
 #pile-mix { bottom: 66px; }
 .tab { justify-content: center; gap: 2px; line-height: 14px; }
 .row, .life-row, .card, .row.afford, .life-row.afford, .card.afford { border-image-source: url('../../assets/ui/frames/tile_flat.png'); filter: none; }
+#speed.hurry { color: var(--amber); }

@@ -335,7 +335,14 @@ export class Game {
     let v = this.eraDef().yps * (1 + st.timeSpeed) * (1 + st.timeSpeedDensity) * (1 + st.traitTime) * this.lifeMultiplier();
     if (withBoost && this.run.boost > 0) v *= CFG.B.energy.boostMul;
     if (withBoost && this.run.buffs.timeT > 0) v *= this.run.buffs.timeMul;
+    if (this.hurrying()) v *= CFG.B.time.hurryMul;
     return v;
+  }
+
+  /** The era's condition is met before its end: time hurries to the end (nothing left to wait for). */
+  hurrying(): boolean {
+    const r = this.run;
+    return this.state.phase === 'play' && r.era < 7 && r.year < this.eraDef().end && this.eraConditionMet();
   }
 
   lifeIncome(): number {

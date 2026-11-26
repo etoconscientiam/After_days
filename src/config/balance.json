@@ -72,7 +72,9 @@
   "offlineSpeed": 0.5,
   "offlineMaxHours": 8,
   "offlineStepYears": 50,
-  "lifeSpeedPerSpecies": 0.01
+  "lifeSpeedPerSpecies": 0.01,
+  "hurryMul": 3,
+  "_hurryMul": "When the era's condition is met before its end, time runs this many times faster to the end: no waiting for nothing."
  },
  "physics": {
   "pressurePerRow": 0.0098,
@@ -116,7 +118,7 @@
  },
  "tribe": {
   "settleRadius640": 64,
-  "settleWeight": 0.5
+  "settleWeight": 1
  },
  "regrowth": {
   "factor": 10

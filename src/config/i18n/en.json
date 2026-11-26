@@ -38,7 +38,8 @@
     "boost": "Pulse",
     "energy": "Energy",
     "density": "Density",
-    "perSec": "+{v}/s"
+    "perSec": "+{v}/s",
+    "hurry": "{v} · time hurries"
   },
   "tabs": {
     "life": "Life",
