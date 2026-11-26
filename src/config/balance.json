@@ -189,7 +189,7 @@
   "pileShareMax": 0.6,
   "pileExtraShare": 0.6,
   "pile": {
-   "minGapMs": 26,
+   "minGapMs": 126,
    "base": 50,
    "perLevel": 5
   },
