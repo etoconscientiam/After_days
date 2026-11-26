@@ -41,7 +41,6 @@ const RULES: Rule[] = [
   ['#craft-btn.glow', 'hot', null, false],
   ['#job .later, #board .close, #craft .close, #start .links span', 'dark', 'btn', false],
   ['#ctrl .k', 'key', null, false],
-  ['#stages .cause', 'dark', null, false],
 ];
 const ALL = RULES.map((r) => r[0]).join(', ');
 

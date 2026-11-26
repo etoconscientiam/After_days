@@ -147,6 +147,11 @@ export class UI {
     this.hint.classList.toggle('edge-r', side === 'r');
   }
 
+  /** Hang the label under its point (when the point is near the top of the picture). */
+  hintBelow(on: boolean): void {
+    this.hint.classList.toggle('below', on);
+  }
+
   placeHint(x: number, y: number): void {
     this.hint.style.left = x + 'px';
     this.hint.style.top = y + 'px';
@@ -250,20 +255,20 @@ export class UI {
           total += pay;
           const c = this.causes(st.seam);
           if (c.includes('unk')) anyUnknown = true;
-          return `<li class="ok">✓ ${n}${this.stageName(st.id)}<em>${Math.round(b.seams[st.seam].quality * 100)}% · ${this.coins(pay)}/${this.coins(st.max)} ◆</em></li>${c ? `<li class="causes">${c}</li>` : ''}`;
+          return `<li class="ok"><s>✓</s>${n}${this.stageName(st.id)}<em>${this.coins(pay)} / ${this.coins(st.max)} ◆</em></li>${c ? `<li class="causes">${c}</li>` : ''}`;
         }
         const on = st.seam === cur;
         const bar = `<i class="bar"><i style="width:${Math.round(p.laid * 100)}%"></i></i>`;
-        return `<li class="${on ? 'on' : ''}">${on ? '▶' : '·'} ${n}${this.stageName(st.id)}${p.laid > 0.02 || on ? bar : `<em>${t('job.upTo')} ${this.coins(st.max)} ◆</em>`}</li>`;
+        return `<li class="${on ? 'on' : ''}"><s>${on ? '▶' : ''}</s>${n}${this.stageName(st.id)}${p.laid > 0.02 || on ? bar : `<em>${t('job.upTo')} ${this.coins(st.max)} ◆</em>`}</li>`;
       }
       if (st.kind === 'chip') {
-        if (b.stage === 'chip') return `<li class="on">▶ ${n}${t('stage.chip')}<em>${Math.round((1 - b.slagLeft) * 100)}%</em></li>`;
-        if (b.stage === 'inspect' || b.stage === 'ready') return `<li class="ok">✓ ${n}${t('stage.chip')}</li>`;
-        return `<li>· ${n}${t('stage.chip')}</li>`;
+        if (b.stage === 'chip') return `<li class="on"><s>▶</s>${n}${t('stage.chip')}<i class="bar"><i style="width:${Math.round((1 - b.slagLeft) * 100)}%"></i></i></li>`;
+        if (b.stage === 'inspect' || b.stage === 'ready') return `<li class="ok"><s>✓</s>${n}${t('stage.chip')}</li>`;
+        return `<li><s></s>${n}${t('stage.chip')}</li>`;
       }
-      return `<li class="${b.stage === 'ready' ? 'on' : ''}">${b.stage === 'ready' ? '▶' : '·'} ${n}${t('stage.hand')}</li>`;
+      return `<li class="${b.stage === 'ready' ? 'on' : ''}"><s>${b.stage === 'ready' ? '▶' : ''}</s>${n}${t('stage.hand')}</li>`;
     });
-    const sum = done ? `<div class="sum">${t('job.total')}: ${this.coins(payForSeams(b.seams, reward))} / ${reward} ◆</div>` : total > 0 ? `<div class="sum">${t('job.sofar')}: ${this.coins(total)} ◆</div>` : '';
+    const sum = done ? `<div class="sum"><span>${t('job.total')}</span><em>${this.coins(payForSeams(b.seams, reward))} / ${reward} ◆</em></div>` : total > 0 ? `<div class="sum"><span>${t('job.sofar')}</span><em>${this.coins(total)} ◆</em></div>` : '';
     const legend = anyUnknown ? `<div class="legend">${t('cause.unknown')}</div>` : '';
     const html = `<b>${t('part.' + b.order.part)}</b> <span class="stars">${this.stars(s.stars)}</span><ol>${rows.join('')}</ol>${sum}${legend}`;
     if (html !== this.stagesHtml) {
@@ -383,7 +388,7 @@ export class UI {
       else unknown += v;
     }
     if (unknown >= 0.03) out.push(`<span class="cause unk">? −${Math.round(unknown * 100)}%</span>`);
-    return out.join('');
+    return out.join('<b>·</b>');
   }
 
   /** A word or a sum that rises from a point on the work and fades (a chip's worth, a closed seam). */

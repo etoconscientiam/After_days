@@ -95,7 +95,7 @@ export const en = {
   'cause.arc': 'arc',
   'cause.fusion': 'fusion',
   'cause.hand': 'hand',
-  'cause.unknown': '? — you can’t tell why yet: learn it in the craft book',
+  'cause.unknown': '? — the craft book will tell why',
   'hint.guild': 'craft · join the guild',
   'hint.learn': 'craft',
   'tour.next': 'next ▸',

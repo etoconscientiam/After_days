@@ -115,7 +115,7 @@ export class Tools {
     tip.position.set(0.004, 0.009, 0);
     const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.013, 0.26, 0.013), lambert({ map: tx.wood, color: '#d8c8b0' }));
     shaft.position.set(0.045, 0.14, 0);
-    const hh = holdingHand(0.0085, 0.2, 0.045);
+    const hh = holdingHand(0.0085, 0.2, 0.045, false, 30);
     this.handH = hh.hand;
     this.hammer.add(head, tip, shaft, hh.group);
     this.hammer.traverse((o) => (o.castShadow = true));
@@ -195,6 +195,8 @@ export class Tools {
     this.rod.position.copy(d).multiplyScalar(len / 2);
   }
   private tH = new THREE.Vector3();
+  private tZ = new THREE.Vector3();
+  private mB = new THREE.Matrix4();
   private qi = new THREE.Quaternion();
 
   placeHammer(tip: THREE.Vector3, cam: THREE.Camera, dt: number, normal?: THREE.Vector3): void {
@@ -204,7 +206,16 @@ export class Tools {
     this.hammer.position.copy(tip);
     if (normal) this.hammer.position.addScaledVector(normal, 0.002 + lift * 0.04);
     else this.hammer.position.y += 0.002 + lift * 0.04;
-    this.aim(cam, this.hHammer, this.eHammer, this.q, normal);
+    if (normal) {
+      // Struck point-first: the head stands straight out of the surface (+x along the normal), the shaft
+      // runs nearly along the work toward the hand, tipped up a little so the fist clears it.
+      const y = this.tH.copy(this.hHammer).applyQuaternion(cam.quaternion);
+      y.addScaledVector(normal, -y.dot(normal));
+      if (y.lengthSq() < 1e-6) y.copy(this.tE.copy(this.eHammer).applyQuaternion(cam.quaternion)).addScaledVector(normal, -y.dot(normal));
+      y.normalize().multiplyScalar(Math.cos(0.3)).addScaledVector(normal, Math.sin(0.3));
+      const x = this.tE.copy(normal).addScaledVector(y, -normal.dot(y)).normalize();
+      this.q.setFromRotationMatrix(this.mB.makeBasis(x, y, this.tZ.crossVectors(x, y)));
+    } else this.aim(cam, this.hHammer, this.eHammer, this.q);
     this.hammer.quaternion.copy(this.q);
   }
 

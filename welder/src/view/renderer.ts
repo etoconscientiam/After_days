@@ -78,11 +78,15 @@ void main() {
   float yc = mix(1.7, 0.0, uMaskPos);
   float covered = step(abs(q.y - yc), 1.05);
   vec2 w = vec2(0.42 * aspect * uMaskWindow, 0.27 + 0.1 * uMaskWindow);
-  vec2 wq = abs(vec2(q.x, q.y - yc)) - w;
-  float inWin = step(max(wq.x, wq.y), 0.0);
+  // The glass: a rounded window, darker toward its rim (the eye sits deep in the hood).
+  float rr = 0.07;
+  vec2 wq = abs(vec2(q.x, q.y - yc)) - (w - rr);
+  float wd = length(max(wq, 0.0)) + min(max(wq.x, wq.y), 0.0) - rr;
+  float inWin = step(wd, 0.0);
+  float rim = smoothstep(0.0, -0.16, wd);
   // Through the glass: the arc and hot metal at the glass's transmission, plus a dim, compressed view of the
   // rest so the work stays readable (a lighter glass shows more of it).
-  vec3 seen = ((c + halo * 0.35) * uMaskT + c / (1.0 + c) * uMaskSee) * uMaskTint;
+  vec3 seen = ((c + halo * 0.35) * uMaskT + c / (1.0 + c) * uMaskSee) * uMaskTint * mix(0.18, 1.0, rim * rim);
   vec3 world = c + halo * (0.6 + 1.2 * uGlare);
   c = mix(world, mix(uShell, seen, inWin), covered);
 

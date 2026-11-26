@@ -1348,6 +1348,7 @@ export class View {
       w = this.v3.copy(this.ws.anchors.bench);
     } else if (f.target === 'mask') {
       this.ui.hintEdge('');
+      this.ui.hintBelow(false);
       this.ui.placeHint(this.cssW / 2, this.cssH * 0.14);
       return;
     } else if ((f.target === 'seam' || f.target === 'bead') && this.part) w = this.p2w(f.x, f.y, f.z, this.v3).add(this.v3b.set(0, 0.012, 0));
@@ -1370,7 +1371,11 @@ export class View {
     }
     w.y = Math.max(-0.85, Math.min(0.9, w.y));
     this.ui.hintEdge(edge);
-    this.ui.placeHint((w.x * 0.5 + 0.5) * this.cssW, (-w.y * 0.5 + 0.5) * this.cssH - 4 * this.scale);
+    // The label sits above its point; near the top edge it would leave the picture, so it hangs below,
+    // clear of what it points at (things up there are signs and shelves, a hand wide).
+    const below = w.y > 0.6;
+    this.ui.hintBelow(below);
+    this.ui.placeHint((w.x * 0.5 + 0.5) * this.cssW, (-w.y * 0.5 + 0.5) * this.cssH + (below ? 14 : -4) * this.scale);
   }
 
   /** Standing in front of the bench, roughly facing it. */

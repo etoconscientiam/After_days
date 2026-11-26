@@ -97,7 +97,7 @@ export const ru: Strings = {
   'cause.arc': 'дуга',
   'cause.fusion': 'провар',
   'cause.hand': 'рука',
-  'cause.unknown': '? — пока не понимаешь почему: изучи в ремесле',
+  'cause.unknown': '? — причину узнаешь в ремесле',
   'hint.guild': 'ремесло · вступи в цех',
   'hint.learn': 'ремесло',
   'tour.next': 'дальше ▸',

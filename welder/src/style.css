@@ -139,7 +139,7 @@ html, body {
 #hint.top::after { display: none; }
 #tip {
   display: none;
-  width: calc(var(--px) * 120);
+  width: min(94%, max(calc(var(--px) * 120), 15em));
   white-space: normal;
   transform: translate(-50%, 0);
   text-transform: none;
@@ -188,7 +188,7 @@ html, body {
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: calc(var(--px) * 300);
+  width: min(94%, max(calc(var(--px) * 300), 36em));
   padding: calc(var(--px) * 5);
   background: #2a1e14;
   border: calc(var(--px) * 2) solid #4a3422;
@@ -250,7 +250,7 @@ html, body {
 #start .links span { color: var(--dim); cursor: pointer; text-decoration: underline; }
 #end { background: none; align-items: flex-end; justify-content: center; padding-right: calc(var(--px) * 10); }
 #end .panel {
-  width: calc(var(--px) * 150);
+  width: min(94%, max(calc(var(--px) * 150), 19em));
   background: var(--bg);
   border: var(--px) solid var(--line);
   padding: calc(var(--px) * 5);
@@ -293,7 +293,7 @@ html, body {
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: calc(var(--px) * 190);
+  width: min(94%, max(calc(var(--px) * 190), 24em));
   padding: calc(var(--px) * 5);
   background: #b8aa8c;
   color: #2a1e14;
@@ -327,14 +327,20 @@ html, body {
   pointer-events: none;
   font-size: 1em;
 }
-#stages ol { margin: calc(var(--px) * 1.5) 0 0; padding: 0; list-style: none; }
-#stages li { display: flex; gap: calc(var(--px) * 3); justify-content: space-between; align-items: center; color: var(--dim); padding: calc(var(--px) * 0.4) 0; }
+/* The job card: one line per stage — a mark, the name, and its value flush right; never wrapped. Widths are
+   in the font's own units, so the card fits its words at any scale. */
+#stages ol { margin: 0.25em 0 0; padding: 0; list-style: none; }
+#stages li { display: flex; align-items: center; white-space: nowrap; color: var(--dim); }
+#stages li s { display: inline-block; width: 1.1em; flex: none; text-decoration: none; }
+#stages li em, #stages li .bar { margin-left: auto; padding-left: 1.5em; }
 #stages li.on { color: #f0e0b8; }
 #stages li.ok { color: #b8d890; }
+#stages li.ok s { color: #8ab868; }
 #stages li em { font-style: normal; color: #e8c878; }
-#stages .bar { display: inline-block; width: calc(var(--px) * 22); height: calc(var(--px) * 2.5); background: #3a3026; }
+#stages .bar { display: inline-block; flex: none; width: 4.5em; height: calc(var(--px) * 2.5); background: #3a3026; background-clip: content-box; box-sizing: content-box; }
 #stages .bar i { display: block; height: 100%; background: #e8a040; }
-#stages .sum { margin-top: calc(var(--px) * 1.5); color: #e8c878; }
+#stages .sum { display: flex; white-space: nowrap; margin-top: 0.25em; padding-top: 0.25em; border-top: var(--px) solid #5a4a36; color: #c8b898; }
+#stages .sum em { margin-left: auto; padding-left: 1.5em; font-style: normal; color: #e8c878; }
 
 #craft-btn {
   position: absolute;
@@ -352,16 +358,16 @@ html, body {
 #craft-btn.glow { animation: craftGlow 1.2s ease-in-out infinite; }
 @keyframes craftGlow { 0%, 100% { box-shadow: 0 0 0 rgba(255, 190, 90, 0); } 50% { box-shadow: 0 0 calc(var(--px) * 5) rgba(255, 190, 90, 0.9); } }
 #stages { top: calc(var(--px) * 34); }
-#stages li.causes { display: flex; flex-wrap: wrap; gap: calc(var(--px) * 1.5); justify-content: flex-start; padding-left: calc(var(--px) * 5); }
-#stages .cause { font-size: 1em; padding: 0 calc(var(--px) * 1.5); border: var(--px) solid #6a5a44; color: #e8b878; }
-#stages .cause.unk { color: #9a8a74; border-style: dashed; }
-#stages .legend { margin-top: calc(var(--px) * 1.5); font-size: 1em; color: var(--dim); }
+#stages li.causes { padding-left: 1.1em; color: #c89868; }
+#stages li.causes b { font-weight: 400; color: #6a5a44; padding: 0 0.4em; }
+#stages .cause.unk { color: #8a7a64; }
+#stages .legend { white-space: nowrap; color: #7a6a54; }
 #craft {
   position: absolute;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: calc(var(--px) * 240);
+  width: min(94%, max(calc(var(--px) * 240), 32em));
   max-height: 86%;
   overflow-y: auto;
   padding: calc(var(--px) * 5);
@@ -380,14 +386,14 @@ html, body {
 #craft .item b { display: block; padding-right: calc(var(--px) * 14); }
 #craft .item .cost { position: absolute; right: calc(var(--px) * 3); top: calc(var(--px) * 3); font-weight: 400; color: #6a4a10; }
 #craft .item p { margin: calc(var(--px) * 1.5) 0; font-size: 1em; }
-#craft .buy { display: inline-block; cursor: pointer; padding: calc(var(--px) * 1) calc(var(--px) * 4); background: #2a1e14; color: #f0e0b8; }
+#craft .buy { display: inline-block; white-space: nowrap; cursor: pointer; padding: calc(var(--px) * 1) calc(var(--px) * 4); background: #2a1e14; color: #f0e0b8; }
 #craft .buy:hover { background: #4a3422; }
 #craft .no { color: #8a2a10; font-size: 1em; }
 #craft .own { color: #1e3a14; font-weight: 400; }
 #craft .close { margin-top: calc(var(--px) * 4); text-align: right; color: var(--dim); cursor: pointer; }
 #tour {
   display: none;
-  max-width: calc(var(--px) * 110);
+  max-width: max(calc(var(--px) * 110), 15em);
   white-space: normal;
   text-transform: none;
   color: #f0e0b8;
@@ -443,7 +449,7 @@ html, body {
  * frame pixels (--fu). The border only keeps the content clear of the rim.
  * ---------------------------------------------------------------------------------------------- */
 #tip, #tour, .toast, #app-status, #craft-btn, #lang-btn, #ctrl .k, #craft .buy, #job .btns span,
-#board .close, #craft .close, #start .go, #end .go, #start .links span, #stages .cause, #rod {
+#board .close, #craft .close, #start .go, #end .go, #start .links span, #rod {
   border: calc(var(--fu, 3px) * 3) solid transparent !important;
 }
 #money, #job, #craft, #board, #stages, #end .panel, #stamp, #craft .item, #board .card {
@@ -461,7 +467,6 @@ html, body {
 #craft .item.owned .own { color: #b8e090; }
 #job .later, #board .close, #craft .close, #start .links span { color: #c8b898 !important; text-decoration: none !important; }
 #ctrl .k { padding: 0 calc(var(--fu, 3px) * 1); color: #f0e0b8; }
-#stages .cause { border-width: calc(var(--fu, 3px) * 2) !important; padding: 0 calc(var(--fu, 3px) * 1); }
 /* Paddings inside the frames (the border already holds the rim and a little fill). */
 #tip, #tour { padding: 0 calc(var(--px) * 1.5); }
 .toast { padding: 0 calc(var(--px) * 2); }
@@ -473,7 +478,7 @@ html, body {
 #craft .item, #board .card { padding: calc(var(--px) * 0.5) calc(var(--px) * 1.5); }
 #craft .item .cost, #board .card .pay { right: calc(var(--px) * 1); top: calc(var(--px) * 0.5); }
 #stamp { padding: 0 calc(var(--px) * 5); }
-#job .btns span, #craft .buy, #board .close, #craft .close, #start .go, #end .go, #start .links span { display: inline-block; padding: 0 calc(var(--px) * 3); cursor: pointer; }
+#job .btns span, #craft .buy, #board .close, #craft .close, #start .go, #end .go, #start .links span { display: inline-block; white-space: nowrap; padding: 0 calc(var(--px) * 3); cursor: pointer; }
 #start .go { color: #ffe6a8 !important; font-size: var(--fh); line-height: calc(var(--fh) * 1.25); font-family: var(--fhf); font-weight: 400; }
 /* Labels point with a small pixel tail of the rim colour. */
 #tour::after { bottom: calc(var(--px) * -7); }
@@ -501,14 +506,11 @@ body.ui-modal #game { cursor: var(--cur); }
   flex-direction: column;
   align-items: flex-start;
   gap: calc(var(--px) * 3);
-  max-width: calc(var(--px) * 125);
   pointer-events: none;
 }
 #hudl > * { position: static !important; }
 #hudl #craft-btn { pointer-events: auto; }
-#stages { max-width: calc(var(--px) * 125); }
-#stages li { white-space: normal; }
-#stages .legend { white-space: normal; }
+#stages { min-width: 13em; }
 #rod {
   display: none;
   align-items: center;
@@ -549,6 +551,9 @@ body.ui-modal #game { cursor: var(--cur); }
   border: 0;
   background: linear-gradient(rgba(242, 226, 192, 0.55), rgba(242, 226, 192, 0));
 }
+/* Near the top of the picture the label hangs under its point instead, the stroke rising to it. */
+#hint.below { transform: translate(-50%, calc(var(--px) * 7)); }
+#hint.below::after { top: auto; bottom: 100%; margin: 0 0 calc(var(--px) * 1) -1px; background: linear-gradient(rgba(242, 226, 192, 0), rgba(242, 226, 192, 0.55)); }
 #hint.top::after, #hint.edge-l::after { display: none; }
 #hint.edge-r::after { width: auto; height: auto; margin: 0; background: none; }
 #why { color: rgba(255, 196, 150, 0.9); margin-top: calc(var(--px) * 7); }

@@ -68,7 +68,7 @@ export class BeadView {
   private born: Float32Array[] = [];
   /** Bare-metal colour of each ripple instance (before crust). */
   private baseCol = new Float32Array(CAP * 3);
-  private shimmer = new THREE.Color('#ffc870').multiplyScalar(1.15);
+  private shimmer = new THREE.Color('#b07038');
   /** The molten pool under the arc, its glowing tail, and the aim mark on the joint. */
   readonly pool: THREE.Mesh;
   readonly tail: THREE.Mesh;
@@ -443,7 +443,7 @@ export class BeadView {
         this.dots.setMatrixAt(kd++, M);
       }
     }
-    for (const c of this.chalk) c.visible = src.stage === 'weld' || src.stage === 'chip';
+    for (const c of this.chalk) c.visible = src.stage === 'weld';
     this.ripples.count = k;
     this.holes.count = kh;
     this.dots.count = kd;
@@ -494,12 +494,13 @@ export class BeadView {
           this.tmpC.toArray(col, k * 3);
           anyC = true;
         } else if (chipping) {
-          // Slag still on: a slow warm shimmer runs along it, so the seam itself shows what is left to
-          // knock off; chipped metal stays its own colour.
+          // Slag still on: the dark glassy crust, with a dull warm sheen running slowly along it, so the seam
+          // itself shows what is left to knock off; chipped metal comes out bright, its own colour.
           this.tmpC.fromArray(this.baseCol, k * 3);
           if (sr.slag[sr.cellAt(sr.rS[i])] > 0) {
-            const w = 0.5 + 0.5 * Math.sin(this.clock * 3.2 - sr.rS[i] * 0.12);
-            this.tmpC.lerp(this.shimmer, 0.18 + 0.32 * w * w);
+            this.crust(this.tmpC, 1e9, i);
+            const w = 0.5 + 0.5 * Math.sin(this.clock * 2.4 - sr.rS[i] * 0.08);
+            this.tmpC.lerp(this.shimmer, 0.06 + 0.3 * w ** 6);
           }
           this.tmpC.toArray(col, k * 3);
           anyC = true;
