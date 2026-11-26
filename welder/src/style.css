@@ -401,7 +401,7 @@ html, body {
   cursor: pointer;
   border-color: #c89a50;
 }
-#tour p { margin: 0 0 calc(var(--px) * 1.5); }
+#tour p { margin: 0 0 0.35em; }
 #tour .next { color: #e8c878; }
 
 .pop {
@@ -469,7 +469,9 @@ html, body {
 #job .later, #board .close, #craft .close, #start .links span { color: #c8b898 !important; text-decoration: none !important; }
 #ctrl .k { padding: 0 calc(var(--fu, 3px) * 1); color: #f0e0b8; }
 /* Paddings inside the frames (the border already holds the rim and a little fill). */
-#tip, #tour { padding: 0 calc(var(--px) * 1.5); }
+/* Room for the words inside the rim: a line's height above and below, more at the sides. */
+#tip, #tour { padding: 0.45em 0.8em 0.5em; }
+#tip.ready { padding: 0.3em 0.7em; }
 .toast { padding: 0 calc(var(--px) * 2); }
 #craft-btn, #lang-btn { padding: 0 calc(var(--px) * 1.5); cursor: pointer; }
 #craft-btn .k { border: none; padding: 0; margin-left: calc(var(--px) * 1.5); color: #e8c878; }
