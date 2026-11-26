@@ -799,3 +799,18 @@ html[data-tremor] #ui { animation: letterTremor 0.14s steps(1) infinite; }
 #menu[data-skin="c"] .mn-btn { padding-left: 14px; }
 #menu[data-skin="c"] .mn-slot.active { background: rgba(44,38,33,0.95); box-shadow: 0 4px 0 var(--t-stone-d); }
 #menu[data-skin="c"] .mn-small.danger { box-shadow: 0 3px 0 var(--t-stone-d); }
+/* C, organic: the tiles are pixel tiles (tools/draw_ui_frames.py tile_*): an even face, a light rim on top, a dark
+   row below, corners cut by a pixel step; the hard shadow follows their shape (drop-shadow) */
+#menu[data-skin="c"] .mn-btn:not(.back), #menu[data-skin="c"] .mn-small, #menu[data-skin="c"] .mn-slot, #menu[data-skin="c"] .mn-thing {
+  background: none !important; box-shadow: none !important; border-radius: 0; image-rendering: pixelated;
+  border: 6px solid transparent; border-image: url('../../assets/ui/frames/tile_stone.png') 3 fill / 6px / 0 stretch;
+  filter: drop-shadow(0 4px 0 #120e0b); }
+#menu[data-skin="c"] .mn-btn:not(.back) { padding: 8px 10px; }
+#menu[data-skin="c"] .mn-btn.primary, #menu[data-skin="c"] .mn-small.go { border-image-source: url('../../assets/ui/frames/tile_amber.png'); filter: drop-shadow(0 4px 0 #6e4a1c); }
+#menu[data-skin="c"] .mn-slot.empty .mn-small.go { border-image-source: url('../../assets/ui/frames/tile_stone_hi.png'); filter: drop-shadow(0 3px 0 #120e0b); }
+#menu[data-skin="c"] .mn-small { border-image-source: url('../../assets/ui/frames/tile_stone_hi.png'); padding: 2px 6px; filter: drop-shadow(0 3px 0 #120e0b); }
+#menu[data-skin="c"] .mn-slot, #menu[data-skin="c"] .mn-thing { border-image-source: url('../../assets/ui/frames/tile_sunk.png'); padding: 4px 6px; }
+#menu[data-skin="c"] .mn-slot.active { border-image-source: url('../../assets/ui/frames/tile_stone.png'); }
+#menu[data-skin="c"] .mn-btn:not(.back):hover { border-image-source: url('../../assets/ui/frames/tile_stone_hi.png'); }
+#menu[data-skin="c"] .mn-btn.primary:hover { border-image-source: url('../../assets/ui/frames/tile_amber.png'); filter: drop-shadow(0 4px 0 #6e4a1c) brightness(1.06); }
+#menu[data-skin="c"] .mn-btn:not(.back):active, #menu[data-skin="c"] .mn-small:active { transform: translateY(4px); filter: none; }

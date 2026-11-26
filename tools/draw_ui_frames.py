@@ -46,6 +46,23 @@ def slab(face, grain_a, grain_b, rim_hi, rim_lo, edge, outline='#0c0a09', vein=N
     return img
 
 
+def tile(face, rim, low, n=12):
+    """A flat tile: face colour, a one-pixel light rim on top, a dark row at the bottom, corners cut by a step."""
+    img = Image.new('RGBA', (n, n), (0, 0, 0, 0))
+    p = img.load()
+    for y in range(n):
+        for x in range(n):
+            # the cut corners: a two-pixel step
+            d = min(x, n - 1 - x) + min(y, n - 1 - y)
+            if d < 2 and (x in (0, n - 1) or y in (0, n - 1)) and (min(x, n - 1 - x) == 0 and min(y, n - 1 - y) <= 1 or min(y, n - 1 - y) == 0 and min(x, n - 1 - x) <= 1):
+                continue
+            c = face
+            if y == 0 or (y == 1 and x in (0, n - 1)): c = rim
+            if y == n - 1 or (y == n - 2 and x in (0, n - 1)): c = low
+            p[x, y] = hx(c)
+    return img
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     slab('#2c2622', '#352e28', '#241f1b', '#6e604e', '#1f1a17', '#15110f', seed=3).save(OUT / 'slab.png')
@@ -62,7 +79,12 @@ def main():
             elif r < 0.22: gp[x, y] = (0, 0, 0, 40)
             elif r < 0.26: gp[x, y] = (0, 0, 0, 70)
     g.save(OUT / 'grain.png')
-    print('frames: slab, slab_amber, slab_sunk, grain')
+    # flat tiles (the menu): an even face, a light rim on top, a dark one below, corners cut by a pixel step
+    tile('#352d26', '#4a4037', '#2a231e').save(OUT / 'tile_stone.png')
+    tile('#3f352d', '#564a3f', '#30281f').save(OUT / 'tile_stone_hi.png')
+    tile('#e8ad4c', '#ffd88a', '#b87c2c').save(OUT / 'tile_amber.png')
+    tile('#221d19', '#2e2721', '#1a1613').save(OUT / 'tile_sunk.png')
+    print('frames: slab, slab_amber, slab_sunk, grain, tile_*')
 
 
 if __name__ == '__main__':
