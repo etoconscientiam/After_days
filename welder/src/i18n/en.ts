@@ -145,6 +145,7 @@ export const en = {
   'dbg.done': 'progression level {n}',
   'job.seamsDone': 'seams done: {n} of {m}',
   'job.more': '{n} more',
+  'tip.ready': 'Done',
   'job.total': 'worth',
   'job.sofar': 'so far',
   'stage.chip': 'knock off the slag',

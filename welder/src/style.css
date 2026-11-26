@@ -600,3 +600,6 @@ body.ui-modal #game { cursor: var(--cur); }
 #dbg .x { position: absolute; right: calc(var(--px) * 1); top: calc(var(--px) * 1); width: 1.6em; height: 1.6em; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 #dbg .x svg { width: 0.6em; height: 0.6em; fill: #f0e0b8; shape-rendering: crispEdges; }
 #dbg h3 { padding-right: 2em; }
+
+/* The «done» note over a finished job: as wide as its words. */
+#tip.ready { width: auto; white-space: nowrap; }

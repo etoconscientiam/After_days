@@ -1115,6 +1115,9 @@ export class View {
       this.hover = '';
       this.ui.hideTip();
     }
+    // A finished job under the cursor says so.
+    if (canHover && this.hover === 'part' && g.player.stage === 'ready' && this.rig.mode !== 'walk') this.ui.showReady(this.mouse.x, this.mouse.y + 10 * this.scale);
+    else if (this.ui.readyShown) this.ui.hideTip();
 
     // Lights and the world outside.
     const I = g.power.I;

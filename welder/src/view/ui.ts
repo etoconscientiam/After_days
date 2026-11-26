@@ -540,6 +540,7 @@ export class UI {
   /** Shelf tooltip: name, what it does, price, and every reason it can't be bought yet. */
   showTip(id: string, x: number, y: number): void {
     this.tipId = id;
+    this.tip.classList.remove('ready');
     const u = this.game.data.upgrades.find((q) => q.id === id);
     if (!u) return this.hideTip();
     const why = this.game.whyNot(id);
@@ -555,7 +556,24 @@ export class UI {
     this.tip.style.top = y + 'px';
   }
 
+  /** Over a finished job: «Done», and what it will fetch. Follows the cursor. */
+  showReady(x: number, y: number): void {
+    const b = this.game.player;
+    const html = `<h4>${t('tip.ready')}</h4>` + (b.order ? `<div class="cost">◆ ${this.coins(payForSeams(b.seams, b.order.reward))} / ${b.order.reward}</div>` : '');
+    if (this.tipId !== 'ready' || this.tip.innerHTML !== html) this.tip.innerHTML = html;
+    this.tipId = 'ready';
+    this.tip.classList.add('ready');
+    this.tip.style.display = 'block';
+    this.tip.style.left = x + 'px';
+    this.tip.style.top = y + 'px';
+  }
+
+  get readyShown(): boolean {
+    return this.tipId === 'ready';
+  }
+
   refreshTip(): void {
+    if (this.tipId === 'ready') return;
     if (this.tipId && this.tip.style.display === 'block') this.showTip(this.tipId, parseFloat(this.tip.style.left), parseFloat(this.tip.style.top));
   }
 
