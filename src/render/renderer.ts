@@ -1049,10 +1049,13 @@ export class Renderer {
     // herds and their hunters: a far line of small silhouettes migrating over the dry land
     const H = totalPop(g, 'herds'), Pd = totalPop(g, 'predators');
     if (H <= 0 && Pd <= 0) return;
-    let x0 = -1, x1 = -1;
-    for (let x = 0; x < WW; x++) if (g.zoneMap[x] !== 0 && !(g.water.col[x >> 1] === 1 && this.gy[x] > sea + 1)) { if (x0 < 0) x0 = x; x1 = x; }
-    if (x0 < 0 || x1 - x0 < 30) return;
-    const span = x1 - x0;
+    // the line walks over the whole width of the world and is seen only over dry land: its places never depend on
+    // where the land ends now (a pile or a slide moved the shore, and the whole line jumped)
+    const dry = (x: number) => g.zoneMap[x] !== 0 && !(g.water.col[x >> 1] === 1 && this.gy[x] > sea + 1);
+    let dryN = 0;
+    for (let x = 0; x < WW; x++) if (dry(x)) dryN++;
+    if (dryN < 30) return;
+    const x0 = 0, x1 = WW - 1, span = WW;
     const startled = t - this.alarm < 2.5 ? 2.5 : 1;
     const col = lerp3([34, 26, 24], sky.hor, 0.12).map((v) => v * (1 - (1 - sky.light) * 0.5));
     const nH = Math.min(low ? 8 : 16, Math.ceil(H / 2)), nP = Math.min(4, Math.ceil(Pd / 2));
@@ -1060,7 +1063,9 @@ export class Renderer {
     const wrap = (v: number) => x0 + ((v % span) + span) % span;
     const beast = (x: number, kind: 'herd' | 'pred', i: number) => {
       if (x < x0 || x > x1) return;
-      const xi = Math.round(x), gy = this.gy[xi] - 1;
+      const xi = Math.round(x);
+      if (xi < 0 || xi >= WW || !dry(xi)) return;
+      const gy = this.gy[xi] - 1;
       // a pile that comes down on the line buries the one it hits (the two units it stands for, bones under the pile):
       // a puff of dust, and the line walks on without it for a while
       const key = (kind === 'herd' ? 'h' : 'p') + i;
