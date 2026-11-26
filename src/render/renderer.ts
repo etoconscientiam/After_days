@@ -7,6 +7,7 @@ import { totalPop } from '../core/life';
 import { skin, preloadSkins } from './assets';
 import { tintedCanvas, drawTinted, tintInto } from './sprites';
 import { forecastParticle, conditionsAt, Forecast } from '../core/forecast';
+import { HALO_T } from '../core/geology';
 import { GW, KIND, K_MARKER, K_ROCK, K_NONE, K_SOLID } from '../world/Grid';
 import { hash2 } from '../core/rng';
 import { Layout, WW, WH, NOISE, GRAIN, lerp, lerp3, hex3, rgb, ACCENT } from './common';
@@ -1691,6 +1692,34 @@ export class Renderer {
       if (ph < 0.3) continue;
       c.fillStyle = z.kind === 'water' ? rgb(140, 200, 255, ph * 0.8) : rgb(255, 140 + 60 * ph, 60, ph * 0.7);
       c.fillRect(z.pts[i], top + z.pts[i + 1], 1, 1);
+    }
+    // a rock is born: the grains around it light up for a moment in the colour of the new rock (added light, so it
+    // shows on dark and pale beds alike) — whole grains, the nearest brighter; where a bed turns, its front glows
+    if (this.quality !== 'low' && g.halos.length) {
+      const mat = g.grid.mat;
+      c.globalCompositeOperation = 'lighter';
+      for (const h of g.halos) {
+        const u = 1 - h.t / HALO_T;
+        const env = u < 0.15 ? u / 0.15 : Math.max(0, (1 - u) / 0.85);
+        if (env <= 0) continue;
+        c.fillStyle = h.color;
+        for (let dy = -1; dy <= 1; dy++) {
+          const yy = h.y + dy;
+          const py = yy * 2 + gdy;
+          if (py - top >= sec.cut) continue;
+          for (let dx = -1; dx <= 1; dx++) {
+            const xx = h.x + dx;
+            if (xx < 0 || xx >= GW || yy < 0) continue;
+            const k = KIND[mat[yy * GW + xx]];
+            if (k === K_NONE || k === K_SOLID) continue;
+            const a = dx === 0 && dy === 0 ? 0.22 : dx === 0 || dy === 0 ? 0.4 : 0.24;
+            c.globalAlpha = a * env;
+            c.fillRect(xx * 2, py, 2, 2);
+          }
+        }
+      }
+      c.globalAlpha = 1;
+      c.globalCompositeOperation = 'source-over';
     }
     // a rock is born: a spark where it happened — a white-hot core and arms in the colour of the new rock
     // (low quality: none)

@@ -30,6 +30,8 @@ export interface WorldMods {
 
 /** A sparkle of a new rock (world pixels). */
 export interface Glint { x: number; y: number; t: number; color: string }
+/** A particle that just turned to rock: its neighbours glow for a moment (grid cell, seconds left, the new rock's colour). */
+export interface Halo { x: number; y: number; t: number; color: string }
 
 const W = CFG.B.world.width;
 const SAND = CFG.B.sand;
@@ -60,6 +62,7 @@ export class Game {
   zoneMix = new Float32Array(W * 3);   // per column: share of water/shore/land in a ±18 px window (smooth borders)
   colNoise = new Float32Array(W);
   glints: Glint[] = [];
+  halos: Halo[] = [];
   /** particles that turned into rock under a press or a glowing-layer event: they flash (world pixels) */
   pressFlashes: { x: number; y: number; t: number; color: string }[] = [];
   /** transformations under heat running now, per particle column: strength 0..1 and the row of the hottest one */
@@ -481,6 +484,10 @@ export class Game {
       this.glints[i].t -= dt;
       if (this.glints[i].t <= 0) this.glints.splice(i, 1);
     }
+    for (let i = this.halos.length - 1; i >= 0; i--) {
+      this.halos[i].t -= dt;
+      if (this.halos[i].t <= 0) this.halos.splice(i, 1);
+    }
   }
 
   /** Particles fall (full mode, a fixed number of steps a second), the conveyor sinks the oldest rows, waiting marker beds
@@ -542,7 +549,9 @@ export class Game {
       this.physMs += (performance.now() - t0 - this.physMs) * 0.1;
     } else this.moving = 0;
     fluidStep(this, dt);
-    sinkStep(this.grid, r.sink, dt, (g, y) => { pushBand(this, captureRow(g, y)); this.archive.addRow(g, y); });
+    const sunk = sinkStep(this.grid, r.sink, dt, (g, y) => { pushBand(this, captureRow(g, y)); this.archive.addRow(g, y); });
+    // the halos ride down with their grains
+    if (sunk) for (const h of this.halos) h.y += sunk;
     this.layBeds(dt);
     r.bedT = Math.max(0, r.bedT - dt);
   }
