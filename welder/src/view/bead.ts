@@ -442,7 +442,7 @@ export class BeadView {
         }
         // A drop as wide as most of the ripple, a little flattened, its middle just above the metal so it
         // wets into it; slag sits on it as a thicker skin.
-        const r = Math.min(3.6, Math.max(1.1, w * 0.36));
+        const r = Math.min(6, Math.max(1.9, w * 0.6));
         const sq = Math.min(1, Math.max(0.55, (h * 1.3) / (r * 1.15))) * (slag > 0 && !welding ? 1.1 : 1);
         P.set(at[i * 3] + p.nx * r * 0.2, at[i * 3 + 1] + p.ny * r * 0.2, at[i * 3 + 2] + p.nz * r * 0.2).multiplyScalar(MM);
         S.set(r * MM, r * sq * MM, r * MM);

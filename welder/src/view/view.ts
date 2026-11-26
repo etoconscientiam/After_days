@@ -1184,7 +1184,7 @@ export class View {
         const p = this.w2p(this.surfW, this.strayP);
         this.partRoot.getWorldQuaternion(this.strayQ);
         const n = this.strayNrm.copy(this.normW).applyQuaternion(this.strayQ.invert()).normalize();
-        this.bead.addStray(p, n, 1.4 + 0.8 * r.next());
+        this.bead.addStray(p, n, 2.4 + 1.4 * r.next());
       }
     } else this.strayAcc = 0.07;
     // Lean in over the work while the arc burns; straighten up a moment after it goes out.
