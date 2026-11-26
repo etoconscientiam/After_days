@@ -544,6 +544,8 @@ requestAnimationFrame(frame);
 
 // ---------- the loader, then the main menu ----------
 const menu = new Menu();
+// the skin of the menu, to compare the three (?skin=a|b|c in the address)
+menu.setSkin(new URLSearchParams(location.search).get('skin') ?? '');
 let menuSettings = false;
 /** the loader has let go (the menu may open) */
 let bootDone = !INTRO;
@@ -618,5 +620,5 @@ onLangChange(() => menu.relabel());
   setTimeout(finish, 8000);
 }
 void energyIcon;
-(window as any).__strata = { get game() { return game; }, cfg: CFG, renderer, save, dev, drawer, input, modals, turmoil, away: (sec: number) => offline(Date.now() - sec * 1000),
+(window as any).__strata = { get game() { return game; }, get menu() { return menu; }, cfg: CFG, renderer, save, dev, drawer, input, modals, turmoil, away: (sec: number) => offline(Date.now() - sec * 1000),
   lang: (l: 'en' | 'ru') => { game.state.settings.lang = l; setLang(l); drawer.relabel(); } };

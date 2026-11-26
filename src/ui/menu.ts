@@ -65,6 +65,9 @@ export class Menu {
     setTimeout(() => { if (!this.open) this.el.hidden = true; }, 350);
   }
 
+  /** The look of the menu, to compare: 'a' core and slab, 'b' thin line, 'c' chunky tiles, '' the glass one. */
+  setSkin(s: string): void { if (s) this.el.dataset.skin = s; else delete this.el.dataset.skin; }
+
   /** Hide for a moment (the settings drawer goes over the world), keeping the game paused. */
   conceal(on: boolean): void { this.el.classList.toggle('concealed', on); }
 
