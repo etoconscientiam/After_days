@@ -108,7 +108,9 @@ export type StatId =
   | 'stickL'
   | 'stableI'
   | 'wheels'
-  | 'apprentice';
+  | 'apprentice'
+  /** How wildly a bare rod runs: 1 bare (spattery, uneven puddle), less with coated rods. Looks only. */
+  | 'rodWild';
 
 export interface Effects {
   add?: Partial<Record<StatId, number>>;

@@ -545,9 +545,15 @@ function stepWeld(b: Bench, inp: TorchIn, ctx: WeldCtx): void {
       f |= F_PORE;
       if (sr.pores[cHere] < 3) sr.pores[cHere]++;
     }
+    // A bare rod's puddle runs unevenly: each ripple a little wider or narrower, taller or flatter, and
+    // off to one side. Only how it looks: the seam is judged by the heat and metal laid, not by ripples.
+    const wild = ctx.stats.rodWild;
+    w *= 1 + 0.22 * wild * ctx.spatter.signed();
+    h *= 1 + 0.28 * wild * ctx.spatter.signed();
+    const dRip = a.d + 1.1 * wild * ctx.spatter.signed();
     w = Math.min(13, Math.max(2.5, w));
     h = Math.min(4.2, Math.max(0.5, h));
-    sr.addRipple(a.s, a.d, w, h, a.v, L, q, I, f);
+    sr.addRipple(a.s, dRip, w, h, a.v, L, q, I, f);
     b.rev++;
   }
 

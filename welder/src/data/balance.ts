@@ -77,7 +77,8 @@ export const BALANCE = {
   },
 
   electrode: {
-    arcSeconds: 22,
+    /** A bare rod burns fast; coated ones last longer (upgrades.ts). */
+    arcSeconds: 15,
     swapTime: 0.9,
   },
 

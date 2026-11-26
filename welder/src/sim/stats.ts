@@ -16,7 +16,8 @@ export function baseStats(): Stats {
     knowHand: 0,
     maskWindow: 0.7,
     strikeMul: 1,
-    spatterMul: 1,
+    // Bare rods at the start: a lot of spatter; coated rods bring it down (upgrades.ts).
+    spatterMul: 1.7,
     poreMul: 1,
     electrodeSeconds: BALANCE.electrode.arcSeconds,
     powerSmooth: 0.04,
@@ -26,6 +27,7 @@ export function baseStats(): Stats {
     stableI: 0.86,
     wheels: 1,
     apprentice: 0,
+    rodWild: 1,
   };
 }
 

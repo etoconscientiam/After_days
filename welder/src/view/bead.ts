@@ -94,6 +94,9 @@ interface Strip {
    * so on curved work and in corners it hugs the metal instead of cutting into it or floating off it.
    */
   surf: Float32Array | null;
+  /** The dark line of the joint, and its vertices as built: it closes up where metal has covered it. */
+  groove: THREE.Mesh | null;
+  gBase: Float32Array | null;
 }
 const SURF_N = 9;
 const SURF_HALF = 8;
@@ -354,6 +357,8 @@ export class BeadView {
       this.hi.push(h);
       this.group.add(h);
       const st = this.makeStrip(sr);
+      st.groove = g;
+      st.gBase = (g.geometry.attributes.position.array as Float32Array).slice();
       this.strips.push(st);
       this.group.add(st.mesh);
       const c = new THREE.Mesh(this.chalkFor(sr), this.chalkMat);
@@ -385,7 +390,7 @@ export class BeadView {
     mesh.frustumCulled = false;
     mesh.visible = false;
     const f = () => new Float32Array(R);
-    return { mesh, R, step: sr.len / (R - 1), kS: f(), kW: f(), kH: f(), kD: f(), kT: f(), best: f(), near: new Int32Array(R), prof: f(), surf: null };
+    return { mesh, R, step: sr.len / (R - 1), kS: f(), kW: f(), kH: f(), kD: f(), kT: f(), best: f(), near: new Int32Array(R), prof: f(), surf: null, groove: null, gBase: null };
   }
 
   /** Measure the surface across the joint (see Strip.surf). Rays only, once per seam, the first time it's needed. */
@@ -485,9 +490,32 @@ export class BeadView {
       }
     }
     st.mesh.visible = any;
+    this.closeGroove(st, sr);
     g.attributes.position.needsUpdate = true;
     g.attributes.aRip.needsUpdate = true;
     g.computeVertexNormals();
+  }
+
+  /** Where the bead covers the joint, its dark line closes to nothing (it would show through at the toes). */
+  private closeGroove(st: Strip, sr: SeamRun): void {
+    if (!st.groove || !st.gBase) return;
+    const ga = st.groove.geometry.attributes.position as THREE.BufferAttribute;
+    const pos = ga.array as Float32Array, base = st.gBase;
+    const rows = pos.length / 6;
+    for (let i = 0; i < rows; i++) {
+      const s = (sr.len * i) / (rows - 1);
+      const r = Math.min(st.R - 1, Math.round(s / st.step));
+      const covered = Math.max(st.prof[r], st.prof[Math.max(0, r - 1)], st.prof[Math.min(st.R - 1, r + 1)]) > 0.2;
+      for (let k = 0; k < 3; k++) {
+        const a = base[i * 6 + k], b = base[i * 6 + 3 + k];
+        if (covered) pos[i * 6 + k] = pos[i * 6 + 3 + k] = (a + b) / 2;
+        else {
+          pos[i * 6 + k] = a;
+          pos[i * 6 + 3 + k] = b;
+        }
+      }
+    }
+    ga.needsUpdate = true;
   }
 
   /** Colours and glow of one seam's bead from its ripples' current colours and the heat field. */

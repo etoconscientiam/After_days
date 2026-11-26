@@ -16,7 +16,7 @@ export const UPGRADES: UpgradeDef[] = [
     group: 'tools',
     cost: 4,
     requires: { owns: ['guild'] },
-    effects: { mul: { strikeMul: 0.55, spatterMul: 0.55, poreMul: 0.45 }, add: { electrodeSeconds: 6, stickL: -0.2, stableI: -0.05 } },
+    effects: { mul: { strikeMul: 0.55, spatterMul: 0.33, poreMul: 0.45, rodWild: 0.3 }, add: { electrodeSeconds: 13, stickL: -0.2, stableI: -0.05 } },
     slot: 0,
     model: 'rods',
   },
