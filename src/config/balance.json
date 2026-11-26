@@ -180,6 +180,7 @@
   "fossilP": 2,
   "waterFallEvery": 2,
   "waterSlipMul": 0.3,
+  "waterDrift": { "_comment": "A grain sinking in water (core/sand.ts), each step it may fall: hold — hang a moment; side — down a diagonal; swirl — just aside. The rest of the time it sinks straight.", "hold": 0.12, "side": 0.3, "swirl": 0.08 },
   "cellsPerParticle": 4,
   "archiveMaxRows": 12,
   "archiveMaxLayers": 160,

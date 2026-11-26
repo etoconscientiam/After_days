@@ -18,6 +18,8 @@ export interface Rng { next(): number }
 export interface Water { col: Uint8Array; level: number }
 
 const inWater = (w: Water | null, x: number, y: number) => !!w && w.col[x] === 1 && y >= w.level;
+/** how a grain sinking in water wanders (balance.json sand.waterDrift) */
+const WD = (S as unknown as { waterDrift: { hold: number; side: number; swirl: number } }).waterDrift;
 
 /** One physics step over the awake blocks. Returns how many particles moved. */
 export function stepFull(g: Grid, rng: Rng, water: Water | null, tick: number): number {
@@ -37,6 +39,19 @@ export function stepFull(g: Grid, rng: Rng, water: Water | null, tick: number): 
       const wet = inWater(water, x, y);
       if (wet && tick % S.waterFallEvery !== 0) { g.wake(x, y); continue; }
       if (!mat[below + x]) {
+        // in water a sinking grain wanders a little: now aside down a diagonal, now just aside (a swirl), now it
+        // hangs a moment; a pile sinks as a loose cloud, unevenly, and spreads wider on the bottom (as silt does)
+        if (wet) {
+          const u = rng.next();
+          if (u < WD.hold) { g.wake(x, y); continue; }
+          if (u < WD.hold + WD.side + WD.swirl) {
+            const d = rng.next() < 0.5 ? -1 : 1, xx = x + d;
+            if (xx >= 0 && xx < GW && !mat[row + xx]) {
+              const to = u < WD.hold + WD.side && !mat[below + xx] ? below + xx : row + xx;
+              g.move(i, to); moved++; continue;
+            }
+          }
+        }
         // free fall is quicker than sliding: two cells a step when there is room (sand drops, then pours)
         const below2 = below + GW;
         g.move(i, !wet && y + 2 < g.floor && !mat[below2 + x] ? below2 + x : below + x);
