@@ -2464,9 +2464,12 @@ export class Renderer {
       this.drawSucks();
       this.drawAbsorbFx();
     }
-    for (let x = 0; x < WW; x += 3) {
-      c.fillStyle = rgb(242, 170, 70, g.glow[x] * (0.1 + 0.03 * Math.sin(this.t * 1.7 + x * 0.1)));
-      c.fillRect(x, this.ayAt(x) - 5, 3, 7);
+    // the warmth along the surface near the thing: soft overlapping lights that follow the relief
+    // (was 3×7 blocks in the pixel world, which read as a stepped strip over the horizon)
+    for (let x = 2; x < WW; x += 6) {
+      const v = (g.glow[x] + g.glow[Math.min(WW - 1, x + 3)]) / 2;
+      if (v < 0.02) continue;
+      this.light(x, this.ayAt(x) - 2, 10, 0.45, [242, 160, 70], v * (0.1 + 0.025 * Math.sin(this.t * 1.7 + x * 0.1)));
     }
     g.run.targets.forEach((tz, ti) => {
       if (tz.kind === 'water') return;
