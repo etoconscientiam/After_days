@@ -227,10 +227,10 @@ export function pileMix(g: Game, zi: number): { m: number; w: number }[] {
 }
 
 /** Drop the pile of a tap into world column X. Returns the number of particles laid. */
-/** Where a tapped pile appears: pileDrop rows over the ground of its column, but always over the water — over a
- *  bare sea floor it falls in from above the surface of the sea, not at the bottom — and never above pileSkyRow. */
+/** Where a tapped pile appears: high in the sky (row pileSkyRow, the top of the screen), so it falls the whole way
+ *  down; only over a heap that already reaches up there it starts pileDrop rows above the heap's top. */
 function pileTop(g: Game, x: number): number {
-  return Math.max(S.pileSkyRow, Math.min(g.grid.surf[x], g.water.level) - S.pileDrop);
+  return Math.max(0, Math.min(S.pileSkyRow, Math.min(g.grid.surf[x], g.water.level) - S.pileDrop));
 }
 
 /** Rooted life under a pile is buried: a share of the units of each listed species (by how much of its zone the
