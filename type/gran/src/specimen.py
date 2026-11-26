@@ -12,13 +12,17 @@ from masters import MASTERS, params  # noqa: E402
 
 data = json.load(open(os.path.join(ROOT, "build", "outlines.json")))
 woff2_old = base64.b64encode(open(os.path.join(ROOT, "fonts", "archive", "GranVF-0.01.woff2"), "rb").read()).decode()
+woff2_old2 = base64.b64encode(open(os.path.join(ROOT, "fonts", "archive", "GranVF-0.02.woff2"), "rb").read()).decode()
+study = base64.b64encode(open(os.path.join(ROOT, "research", "velvetyne-study.png"), "rb").read()).decode()
 woff2 = base64.b64encode(open(os.path.join(ROOT, "fonts", "GranVF.woff2"), "rb").read()).decode()
 
 ORDER = [("H", "H"), ("O", "O"), ("Zhe-cy", "Ж"), ("n", "n"), ("o", "o"),
-         ("a", "a"), ("de-cy", "д"), ("h.sc", "н·sc"), ("o.sc", "о·sc"),
+         ("a", "a"), ("a.lubok", "a·33"), ("de-cy", "д"), ("h.sc", "н·sc"), ("o.sc", "о·sc"),
          ("zhe-cy.sc", "ж·sc")]
 MLABEL = {"TextGrotesk": ("12 px", "Гротеск"), "TextAntiqua": ("12 px", "Антиква"),
-          "DisplayGrotesk": ("33 px", "Гротеск"), "DisplayAntiqua": ("33 px", "Антиква")}
+          "DisplayGrotesk": ("33 px", "Гротеск"), "DisplayAntiqua": ("33 px", "Антиква"),
+          "TextGroteskBlack": ("12 px", "Гротеск Black"), "TextAntiquaBlack": ("12 px", "Антиква Black"),
+          "DisplayGroteskBlack": ("33 px", "Гротеск Black"), "DisplayAntiquaBlack": ("33 px", "Антиква Black")}
 
 
 def path_d(c):
@@ -96,7 +100,7 @@ table_rows = [
     ("Глубина надреза, доля штамба", "knifeD"), ("Угол пера, °", "phi"),
     ("Наклон просвета O, °", "oTilt"), ("Апрош у штамба H", "sb"),
 ]
-order_m = ["TextGrotesk", "TextAntiqua", "DisplayGrotesk", "DisplayAntiqua"]
+order_m = [m for m, *_ in MASTERS]
 thead = "".join(f"<th>{MLABEL[m][1]}<br><span>{MLABEL[m][0]}</span></th>" for m in order_m)
 tbody = ""
 for lab, k in table_rows:
@@ -143,6 +147,16 @@ def o_box(m):
     return (-10, -50, adv + 10, P[m]["cap"] + 50)
 
 
+def o_box2(m):
+    adv = data["o"][m]["adv"]
+    return (-10, -60, adv + 10, P[m]["xh"] + 60)
+
+
+def a_box(m, g):
+    adv = data[g][m]["adv"]
+    return (-10, -80, adv + 10, P[m]["xh"] + 80)
+
+
 DETAILS = {
     "FACET": detail("n", "TextGrotesk", facet_box("TextGrotesk"), "Гротеск 12: срез 20%")
     + detail("n", "DisplayAntiqua", facet_box("DisplayAntiqua"), "Антиква 33: срез стал клинком"),
@@ -152,6 +166,10 @@ DETAILS = {
     + detail("Zhe-cy", "DisplayAntiqua", zbox("DisplayAntiqua"), "33 px: нож оставил просвет"),
     "DE": detail("de-cy", "TextGrotesk", de_box("TextGrotesk"), "Гротеск 12: срезы наружу")
     + detail("de-cy", "DisplayAntiqua", de_box("DisplayAntiqua"), "Антиква 33: лезвия"),
+    "PINCH": detail("o", "DisplayGrotesk", o_box2("DisplayGrotesk"), "Гротеск 33: острия на 12 и 6 часов")
+    + detail("o", "DisplayAntiquaBlack", o_box2("DisplayAntiquaBlack"), "Антиква 33 Black: на 11 и 5"),
+    "ALUB": detail("a", "TextGrotesk", a_box("TextGrotesk", "a"), "до 21 px: текстовая а")
+    + detail("a.lubok", "DisplayAntiquaBlack", a_box("DisplayAntiquaBlack", "a.lubok"), "от 21 px: лубочная а"),
     "O": detail("O", "DisplayGrotesk", o_box("DisplayGrotesk"), "Гротеск: ось 0°")
     + detail("O", "DisplayAntiqua", o_box("DisplayAntiqua"), "Антиква 33: просвет повёрнут на 15°"),
 }
@@ -162,7 +180,9 @@ html = (tpl.replace("{{WOFF2}}", woff2).replace("{{PROOFS}}", proof_rows)
         .replace("{{D_TRAP}}", DETAILS["TRAP"])
         .replace("{{D_ZHE}}", DETAILS["ZHE"]).replace("{{D_FACET}}", DETAILS["FACET"])
         .replace("{{D_DE}}", DETAILS["DE"]).replace("{{D_O}}", DETAILS["O"])
-        .replace("{{WOFF2OLD}}", woff2_old).replace("{{TBODY}}", tbody))
+        .replace("{{WOFF2OLD}}", woff2_old).replace("{{WOFF2OLD2}}", woff2_old2)
+        .replace("{{D_PINCH}}", DETAILS["PINCH"]).replace("{{D_ALUB}}", DETAILS["ALUB"])
+        .replace("{{STUDY}}", study).replace("{{TBODY}}", tbody))
 out = os.path.join(ROOT, "specimen.html")
 open(out, "w", encoding="utf-8").write(html)
 print(out, len(html) // 1024, "KB")

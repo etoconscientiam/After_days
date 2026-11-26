@@ -3,7 +3,7 @@ shown), plus the variable font set live. Screenshot with proof_shot.cjs."""
 import json, os, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 data = json.load(open(os.path.join(ROOT, "build", "outlines.json")))
-MS = ["TextGrotesk", "TextAntiqua", "DisplayGrotesk", "DisplayAntiqua"]
+MS = os.environ.get("MS","TextGrotesk TextAntiqua DisplayGrotesk DisplayAntiqua").split()
 order = os.environ.get("ORDER","H O Zhe-cy n o a de-cy h.sc o.sc zhe-cy.sc").split()
 
 def path_d(c):
@@ -46,7 +46,7 @@ font = os.path.join(ROOT, "fonts", "GranVF.ttf")
 loc = {"TextGrotesk": (12, 0), "TextAntiqua": (12, 100), "DisplayGrotesk": (33, 0), "DisplayAntiqua": (33, 100)}
 txt = ""
 for m in MS:
-    o, s = loc[m]
+    o, s = loc.get(m, (12, 0))
     st = f"font-variation-settings:'opsz' {o},'SERF' {s};"
     txt += f'<div class=t style="{st}"><span style="font-size:12px">HOnoaЖд НОЖ дао noon nano Hanna</span> &nbsp; <span style="font-size:33px">HOnoaЖд НОЖ дао</span> &nbsp; <span style="font-size:72px">Жад НОЖ <span style="font-variant-caps:all-small-caps">НОЖ</span></span></div>'
 html = f"""<html><head><meta charset=utf-8><style>

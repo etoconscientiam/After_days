@@ -6,6 +6,7 @@
 /* Layout: a foundry proof sheet. Left margin carries labels like a ledger; the live font owns the page. */
 @font-face { font-family: "Gran"; src: url(data:font/woff2;base64,{{WOFF2}}) format("woff2"); font-display: block; }
 @font-face { font-family: "Gran001"; src: url(data:font/woff2;base64,{{WOFF2OLD}}) format("woff2"); font-display: block; }
+@font-face { font-family: "Gran002"; src: url(data:font/woff2;base64,{{WOFF2OLD2}}) format("woff2"); font-display: block; }
 :root {
   --paper: #f2f3f1;
   --sheet: #fbfbfa;
@@ -53,7 +54,7 @@ p { margin: 0; max-width: 66ch; }
 .ctl label { display: flex; justify-content: space-between; font-family: var(--f-mono); font-size: var(--s-1); color: var(--muted); }
 .ctl output { color: var(--ink); }
 input[type=range] { width: 100%; accent-color: var(--accent); }
-.presets { display: flex; flex-wrap: wrap; gap: 8px; }
+.presets { display: flex; flex-wrap: wrap; gap: 8px; grid-column: 1 / -1; }
 .presets button { font: 500 var(--s-1) var(--f-mono); color: var(--ink); background: transparent; border: 1px solid var(--rule); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
 .presets button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
 .presets button:focus-visible, input:focus-visible, .toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -99,7 +100,9 @@ svg.dz { display: block; width: 100%; height: auto; aspect-ratio: 1; }
 .baw { background: var(--sheet); padding: 14px 16px; display: grid; gap: 4px; min-width: 0; }
 .baw .mono { color: var(--muted); }
 .bag { font-family: var(--f-gran); font-optical-sizing: none; font-size: clamp(34px, 6.4vw, 76px); line-height: 1.05; white-space: nowrap; }
-.bag.old { font-family: "Gran001", var(--f-text); opacity: .55; }
+.bag.old { opacity: .6; }
+.study { margin: 0; border: 1px solid var(--rule); background: #fff; overflow: hidden; }
+.study img { display: block; width: 100%; height: auto; }
 @media (max-width: 600px) { .ba { grid-template-columns: minmax(0, 1fr); } }
 .scdemo { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
 .scbox { background: var(--sheet); border: 1px solid var(--rule); padding: 16px; display: grid; gap: 8px; }
@@ -147,20 +150,23 @@ footer { padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
 <div class="wrap">
   <header class="hero">
     <div class="hero-top">
-      <span class="mono">Gran · рабочее имя · прототип 0.02 «Резец»</span>
-      <span class="mono">оси: opsz 12–33 · SERF 0–100 · 7 знаков + капитель</span>
+      <span class="mono">Gran · рабочее имя · прототип 0.03 «Лубок»</span>
+      <span class="mono">оси: opsz 12–33 · SERF 0–100 · wght 400–900 · 7 знаков + капитель</span>
     </div>
     <div class="controls">
       <div class="ctl"><label for="opsz">Размер и оптика, px <output id="opszv">12</output></label>
         <input id="opsz" type="range" min="12" max="33" step="0.5" value="12"></div>
       <div class="ctl"><label for="serf">Гротеск → антиква <output id="serfv">0</output></label>
         <input id="serf" type="range" min="0" max="100" step="1" value="0"></div>
+      <div class="ctl"><label for="wght">Жирность <output id="wghtv">400</output></label>
+        <input id="wght" type="range" min="400" max="900" step="10" value="400"></div>
       <div class="presets" role="group" aria-label="Начертания">
-        <button data-o="12" data-s="0" aria-pressed="true">Text Grotesk</button>
-        <button data-o="12" data-s="100" aria-pressed="false">Text Antiqua</button>
-        <button data-o="33" data-s="0" aria-pressed="false">Display Grotesk</button>
-        <button data-o="33" data-s="50" aria-pressed="false">Display Flare</button>
-        <button data-o="33" data-s="100" aria-pressed="false">Display Antiqua</button>
+        <button data-o="12" data-s="0" data-w="400" aria-pressed="true">Text Grotesk</button>
+        <button data-o="12" data-s="100" data-w="400" aria-pressed="false">Text Antiqua</button>
+        <button data-o="33" data-s="0" data-w="400" aria-pressed="false">Display Grotesk</button>
+        <button data-o="33" data-s="100" data-w="400" aria-pressed="false">Display Antiqua</button>
+        <button data-o="33" data-s="50" data-w="650" aria-pressed="false">Display Flare Bold</button>
+        <button data-o="33" data-s="100" data-w="900" aria-pressed="false">Display Antiqua Black</button>
       </div>
     </div>
     <div class="realbox">
@@ -206,11 +212,32 @@ footer { padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
   </section>
 
   <section>
+    <div class="label">Velvetyne</div>
+    <div class="body">
+      <h2>Чему учит Velvetyne</h2>
+      <p>Сайт velvetyne.fr из этого окружения недоступен, поэтому я изучал сами шрифты: скачал 27 файлов из открытых репозиториев фаундри на GitLab и набрал их рядом. Авторы взяты из метаданных шрифтов. Ниже картинка набора, а не встроенные шрифты.</p>
+      <figure class="study"><img src="data:image/png;base64,{{STUDY}}" alt="Шрифты Velvetyne: Basteleur, Trickster, Avara, Ouroboros, Sligoil, Le Murmure, Lack, Happy Times at the IKOB, Lineal, Anthony, Façade" width="1200" height="824"></figure>
+      <div class="findings">
+        <div class="finding"><h3>Одна затея, доведённая до конца</h3><p>Avara убирает все кривые, Ouroboros закручивает просвет O в змею, Sligoil строится на огромных ловушках. Правило проходит через каждый знак без исключений, поэтому шрифт узнаётся по одной букве.</p></div>
+        <div class="finding"><h3>Народный источник</h3><p>Basteleur вырос из Марсельского таро, Façade из сетки фасада школы, Anthony из скульптур Каро. Источник оправдывает странность: форма объясняется ремеслом, а не прихотью.</p></div>
+        <div class="finding"><h3>Просвет как сцена</h3><p>Самое смелое у них внутри букв: миндалины Trickster, спираль Ouroboros, многоугольники Avara. Внешний контур остаётся читаемым, характер живёт в белом.</p></div>
+        <div class="finding"><h3>Идею показывает жирное</h3><p>Basteleur Bold, Avara Black, Ouroboros: затея читается в массе. Волосяная версия того же скелета (Basteleur Moonlight) уже спокойнее.</p></div>
+        <div class="finding"><h3>Неожиданная форма буквы</h3><p>Lineal рисует n как капительную ɴ, Happy Times подменяет детали Times. Меняется сама конструкция знака, а не украшение поверх неё.</p></div>
+        <div class="finding"><h3>Кириллица — редкость</h3><p>Из скачанных шрифтов кириллица полностью есть у Le Murmure, Lack, Ouroboros и почти полностью у Façade. Кириллица-первая семья в этом духе — свободное место.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
     <div class="label">Концепция</div>
     <div class="body">
-      <h2>Резец: один нож, одно перо</h2>
-      <p>Версия 0.01 была аккуратной, но безликой: равномерные эллипсы, приклеенные засечки, мелкие фаски, которые не читались. В 0.02 у всей семьи одна логика. Каждый срез делает один и тот же нож: верх штамба, надрез в узле, конец штриха, выносной элемент, засечку. Кривые рисует одно перо, и его угол поворачивается вдоль оси SERF. На 12 px нож тупой и работает на читаемость, на 33 px он становится выразительным средством.</p>
+      <h2>Лубок: буквы, вырезанные ножом по липовой доске</h2>
+      <p>0.01 была безликой, 0.02 нашла логику ножа, но осталась вежливой. 0.03 берёт урок Velvetyne. У затеи есть народный источник: русский лубок XVII–XVIII веков. Это та же гравюра на дереве, что и Марсельское таро у Basteleur, только наша. Резчик не может провести волосяную линию и не может скруглить внутренний угол. Поэтому просветы острые, как миндалины, массы тяжёлые, а каждый срез делает один нож. На 12 px всё это спрятано в здоровый текстовый шрифт. К 33 px и к жирности 900 лубок выходит наружу.</p>
       <div class="rules">
+        <div class="rule"><div><h3>Просвет-миндалина</h3><p>Внутренний овал заострён там, где сходятся два реза: сверху и снизу в гротеске, на 11 и 5 часов в антикве. На 12 px острота почти не видна, на 33 px и в Black это главный знак семьи.</p></div>
+          <div class="dets">{{D_PINCH}}</div></div>
+        <div class="rule"><div><h3>Лубочная а</h3><p>Выше 21 px строчная а меняет конструкцию: двухъярусную текстовую сменяет одноярусная лубочная со шпорой на штамбе и клиновидной пяткой. Работает через FeatureVariations (rvrn): шрифт сам подставляет знак по значению оси opsz.</p></div>
+          <div class="dets">{{D_ALUB}}</div></div>
         <div class="rule"><div><h3>Срез верха штамба</h3><p>Верх строчных штамбов срезан ножом: 20% наклона в тексте, 30% на дисплее. В антикве тот же срез продолжается в клинок флажковой засечки с вогнутым брюшком.</p></div>
           <div class="dets">{{D_FACET}}</div></div>
         <div class="rule"><div><h3>Надрез вместо ловушки</h3><p>Там, где плечо n или верх чаши a отходит от штамба, контур не останавливается, а продолжает идти в штамб узким надрезом. На 12 px надрез короткий и широкий и работает как ловушка для краски. На 33 px он длинный и тонкий и прорезает штамб больше чем наполовину.</p></div>
@@ -228,13 +255,13 @@ footer { padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
   <section>
     <div class="label">Было → стало</div>
     <div class="body">
-      <h2>0.01 и 0.02 на одном тексте</h2>
-      <p>Слева старый прототип, справа новый. Знаки и метрики те же, изменились конструкции.</p>
+      <h2>Три попытки на одном тексте</h2>
+      <p>Знаки и метрики те же, меняются конструкции. Набрано дисплейной антиквой; в 0.03 добавлена жирность Black.</p>
       <div class="ba">
-        <div class="baw"><span class="mono">0.01 · Display Antiqua</span><span class="bag old" style="font-variation-settings:'opsz' 33,'SERF' 100">Жад НОЖ</span></div>
-        <div class="baw"><span class="mono">0.02 · Display Antiqua</span><span class="bag" style="font-variation-settings:'opsz' 33,'SERF' 100">Жад НОЖ</span></div>
-        <div class="baw"><span class="mono">0.01 · Display Grotesk</span><span class="bag old" style="font-variation-settings:'opsz' 33,'SERF' 0">Жад НОЖ</span></div>
-        <div class="baw"><span class="mono">0.02 · Display Grotesk</span><span class="bag" style="font-variation-settings:'opsz' 33,'SERF' 0">Жад НОЖ</span></div>
+        <div class="baw"><span class="mono">0.01 «Грань»</span><span class="bag old" style="font-family:'Gran001';font-variation-settings:'opsz' 33,'SERF' 100">Жад НОЖ</span></div>
+        <div class="baw"><span class="mono">0.02 «Резец»</span><span class="bag old" style="font-family:'Gran002';font-variation-settings:'opsz' 33,'SERF' 100">Жад НОЖ</span></div>
+        <div class="baw"><span class="mono">0.03 «Лубок» · Regular</span><span class="bag" style="font-variation-settings:'opsz' 33,'SERF' 100,'wght' 400">Жад НОЖ</span></div>
+        <div class="baw"><span class="mono">0.03 «Лубок» · Black</span><span class="bag" style="font-variation-settings:'opsz' 33,'SERF' 100,'wght' 900">Жад НОЖ</span></div>
       </div>
     </div>
   </section>
@@ -242,8 +269,8 @@ footer { padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
   <section>
     <div class="label">Дизайн-пространство</div>
     <div class="body">
-      <h2>Четыре мастера и всё между ними</h2>
-      <p>Рисуются четыре угла: текст и дисплей, гротеск и антиква. Промежуточные значения, вроде полузасечки Flare на SERF 50, интерполируются. Вертикальные метрики вдоль оси засечек одинаковые, поэтому гротеск и антикву можно смешивать в одной строке.</p>
+      <h2>Восемь мастеров и всё между ними</h2>
+      <p>Рисуются восемь углов: текст и дисплей, гротеск и антиква, Regular и Black. Промежуточные значения, вроде полузасечки Flare на SERF 50, интерполируются. Вертикальные метрики вдоль оси засечек одинаковые, поэтому гротеск и антикву можно смешивать в одной строке.</p>
       <div class="space">
         <div class="ax"></div><div class="ax">SERF 0 · гротеск</div><div class="ax mid">SERF 50 · flare</div><div class="ax">SERF 100 · антиква</div>
         <div class="ax">opsz 12</div>
@@ -254,6 +281,10 @@ footer { padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
         <div class="cellg" style="font-variation-settings:'opsz' 33,'SERF' 0">Жда</div>
         <div class="cellg mid" style="font-variation-settings:'opsz' 33,'SERF' 50">Жда</div>
         <div class="cellg" style="font-variation-settings:'opsz' 33,'SERF' 100">Жда</div>
+        <div class="ax">33 · Black</div>
+        <div class="cellg" style="font-variation-settings:'opsz' 33,'SERF' 0,'wght' 900">Жда</div>
+        <div class="cellg mid" style="font-variation-settings:'opsz' 33,'SERF' 50,'wght' 900">Жда</div>
+        <div class="cellg" style="font-variation-settings:'opsz' 33,'SERF' 100,'wght' 900">Жда</div>
       </div>
     </div>
   </section>
@@ -270,6 +301,8 @@ footer { padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
         <div class="sz"><span class="mono">33 px · гротеск</span><span class="t" style="font-size:33px;font-variation-settings:'SERF' 0">НОЖ дао Hanna nano <span style="font-variant-caps:all-small-caps">НОЖ</span></span></div>
         <div class="sz"><span class="mono">33 px · flare</span><span class="t" style="font-size:33px;font-variation-settings:'SERF' 50">НОЖ дао Hanna nano <span style="font-variant-caps:all-small-caps">НОЖ</span></span></div>
         <div class="sz"><span class="mono">33 px · антиква</span><span class="t" style="font-size:33px;font-variation-settings:'SERF' 100">НОЖ дао Hanna nano <span style="font-variant-caps:all-small-caps">НОЖ</span></span></div>
+        <div class="sz"><span class="mono">12 px · Black</span><span class="t" style="font-size:12px;font-variation-settings:'SERF' 0,'wght' 900">НОЖ дао ода Hanna anon noon nano HOnoaЖд <span style="font-variant-caps:all-small-caps">НОЖ</span> HOnoaЖд НОЖ дао ода Hanna anon noon nano</span></div>
+        <div class="sz"><span class="mono">33 px · антиква Black</span><span class="t" style="font-size:33px;font-variation-settings:'SERF' 100,'wght' 900">НОЖ дао Hanna nano <span style="font-variant-caps:all-small-caps">НОЖ</span></span></div>
       </div>
     </div>
   </section>
@@ -349,7 +382,7 @@ footer { padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
     </div>
   </section>
 
-  <footer>Gran 0.02. Шрифт на этой странице встроен прямо в неё: 7 знаков, капитель для Н О Ж, четыре мастера, 2 оси. Обзоры трендов от маркетплейсов — рекламные источники, их прогнозы стоит воспринимать как мнение.</footer>
+  <footer>Gran 0.03. Шрифт на этой странице встроен прямо в неё: 7 знаков, капитель для Н О Ж, восемь мастеров, 3 оси. Обзоры трендов от маркетплейсов — рекламные источники, их прогнозы стоит воспринимать как мнение.</footer>
 </div>
 
 <script>
@@ -360,7 +393,8 @@ footer { padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
   var ov = document.getElementById('opszv'), sv = document.getElementById('serfv');
   var btns = document.querySelectorAll('.presets button');
   function apply() {
-    var fvs = "'opsz' " + o.value + ", 'SERF' " + s.value;
+    var fvs = "'opsz' " + o.value + ", 'SERF' " + s.value + ", 'wght' " + w.value;
+    wv.textContent = w.value;
     stage.style.fontVariationSettings = fvs;
     real.style.fontVariationSettings = fvs;
     real.style.fontSize = o.value + 'px';
@@ -368,11 +402,12 @@ footer { padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
     var px = parseFloat(getComputedStyle(stage).fontSize);
     lupav.textContent = '×' + (px / parseFloat(o.value)).toFixed(1).replace('.0', '');
     ov.textContent = o.value; sv.textContent = s.value;
-    btns.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.o === o.value && b.dataset.s === s.value)); });
+    btns.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.o === o.value && b.dataset.s === s.value && b.dataset.w === w.value)); });
   }
   window.addEventListener('resize', apply);
-  o.addEventListener('input', apply); s.addEventListener('input', apply);
-  btns.forEach(function (b) { b.addEventListener('click', function () { o.value = b.dataset.o; s.value = b.dataset.s; apply(); }); });
+  var w = document.getElementById('wght'), wv = document.getElementById('wghtv');
+  o.addEventListener('input', apply); s.addEventListener('input', apply); w.addEventListener('input', apply);
+  btns.forEach(function (b) { b.addEventListener('click', function () { o.value = b.dataset.o; s.value = b.dataset.s; w.value = b.dataset.w; apply(); }); });
   var t = document.getElementById('pts'), pr = document.getElementById('proofs');
   t.addEventListener('click', function () {
     var on = pr.classList.toggle('pts-on'); pr.classList.toggle('pts-off', !on);

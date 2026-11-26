@@ -95,17 +95,21 @@ def rect(x0, y0, x1, y1, kind="fill"):
     return poly([(x0, y0), (x0, y1), (x1, y1), (x1, y0)], kind)
 
 
-def oval(x0, y0, x1, y1, kx, ky=None, kind="fill"):
+def oval(x0, y0, x1, y1, kx, ky=None, kind="fill", pinch=0.0):
     """Superelliptic oval from four cubics; kx/ky = handle fraction of radius
-    (0.5523 = circle, higher = squarer). Starts at the top."""
+    (0.5523 = circle, higher = squarer). Starts at the top.
+    pinch 0..1 sharpens the top and bottom nodes into knife points (a
+    woodcut counter: two cuts meeting); the sides fill out to compensate."""
     ky = kx if ky is None else ky
     xm, ym = (x0 + x1) / 2, (y0 + y1) / 2
     rx, ry = (x1 - x0) / 2, (y1 - y0) / 2
+    kt = kx * (1 - pinch)                 # handles at the top/bottom points
+    ks = ky + (0.98 - ky) * pinch * 0.75  # side handles grow
     c = C((xm, y1), kind)
-    c.Cu((xm + rx * kx, y1), (x1, ym + ry * ky), (x1, ym))
-    c.Cu((x1, ym - ry * ky), (xm + rx * kx, y0), (xm, y0))
-    c.Cu((xm - rx * kx, y0), (x0, ym - ry * ky), (x0, ym))
-    c.Cu((x0, ym + ry * ky), (xm - rx * kx, y1), (xm, y1))
+    c.Cu((xm + rx * kt, y1), (x1, ym + ry * ks), (x1, ym))
+    c.Cu((x1, ym - ry * ks), (xm + rx * kt, y0), (xm, y0))
+    c.Cu((xm - rx * kt, y0), (x0, ym - ry * ks), (x0, ym))
+    c.Cu((x0, ym + ry * ks), (xm - rx * kt, y1), (xm, y1))
     return {"kind": kind, "start": c.start, "segs": c.segs}
 
 

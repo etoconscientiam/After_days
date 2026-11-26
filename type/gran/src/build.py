@@ -23,7 +23,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from geom import reverse, signed_area  # noqa: E402
 from glyphs import ALIASES, GLYPHS  # noqa: E402
-from masters import MASTERS, params  # noqa: E402
+from masters import MASTERS, params, wght_of  # noqa: E402
 
 ROOT = os.path.dirname(HERE)
 OUT = os.path.join(ROOT, "fonts")
@@ -169,9 +169,8 @@ def build_master(mname, opsz, genre, data, glyfs):
     fb.setupHorizontalMetrics(metrics)
     asc, desc = 940, -260
     fb.setupHorizontalHeader(ascent=asc, descent=desc, lineGap=0)
-    style = {"TextGrotesk": "Text Grotesk", "TextAntiqua": "Text Antiqua",
-             "DisplayGrotesk": "Display Grotesk",
-             "DisplayAntiqua": "Display Antiqua"}[mname]
+    import re as _re
+    style = " ".join(_re.findall(r"[A-Z][a-z]+", mname))
     fb.setupNameTable({
         "familyName": FAMILY,
         "styleName": "Regular",
@@ -225,31 +224,40 @@ def main():
     ax1.tag, ax1.name, ax1.minimum, ax1.default, ax1.maximum = "opsz", "Optical size", 12, 12, 33
     ax2 = AxisDescriptor()
     ax2.tag, ax2.name, ax2.minimum, ax2.default, ax2.maximum = "SERF", "Serif", 0, 0, 100
+    ax3 = AxisDescriptor()
+    ax3.tag, ax3.name, ax3.minimum, ax3.default, ax3.maximum = "wght", "Weight", 400, 400, 900
     ds.addAxis(ax1)
     ds.addAxis(ax2)
+    ds.addAxis(ax3)
     for mname, opsz, serf, genre in MASTERS:
         path = build_master(mname, opsz, genre, data, glyfs)
         s = SourceDescriptor()
         s.path = path
         s.name = mname
-        s.location = {"Optical size": opsz, "Serif": serf}
+        s.location = {"Optical size": opsz, "Serif": serf, "Weight": wght_of(genre)}
         if mname == "TextGrotesk":
             s.copyInfo = True
         ds.addSource(s)
-    for name, opsz, serf in [("Text Grotesk", 12, 0), ("Text Flare", 12, 50),
-                             ("Text Antiqua", 12, 100),
-                             ("Display Grotesk", 33, 0),
-                             ("Display Flare", 33, 50),
-                             ("Display Antiqua", 33, 100)]:
-        i = InstanceDescriptor()
-        i.familyName = FAMILY
-        i.styleName = name
-        i.location = {"Optical size": opsz, "Serif": serf}
-        ds.addInstance(i)
+    for wn, wv in (("", 400), (" Black", 900)):
+        for name, opsz, serf in [("Text Grotesk", 12, 0), ("Text Flare", 12, 50),
+                                 ("Text Antiqua", 12, 100),
+                                 ("Display Grotesk", 33, 0),
+                                 ("Display Flare", 33, 50),
+                                 ("Display Antiqua", 33, 100)]:
+            i = InstanceDescriptor()
+            i.familyName = FAMILY
+            i.styleName = name + wn
+            i.location = {"Optical size": opsz, "Serif": serf, "Weight": wv}
+            ds.addInstance(i)
     dspath = os.path.join(ROOT, "build", "Gran.designspace")
     ds.write(dspath)
     vf, _, _ = varLib.build(ds)
     addOpenTypeFeaturesFromString(vf, FEA)
+    # above ~21 px the woodcut a replaces the text a (opsz 12..33 -> 0..1)
+    from fontTools.varLib.featureVars import addFeatureVariations
+    addFeatureVariations(vf, [([{"opsz": (0.43, 1.0)}],
+                               {"a": "a.lubok", "a-cy": "a.lubok"})],
+                         featureTag="rvrn")
     buildStatTable(vf, [
         dict(tag="opsz", name="Optical size", values=[
             dict(value=12, name="Text"), dict(value=33, name="Display")]),
@@ -257,6 +265,9 @@ def main():
             dict(value=0, name="Grotesk", flags=0x2),
             dict(value=50, name="Flare"),
             dict(value=100, name="Antiqua")]),
+        dict(tag="wght", name="Weight", values=[
+            dict(value=400, name="Regular", flags=0x2),
+            dict(value=900, name="Black")]),
     ])
     os.makedirs(OUT, exist_ok=True)
     ttf = os.path.join(OUT, "GranVF.ttf")

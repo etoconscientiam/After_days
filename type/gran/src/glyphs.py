@@ -58,7 +58,7 @@ def round_letter(p, w, h, ov, thick, thin, sb):
     b2 = (Y * Y * c2 - X * X * s2) / (c2 - s2)
     iw, ih = 2 * math.sqrt(a2), 2 * math.sqrt(b2)
     inner = oval(cx - iw / 2, cy - ih / 2, cx + iw / 2, cy + ih / 2,
-                 p["tens"] + p["tensIn"], kind="hole")
+                 p["tens"] + p["tensIn"], kind="hole", pinch=p["pinch"])
     c, s_ = math.cos(phi), math.sin(phi)
 
     def rot(q):
@@ -190,8 +190,10 @@ def n(p):
     a.arc((R1, yR), (1, 0), (0, -1), (R1 - xt) * p["tensR"],
           (yTop - yR) * 0.60)
     a.L((R0, yR))
-    a.arc((xti, yTi), (0, 1), (-1, 0), (yTi - yR) * 0.60, (R0 - xti) * 0.60)
-    a.arc(X, (-1, 0), (-u2[0], -u2[1]), (xti - X[0]) * 0.62,
+    pa = 1 - p["pinch"] * 0.9               # knife apex of the counter
+    a.arc((xti, yTi), (0, 1), (-1, 0), (yTi - yR) * (0.60 + 0.25 * p["pinch"]),
+          (R0 - xti) * 0.60 * pa)
+    a.arc(X, (-1, 0), (-u2[0], -u2[1]), (xti - X[0]) * 0.62 * pa,
           (yTi - X[1]) * 0.42)
     a.L(T)
     a.L((Lm, T[1]))
@@ -230,7 +232,7 @@ def a(p):
 
     # --- bowl with a knife top: a straight line that slices into the stem
     tb = p["aTop"]                          # slope of the bowl top
-    yBt = xh * 0.60
+    yBt = xh * (0.60 + 0.01 * p["bold"])
     lt = (Ra0 - x0) * 0.40
     P1 = (Ra0 - lt, yBt - lt * tb)
     yBm = yBt * 0.44
@@ -247,12 +249,12 @@ def a(p):
     b.L((Ra0 + v * 0.45, yBb))
     bowl = b.close()
 
-    htop = hl * (0.92 if p["genre"] == "G" else 1.05)
+    htop = hl * (0.92 if p["genre"] == "G" else 1.05) * (1 - 0.48 * p["bold"])
     X = (Ra0, yBt - htop)
     u_in = norm((1.0, tb))
     T, A1 = knife(X, u_in, (0, -1), v * p["knifeD"], p["knifeM"])
     vb = v * 0.98
-    hlb = hl * 1.04
+    hlb = hl * 1.04 * (1 - 0.30 * p["bold"])
     cy0 = -ovl + hlb
     lti = lt * 0.85
     Q1 = (Ra0 - lti, X[1] - lti * tb)
@@ -264,18 +266,30 @@ def a(p):
     k.L(Q1)
     k.arc(CL, norm((-1, -tb)), (0, -1), (Q1[0] - CL[0]) * 0.62,
           (Q1[1] - yCm) * 0.56)
-    k.arc((cbx, cy0), (0, -1), (1, 0), (yCm - cy0) * 0.56, (cbx - CL[0]) * 0.60)
-    k.arc((Ra0, yCb), (1, 0), norm((0.55, 1.0)), (Ra0 - cbx) * 0.52,
+    pb = 1 - p["pinch"] * 0.9
+    k.arc((cbx, cy0), (0, -1), (1, 0), (yCm - cy0) * (0.56 + 0.3 * p["pinch"]),
+          (cbx - CL[0]) * 0.60 * pb)
+    k.arc((Ra0, yCb), (1, 0), norm((0.55, 1.0)), (Ra0 - cbx) * 0.52 * pb,
           (yCb - cy0) * 0.62)
     k.L(A1)
     k.L(T)
     counter = k.close()
 
     # --- hook: one pen stroke from a knife-cut terminal into the stem
-    f = pen(p, v * 0.98, hl)
-    w_top = f((1, 0))
-    yS = max(T[1], X[1]) + 26
-    E = (x0 + wa * 0.15, xh * 0.70)
+    bo = p["bold"]
+    thickT = v * 0.98 * (1 - 0.30 * bo)        # light terminal
+    thinH = hl * (1 - 0.25 * bo)
+    phi_ = math.radians(p["phi"])
+
+    def f(d, i=0, t=0.0):
+        s_ = min(1.0, max(0.0, (i + t) / 2))
+        s_ = s_ * s_ * (3 - 2 * s_)
+        thick = thickT + (v - thickT) * s_      # lands on the stem exactly
+        th = math.atan2(d[1], d[0])
+        return thinH + (thick - thinH) * abs(math.sin(th - phi_)) ** p["kpen"]
+    w_top = f((1, 0), 0, 1.0)
+    yS = max(max(T[1], X[1]) + 26, yBt + xh * 0.035)
+    E = (x0 + wa * (0.15 + 0.05 * bo), xh * (0.70 + 0.06 * bo))
     Top = (x0 + wa * 0.53, xh + ovl - w_top / 2)
     R = (Ra0 + v / 2, yS)
     s1 = (E, add(E, mul(norm((0.26, 1.0)), (Top[1] - E[1]) * 0.62)),
@@ -302,6 +316,45 @@ def a(p):
     cs.append(blade_serif((Ra1, 0), (0, 1), +1, p["lproj"] * 0.95, p["ltt"],
                           p["lbh"], p["cut"]))
     return cs, Ra1 + sbr
+
+
+def a_lubok(p):
+    """Display form of a (swapped in above 21 px by rvrn): the single-storey
+    woodcut a. A pointed bowl leans on a stem whose top is knife-cut and
+    rises into a spur; the foot is a wedge cut to the right."""
+    xh, v, hl, ovl = p["xh"], p["v"], p["hl"], p["ovl"]
+    x0 = p["sb"] * 0.55
+    wa = p["wa"] * 1.02
+    Ra1 = x0 + wa
+    Ra0 = Ra1 - v
+    s = p["slope"]
+    spur = xh * 0.05 + v * s * 0.5
+    foot = v * 0.55
+    stem = poly([(Ra0, 0), (Ra0, xh + spur - s * v), (Ra1, xh + spur),
+                 (Ra1, v * 0.30), (Ra1 + foot, 0)])
+    bx1 = Ra0 + v * 0.50
+    y0, y1 = -ovl, xh + ovl
+    outer = oval(x0, y0, bx1, y1, p["tens"])
+    vb = v * 1.02
+    hlb = hl * 1.04
+    cx, cy = (x0 + vb + Ra0) / 2, (y0 + y1) / 2
+    X = (Ra0 - (x0 + vb)) / 2
+    Y = (y1 - y0) / 2 - hlb
+    phi = math.radians(p["oTilt"])
+    c2, s2 = math.cos(phi) ** 2, math.sin(phi) ** 2
+    a2 = (X * X * c2 - Y * Y * s2) / (c2 - s2)
+    b2 = (Y * Y * c2 - X * X * s2) / (c2 - s2)
+    iw, ih = 2 * math.sqrt(a2), 2 * math.sqrt(b2)
+    inner = oval(cx - iw / 2, cy - ih / 2, cx + iw / 2, cy + ih / 2,
+                 p["tens"] + p["tensIn"], kind="hole", pinch=p["pinch"])
+    cc, ss = math.cos(phi), math.sin(phi)
+
+    def rot(q):
+        dx, dy = q[0] - cx, q[1] - cy
+        return (cx + dx * cc - dy * ss, cy + dx * ss + dy * cc)
+    inner = {"kind": "hole", "start": rot(inner["start"]),
+             "segs": [(sg[0],) + tuple(rot(q) for q in sg[1:]) for sg in inner["segs"]]}
+    return [stem, outer, inner], Ra1 + foot + p["sbStem"] * 0.35
 
 
 def de(p):
@@ -374,6 +427,7 @@ GLYPHS = [
     ("n", 0x006E, n),
     ("o", 0x006F, o),
     ("a", 0x0061, a),
+    ("a.lubok", None, a_lubok),
     ("Zhe-cy", 0x0416, Zhe),
     ("de-cy", 0x0434, de),
     ("h.sc", None, h_sc),
