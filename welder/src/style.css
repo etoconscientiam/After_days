@@ -449,10 +449,10 @@ html, body {
  * frame pixels (--fu). The border only keeps the content clear of the rim.
  * ---------------------------------------------------------------------------------------------- */
 #tip, #tour, .toast, #app-status, #craft-btn, #lang-btn, #ctrl .k, #craft .buy, #job .btns span,
-#board .close, #craft .close, #start .go, #end .go, #start .links span, #rod, #craft .x, #board .x {
+#board .close, #craft .close, #start .go, #end .go, #start .links span, #rod, #craft .x, #board .x, #dbg .lvl {
   border: calc(var(--fu, 3px) * 3) solid transparent !important;
 }
-#money, #job, #craft, #board, #stages, #end .panel, #stamp, #craft .item, #board .card {
+#money, #job, #craft, #board, #stages, #end .panel, #stamp, #craft .item, #board .card, #dbg {
   border: calc(var(--fu, 3px) * 4) solid transparent !important;
 }
 [data-sq] {
@@ -492,7 +492,7 @@ html, body {
    the system cursor is replaced by a pixel arrow, golden over anything you can press. */
 html, body, #ui, #ui .pe, #ui .pe * { cursor: var(--cur); }
 #craft-btn, #lang-btn, #craft .buy, #job .btns span, #board .card:not(.off), #board .close, #craft .close,
-#start, #start .go, #start .links span, #end .go, #tour, #tour *, #craft .x, #board .x, .x * { cursor: var(--cur-hot) !important; }
+#start, #start .go, #start .links span, #end .go, #tour, #tour *, #craft .x, #board .x, .x *, #dbg .lvl, #dbg .x { cursor: var(--cur-hot) !important; }
 #game { cursor: none; }
 /* While a window is open (or before the start) the game's crosshair is hidden: the pixel arrow shows over the scene too. */
 body.ui-modal #game { cursor: var(--cur); }
@@ -576,3 +576,23 @@ body.ui-modal #game { cursor: var(--cur); }
 }
 #craft .x svg, #board .x svg { width: 0.75em; height: 0.75em; flex: none; fill: #f0e0b8; shape-rendering: crispEdges; }
 #craft .x:hover svg, #board .x:hover svg { fill: #ffd070; }
+
+/* Debug panel (the ` key): three progression levels. */
+#dbg {
+  position: absolute;
+  left: 50%;
+  top: calc(var(--px) * 6);
+  transform: translateX(-50%);
+  padding: calc(var(--px) * 2) calc(var(--px) * 3);
+  color: #f0e0b8;
+  white-space: nowrap;
+  z-index: 30;
+}
+#dbg h3 { margin: 0 0 0.4em; font-size: 1em; font-weight: 400; color: #c8a878; letter-spacing: 0.1em; text-transform: uppercase; }
+#dbg .lvls { display: flex; gap: calc(var(--px) * 3); }
+#dbg .lvl { display: inline-block; padding: 0 calc(var(--px) * 3); cursor: pointer; }
+#dbg .lvl b { font-weight: 400; color: #ffd070; }
+#dbg .lvl.on { color: #b8e090; }
+#dbg .x { position: absolute; right: calc(var(--px) * 1); top: calc(var(--px) * 1); width: 1.6em; height: 1.6em; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+#dbg .x svg { width: 0.6em; height: 0.6em; fill: #f0e0b8; shape-rendering: crispEdges; }
+#dbg h3 { padding-right: 2em; }

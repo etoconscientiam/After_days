@@ -366,6 +366,30 @@ export class Game {
     this.bus.emit('orderTaken', { bench: 'player', uid: o.uid, part: o.part });
   }
 
+  /**
+   * Debug: put the progression at one of three levels — 1 the start (nothing bought), 2 the middle (the
+   * guild, the first knowledge and tools), 3 everything bought — with money and orders to match.
+   */
+  devLevel(level: 1 | 2 | 3): void {
+    const mid = ['guild', 'tempo', 'ear', 'coated', 'glass', 'jar'];
+    const ids = level === 3 ? this.data.upgrades.map((u) => u.id) : level === 2 ? mid : [];
+    this.owned = {};
+    for (const id of ids) this.owned[id] = true;
+    this.stats = computeStats(this.data, this.owned);
+    this.ctx.stats = this.stats;
+    if (level >= 2) this.flags.shelf = true;
+    if (level === 3) this.flags.board = true;
+    this.ordersDone = Math.max(this.ordersDone, level === 3 ? 8 : level === 2 ? 3 : 0);
+    const was = this.money;
+    this.money = level === 1 ? 0 : level === 2 ? 10 : 60;
+    this.appState = this.owned.apprentice ? (this.habit ? 'idle' : 'watching') : 'away';
+    this.bus.emit('apprentice', { state: this.appState });
+    if (this.owned.guild && !this.pile) this.refillPile();
+    this.bus.emit('money', { money: this.money, delta: this.money - was });
+    this.bus.emit('shopChanged', {});
+    this.bus.emit('save', {});
+  }
+
   private buy(id: string): void {
     const u = this.data.upgrades.find((x) => x.id === id);
     if (!u || this.whyNot(id).length) return;

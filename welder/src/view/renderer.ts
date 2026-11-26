@@ -85,19 +85,26 @@ void main() {
   float r2 = dot(da, da);
   float halo = uArcOn * (exp(-r2 * 900.0) * 6.0 + exp(-r2 * 60.0) * 0.6);
 
-  // The mask slides down from above; through its window the world is darkened and tinted.
+  // The mask swings down over the face on its headgear pivot: it comes in from above foreshortened (still
+  // turned toward the eye), opens to full height as it lands, and bounces a hair. Its lower edge curves up
+  // at the sides like the chin of a real hood, with a thin lit lip. Through its window the world is dark
+  // and tinted.
   float yc = mix(1.7, 0.0, uMaskPos);
-  float covered = step(abs(q.y - yc), 1.05);
+  float sy = mix(0.45, 1.0, smoothstep(0.2, 1.0, uMaskPos));
+  float my = (q.y - yc) / sy;
+  float lowEdge = -1.05 + 0.16 * q.x * q.x;
+  float covered = step(lowEdge, my) * step(my, 1.05);
+  float lip = covered * (1.0 - step(lowEdge + 0.018 / sy, my));
   vec2 w = vec2(0.42 * aspect * uMaskWindow, 0.27 + 0.1 * uMaskWindow);
   // The glass: a rounded window, darker toward its rim (the eye sits deep in the hood).
   float rr = 0.07;
-  vec2 wq = abs(vec2(q.x, q.y - yc)) - (w - rr);
+  vec2 wq = abs(vec2(q.x, my)) - (w - rr);
   float wd = length(max(wq, 0.0)) + min(max(wq.x, wq.y), 0.0) - rr;
   float inWin = step(wd, 0.0);
   float rim = smoothstep(0.0, -0.16, wd);
   // The glass is old: in whole screen pixels fixed to the glass (they ride with it as the mask drops), a
   // milky wear that thickens toward the rim, fine scratches catching light, and specks of dust.
-  vec2 gp = floor(vec2(q.x, q.y - yc) * uRes.y);
+  vec2 gp = floor(vec2(q.x, my) * uRes.y);
   float edge = 1.0 - smoothstep(0.0, -0.12, wd);
   float deep = 1.0 - smoothstep(0.0, -0.26, wd);
   float patchy = vn(gp * 0.035) * 0.6 + vn(gp * 0.11 + 7.0) * 0.4;
@@ -116,7 +123,7 @@ void main() {
   // rest so the work stays readable (a lighter glass shows more of it).
   vec3 seen = (((c + halo * 0.35) * uMaskT + c / (1.0 + c) * uMaskSee) * gv * (1.0 - 0.6 * dust) + haze * (1.0 - 0.5 * dust)) * uMaskTint;
   vec3 world = c + halo * (0.6 + 1.2 * uGlare);
-  c = mix(world, mix(uShell, seen, inWin), covered);
+  c = mix(world, mix(uShell + lip * vec3(0.05, 0.045, 0.04), seen, inWin), covered);
 
   // Blinding white when the arc is watched bare-eyed.
   // Bare-eyed arc: the picture blows out toward blue-white but stays readable.

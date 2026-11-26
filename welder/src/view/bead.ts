@@ -88,7 +88,16 @@ interface Strip {
   best: Float32Array;
   near: Int32Array;
   prof: Float32Array;
+  /**
+   * The part's real surface around the joint, measured once: for every SURF_EVERY-th row, its height along
+   * the joint's normal at SURF_N offsets across (from -SURF_HALF to +SURF_HALF mm). The bead is laid on this,
+   * so on curved work and in corners it hugs the metal instead of cutting into it or floating off it.
+   */
+  surf: Float32Array | null;
 }
+const SURF_N = 9;
+const SURF_HALF = 8;
+const SURF_EVERY = 3;
 
 /**
  * Builds the weld bead from the sim's ripple points: every ripple is a flattened half-ellipsoid laid along the
@@ -376,7 +385,42 @@ export class BeadView {
     mesh.frustumCulled = false;
     mesh.visible = false;
     const f = () => new Float32Array(R);
-    return { mesh, R, step: sr.len / (R - 1), kS: f(), kW: f(), kH: f(), kD: f(), kT: f(), best: f(), near: new Int32Array(R), prof: f() };
+    return { mesh, R, step: sr.len / (R - 1), kS: f(), kW: f(), kH: f(), kD: f(), kT: f(), best: f(), near: new Int32Array(R), prof: f(), surf: null };
+  }
+
+  /** Measure the surface across the joint (see Strip.surf). Rays only, once per seam, the first time it's needed. */
+  private measure(st: Strip, sr: SeamRun): Float32Array {
+    const rows = Math.ceil((st.R - 1) / SURF_EVERY) + 1;
+    const out = new Float32Array(rows * SURF_N);
+    const p = this.pt, P = this.tmpP, N = this.nv;
+    for (let k = 0; k < rows; k++) {
+      const s = Math.min(sr.len - 0.001, Math.min(st.R - 1, k * SURF_EVERY) * st.step);
+      sr.pointAt(s, p);
+      for (let j = 0; j < SURF_N; j++) {
+        const x = -SURF_HALF + (2 * SURF_HALF * j) / (SURF_N - 1);
+        P.set(p.x + p.bx * x, p.y + p.by * x, p.z + p.bz * x);
+        N.set(p.nx, p.ny, p.nz);
+        const bx = P.x, by = P.y, bz = P.z;
+        this.snap(P, N);
+        const h = (P.x - bx) * p.nx + (P.y - by) * p.ny + (P.z - bz) * p.nz;
+        // A miss (off the edge of the work) or a wild hit keeps the joint's own plane.
+        out[k * SURF_N + j] = Math.abs(h) < 12 ? h : 0;
+      }
+    }
+    return out;
+  }
+
+  /** Height of the measured surface at row r, offset x mm across. */
+  private surfAt(st: Strip, r: number, x: number): number {
+    const S = st.surf!;
+    const fr = r / SURF_EVERY, k0 = Math.floor(fr), t = fr - k0;
+    const rows = S.length / SURF_N;
+    const k1 = Math.min(rows - 1, k0 + 1);
+    const fx = Math.min(SURF_N - 1.001, Math.max(0, ((x + SURF_HALF) / (2 * SURF_HALF)) * (SURF_N - 1)));
+    const j0 = Math.floor(fx), u = fx - j0;
+    const a = S[k0 * SURF_N + j0] * (1 - u) + S[k0 * SURF_N + j0 + 1] * u;
+    const b = S[k1 * SURF_N + j0] * (1 - u) + S[k1 * SURF_N + j0 + 1] * u;
+    return a * (1 - t) + b * t;
   }
 
   /**
@@ -404,6 +448,7 @@ export class BeadView {
         }
       }
     }
+    if (sr.count > 0 && !st.surf) st.surf = this.measure(st, sr);
     const g = st.mesh.geometry;
     const pos = g.attributes.position.array as Float32Array;
     const rip = g.attributes.aRip.array as Float32Array;
@@ -413,20 +458,22 @@ export class BeadView {
       const s = Math.min(sr.len - 0.001, r * step);
       sr.pointAt(s, p);
       const k = kS[r];
-      const pres = Math.min(1, Math.max(0, (k - 0.15) / 0.6));
+      // Present where metal was laid: crisp at the running end (the nearest ripple decides), so the bead
+      // grows right under the arc; smoothed between ripples so it never breaks into beads on a string.
+      const pres = Math.min(1, Math.max(0, (best[r] - 0.3) / 0.35, (k - 0.25) / 0.6));
       const e = pres * pres * (3 - 2 * pres);
       if (e > 0) any = true;
       const W = k > 1e-4 ? kW[r] / k : 0, H = k > 1e-4 ? kH[r] / k : 0, D = k > 1e-4 ? kD[r] / k : 0;
       const slag = !welding && sr.slag[sr.cellAt(s)] > 0 ? 1.15 : 1;
       // A little fuller than the sim's millimetres so it reads at this resolution; low and wide like a real bead.
-      const hw = W * 0.5 * 1.2 * e, hh = H * 1.25 * slag * e;
+      const hw = W * 0.5 * 1.25 * e, hh = H * 1.5 * slag * e;
       const tr = kT[r] < 0 ? -1 : 1;
       for (let c = 0; c < COLS; c++) {
         const u = -1 + (2 * c) / (COLS - 1);
         const pr = Math.pow(1 - u * u, 0.55);
         // The toes sink a hair into the plate so the bead wets into it rather than sitting on it.
-        const y = hh * pr - 0.35 * (1 - pr) - (e < 1 ? 0.4 * (1 - e) : 0);
         const x = D + u * hw;
+        const y = (st.surf ? this.surfAt(st, r, x) : 0) + hh * pr - 0.3 * (1 - pr) - (e < 1 ? 0.5 * (1 - e) : 0);
         const j = (r * COLS + c) * 3;
         pos[j] = (p.x + p.bx * x + p.nx * y) * MM;
         pos[j + 1] = (p.y + p.by * x + p.ny * y) * MM;

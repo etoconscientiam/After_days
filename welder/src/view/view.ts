@@ -301,6 +301,7 @@ export class View {
       } else if (this.tour >= 0 && (e.code === 'Enter' || e.code === 'KeyE') && !e.repeat) this.tourNext();
       else if (e.code === 'KeyR') this.game.queue({ type: 'newElectrode' });
       else if (e.code === 'KeyU' && !e.repeat) this.toggleCraft();
+      else if (e.code === 'Backquote' && !e.repeat) this.ui.toggleDebug();
       else if (e.code === 'KeyE' && !e.repeat) {
         if (this.ui.craftOpen) this.ui.closeCraft();
         else if (this.ui.jobOpen) this.ui.closeJob();
@@ -692,6 +693,13 @@ export class View {
       this.syncPile();
       this.syncWorld();
     });
+    this.ui.onDebugLevel = (lv) => {
+      g.devLevel(lv);
+      this.ui.showMoney(g.money);
+      this.syncWorld();
+      this.ui.renderCraft();
+      this.ui.toast(t('dbg.done', { n: lv }));
+    };
     b.on('bought', (e) => {
       this.syncWorld();
       this.ui.renderCraft();
@@ -917,6 +925,37 @@ export class View {
   }
 
   /** Bead helper: slide a point (part-local mm) along -n onto the job's surface. */
+  /**
+   * Where the mask is drawn (0 up, 1 over the face). It falls like a hood flipped down off the forehead:
+   * gathering speed, landing with a small bounce and a knock you feel in the picture; lifted, it swings up
+   * quickly and slows at the top. The sim's own (faster) value is what protects the eyes.
+   */
+  private maskVisual(dt: number, down: boolean): number {
+    if (down) {
+      if (this.maskX < 1 || this.maskV !== 0) {
+        if (this.maskX <= 0 && this.maskV <= 0) this.maskV = 1.6;
+        this.maskV += 17 * dt;
+        this.maskX += this.maskV * dt;
+        if (this.maskX >= 1 && this.maskV > 0) {
+          this.maskX = 1;
+          if (this.maskV > 1) {
+            if (!this.maskHit) this.shakeT = Math.max(this.shakeT, 0.07);
+            this.maskHit = true;
+            this.maskV = -this.maskV * 0.2;
+          } else this.maskV = 0;
+        }
+      }
+    } else {
+      this.maskHit = false;
+      this.maskV = 0;
+      this.maskX = Math.max(0, this.maskX - dt * (2.2 + 6 * this.maskX));
+    }
+    return this.maskX;
+  }
+  private maskX = 0;
+  private maskV = 0;
+  private maskHit = false;
+
   private snapToPart = (p: THREE.Vector3, n: THREE.Vector3): void => {
     if (!this.part) return;
     const o = this.p2w(p.x + n.x * 20, p.y + n.y * 20, p.z + n.z * 20, this.v3d);
@@ -1207,7 +1246,7 @@ export class View {
 
     // Post: mask, glare, afterimage, shake.
     const u = this.lr.u;
-    u.uMaskPos.value = g.mask.pos;
+    u.uMaskPos.value = this.maskVisual(dt, g.mask.down);
     u.uMaskT.value = g.stats.maskTransmission;
     u.uMaskSee.value = g.stats.maskSee;
     u.uMaskWindow.value = g.stats.maskWindow;

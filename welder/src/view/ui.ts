@@ -46,6 +46,9 @@ export class UI {
   jobOpen = false;
   /** The craft book (upgrades) and the guided tour of the workshop. */
   private craftEl = el('div', 'craft', 'pe');
+  /** Debug panel (the ` key): jump the progression to one of three levels. */
+  private dbgEl = el('div', 'dbg', 'pe');
+  onDebugLevel: (level: 1 | 2 | 3) => void = () => {};
   private craftBtn = el('div', 'craft-btn', 'pe');
   private tourEl = el('div', 'tour', 'label pe');
   craftOpen = false;
@@ -78,7 +81,8 @@ export class UI {
     this.endEl.style.display = 'none';
     // Left column, one flow top to bottom: money, the craft book, the rod, the job's stages.
     this.hudL.append(this.money, this.craftBtn, this.rodEl, this.stagesEl);
-    root.append(this.hudL, this.langBtn, this.jobEl, this.craftEl, this.tourEl, this.ctrl, this.promptEl, this.whyEl, this.appStatus, this.hint, this.tip, this.stampEl, this.toasts, this.board, this.endEl, this.start, this.cursor);
+    root.append(this.hudL, this.langBtn, this.jobEl, this.craftEl, this.tourEl, this.ctrl, this.promptEl, this.whyEl, this.appStatus, this.hint, this.tip, this.stampEl, this.toasts, this.board, this.endEl, this.start, this.dbgEl, this.cursor);
+    this.dbgEl.style.display = 'none';
   }
 
   /** Bottom strip: how to act in the current mode. At the bench, the mask and which way SPACE moves it. */
@@ -282,6 +286,30 @@ export class UI {
   }
 
   // ---------------------------------------------------------------- craft book
+
+  /** Show or hide the debug panel. */
+  toggleDebug(): void {
+    const on = this.dbgEl.style.display === 'none';
+    this.dbgEl.style.display = on ? 'block' : 'none';
+    if (!on) return;
+    const lv: [1 | 2 | 3, string][] = [
+      [1, t('dbg.l1')],
+      [2, t('dbg.l2')],
+      [3, t('dbg.l3')],
+    ];
+    this.dbgEl.innerHTML = `${CLOSE_X}<h3>${t('dbg.title')}</h3><div class="lvls">${lv.map(([n, s]) => `<span class="lvl" data-l="${n}"><b>${n}</b> ${s}</span>`).join('')}</div>`;
+    this.dbgEl.querySelectorAll<HTMLElement>('.lvl').forEach((b) =>
+      b.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+        this.onDebugLevel(+b.dataset.l! as 1 | 2 | 3);
+        this.dbgEl.querySelectorAll('.lvl').forEach((x) => x.classList.toggle('on', x === b));
+      }),
+    );
+    this.dbgEl.querySelector('.x')!.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      this.toggleDebug();
+    });
+  }
 
   /** Language plate in the top-right corner: shows the other language, switches on click. */
   setLangButton(cur: string): void {
