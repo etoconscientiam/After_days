@@ -885,7 +885,7 @@
   },
   "geo": {
     "button": "Geologist: heat, water and transformations",
-    "hint": "The lens shows where it is hot, where it is deep and what turns into what",
+    "hint": "The lens: heat, depth, changes",
     "deeper": "needs depth",
     "heat": "needs heat",
     "water": "needs water",
@@ -927,7 +927,7 @@
     "requires": "Opens after shift no. {n}"
   },
   "bed": {
-    "tip": "Bed: a thin ochre layer over the whole surface. In the strata a mark of time and jasper — and a seal: oil gathers under it",
+    "tip": "Ochre bed: a time mark; oil gathers under it",
     "button": "Bed: an ochre bed over all the land (jasper in the depth)"
   },
   "menu": {

@@ -871,3 +871,27 @@ html[data-tremor] #ui { animation: letterTremor 0.14s steps(1) infinite; }
 .set-row select, .set-ta { border-radius: 0; }
 /* the choice of a new world after the finale (slabs) */
 .slab { border-image-source: var(--tile-panel); filter: drop-shadow(0 4px 0 #0c0a09); }
+
+/* notifications: no plate — words over the world like the goal line, with a hard shadow; they surface out of the
+   weathered faces of the pixel font (Worn 4 → clean) and wear away again as they leave */
+.note-plate { border: 0 !important; border-image: none !important; background: none !important; filter: none !important; padding: 1px 0;
+  color: var(--bone); text-shadow: 1px 1px 0 #000, 0 0 4px #000, 0 0 2px #000; animation: noteIn 0.9s linear both; }
+.note-plate .dot { box-shadow: 0 0 0 1px #000, 0 0 6px currentColor; }
+.note-plate.out { animation: noteOut 0.8s linear forwards; }
+@keyframes noteIn {
+  0% { opacity: 0; font-family: 'Strata Pixel Worn 4', var(--text); transform: translateY(-2px); }
+  12% { opacity: 1; font-family: 'Strata Pixel Worn 4', var(--text); transform: none; }
+  30% { font-family: 'Strata Pixel Worn 3', var(--text); }
+  50% { font-family: 'Strata Pixel Worn 2', var(--text); }
+  70% { font-family: 'Strata Pixel Worn 1', var(--text); }
+  90%, 100% { font-family: var(--text); opacity: 1; }
+}
+@keyframes noteOut {
+  0% { font-family: 'Strata Pixel Worn 1', var(--text); opacity: 1; }
+  25% { font-family: 'Strata Pixel Worn 2', var(--text); }
+  50% { font-family: 'Strata Pixel Worn 3', var(--text); }
+  75% { font-family: 'Strata Pixel Worn 4', var(--text); opacity: 0.7; }
+  100% { font-family: 'Strata Pixel Worn 4', var(--text); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .note-plate, .note-plate.out { animation-duration: 0.01s; } }
+#notes { max-width: 300px; }

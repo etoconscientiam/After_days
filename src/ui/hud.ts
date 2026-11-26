@@ -291,6 +291,6 @@ export class Hud {
   private dropPlate(p: Plate): void {
     this.plates.splice(this.plates.indexOf(p), 1);
     p.el.classList.add('out');
-    setTimeout(() => p.el.remove(), 500);
+    setTimeout(() => p.el.remove(), 820);
   }
 }

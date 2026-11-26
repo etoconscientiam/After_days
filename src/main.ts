@@ -608,7 +608,11 @@ drawer.onMenu = () => {
 onLangChange(() => menu.relabel());
 {
   const boot = (window as any).__boot as { progress(k: number): void; done(cb?: () => void): void } | undefined;
-  const fonts = (document as any).fonts?.ready ?? Promise.resolve();
+  // the weathered faces of the pixel font are used only by animations (notifications surfacing): load them now,
+  // or the first animations would play before they arrive
+  const fs = (document as any).fonts;
+  const worn = fs ? Promise.all([1, 2, 3, 4].map((k) => fs.load(`16px 'Strata Pixel Worn ${k}'`).catch(() => null))) : Promise.resolve();
+  const fonts = Promise.all([fs?.ready ?? Promise.resolve(), worn]);
   // every image of the world and the interface, and the fonts, before the loader lets go: the scene then appears
   // whole at once, not drawn in pieces
   let let_go = false;
