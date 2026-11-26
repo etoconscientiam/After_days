@@ -814,3 +814,60 @@ html[data-tremor] #ui { animation: letterTremor 0.14s steps(1) infinite; }
 #menu[data-skin="c"] .mn-btn:not(.back):hover { border-image-source: url('../../assets/ui/frames/tile_stone_hi.png'); }
 #menu[data-skin="c"] .mn-btn.primary:hover { border-image-source: url('../../assets/ui/frames/tile_amber.png'); filter: drop-shadow(0 4px 0 #6e4a1c) brightness(1.06); }
 #menu[data-skin="c"] .mn-btn:not(.back):active, #menu[data-skin="c"] .mn-small:active { transform: translateY(4px); filter: none; }
+
+/* =====================================================================================================================
+   The stone tiles everywhere (the look of the menu, approved): every piece of interface is a pixel tile of the
+   strata's stone (tools/draw_ui_frames.py tile_*): an even face, a light rim on top, a dark row below, corners cut by
+   a pixel step, a hard shadow that follows its shape. No blur, no soft shadows, no round corners; amber only for the
+   main action and for what you can afford now.
+   ===================================================================================================================== */
+:root {
+  --tile-stone: url('../../assets/ui/frames/tile_stone.png');
+  --tile-stone-hi: url('../../assets/ui/frames/tile_stone_hi.png');
+  --tile-amber: url('../../assets/ui/frames/tile_amber.png');
+  --tile-sunk: url('../../assets/ui/frames/tile_sunk.png');
+  --tile-panel: url('../../assets/ui/frames/tile_panel.png');
+  --tile-row: url('../../assets/ui/frames/tile_row.png');
+  --tile-row-ok: url('../../assets/ui/frames/tile_row_ok.png');
+  --tile-shadow: drop-shadow(0 3px 0 #120e0b);
+}
+/* the tile itself */
+.stone-btn, .buy, .row, .life-row, .card, .label, .side-tip, .note-plate, .tab, .geo-btn, .seg, .slab {
+  border-radius: 0 !important; image-rendering: pixelated; -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+  background: none !important; box-shadow: none !important; border: 6px solid transparent; border-image: var(--tile-stone) 3 fill / 6px / 0 stretch; }
+/* buttons: stone; the main one and an affordable buy are amber */
+.stone-btn, .buy, .tab, .geo-btn { filter: var(--tile-shadow); }
+.stone-btn { padding: 6px 12px; min-height: 44px; color: var(--bone); }
+.stone-btn.primary, .summary .stone-btn, .buy.ok { border-image-source: var(--tile-amber); color: #2a1a08; filter: drop-shadow(0 3px 0 #6e4a1c); }
+.stone-btn:hover, .buy:not(.ok):not(:disabled):hover { border-image-source: var(--tile-stone-hi); }
+.stone-btn:active, .buy:active, .buy.pressed, .tab:active { transform: translateY(3px); filter: none; }
+.stone-btn.danger { border-image-source: var(--tile-stone); color: #f0a088; }
+.buy { padding: 4px 6px; min-height: 40px; }
+.buy:disabled { filter: brightness(0.6) saturate(0.6); }
+/* rows and cards in the drawer: a quieter tile; an affordable one gets an amber rim on top */
+.row, .life-row, .card { border-image-source: var(--tile-row); padding: 4px 6px; margin-bottom: 6px; }
+.row.afford, .life-row.afford, .card.afford { border-image-source: var(--tile-row-ok); }
+.row .scale { height: 4px; background: #15110e; border-radius: 0; }
+.row .scale b { border-radius: 0; }
+/* panels: tips, the goals, the card of a layer, the time away */
+.label, .side-tip { border-image-source: var(--tile-panel); filter: drop-shadow(0 4px 0 rgba(0,0,0,0.6)); padding: 4px 8px; }
+.summary { border-image-source: var(--tile-panel); padding: 12px 12px 10px; animation: sheetIn 0.25s var(--ease-out); }
+.summary .rows div { border-radius: 0 !important; border: 6px solid transparent; border-image: var(--tile-sunk) 3 fill / 6px / 0 stretch; background: none; padding: 0 6px; }
+#overlay.dim { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(8, 6, 10, 0.62); }
+/* notifications: a small sunk tile */
+.note-plate { border-image-source: var(--tile-sunk); padding: 0 6px 0 4px; }
+/* the tab bar: stone tabs, the active one lighter with amber text */
+#tabbar { background: #15110e; box-shadow: 0 -2px 0 #2a231e, 0 -4px 0 #0c0a09; }
+.tab { padding: 0; }
+.tab.active { border-image-source: var(--tile-stone-hi); transform: translateY(-2px); filter: drop-shadow(0 5px 0 #120e0b); }
+/* the drawer: a sheet with a light rim along its top edge, square corners */
+#drawer { border-radius: 0 !important; background: #1b1714 !important; box-shadow: inset 0 2px 0 #3a322a, 0 -4px 0 #0c0a09 !important; }
+#drawer-grip i { border-radius: 0; height: 4px; background: #3a322a; }
+/* the side buttons (lens, bed) and the segmented control */
+.geo-btn.on { border-image-source: var(--tile-amber); filter: drop-shadow(0 3px 0 #6e4a1c); }
+.seg { padding: 0; border-image-source: var(--tile-sunk); }
+.seg button { border-radius: 0 !important; }
+.seg button.on { background: #3f352d !important; box-shadow: inset 0 2px 0 #564a3f !important; }
+.set-row select, .set-ta { border-radius: 0; }
+/* the choice of a new world after the finale (slabs) */
+.slab { border-image-source: var(--tile-panel); filter: drop-shadow(0 4px 0 #0c0a09); }

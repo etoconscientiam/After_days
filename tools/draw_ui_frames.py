@@ -84,6 +84,9 @@ def main():
     tile('#3f352d', '#564a3f', '#30281f').save(OUT / 'tile_stone_hi.png')
     tile('#e8ad4c', '#ffd88a', '#b87c2c').save(OUT / 'tile_amber.png')
     tile('#221d19', '#2e2721', '#1a1613').save(OUT / 'tile_sunk.png')
+    tile('#1d1916', '#3a322a', '#100d0b').save(OUT / 'tile_panel.png')       # windows, tips, cards of layers
+    tile('#2a241f', '#3c342c', '#191512').save(OUT / 'tile_row.png')         # rows in the drawer
+    tile('#2a241f', '#e8ad4c', '#191512').save(OUT / 'tile_row_ok.png')      # a row you can afford: an amber rim
     print('frames: slab, slab_amber, slab_sunk, grain, tile_*')
 
 
