@@ -49,6 +49,9 @@ export class UI {
   /** Debug panel (the ` key): jump the progression to one of three levels. */
   private dbgEl = el('div', 'dbg', 'pe');
   onDebugLevel: (level: 1 | 2 | 3) => void = () => {};
+  /** Seams seen closed on this job, and the one closed last (its losses are shown on a long job's card). */
+  private filledSeen = new Set<number>();
+  private lastFilled = -1;
   private craftBtn = el('div', 'craft-btn', 'pe');
   private tourEl = el('div', 'tour', 'label pe');
   craftOpen = false;
@@ -240,6 +243,8 @@ export class UI {
     if (this.sheetUid !== b.order.uid) {
       this.sheet = jobSheet(g.data, b.order);
       this.sheetUid = b.order.uid;
+      this.filledSeen.clear();
+      this.lastFilled = -1;
     }
     const s = this.sheet!;
     const reward = b.order.reward;
@@ -252,7 +257,14 @@ export class UI {
     const done = b.stage !== 'weld';
     let total = 0;
     let anyUnknown = false;
-    const rows = s.stages.map((st, i) => {
+    // Which seam was closed last: its losses are the ones worth reading now.
+    for (let i = 0; i < b.seams.length; i++) {
+      const f = b.seams[i].filled;
+      if (f && !this.filledSeen.has(i)) this.lastFilled = i;
+      if (f) this.filledSeen.add(i);
+    }
+    type Item = { html: string; seamDone: boolean; pay: number; max: number; seam: number };
+    const items: Item[] = s.stages.map((st, i) => {
       const n = `${i + 1}. `;
       if (st.kind === 'seam') {
         const p = seamProgress(b.seams, st.seam, reward);
@@ -260,21 +272,45 @@ export class UI {
         if (finished) {
           const pay = done ? seamProgress(b.seams, st.seam, reward).pay : p.pay;
           total += pay;
-          const c = this.causes(st.seam);
-          if (c.includes('unk')) anyUnknown = true;
-          return `<li class="ok"><s>✓</s>${n}${this.stageName(st.id)}<em>${this.coins(pay)} / ${this.coins(st.max)} ◆</em></li>${c ? `<li class="causes">${c}</li>` : ''}`;
+          return { html: `<li class="ok"><s>✓</s>${n}${this.stageName(st.id)}<em>${this.coins(pay)} / ${this.coins(st.max)} ◆</em></li>`, seamDone: true, pay, max: st.max, seam: st.seam };
         }
         const on = st.seam === cur;
         const bar = `<i class="bar"><i style="width:${Math.round(p.laid * 100)}%"></i></i>`;
-        return `<li class="${on ? 'on' : ''}"><s>${on ? '▶' : ''}</s>${n}${this.stageName(st.id)}${p.laid > 0.02 || on ? bar : `<em>${t('job.upTo')} ${this.coins(st.max)} ◆</em>`}</li>`;
+        return { html: `<li class="${on ? 'on' : ''}"><s>${on ? '▶' : ''}</s>${n}${this.stageName(st.id)}${p.laid > 0.02 || on ? bar : `<em>${t('job.upTo')} ${this.coins(st.max)} ◆</em>`}</li>`, seamDone: false, pay: 0, max: st.max, seam: st.seam };
       }
+      const none = { seamDone: false, pay: 0, max: 0, seam: -1 };
       if (st.kind === 'chip') {
-        if (b.stage === 'chip') return `<li class="on"><s>▶</s>${n}${t('stage.chip')}<i class="bar"><i style="width:${Math.round((1 - b.slagLeft) * 100)}%"></i></i></li>`;
-        if (b.stage === 'inspect' || b.stage === 'ready') return `<li class="ok"><s>✓</s>${n}${t('stage.chip')}</li>`;
-        return `<li><s></s>${n}${t('stage.chip')}</li>`;
+        if (b.stage === 'chip') return { ...none, html: `<li class="on"><s>▶</s>${n}${t('stage.chip')}<i class="bar"><i style="width:${Math.round((1 - b.slagLeft) * 100)}%"></i></i></li>` };
+        if (b.stage === 'inspect' || b.stage === 'ready') return { ...none, html: `<li class="ok"><s>✓</s>${n}${t('stage.chip')}</li>` };
+        return { ...none, html: `<li><s></s>${n}${t('stage.chip')}</li>` };
       }
-      return `<li class="${b.stage === 'ready' ? 'on' : ''}"><s>${b.stage === 'ready' ? '▶' : ''}</s>${n}${t('stage.hand')}</li>`;
+      return { ...none, html: `<li class="${b.stage === 'ready' ? 'on' : ''}"><s>${b.stage === 'ready' ? '▶' : ''}</s>${n}${t('stage.hand')}</li>` };
     });
+    const causesOf = (seam: number) => {
+      const c = this.causes(seam);
+      if (c.includes('unk')) anyUnknown = true;
+      return c ? `<li class="causes">${c}</li>` : '';
+    };
+    const rows: string[] = [];
+    if (items.length <= 5) {
+      for (const it of items) rows.push(it.html + (it.seamDone ? causesOf(it.seam) : ''));
+    } else {
+      // A long job (a gate of many joints): the closed seams fold into one line, then what is in hand and
+      // the next two; the rest is counted. The card stays short whatever the job.
+      const fin = items.filter((it) => it.seamDone);
+      const seams = items.filter((it) => it.seam >= 0).length;
+      if (fin.length) {
+        const pay = fin.reduce((a, it) => a + it.pay, 0), max = fin.reduce((a, it) => a + it.max, 0);
+        rows.push(`<li class="ok"><s>✓</s>${t('job.seamsDone', { n: fin.length, m: seams })}<em>${this.coins(pay)} / ${this.coins(max)} ◆</em></li>`);
+        const last = fin.find((it) => it.seam === this.lastFilled) ?? fin[fin.length - 1];
+        rows.push(causesOf(last.seam));
+      }
+      const rest = items.filter((it) => !it.seamDone);
+      const on = Math.max(0, rest.findIndex((it) => it.html.startsWith('<li class="on"')));
+      const ordered = [...rest.slice(on), ...rest.slice(0, on)];
+      for (const it of ordered.slice(0, 3)) rows.push(it.html);
+      if (ordered.length > 3) rows.push(`<li class="more"><s></s>${t('job.more', { n: ordered.length - 3 })}</li>`);
+    }
     const sum = done ? `<div class="sum"><span>${t('job.total')}</span><em>${this.coins(payForSeams(b.seams, reward))} / ${reward} ◆</em></div>` : total > 0 ? `<div class="sum"><span>${t('job.sofar')}</span><em>${this.coins(total)} ◆</em></div>` : '';
     const legend = anyUnknown ? `<div class="legend">${t('cause.unknown')}</div>` : '';
     const html = `<b>${t('part.' + b.order.part)}</b> <span class="stars">${this.stars(s.stars)}</span><ol>${rows.join('')}</ol>${sum}${legend}`;

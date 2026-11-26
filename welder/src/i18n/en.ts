@@ -141,6 +141,8 @@ export const en = {
   'dbg.l2': 'middle',
   'dbg.l3': 'everything',
   'dbg.done': 'progression level {n}',
+  'job.seamsDone': 'seams done: {n} of {m}',
+  'job.more': '{n} more',
   'job.total': 'worth',
   'job.sofar': 'so far',
   'stage.chip': 'knock off the slag',

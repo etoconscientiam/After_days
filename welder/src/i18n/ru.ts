@@ -143,6 +143,8 @@ export const ru: Strings = {
   'dbg.l2': 'середина',
   'dbg.l3': 'всё куплено',
   'dbg.done': 'уровень прокачки {n}',
+  'job.seamsDone': 'готово швов: {n} из {m}',
+  'job.more': 'ещё {n}',
   'job.total': 'стоит',
   'job.sofar': 'пока',
   'stage.chip': 'отбить шлак',

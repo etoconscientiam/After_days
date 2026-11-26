@@ -362,6 +362,7 @@ html, body {
 #stages li.causes b { font-weight: 400; color: #6a5a44; padding: 0 0.4em; }
 #stages .cause.unk { color: #8a7a64; }
 #stages .legend { white-space: nowrap; color: #7a6a54; }
+#stages li.more { color: #7a6a54; }
 #craft {
   position: absolute;
   left: 50%;
@@ -506,6 +507,9 @@ body.ui-modal #game { cursor: var(--cur); }
   flex-direction: column;
   align-items: flex-start;
   gap: calc(var(--px) * 3);
+  /* Never down onto the control strip at the bottom. */
+  max-height: calc(100% - var(--px) * 30);
+  overflow: hidden;
   pointer-events: none;
 }
 #hudl > * { position: static !important; }
