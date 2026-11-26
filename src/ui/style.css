@@ -794,3 +794,8 @@ html[data-tremor] #ui { animation: letterTremor 0.14s steps(1) infinite; }
 #menu[data-skin="c"] .mn-small.go { background: var(--t-amber); color: #2a1a08; box-shadow: inset 0 2px 0 rgba(255,248,225,0.35), 0 3px 0 var(--t-amber-d); }
 #menu[data-skin="c"] .mn-small.danger { background: var(--t-stone-hi); color: #e09a80; box-shadow: inset 3px 0 0 var(--t-clay), 0 3px 0 var(--t-stone-d); }
 #menu[data-skin="c"] .mn-slot.empty .mn-small.go { background: var(--t-stone-hi); color: var(--t-amber); box-shadow: inset 0 2px 0 rgba(255,240,215,0.06), 0 3px 0 var(--t-stone-d); }
+/* C: no coloured beds at the edge after all — every secondary tile is the same stone; only the main action is amber */
+#menu[data-skin="c"] .mn-btn::before { display: none; }
+#menu[data-skin="c"] .mn-btn { padding-left: 14px; }
+#menu[data-skin="c"] .mn-slot.active { background: rgba(44,38,33,0.95); box-shadow: 0 4px 0 var(--t-stone-d); }
+#menu[data-skin="c"] .mn-small.danger { box-shadow: 0 3px 0 var(--t-stone-d); }
