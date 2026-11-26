@@ -38,8 +38,16 @@ p { margin: 0; max-width: 66ch; }
 .hero { padding-block: 40px 28px; border-bottom: 1px solid var(--rule); }
 .hero-top { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; align-items: baseline; }
 .hero-top .mono { color: var(--muted); }
-.stage { font-family: var(--f-gran); line-height: .98; margin-block: 28px 20px; font-size: clamp(64px, 15vw, 210px); letter-spacing: -0.005em; font-optical-sizing: none; overflow-wrap: anywhere; }
+.stage { font-family: var(--f-gran); line-height: .98; margin-block: 8px 0; font-size: clamp(64px, 15vw, 210px); letter-spacing: -0.005em; font-optical-sizing: none; overflow-wrap: anywhere; }
 .stage .sc { font-variant-caps: all-small-caps; }
+.controls { margin-top: 28px; }
+.realbox { margin-top: 20px; border-block: 1px solid var(--rule); padding-block: 10px 14px; }
+.cap { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); }
+.cap output { color: var(--accent); }
+.real { font-family: var(--f-gran); font-size: 12px; line-height: 1.45; margin-top: 6px; overflow-wrap: anywhere; }
+.real .sc { font-variant-caps: all-small-caps; }
+.lupa { margin-top: 20px; }
+.stage { margin-top: 8px !important; }
 .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px 32px; align-items: end; }
 .ctl label { display: flex; justify-content: space-between; font-family: var(--f-mono); font-size: var(--s-1); color: var(--muted); }
 .ctl output { color: var(--ink); }
@@ -135,9 +143,8 @@ footer { padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
       <span class="mono">Gran · рабочее имя · прототип 0.01</span>
       <span class="mono">оси: opsz 12–33 · SERF 0–100 · 7 знаков + капитель</span>
     </div>
-    <div class="stage" id="stage">НОЖ дао<br>Hanna <span class="sc">НОЖ</span></div>
     <div class="controls">
-      <div class="ctl"><label for="opsz">Оптический размер <output id="opszv">12</output></label>
+      <div class="ctl"><label for="opsz">Размер и оптика, px <output id="opszv">12</output></label>
         <input id="opsz" type="range" min="12" max="33" step="0.5" value="12"></div>
       <div class="ctl"><label for="serf">Гротеск → антиква <output id="serfv">0</output></label>
         <input id="serf" type="range" min="0" max="100" step="1" value="0"></div>
@@ -149,6 +156,12 @@ footer { padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
         <button data-o="33" data-s="100" aria-pressed="false">Display Antiqua</button>
       </div>
     </div>
+    <div class="realbox">
+      <div class="cap mono"><span>Реальный размер</span><output id="realv">12 px</output></div>
+      <div class="real" id="real">НОЖ дао ода Hanna anon noon nano HOnoaЖд <span class="sc">НОЖ</span> НОЖ дао ода Hanna anon noon nano</div>
+    </div>
+    <div class="cap mono lupa"><span>Лупа: тот же оптический размер, крупно</span><output id="lupav">×10</output></div>
+    <div class="stage" id="stage">НОЖ дао<br>Hanna <span class="sc">НОЖ</span></div>
     <p class="lede">Вариативная суперсемья для кириллицы и латиницы: гротеск и антиква в одном файле, с оптическими размерами для текста (12 px) и заголовков (33 px). Идея в том, что засечка не приклеена к гротеску. Она вырастает из той же грани, которая в гротеске работает срезом и ловушкой для краски.</p>
   </header>
 
@@ -318,15 +331,23 @@ footer { padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
 
 <script>
 (function () {
-  var stage = document.getElementById('stage');
+  var stage = document.getElementById('stage'), real = document.getElementById('real');
+  var realv = document.getElementById('realv'), lupav = document.getElementById('lupav');
   var o = document.getElementById('opsz'), s = document.getElementById('serf');
   var ov = document.getElementById('opszv'), sv = document.getElementById('serfv');
   var btns = document.querySelectorAll('.presets button');
   function apply() {
-    stage.style.fontVariationSettings = "'opsz' " + o.value + ", 'SERF' " + s.value;
+    var fvs = "'opsz' " + o.value + ", 'SERF' " + s.value;
+    stage.style.fontVariationSettings = fvs;
+    real.style.fontVariationSettings = fvs;
+    real.style.fontSize = o.value + 'px';
+    realv.textContent = o.value + ' px';
+    var px = parseFloat(getComputedStyle(stage).fontSize);
+    lupav.textContent = '×' + (px / parseFloat(o.value)).toFixed(1).replace('.0', '');
     ov.textContent = o.value; sv.textContent = s.value;
     btns.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.o === o.value && b.dataset.s === s.value)); });
   }
+  window.addEventListener('resize', apply);
   o.addEventListener('input', apply); s.addEventListener('input', apply);
   btns.forEach(function (b) { b.addEventListener('click', function () { o.value = b.dataset.o; s.value = b.dataset.s; apply(); }); });
   var t = document.getElementById('pts'), pr = document.getElementById('proofs');
