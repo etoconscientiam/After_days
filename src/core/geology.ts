@@ -9,8 +9,6 @@ import { geoTick, GeoEnv, GeoReport, newReport } from './pressure';
 import { archiveTick } from './archiveGeo';
 import { wx } from './sources';
 
-/** How long the halo around a grain that turned to rock lasts (seconds). */
-export const HALO_T = 0.9;
 
 const S = CFG.B.sand;
 const CPP = S.cellsPerParticle;
@@ -47,7 +45,6 @@ export function geoEnv(g: Game, dy: number): GeoEnv {
   const st = g.stats;
   const r = g.run;
   const pr = r.press && r.press.power > 0 ? r.press : null;
-  let glints = 0, halos = 0;
   return {
     rng: g.rng, dy,
     speed: (1 + st.transformSpeed) * (1 + g.diversityBonus()),
@@ -68,15 +65,11 @@ export function geoEnv(g: Game, dy: number): GeoEnv {
       g.transforms++;
       const yv = insect ? rule.insectYield! : rule.yield;
       if (yv > 0 && !(g.grid.flags[i] & P_OLD)) g.formRock(rule.rock, yv * CFG.B.rockYield * CPP * S.rockYieldMul, wx(x));
-      // every grain that turns to rock flashes: a small bright spark in the colour of the new rock
-      // (about one in three, scattered inside the grain and in time: a sprinkle of sparks, never a grid of dots)
-      // and the grains around it glow for a moment in a soft halo: the front of the change is seen as it moves
-      if (halos++ < 90 && g.halos.length < 240) {
-        const pal = CFG.materials[to].palette;
-        g.halos.push({ x, y, t: HALO_T * (0.8 + 0.4 * g.rng.next()), color: pal[4] ?? pal[pal.length - 1] });
-      }
-      if (g.rng.next() < 0.35 && glints++ < 60 && g.glints.length < 120) {
-        g.glints.push({ x: x * 2 + (g.rng.next() < 0.5 ? 0 : 1), y: y * 2 + (g.rng.next() < 0.5 ? 0 : 1), t: 0.35 + g.rng.next() * 0.45, color: CFG.materials[to].palette[3] ?? CFG.materials[to].palette[0] });
+      // a grain that turns to rock sparkles, as in the prototype: one in three, a white-hot core in the middle of the
+      // grain and four arms in the colour of the new rock, gone in 0.6 s
+      if (g.rng.next() < 0.35 && g.glints.length < 90) {
+        const m = CFG.materials[to];
+        g.glints.push({ x: x * 2 + 1, y: y * 2 + 1, t: 0.6, color: m.px?.[2] ?? m.palette[2] });
       }
       if (pr) {
         const dx = x - pr.x, dyy = y - pr.y;
