@@ -27,6 +27,8 @@ export class Drawer {
   sub = $('#drawer-sub');
   tabbar = $('#tabbar');
   open: ViewId | null = null;
+  /** the desktop layout: the drawer is a side panel, always open (a tab switches it, never closes it) */
+  pinned = false;
   bookTab: 'chronicle' | 'museum' | 'notes' = 'chronicle';
   qty: 1 | 10 | 0 = 1;
   /** the species whose big card is open in the Life list */
@@ -77,7 +79,7 @@ export class Drawer {
   }
 
   toggleView(id: ViewId): void {
-    if (this.open === id) { this.close(); return; }
+    if (this.open === id) { if (!this.pinned) this.close(); return; }
     this.open = id;
     this.openNote = null;
     this.markSeen(id);
@@ -113,6 +115,7 @@ export class Drawer {
   }
 
   close(): void {
+    if (this.pinned && this.open) return;
     this.open = null;
     this.el.classList.remove('open');
     this.el.setAttribute('aria-hidden', 'true');

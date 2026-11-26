@@ -179,7 +179,7 @@ export class Hud {
   }
 
   /** The active order (if any) and the era condition. */
-  private goals(g: Game): { text: string; k: number; sub?: boolean }[] {
+  goals(g: Game): { text: string; k: number; sub?: boolean }[] {
     const out: { text: string; k: number; sub?: boolean }[] = [];
     // the era's condition comes first while it is not met (it is the way on, and its lever is shown under it);
     // the orders follow (all of them in the list behind a tap on the goal)

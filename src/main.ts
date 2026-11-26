@@ -9,6 +9,7 @@ import { runOffline, OfflineReport } from './core/offline';
 import { Renderer } from './render/renderer';
 import { WW, WH } from './render/common';
 import { PileMix } from './ui/pileMix';
+import { InfoPanel } from './ui/infoPanel';
 import { Hud } from './ui/hud';
 import { Drawer } from './ui/drawer';
 import { Input } from './ui/input';
@@ -49,6 +50,7 @@ const canvas = $('#world') as HTMLCanvasElement;
 const renderer = new Renderer(canvas);
 const hud = new Hud(() => game);
 const pileMix = new PileMix(() => game);
+const info = new InfoPanel(() => game, hud);
 const drawer = new Drawer(() => game);
 pileMix.onOpen = () => drawer.openUpgradesAt('pile');
 const input = new Input(() => game, renderer);
@@ -67,19 +69,46 @@ const column = $('#column');
 const ui = $('#ui');
 const ambi = $('#ambi') as HTMLCanvasElement;
 let uiScale = 1;
+// ---------- the desktop layout: a wide screen with a mouse gets the world at full height between two panels —
+// the info at the left, the drawer (Life, Elements, Upgrades…) pinned open at the right ----------
+const SIDE_L = 300, SIDE_R = 400, SIDE_GAP = 20;
+let desktop = false;
+const sideL = $('#side-left'), sideR = $('#side-right');
+function setDesktop(on: boolean): void {
+  desktop = on;
+  document.documentElement.classList.toggle('desktop', on);
+  sideL.hidden = sideR.hidden = !on;
+  const drawerEl0 = $('#drawer'), tabbar0 = $('#tabbar');
+  if (on) {
+    sideR.append(tabbar0, drawerEl0);
+    drawer.pinned = true;
+    if (!drawer.open) drawer.toggleView('upgrades');
+  } else {
+    ui.insertBefore(drawerEl0, $('#overlay'));
+    ui.insertBefore(tabbar0, $('#overlay'));
+    drawer.pinned = false;
+    drawer.close();
+  }
+}
 function fit(): void {
   const s = game.state.settings;
   const vv = window.visualViewport;
-  const W = vv ? vv.width : window.innerWidth, H = vv ? vv.height : window.innerHeight;
+  const W0 = vv ? vv.width : window.innerWidth, H0 = vv ? vv.height : window.innerHeight;
+  const wantDesk = !TOUCH && W0 >= 1000 && W0 / H0 >= 1.25;
+  if (wantDesk !== desktop) setDesktop(wantDesk);
+  // in the desktop layout the world takes the height, the panels the sides
+  const W = desktop ? W0 - SIDE_L - SIDE_R - SIDE_GAP * 4 : W0, H = desktop ? H0 - SIDE_GAP * 2 : H0;
   // the world is 180×320 pixels; integer scaling keeps every pixel the same size,
   // but only when that wastes little of the screen (on phones it would shrink the game to a stamp)
   const fill = Math.min(W / WW, H / WH);
   let k = fill;
-  if (s.integerScale && Math.floor(fill) >= 2 && (fill - Math.floor(fill)) / fill < 0.25) k = Math.floor(fill);
+  // (on a desktop the world takes the whole height instead: the panels frame it, a gap would read as a bug)
+  if (s.integerScale && !desktop && Math.floor(fill) >= 2 && (fill - Math.floor(fill)) / fill < 0.25) k = Math.floor(fill);
   $('#rotate').hidden = !(TOUCH && W > H && H < 520);
   uiScale = k / 2; // UI is laid out in 360×640 units
   column.style.width = WW * k + 'px';
   column.style.height = WH * k + 'px';
+  sideL.style.height = sideR.style.height = desktop ? WH * k + 'px' : '';
   ui.style.transform = `scale(${uiScale})`;
   input.scale = uiScale;
   // ambilight only where there is space around the column
@@ -107,6 +136,7 @@ const drawerEl = $('#drawer');
 const tabbarEl = $('#tabbar');
 /** World pixels the drawer covers above the tab bar (follows the drawer as it slides). */
 function drawerWorldPx(): number {
+  if (desktop) return 0;
   const dr = drawerEl.getBoundingClientRect(), tb = tabbarEl.getBoundingClientRect();
   const k = canvas.getBoundingClientRect().height / WH;     // screen px per world px
   return k > 0 ? Math.max(0, (tb.top - dr.top) / k) : 0;
@@ -531,7 +561,10 @@ function frame(now: number): void {
   ui.classList.toggle('choosing', ph === 'choose');
   ui.classList.toggle('finale', ph === 'finale' || ph === 'temple' || ph === 'newWorld' || ph === 'end');
   ui.classList.toggle('detailed', !!game.state.settings.detailed);
-  ui.classList.toggle('drawer-open', !!drawer.open);
+  ui.classList.toggle('drawer-open', !!drawer.open && !desktop);
+  document.documentElement.classList.toggle('menu-up', menu.open);
+  if (!menu.open) document.documentElement.classList.remove('menu-settings');
+  info.update(dtReal, desktop && !menu.open);
   if (ph !== 'play' && drawer.open && !menuSettings) drawer.close();
   // the settings opened from the menu: when the drawer closes, the menu comes back
   // a world waiting for its thing (a new one, or after the finale): the choice is made in the menu
@@ -595,6 +628,8 @@ menu.onDelete = (slot) => {
   if (slot === activeSlot()) swapGame(freshGame());
 };
 menu.onSettings = () => {
+  // the desktop layout shows the settings in the side panel, beside the menu
+  if (desktop) { drawer.toggleView('settings'); document.documentElement.classList.add('menu-settings'); return; }
   menuSettings = true;
   menu.conceal(true);
   ui.classList.add('menu-settings');

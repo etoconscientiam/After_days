@@ -909,3 +909,48 @@ html[data-tremor] #ui { animation: letterTremor 0.14s steps(1) infinite; }
 .tab { justify-content: center; gap: 2px; line-height: 14px; }
 .row, .life-row, .card, .row.afford, .life-row.afford, .card.afford { border-image-source: url('../../assets/ui/frames/tile_flat.png'); filter: none; }
 #speed.hurry { color: var(--amber); }
+
+/* =====================================================================================================================
+   The desktop layout (html.desktop: a wide screen with a mouse): the world at full height in the middle, the info at
+   the left (ui/infoPanel.ts), the drawer pinned open at the right with its tabs on top. Stone tiles as everywhere.
+   ===================================================================================================================== */
+html.desktop #app { gap: 20px; }
+html.desktop #side-left, html.desktop #side-right { position: relative; display: flex; flex-direction: column;
+  background: #15110e; box-shadow: inset 0 2px 0 #2a231e, 0 0 0 2px #0c0a09, 0 20px 60px rgba(0,0,0,0.6); z-index: 1; }
+html.desktop #side-left { width: 300px; order: 0; overflow-y: auto; padding: 12px; gap: 10px; scrollbar-width: thin; scrollbar-color: #3a322a transparent; }
+html.desktop #column { order: 1; border-radius: 0; }
+html.desktop #side-right { width: 400px; order: 2; }
+html.desktop #side-left[hidden], html.desktop #side-right[hidden] { display: none; }
+/* the drawer in the side panel: tabs on top, the body takes the rest, always open */
+html.desktop #side-right #tabbar { position: relative; left: auto; right: auto; bottom: auto; height: 62px; flex: none; z-index: 2; }
+html.desktop #side-right #drawer { position: relative; left: auto; right: auto; bottom: auto; height: auto; flex: 1; min-height: 0; transform: none !important;
+  box-shadow: inset 0 2px 0 #2a231e !important; background: #1b1714 !important; }
+html.desktop #side-right #drawer-grip { display: none; }
+html.desktop #side-right #drawer-head { padding-top: 12px; }
+html.desktop #pile-mix { display: none !important; }
+/* while the main menu is up the panels step back (the settings stay in the right one when opened from the menu) */
+html.desktop.menu-up #side-left { visibility: hidden; }
+html.desktop.menu-up:not(.menu-settings) #side-right { visibility: hidden; }
+
+/* ---- the info panel ---- */
+.ip-sec { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px 12px; border: 6px solid transparent; image-rendering: pixelated;
+  border-image: url('../../assets/ui/frames/tile_flat.png') 3 fill / 6px / 0 stretch; }
+.ip-sec h3 { margin: 0 0 2px; font-family: var(--text); font-weight: 400; font-size: 18px; color: var(--bone-dim); letter-spacing: 0.5px; }
+.ip-era { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.ip-era-name { font-family: var(--display); font-size: 32px; line-height: 1; color: var(--amber); }
+.ip-era small { color: var(--amber); font-size: 14px; }
+.ip-bar { display: block; height: 6px; background: #0f0c0a; position: relative; overflow: hidden; }
+.ip-bar > i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--amber); }
+.ip-bar.small { height: 4px; margin-top: 3px; }
+.ip-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: 18px; color: var(--bone-dim); }
+.ip-row b { font-family: var(--num); font-weight: 400; color: var(--bone); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ip-row.strong b { color: var(--amber); }
+.ip-row.small { font-size: 16px; }
+.ip-ico { display: inline-flex; align-items: center; gap: 6px; }
+.ip-sw { display: inline-block; width: 10px; height: 10px; }
+.ip-goals { display: flex; flex-direction: column; gap: 8px; }
+.ip-goal { font-size: 18px; line-height: 22px; color: var(--bone); }
+.ip-goal.sub { color: #b8d890; font-size: 16px; }
+.ip-mixbar { display: flex; height: 8px; overflow: hidden; background: #0f0c0a; }
+.ip-mixbar i { display: block; height: 100%; }
+.ip-note { font-size: 16px; color: var(--bone-dim); line-height: 20px; }

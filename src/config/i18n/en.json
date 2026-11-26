@@ -84,7 +84,7 @@
     "sec": "s"
   },
   "pile": {
-    "own": "Zone's own",
+    "own": "Native rock",
     "feeds": {
       "own": "what life lays down here",
       "sand": "sandstone, quartzite",
@@ -953,5 +953,30 @@
     "toMenu": "Main menu",
     "thingTitle": "What goes into the ground?",
     "thingNote": "One thing of three. It will be found millions of years from now. The others wait for the next worlds."
+  },
+  "info": {
+    "era": "Era",
+    "year": "Year",
+    "speed": "Speed",
+    "left": "Until the era ends",
+    "wall": "time waits for the goal",
+    "sec": "s",
+    "hurry": "time hurries",
+    "goals": "Goals",
+    "income": "Income",
+    "total": "Total",
+    "life": "Life",
+    "absorb": "Absorption",
+    "tap": "Per tap",
+    "specials": "Special materials",
+    "noSpecials": "They come when the thing absorbs coal, oil, amber or diamond",
+    "pile": "Pile",
+    "pileSize": "Grains in a pile",
+    "strata": "Strata and life",
+    "layers": "Grains laid",
+    "absorbed": "Rows absorbed",
+    "fossils": "Fossils",
+    "oxygen": "Oxygen",
+    "species": "Species · units"
   }
 }
