@@ -651,6 +651,10 @@ html[data-tremor] #ui { animation: letterTremor 0.14s steps(1) infinite; }
 .summary .rows div { padding: 6px 10px; border-radius: 999px; background: var(--surface-sunk); border: 1px solid var(--line); color: var(--text-1); gap: 6px; font-family: var(--num); }
 /* one face on the whole card: Strata Pixel, only the size and the colour differ */
 .summary, .summary .kicker, .summary .big, .summary .rows div, .summary .stone-btn { font-family: var(--text); font-weight: normal; letter-spacing: 0; }
+/* one way to show it: a plain list, every line «what: how much», no chips or icons */
+.summary .rows { display: flex; flex-direction: column; gap: 2px; margin: 12px 0 14px; }
+.summary .rows div { display: block; border: 0 !important; border-image: none !important; background: none !important; padding: 0 !important; border-radius: 0 !important; color: var(--bone); font-size: 16px; line-height: 20px; }
+.summary .big { font-size: 32px; line-height: 32px; margin-top: 4px; text-shadow: none; }
 #overlay.dim { background: rgba(8, 6, 10, 0.6); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); }
 
 /* ---- buttons: one shape; amber face = the main action, stone = the rest ---- */

@@ -7,7 +7,7 @@ import { $, h, setText } from './dom';
 import { t, fmt, fmtInt } from './i18n';
 import { assetUrl } from '../render/assets';
 import { drawScene, VW, VH } from '../render/ritual';
-import { energyIcon, rockIcon, exhibit } from './icons';
+import { exhibit } from './icons';
 
 export class Modals {
   overlay = $('#overlay');
@@ -47,9 +47,9 @@ export class Modals {
       h('div', { class: 'kicker' }, t('away.title')),
       h('div', { class: 'big' }, t('away.passed', { v: fmtInt(rep.years) })),
       h('div', { class: 'rows' },
-        h('div', {}, energyIcon(16), '+' + fmt(rep.energy)),
+        h('div', {}, t('away.energy', { v: fmt(rep.energy) })),
         rep.layers ? h('div', {}, t('away.layers', { v: fmtInt(rep.layers) })) : null,
-        ...rocks.map(([k, v]) => h('div', {}, rockIcon(k, 16), `${t('rocks.' + k)} +${fmt(v, 0)}`)),
+        ...rocks.map(([k, v]) => h('div', {}, `${t('rocks.' + k)}: +${fmt(v, 0)}`)),
         rep.fossils ? h('div', {}, t('away.fossils', { v: rep.fossils })) : null,
         rep.notes.length ? h('div', {}, t('away.notes', { v: rep.notes.length })) : null),
       h('button', { class: 'stone-btn primary', onclick: () => this.close() }, t('btn.continue')));
