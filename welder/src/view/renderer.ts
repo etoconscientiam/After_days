@@ -50,6 +50,17 @@ float bayer4(vec2 p) {
   return 0.0;
 }
 
+float h21(vec2 p) {
+  p = fract(p * vec2(123.34, 456.21));
+  p += dot(p, p + 45.32);
+  return fract(p.x * p.y);
+}
+float vn(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), f.x), mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+
 vec3 aces(vec3 x) {
   return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
 }
@@ -84,9 +95,26 @@ void main() {
   float wd = length(max(wq, 0.0)) + min(max(wq.x, wq.y), 0.0) - rr;
   float inWin = step(wd, 0.0);
   float rim = smoothstep(0.0, -0.16, wd);
+  // The glass is old: in whole screen pixels fixed to the glass (they ride with it as the mask drops), a
+  // milky wear that thickens toward the rim, fine scratches catching light, and specks of dust.
+  vec2 gp = floor(vec2(q.x, q.y - yc) * uRes.y);
+  float edge = 1.0 - smoothstep(0.0, -0.12, wd);
+  float deep = 1.0 - smoothstep(0.0, -0.26, wd);
+  float patchy = vn(gp * 0.035) * 0.6 + vn(gp * 0.11 + 7.0) * 0.4;
+  vec2 s1 = mat2(0.93, 0.37, -0.37, 0.93) * gp;
+  vec2 s2 = mat2(0.8, -0.6, 0.6, 0.8) * gp;
+  float scr = smoothstep(0.86, 0.97, vn(vec2(s1.x * 0.04, s1.y * 0.7))) * step(0.7, vn(gp * 0.05 + 3.0))
+            + smoothstep(0.88, 0.98, vn(vec2(s2.x * 0.03, s2.y * 0.8) + 11.0)) * step(0.74, vn(gp * 0.045 + 9.0));
+  float wear = edge * (0.35 + 0.65 * patchy) + scr * (0.12 + 0.88 * deep) * 0.6;
+  float dust = max(step(0.9988 - 0.006 * deep, h21(gp + 17.0)), step(0.9992 - 0.005 * deep, h21(floor(gp * 0.5) + 31.0)) * 0.8);
+  float lumc = dot(c, vec3(0.3, 0.6, 0.1));
+  lumc = lumc / (1.0 + lumc);
+  vec3 haze = vec3(0.9, 1.0, 0.92) * wear * (0.035 + 0.18 * lumc + 0.5 * halo) + dust * halo * 0.3;
+  // Vignette: the eye sits deep in the hood, the rim of the window falls off into its dark.
+  float gv = mix(0.12, 1.0, rim * rim) * (1.0 - 0.55 * deep * deep);
   // Through the glass: the arc and hot metal at the glass's transmission, plus a dim, compressed view of the
   // rest so the work stays readable (a lighter glass shows more of it).
-  vec3 seen = ((c + halo * 0.35) * uMaskT + c / (1.0 + c) * uMaskSee) * uMaskTint * mix(0.18, 1.0, rim * rim);
+  vec3 seen = (((c + halo * 0.35) * uMaskT + c / (1.0 + c) * uMaskSee) * gv * (1.0 - 0.6 * dust) + haze * (1.0 - 0.5 * dust)) * uMaskTint;
   vec3 world = c + halo * (0.6 + 1.2 * uGlare);
   c = mix(world, mix(uShell, seen, inWin), covered);
 

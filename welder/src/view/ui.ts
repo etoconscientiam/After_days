@@ -5,6 +5,9 @@ import type { GradeId } from '../data/types';
 import { t } from '../i18n';
 import type { Order } from '../sim/orders';
 import { jobSheet, payAtGrade, seamProgress, JobSheet } from '../sim/jobs';
+
+/** The close button in a window's corner: a pixel cross on a small plate, which stays put while the window scrolls. */
+const CLOSE_X = `<div class="x" title="Esc"><svg viewBox="0 0 7 7" aria-hidden="true">${[0, 1, 2, 3, 4, 5, 6].map((i) => `<rect x="${i}" y="${i}" width="1" height="1"/><rect x="${6 - i}" y="${i}" width="1" height="1"/>`).join('')}</svg></div>`;
 import { payForSeams, seamLosses } from '../sim/quality';
 
 function el(tag: string, id?: string, cls?: string): HTMLElement {
@@ -338,17 +341,19 @@ export class UI {
       });
       return `<h4>${t('craft.' + group)}</h4><div class="items">${cards.join('')}</div>`;
     };
-    this.craftEl.innerHTML = `<h3>${t('craft.title')}</h3><div class="money-line">◆ ${g.money}</div>${sec('craft')}${sec('tools')}${sec('shop')}<div class="close">${t('board.close')}</div>`;
+    this.craftEl.innerHTML = `${CLOSE_X}<h3>${t('craft.title')}</h3><div class="money-line">◆ ${g.money}</div>${sec('craft')}${sec('tools')}${sec('shop')}<div class="close">${t('board.close')}</div>`;
     this.craftEl.querySelectorAll<HTMLElement>('.buy').forEach((b) =>
       b.addEventListener('pointerdown', (e) => {
         e.stopPropagation();
         this.onBuy(b.dataset.id!);
       }),
     );
-    this.craftEl.querySelector('.close')!.addEventListener('pointerdown', (e) => {
-      e.stopPropagation();
-      this.closeCraft();
-    });
+    this.craftEl.querySelectorAll('.close, .x').forEach((b) =>
+      b.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+        this.closeCraft();
+      }),
+    );
   }
 
   /** One step of the workshop tour: a label at (x, y) with what this is and a "next" mark. */
@@ -567,7 +572,7 @@ export class UI {
         ${why ? `<div class="why">${why}</div>` : ''}
       </div>`;
     });
-    this.board.innerHTML = `<h3>${t('board.title')}</h3><div class="cards">${cards.join('') || `<div class="empty">${t('board.empty')}</div>`}</div><div class="close">${t('board.close')}</div>`;
+    this.board.innerHTML = `${CLOSE_X}<h3>${t('board.title')}</h3><div class="cards">${cards.join('') || `<div class="empty">${t('board.empty')}</div>`}</div><div class="close">${t('board.close')}</div>`;
     this.board.querySelectorAll<HTMLElement>('.card').forEach((c) =>
       c.addEventListener('pointerdown', (e) => {
         e.stopPropagation();
@@ -580,10 +585,12 @@ export class UI {
         this.showJob(o, () => this.onTake(uid));
       }),
     );
-    this.board.querySelector('.close')!.addEventListener('pointerdown', (e) => {
-      e.stopPropagation();
-      this.closeBoard();
-    });
+    this.board.querySelectorAll('.close, .x').forEach((b) =>
+      b.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+        this.closeBoard();
+      }),
+    );
   }
 
   showStart(resume: boolean, onGo: (fresh: boolean) => void, onLang: () => void): void {

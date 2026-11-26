@@ -5,6 +5,9 @@ import type { Textures } from './textures';
 import { holdingHand, gripFrame, type Hand } from './hand';
 
 const Y = new THREE.Vector3(0, 1, 0);
+const D2R = Math.PI / 180;
+/** How obliquely the left fist holds the tongs (degrees): the handles run out of it toward the job. */
+const L_OBL = 60;
 
 /**
  * Hands and tools. The right arm reaches in from the lower right with the electrode holder (or the chipping
@@ -40,10 +43,6 @@ export class Tools {
   private hHolder = new THREE.Vector3(0.82, -0.2, 0.54).normalize();
   private eHolder = new THREE.Vector3(0.45, -0.85, 0.25).normalize();
   private eHammer = new THREE.Vector3(0.35, -0.75, 0.55).normalize();
-  // The tongs: from the jaws back toward you and a little left, over the work rather than past the bench's
-  // side; held palm down in an oblique grip, the handles running out along the forearm to the lower left.
-  private hL = new THREE.Vector3(-0.35, 0.05, 0.93).normalize();
-  private eL = new THREE.Vector3(-0.8, -0.6, 0).normalize();
   private tE = new THREE.Vector3();
   readonly handR: Hand;
   readonly handH: Hand;
@@ -115,7 +114,7 @@ export class Tools {
     tip.position.set(0.004, 0.009, 0);
     const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.013, 0.26, 0.013), lambert({ map: tx.wood, color: '#d8c8b0' }));
     shaft.position.set(0.045, 0.14, 0);
-    const hh = holdingHand(0.0085, 0.2, 0.045, false, 30);
+    const hh = holdingHand(0.0085, 0.2, 0.045);
     this.handH = hh.hand;
     this.hammer.add(head, tip, shaft, hh.group);
     this.hammer.traverse((o) => (o.castShadow = true));
@@ -138,7 +137,7 @@ export class Tools {
     piv.rotation.x = Math.PI / 2;
     piv.position.y = 0.06;
     this.left.add(piv);
-    const lh = holdingHand(0.016, 0.14, 0, true, 35);
+    const lh = holdingHand(0.016, 0.14, 0, true, L_OBL);
     this.handL = lh.hand;
     this.left.add(lh.group);
     this.left.visible = false;
@@ -196,6 +195,9 @@ export class Tools {
   }
   private tH = new THREE.Vector3();
   private tZ = new THREE.Vector3();
+  /** The chipping hammer in view space: the arm (and head) toward the eye from the lower right; the shaft. */
+  private hArm = new THREE.Vector3(0.3, -0.3, 0.9).normalize();
+  private hShaft = new THREE.Vector3(0.8, 0.5, 0.3).normalize();
   private mB = new THREE.Matrix4();
   private qi = new THREE.Quaternion();
 
@@ -207,28 +209,48 @@ export class Tools {
     if (normal) this.hammer.position.addScaledVector(normal, 0.002 + lift * 0.04);
     else this.hammer.position.y += 0.002 + lift * 0.04;
     if (normal) {
-      // Struck point-first: the head stands straight out of the surface (+x along the normal), the shaft
-      // runs nearly along the work toward the hand, tipped up a little so the fist clears it.
-      const y = this.tH.copy(this.hHammer).applyQuaternion(cam.quaternion);
-      y.addScaledVector(normal, -y.dot(normal));
-      if (y.lengthSq() < 1e-6) y.copy(this.tE.copy(this.eHammer).applyQuaternion(cam.quaternion)).addScaledVector(normal, -y.dot(normal));
-      y.normalize().multiplyScalar(Math.cos(0.3)).addScaledVector(normal, Math.sin(0.3));
-      const x = this.tE.copy(normal).addScaledVector(y, -normal.dot(y)).normalize();
+      // The forearm leaves the fist along +x, the way the head points: toward the eye from the lower right,
+      // and always out of the surface, so only the point touches the job. The shaft runs across, up and right.
+      const x = this.tE.copy(this.hArm).applyQuaternion(cam.quaternion);
+      if (x.dot(normal) < 0.3) x.addScaledVector(normal, 0.3 - x.dot(normal));
+      x.normalize();
+      const y = this.tH.copy(this.hShaft).applyQuaternion(cam.quaternion);
+      y.addScaledVector(x, -y.dot(x)).normalize();
       this.q.setFromRotationMatrix(this.mB.makeBasis(x, y, this.tZ.crossVectors(x, y)));
     } else this.aim(cam, this.hHammer, this.eHammer, this.q);
     this.hammer.quaternion.copy(this.q);
   }
 
-  /** Tongs gripping the job at `at`; hidden when there is nothing to hold. */
+  /**
+   * Tongs gripping the job at `at`; hidden when there is nothing to hold. Posed from the hand, not the tool,
+   * the way one holds pliers out in front: the left fist stands thumb-up, its back turned out to the left and
+   * a little up, the knuckles pointing ahead, down to the bench and a little right (reaching for the work),
+   * the forearm running back to the lower left.
+   * The tongs leave the fist by the thumb, where the oblique grip sends them: ahead and up to the job.
+   */
   placeLeft(at: THREE.Vector3 | null, cam: THREE.Camera): void {
     this.left.visible = !!at;
     if (!at) return;
     // The left hand only steadies the job: a little smaller, so it never crowds the work.
     this.left.scale.setScalar(1 + (this.kAt(cam, at) - 1) * 0.6);
     this.left.position.copy(at);
-    this.aim(cam, this.hL, this.eL, this.q);
-    this.left.quaternion.copy(this.q);
+    const distal = this.lDis.copy(this.lDist).normalize();
+    const back = this.lRt.copy(this.lBack).addScaledVector(distal, -this.lBack.dot(distal)).normalize();
+    // A left hand: back = radial × distal, so the thumb side is distal × back.
+    const radial = this.lRad.crossVectors(distal, back);
+    // In the tool's frame the hand's radial and distal axes are fixed by the grip (holdingHand); invert that.
+    const co = Math.cos(L_OBL * D2R), so = Math.sin(L_OBL * D2R);
+    const x = this.tH.copy(radial).multiplyScalar(so).addScaledVector(distal, -co);
+    const y = this.tE.copy(radial).multiplyScalar(-co).addScaledVector(distal, -so);
+    this.q.setFromRotationMatrix(this.mB.makeBasis(x, y, this.tZ.crossVectors(x, y)));
+    this.left.quaternion.copy(cam.quaternion).multiply(this.q);
   }
+  /** The left fist in view space: where its knuckles point, and where the back of the hand faces. */
+  lDist = new THREE.Vector3(0.29, -0.3, -0.91);
+  lBack = new THREE.Vector3(-0.86, 0.41, 0.31);
+  private lRt = new THREE.Vector3();
+  private lRad = new THREE.Vector3();
+  private lDis = new THREE.Vector3();
 
   strike(): void {
     this.swing = 1;

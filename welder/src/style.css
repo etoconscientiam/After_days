@@ -449,7 +449,7 @@ html, body {
  * frame pixels (--fu). The border only keeps the content clear of the rim.
  * ---------------------------------------------------------------------------------------------- */
 #tip, #tour, .toast, #app-status, #craft-btn, #lang-btn, #ctrl .k, #craft .buy, #job .btns span,
-#board .close, #craft .close, #start .go, #end .go, #start .links span, #rod {
+#board .close, #craft .close, #start .go, #end .go, #start .links span, #rod, #craft .x, #board .x {
   border: calc(var(--fu, 3px) * 3) solid transparent !important;
 }
 #money, #job, #craft, #board, #stages, #end .panel, #stamp, #craft .item, #board .card {
@@ -492,7 +492,7 @@ html, body {
    the system cursor is replaced by a pixel arrow, golden over anything you can press. */
 html, body, #ui, #ui .pe, #ui .pe * { cursor: var(--cur); }
 #craft-btn, #lang-btn, #craft .buy, #job .btns span, #board .card:not(.off), #board .close, #craft .close,
-#start, #start .go, #start .links span, #end .go, #tour, #tour * { cursor: var(--cur-hot) !important; }
+#start, #start .go, #start .links span, #end .go, #tour, #tour *, #craft .x, #board .x, .x * { cursor: var(--cur-hot) !important; }
 #game { cursor: none; }
 /* While a window is open (or before the start) the game's crosshair is hidden: the pixel arrow shows over the scene too. */
 body.ui-modal #game { cursor: var(--cur); }
@@ -558,3 +558,21 @@ body.ui-modal #game { cursor: var(--cur); }
 #hint.edge-r::after { width: auto; height: auto; margin: 0; background: none; }
 #why { color: rgba(255, 196, 150, 0.9); margin-top: calc(var(--px) * 7); }
 @keyframes ar-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* Close cross in a window's corner: sticks to the top while the window scrolls. */
+#craft .x, #board .x {
+  position: sticky;
+  top: 0;
+  float: right;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25em;
+  height: 2.25em;
+  margin-left: calc(var(--px) * 2);
+  box-sizing: border-box;
+  cursor: pointer;
+}
+#craft .x svg, #board .x svg { width: 0.75em; height: 0.75em; flex: none; fill: #f0e0b8; shape-rendering: crispEdges; }
+#craft .x:hover svg, #board .x:hover svg { fill: #ffd070; }

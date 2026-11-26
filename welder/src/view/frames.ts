@@ -39,7 +39,7 @@ const RULES: Rule[] = [
   ['#stamp.bad', 'bad', null, true],
   ['#craft-btn, #lang-btn, #craft .buy, #job .take, #start .go, #end .go', 'btn', 'hot', false],
   ['#craft-btn.glow', 'hot', null, false],
-  ['#job .later, #board .close, #craft .close, #start .links span', 'dark', 'btn', false],
+  ['#job .later, #board .close, #craft .close, #start .links span, #craft .x, #board .x', 'dark', 'btn', false],
   ['#ctrl .k', 'key', null, false],
 ];
 const ALL = RULES.map((r) => r[0]).join(', ');
