@@ -212,8 +212,9 @@ export class UI {
     return `<span class="fill" style="--p:${Math.round(Math.max(0, Math.min(1, k)) * 100)}%">${text}</span>`;
   }
 
+  /** Difficulty, 1..5: filled stars, the rest dim (the pixel font draws ☆ like ★). */
   private stars(n: number): string {
-    return '★'.repeat(n) + '☆'.repeat(5 - n);
+    return `<span class="on">${'★'.repeat(n)}</span><span class="off">${'★'.repeat(5 - n)}</span>`;
   }
 
   private coins(v: number): string {

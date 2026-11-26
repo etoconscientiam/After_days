@@ -180,6 +180,8 @@ export function difficulty(part: { seams: { pts: number[][]; closed?: boolean }[
   for (const s of part.seams)
     for (let i = 1; i < s.pts.length; i++) len += Math.hypot(s.pts[i][0] - s.pts[i - 1][0], s.pts[i][1] - s.pts[i - 1][1], s.pts[i][2] - s.pts[i - 1][2]);
   const rings = part.seams.some((s) => s.closed) ? 1 : 0;
-  const score = len / 110 + (part.seams.length - 1) * 0.35 + rings * 0.8 + (needsTurn ? 0.8 : 0) + Math.max(0, part.thick - 1) * 2;
-  return Math.max(1, Math.min(5, Math.round(0.6 + score)));
+  // Length counts less and less (a long seam is more of the same), so the long jobs spread over 3..5 instead
+  // of all hitting the top.
+  const score = Math.sqrt(len / 60) * 0.9 + (part.seams.length - 1) * 0.3 + rings * 0.5 + (needsTurn ? 0.5 : 0) + Math.max(0, part.thick - 1) * 3;
+  return Math.max(1, Math.min(5, Math.round(score * 1.15 - 0.15)));
 }

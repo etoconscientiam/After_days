@@ -642,3 +642,7 @@ body.ui-modal #game { cursor: var(--cur); }
   50% { background-position: calc(var(--px) * 13) calc(var(--px) * -5); }
   75% { background-position: calc(var(--px) * 4) calc(var(--px) * 8); }
 }
+
+/* Difficulty stars: filled, and the rest dimmed. */
+.stars .on { color: #c8902a; }
+.stars .off { color: rgba(90, 72, 52, 0.35); }
