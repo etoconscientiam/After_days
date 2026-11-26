@@ -9,7 +9,7 @@ import { WW, WH } from '../render/common';
 import { t, fmt } from './i18n';
 import { fmtCountdown } from './hud';
 import { makeEntry, chronicleCard } from './chronicle';
-import { rockIcon } from './icons';
+import { rockIcon, pixelGlyph, GLYPH_CROSS } from './icons';
 
 
 export class Input {
@@ -56,6 +56,7 @@ export class Input {
     c.addEventListener('contextmenu', (e) => { if (this.targeting) { e.preventDefault(); this.cancelTarget(); } });
     window.addEventListener('keydown', (e) => { if (e.key === 'Escape') this.cancelTarget(); });
     this.fieldnote.addEventListener('click', (e) => { if (!(e.target as HTMLElement).closest('.l-toggle')) this.fieldnote.hidden = true; });
+    $('#target-cancel').append(pixelGlyph(GLYPH_CROSS, '#ede3d0'));
     $('#target-cancel').addEventListener('click', () => this.cancelTarget());
   }
 

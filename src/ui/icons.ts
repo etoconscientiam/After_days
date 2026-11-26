@@ -29,26 +29,41 @@ function imgOr(path: string, size: number, draw: () => HTMLElement): HTMLElement
 }
 
 /** The energy spark: a four-pointed amber star with a halo. */
+/** The spark of Energy, in pixels like everything else in the game: a four-pointed amber star with a white-hot
+ *  core and a dark rim, drawn on a 9×9 grid and scaled by whole pixels (crisp at any size). */
+const SPARK = [
+  '....a....',
+  '....b....',
+  '...abA...',
+  '..abcbA..',
+  'abbcwcbbA',
+  '..abcbA..',
+  '...abA...',
+  '....b....',
+  '....A....',
+];
+const SPARK_COL: Record<string, string> = { a: '#e08a2c', A: '#a85a1c', b: '#f2b54a', c: '#ffd88a', w: '#fff6dc' };
+export function pixelSpark(size = 18): HTMLCanvasElement {
+  const k = Math.max(1, Math.round(size / 9));
+  const n = SPARK.length + 2;                       // + a dark rim around the star
+  const c = document.createElement('canvas');
+  c.width = n * k; c.height = n * k;
+  c.className = 'pix spark';
+  c.style.width = n * k + 'px'; c.style.height = n * k + 'px';
+  const x = c.getContext('2d')!;
+  const on = (r: number, q: number) => r >= 0 && r < SPARK.length && q >= 0 && q < SPARK.length && SPARK[r][q] !== '.';
+  for (let r = -1; r <= SPARK.length; r++) for (let q = -1; q <= SPARK.length; q++) {
+    if (on(r, q)) x.fillStyle = SPARK_COL[SPARK[r][q]];
+    else if (on(r - 1, q) || on(r + 1, q) || on(r, q - 1) || on(r, q + 1)) x.fillStyle = 'rgba(20,12,6,0.85)';
+    else continue;
+    x.fillRect((q + 1) * k, (r + 1) * k, k, k);
+  }
+  return c;
+}
+
 export function energyIcon(size = 18): HTMLElement {
-  // the painted icon is a dark tile: only at sizes where it reads (small inline sparks stay procedural)
-  return imgOr(size >= 24 ? 'ui/icons/energy.png' : 'ui/icons/__none.png', size, () => {
-    const [c, x] = canvas(size);
-    const s = size / 2;
-    const g = x.createRadialGradient(s, s, 0, s, s, s);
-    g.addColorStop(0, 'rgba(255,230,160,0.9)'); g.addColorStop(0.5, 'rgba(242,181,74,0.35)'); g.addColorStop(1, 'rgba(242,181,74,0)');
-    x.fillStyle = g; x.fillRect(0, 0, size, size);
-    x.beginPath();
-    const r1 = s * 0.92, r2 = s * 0.22;
-    for (let i = 0; i < 8; i++) {
-      const a = (i / 8) * Math.PI * 2 - Math.PI / 2, r = i % 2 ? r2 : r1;
-      x.lineTo(s + Math.cos(a) * r, s + Math.sin(a) * r);
-    }
-    x.closePath();
-    const f = x.createLinearGradient(0, 0, size, size);
-    f.addColorStop(0, '#fff1c8'); f.addColorStop(1, THEME.amber);
-    x.fillStyle = f; x.fill();
-    return c;
-  });
+  // the painted icon is a dark tile: only at sizes where it reads; inline sparks are the pixel star
+  return imgOr(size >= 24 ? 'ui/icons/energy.png' : 'ui/icons/__none.png', size, () => pixelSpark(size));
 }
 
 function hexRgb(h: string): number[] { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
@@ -239,3 +254,17 @@ export function oxygenIcon(size = 16): HTMLElement {
   }
   return c;
 }
+
+/** A small pixel glyph from rows of '#' (the pixel font has no ✕ or ⟲), scaled by whole pixels. */
+export function pixelGlyph(rows: string[], color: string, k = 2): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  c.width = rows[0].length * k; c.height = rows.length * k;
+  c.className = 'pix';
+  c.style.width = c.width + 'px'; c.style.height = c.height + 'px';
+  const x = c.getContext('2d')!;
+  x.fillStyle = color;
+  rows.forEach((r, y) => { for (let q = 0; q < r.length; q++) if (r[q] === '#') x.fillRect(q * k, y * k, k, k); });
+  return c;
+}
+export const GLYPH_CROSS = ['#...#', '.#.#.', '..#..', '.#.#.', '#...#'];
+export const GLYPH_ROTATE = ['..####..', '.#....#.', '#......#', '#......#', '#....###', '.#....##', '..####.#'];

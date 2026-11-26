@@ -320,7 +320,7 @@ export class SectionRenderer {
       if (cnt) {
         const mean = pack32(sr / cnt, sg / cnt, sb / cnt);
         // no alternate bright/dark lines and only a mild evening-out: on a peaked pile they read as stripes across it
-        const even = Math.min(0.55, 0.1 + 0.45 * depth);
+        const even = Math.min(0.3, 0.05 + 0.25 * depth);
         const lit = 1 - 0.18 * depth;
         // the two halves of the line, each over its span of pixels
         for (let half = 0; half < 2; half++) {
@@ -345,11 +345,25 @@ export class SectionRenderer {
       }
       y += h;
     }
-    for (let p = 0; p < H; p++) {
-      for (let xx = 0; xx < WW; xx++) {
-        const q = (p * WW + xx) * 4, w = acc[q + 3];
+    // the squeeze is a funnel into the thing's vessel, not flat stripes across the cut: near the thing the lines bend
+    // down into its mouth (a column shows the lines from higher up, the top line stretched), and away from it they
+    // sink into the dark of the depth — the thing's light shows them only around it
+    const cxs = grid.artifacts.length ? grid.artifacts.map((a) => a * 2 + CFG.B.sand.artifactW) : [WW / 2];
+    for (let xx = 0; xx < WW; xx++) {
+      let dx = WW;
+      for (const c of cxs) dx = Math.min(dx, Math.abs(xx + 0.5 - c));
+      const k = Math.max(0, 1 - (dx / FUNNEL_R) ** 2);
+      const sag = Math.round(FUNNEL_SAG * k * k);
+      const far = Math.min(1, Math.max(0, (dx - 18) / 70));
+      const dark = 1 - 0.6 * far * far * (3 - 2 * far);
+      for (let p = 0; p < H; p++) {
+        const sp = Math.max(0, p - sag);
+        const q = (sp * WW + xx) * 4, w = acc[q + 3];
         if (w < 0.35) continue;
-        buf[(y0 + p) * WW + xx] = pack32(acc[q] / w, acc[q + 1] / w, acc[q + 2] / w);
+        // away from the thing the lines darken with depth: the top line as it is, the deepest ones in shadow
+        const kp = p / H;
+        const d = 1 - (1 - dark) * kp * (2 - kp);
+        buf[(y0 + p) * WW + xx] = pack32(acc[q] / w * d, acc[q + 1] / w * d, acc[q + 2] / w * d);
       }
     }
   }
@@ -456,6 +470,9 @@ export function rowScreenY(g: Game, row: number): number {
   const y = r >= 1 ? 2 * k : (2 * (1 - Math.pow(r, k))) / (1 - r);
   return band0 * 2 + y + h / 2;
 }
+
+/** The funnel of the squeeze into the thing: half-width (px) and how far the lines bend down at its middle (px). */
+const FUNNEL_R = 34, FUNNEL_SAG = 6;
 
 /** The ratio r of the squeeze: L lines, the first 2 px high, each next one r times the one above, fill H px. */
 const ratioCache = new Map<number, number>();

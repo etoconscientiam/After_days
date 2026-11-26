@@ -141,3 +141,40 @@ export function itemPicture(id: string, size = 48): HTMLCanvasElement {
   drawItem(c.getContext('2d')!, id, size / 2, size / 2, 32, 'hover');
   return c;
 }
+
+/** The vessel the thing lies in: a bowl of worked dark stone sunk in the horizon, open to the strata above (the
+ *  squeezed lines pour into its mouth). A light rim, a thin amber inlay along the walls, and a dark hollow the thing
+ *  glows in, so it never gets lost among the grains. (cx, cy): the middle of the thing. */
+const VESSEL = { R: 11, H: 14, top: 8 };
+export function drawVessel(ctx: CanvasRenderingContext2D, cx: number, cy: number, t: number): void {
+  const x0 = Math.round(cx), y0 = Math.round(cy) - VESSEL.top;
+  const { R, H } = VESSEL;
+  for (let y = 0; y < H; y++) {
+    const k = y / (H - 1);
+    const inner = Math.round(R * Math.sqrt(Math.max(0, 1 - k * k * 0.85)));   // the hollow narrows toward the bottom
+    const outer = inner + (y === H - 1 ? 0 : 2) + (y >= H - 3 ? 1 : 0);
+    for (let x = -outer; x < outer; x++) {
+      const ax = x < 0 ? -x - 1 : x;
+      const px = x0 + x, py = y0 + y;
+      let col: string;
+      if (ax < inner && y < H - 1) {
+        // the hollow: near black, warmer toward the thing
+        const d = Math.hypot(x + 0.5, (y - VESSEL.top) * 1.4) / R;
+        const w = Math.max(0, 1 - d);
+        col = `rgb(${Math.round(16 + 70 * w)},${Math.round(11 + 40 * w)},${Math.round(9 + 16 * w)})`;
+      } else {
+        // the wall: dark stone, lit at the rim and the inner edge on the left, an amber inlay in the middle of the wall
+        const edge = ax === inner || ax === inner + 1 && y === H - 2;
+        const rim = y === 0;
+        const inlay = !rim && ax === inner + 1 && y > 1 && y < H - 2;
+        const glint = inlay && Math.sin(t * 1.6 + y * 0.9 + (x < 0 ? 0 : 2)) > 0.6;
+        col = rim ? (x < 0 ? '#8c7a62' : '#6e5e4c')
+          : inlay ? (glint ? '#e6b45a' : '#9a7034')
+          : edge ? (x < 0 ? '#57493c' : '#3e342c')
+          : y >= H - 2 ? '#1e1916' : '#2e2620';
+      }
+      ctx.fillStyle = col;
+      ctx.fillRect(px, py, 1, 1);
+    }
+  }
+}

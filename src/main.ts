@@ -15,9 +15,9 @@ import { Drawer } from './ui/drawer';
 import { Input } from './ui/input';
 import { Modals } from './ui/modals';
 import { DevPanel } from './ui/debug';
-import { $, toggle } from './ui/dom';
+import { $, h, toggle } from './ui/dom';
 import { t, fmt, setLang, onLangChange } from './ui/i18n';
-import { rockIcon, energyIcon, exhibit } from './ui/icons';
+import { rockIcon, energyIcon, exhibit, pixelSpark, pixelGlyph, GLYPH_ROTATE } from './ui/icons';
 import { audio } from './audio/audio';
 import { setWear, wearFrom } from './ui/wear';
 import { Turmoil, SEVERITY } from './ui/turmoil';
@@ -37,6 +37,7 @@ for (const [k, v] of Object.entries(THEME)) if (!k.startsWith('_')) document.doc
  *  menu (?menu in the address). */
 const INTRO = !(navigator.webdriver && !/[?&]menu\b/.test(location.search));
 /** the game stands still while the menu is up (the world behind it still breathes: sky, water, light) */
+$('#rotate span').append(pixelGlyph(GLYPH_ROTATE, '#f2b54a', 6));
 let paused = INTRO;
 // an automated test goes straight in: no loader over the world to catch its first taps
 if (!INTRO) document.getElementById('boot')?.remove();
@@ -517,7 +518,7 @@ function absorbLabel(dt: number): void {
   const x = r.left + (WW / 2 / WW) * r.width, y = r.top + ((renderer.lay.artifactY - 30) / WH) * r.height;
   const el = document.createElement('div');
   el.className = 'float-gain';
-  el.textContent = '+' + fmt(absorbGain) + ' ✦';
+  el.append(h('span', {}, '+' + fmt(absorbGain)), pixelSpark(16));
   el.style.left = x + 'px'; el.style.top = y + 'px';
   document.body.append(el);
   setTimeout(() => el.remove(), 1400);

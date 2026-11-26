@@ -277,7 +277,7 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 /* target bar */
 #target-bar { position: absolute; left: 50%; top: 112px; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; z-index: 4;
   background: rgba(27,24,22,0.88); border-radius: 18px; padding: 5px 6px 5px 12px; font-size: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
-#target-cancel { width: 26px; height: 26px; border-radius: 50%; background: var(--stone-500); color: var(--bone); font-size: 16px; }
+#target-cancel { width: 26px; height: 26px; border-radius: 0; background: var(--stone-500); color: var(--bone); font-size: 16px; display: inline-flex; align-items: center; justify-content: center; }
 
 /* overlay: ritual slabs, return summary, end */
 #overlay { position: absolute; inset: 0; z-index: 10; display: none; }
@@ -425,7 +425,9 @@ html[data-tremor] #ui { animation: letterTremor 0.14s steps(1) infinite; }
 #goal .g-main { text-shadow: 1px 1px 0 #000, 0 0 4px #000; }
 #goal .g-row { display: flex; gap: 8px; align-items: baseline; white-space: nowrap; max-width: 100%; }
 #goal .g-main { color: var(--bone); text-shadow: 0 1px 2px #000; overflow: hidden; text-overflow: ellipsis; }
-#goal .g-bar, .goal-row .g-bar { color: var(--amber); letter-spacing: -1px; text-shadow: 0 0 6px rgba(242,181,74,0.5); }
+#goal .g-bar, .goal-row .g-bar { display: inline-flex; gap: 2px; align-items: center; vertical-align: middle; }
+#goal .g-bar i, .goal-row .g-bar i { display: block; width: 8px; height: 6px; background: #1a1410; box-shadow: inset 0 0 0 2px rgba(242,181,74,0.55); }
+#goal .g-bar i.on, .goal-row .g-bar i.on { background: var(--amber); box-shadow: inset 0 -2px 0 #b9792c, 0 0 6px rgba(242,181,74,0.45); }
 #goal .g-sub { display: none; }
 #goal .g-sub.lever { display: block; color: #b8d890; font-size: 0.85em; white-space: normal; text-shadow: 0 1px 2px #000; }
 #goal[hidden] { display: none; }
@@ -541,9 +543,31 @@ html[data-tremor] #ui { animation: letterTremor 0.14s steps(1) infinite; }
 @keyframes chipBump { 40% { transform: scale(1.18); filter: drop-shadow(0 0 6px rgba(255,220,140,0.9)); } }
 
 /* «+N» over the thing when it absorbs: rises and fades */
-.float-gain { position: fixed; z-index: 20; transform: translate(-50%, 0); color: #ffd27a; font-size: 15px; font-weight: bold; pointer-events: none;
-  text-shadow: 0 0 2px #000, 0 1px 0 #000, 1px 0 0 #000, -1px 0 0 #000, 0 -1px 0 #000; animation: floatGain 1.3s ease-out forwards; white-space: nowrap; }
-@keyframes floatGain { 0% { opacity: 0; transform: translate(-50%, 4px) scale(0.8); } 15% { opacity: 1; transform: translate(-50%, 0) scale(1.1); } 100% { opacity: 0; transform: translate(-50%, -34px) scale(1); } }
+.float-gain { position: fixed; z-index: 20; transform: translate(-50%, 0); display: flex; align-items: center; gap: 4px; pointer-events: none; white-space: nowrap;
+  color: #ffd27a; font-family: var(--text); font-size: 32px; line-height: 32px; font-weight: normal;
+  text-shadow: 0 2px 0 #000, 2px 0 0 #000, -2px 0 0 #000, 0 -2px 0 #000, 0 0 10px rgba(242,181,74,0.35);
+  animation: floatGain 1.6s ease-out forwards; }
+.float-gain span { animation: floatGainWear 1.6s linear forwards; }
+.float-gain .spark { filter: drop-shadow(0 0 4px rgba(242,181,74,0.6)); }
+@keyframes floatGain { 0% { opacity: 0; transform: translate(-50%, 6px); } 10% { opacity: 1; transform: translate(-50%, 0); } 80% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -30px); } }
+/* the figures come out of the weathered stone and wear away again, with a flicker of the levels (as the notes) */
+@keyframes floatGainWear {
+  0% { font-family: 'Strata Pixel Worn 4', var(--text); translate: 1px 0; }
+  6% { font-family: 'Strata Pixel Worn 3', var(--text); translate: -1px 0; }
+  10% { font-family: 'Strata Pixel Worn 4', var(--text); translate: 0 1px; }
+  14% { font-family: 'Strata Pixel Worn 2', var(--text); translate: 0 0; }
+  18% { font-family: 'Strata Pixel Worn 3', var(--text); }
+  24% { font-family: 'Strata Pixel Worn 1', var(--text); }
+  30% { font-family: 'Strata Pixel Worn 2', var(--text); }
+  36% { font-family: 'Strata Pixel', var(--text); }
+  60% { font-family: 'Strata Pixel Worn 1', var(--text); }
+  66% { font-family: 'Strata Pixel', var(--text); }
+  72% { font-family: 'Strata Pixel Worn 2', var(--text); }
+  80% { font-family: 'Strata Pixel Worn 3', var(--text); translate: 1px 0; }
+  88% { font-family: 'Strata Pixel Worn 2', var(--text); translate: 0 0; }
+  94% { font-family: 'Strata Pixel Worn 4', var(--text); translate: -1px 0; }
+  100% { font-family: 'Strata Pixel Worn 4', var(--text); translate: 0 0; }
+}
 
 /* ---------- the main menu: over the paused world of the active slot ---------- */
 #menu { position: absolute; inset: 0; z-index: 40; display: flex; flex-direction: column; align-items: center; pointer-events: auto;
@@ -1033,3 +1057,8 @@ html.desktop #side-right .card .name { font-size: 15px; min-height: 2.2em; }
 .ip-tube { flex: none; display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .ip-tube canvas { width: 14px; height: 84px; }
 .ip-tube b { font-family: var(--num); font-weight: 400; font-size: 13px; color: var(--bone); }
+
+/* ---- pixel consistency: no blur behind the dimmed overlay, the small dots are square pixels like everything else */
+#overlay.dim { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(8, 6, 10, 0.66); }
+.note-plate .dot, .tab .dot, .dbg-btn.fast::after { border-radius: 0 !important; width: 6px; height: 6px; }
+.tab .dot { box-shadow: 0 0 0 2px #2a1a08; }

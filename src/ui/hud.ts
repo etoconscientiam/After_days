@@ -224,7 +224,7 @@ export class Hud {
     if (!main) return;
     setText(this.goalMain, '◆ ' + main.text);
     const seg = 8, on = Math.round(main.k * seg);
-    this.goalBar.textContent = '▰'.repeat(on) + '▱'.repeat(seg - on);
+    this.goalBar.replaceChildren(...segBar(on, seg));
     // under the era goal: its lever (what to strengthen or pile, and what the niche lacks)
     const lever = main.sub ? this.leverText(g) : '';
     this.goalSub.hidden = !lever;
@@ -240,7 +240,7 @@ export class Hud {
     const gs = this.goals(g);
     const rows = gs.length ? gs.map((x) => {
       const seg = 10, on = Math.round(x.k * seg);
-      return h('div', { class: 'l-sub goal-row' }, h('span', {}, x.text), h('span', { class: 'g-bar' }, '▰'.repeat(on) + '▱'.repeat(seg - on)));
+      return h('div', { class: 'l-sub goal-row' }, h('span', {}, x.text), h('span', { class: 'g-bar' }, ...segBar(on, seg)));
     }) : [h('div', { class: 'l-sub' }, t('goal.none'))];
     const rewards = g.run.orders.filter((o) => !o.done).map((o) => {
       const rw = orderDef(o.id)?.reward ?? {};
@@ -296,4 +296,11 @@ export class Hud {
     p.el.classList.add('out');
     setTimeout(() => p.el.remove(), 820);
   }
+}
+
+/** A progress bar of pixel cells (the font has no ▰▱: they fell back to a smooth system face). */
+function segBar(on: number, seg: number): HTMLElement[] {
+  const out: HTMLElement[] = [];
+  for (let i = 0; i < seg; i++) out.push(h('i', { class: i < on ? 'on' : '' }));
+  return out;
 }

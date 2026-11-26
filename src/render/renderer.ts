@@ -13,7 +13,7 @@ import { Layout, WW, WH, NOISE, GRAIN, lerp, lerp3, hex3, rgb, ACCENT } from './
 import { SectionRenderer, ERA_COLORS, particlePx, rowScreenY } from './section';
 import { drawFossil, fossilKind } from './skins';
 import { CREATURES, Pose, birdFlying, hominid, treeSmall, mossSmall, personSmall, matFilm } from './creatures';
-import { drawItem } from './items';
+import { drawItem, drawVessel } from './items';
 import { renderEcho, EW, EH } from './echoes';
 import { drawScene, pictogram, VW, VH } from './ritual';
 
@@ -2401,6 +2401,7 @@ export class Renderer {
       if (ph === 'temple' && g.state.ritualChoice !== 'bury') return;
       let ay = this.ayAt(x);
       if (ph === 'temple') ay += Math.min(1, g.state.templeProgress * 3) * 3;
+      if (ph === 'play' || ph === 'choose') drawVessel(c, x, ay, this.t);
       drawItem(c, item, x, ay, 9, 'glow', true, g.mods.shards ? idx : -1);
     });
   }
