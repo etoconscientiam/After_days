@@ -31,7 +31,7 @@ export interface WorldMods {
 /** A sparkle of a new rock (world pixels). */
 /** A spark of new rock: world px, seconds left, colour; d: seconds before it shows (the sparks of one geology tick
  *  are spread over the tick, so they come one by one as in the prototype, never in a burst every half second). */
-export interface Glint { x: number; y: number; t: number; color: string; d?: number }
+export interface Glint { x: number; y: number; t: number; color: string; d?: number; row?: number }
 
 const W = CFG.B.world.width;
 const SAND = CFG.B.sand;
@@ -546,7 +546,9 @@ export class Game {
       this.physMs += (performance.now() - t0 - this.physMs) * 0.1;
     } else this.moving = 0;
     fluidStep(this, dt);
-    sinkStep(this.grid, r.sink, dt, (g, y) => { pushBand(this, captureRow(g, y)); this.archive.addRow(g, y); });
+    const sunk = sinkStep(this.grid, r.sink, dt, (g, y) => { pushBand(this, captureRow(g, y)); this.archive.addRow(g, y); });
+    // the sparks of new rock ride down with their grains
+    if (sunk) for (const gl of this.glints) { gl.y += sunk * 2; if (gl.row !== undefined) gl.row += sunk; }
     this.layBeds(dt);
     r.bedT = Math.max(0, r.bedT - dt);
   }

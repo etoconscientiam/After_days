@@ -10,7 +10,7 @@ import { forecastParticle, conditionsAt, Forecast } from '../core/forecast';
 import { GW, KIND, K_MARKER, K_ROCK, K_NONE, K_SOLID } from '../world/Grid';
 import { hash2 } from '../core/rng';
 import { Layout, WW, WH, NOISE, GRAIN, lerp, lerp3, hex3, rgb, ACCENT } from './common';
-import { SectionRenderer, ERA_COLORS, particlePx } from './section';
+import { SectionRenderer, ERA_COLORS, particlePx, rowScreenY } from './section';
 import { drawFossil, fossilKind } from './skins';
 import { CREATURES, Pose, birdFlying, hominid, treeSmall, mossSmall, personSmall, matFilm } from './creatures';
 import { drawItem } from './items';
@@ -1697,7 +1697,8 @@ export class Renderer {
     // and a slow phone drops to low quality by itself — the change of the strata must not go dark with it)
     for (const gl of g.glints) {
       if (gl.x >= SW || (gl.d && gl.d > 0)) continue;
-      const gy = Math.round(gl.y + gdy);
+      // on its grain: in the squeeze above the thing the rows are pressed into thin lines
+      const gy = Math.floor((gl.row !== undefined ? rowScreenY(g, gl.row) : gl.y) + gdy);
       if (gy - top >= sec.cut) continue;
       const a = Math.min(1, gl.t / 0.3);
       c.globalAlpha = a * 0.7;

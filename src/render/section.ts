@@ -444,6 +444,19 @@ function shade(c: number, f: number): number {
   return pack32(r, g, b);
 }
 
+/** Where grid row `row` is drawn (world px, the middle of its line): rows in the squeeze above the thing are pressed
+ *  into ever thinner lines (drawBand), the rest lie at row × 2. For whatever must stay on its grain (the sparks). */
+export function rowScreenY(g: Game, row: number): number {
+  const n = CFG.B.sand.absorb.squeezeRows;
+  const band0 = g.grid.sinkRow - n + 1;
+  if (row < band0) return row * 2 + 1;
+  const k = Math.min(n - 1, row - band0);
+  const r = squeezeRatio(n + g.band.length, n * 2);
+  const h = 2 * Math.pow(r, k);
+  const y = r >= 1 ? 2 * k : (2 * (1 - Math.pow(r, k))) / (1 - r);
+  return band0 * 2 + y + h / 2;
+}
+
 /** The ratio r of the squeeze: L lines, the first 2 px high, each next one r times the one above, fill H px. */
 const ratioCache = new Map<number, number>();
 export function squeezeRatio(L: number, H: number): number {
