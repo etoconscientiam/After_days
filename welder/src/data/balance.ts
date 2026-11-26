@@ -67,7 +67,7 @@ export const BALANCE = {
     base: 5,
     longK: 26,
     unstableK: 40,
-    stickChance: 0.1,
+    stickChance: 0.18,
   },
 
   pores: {

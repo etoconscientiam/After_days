@@ -61,6 +61,8 @@ function dropMaterial(glowK: { value: number }) {
 
 /** Drops laid off the joint (the arc wandering over the work): kept as they fall, oldest dropped first. */
 const STRAY = 600;
+/** Spatter drops across all seams. */
+const SPAT = 600;
 
 /**
  * Builds the weld bead from drops of metal: every ripple the sim lays is a drop set where the arc really was
@@ -87,7 +89,6 @@ export class BeadView {
   private gBase: Float32Array[] = [];
   private holes: THREE.InstancedMesh;
   private hGlow: THREE.InstancedBufferAttribute;
-  private dots: THREE.InstancedMesh;
   private pores: THREE.InstancedMesh;
   private grooves: THREE.Mesh[] = [];
   private grooveMat: THREE.MeshBasicMaterial;
@@ -100,7 +101,10 @@ export class BeadView {
   private clock = 0;
   private born: Float32Array[] = [];
   /** Bare-metal colour of each ripple instance (before crust). */
-  private baseCol = new Float32Array((CAP + STRAY) * 3);
+  private baseCol = new Float32Array((CAP + STRAY + SPAT) * 3);
+  /** When each seam's spatter drop flew (it lands glowing and cools), and the range of them in `drops`. */
+  private spBorn: Float32Array[] = [];
+  private spRange: [number, number][] = [];
   private shimmer = new THREE.Color('#b07038');
   /** The molten pool under the arc, its glowing tail, and the aim mark on the joint. */
   readonly pool: THREE.Mesh;
@@ -139,10 +143,10 @@ export class BeadView {
 
   constructor() {
     const ball = new THREE.SphereGeometry(1, 10, 7);
-    this.dGlow = new THREE.InstancedBufferAttribute(new Float32Array(CAP + STRAY), 1);
+    this.dGlow = new THREE.InstancedBufferAttribute(new Float32Array(CAP + STRAY + SPAT), 1);
     ball.setAttribute('aGlow', this.dGlow);
-    this.drops = new THREE.InstancedMesh(ball, dropMaterial(this.glowK), CAP + STRAY);
-    this.drops.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array((CAP + STRAY) * 3), 3);
+    this.drops = new THREE.InstancedMesh(ball, dropMaterial(this.glowK), CAP + STRAY + SPAT);
+    this.drops.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array((CAP + STRAY + SPAT) * 3), 3);
     this.drops.count = 0;
     this.drops.receiveShadow = true;
     this.drops.frustumCulled = false;
@@ -155,9 +159,6 @@ export class BeadView {
     this.holes.count = 0;
     this.holes.frustumCulled = false;
 
-    this.dots = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 0), new THREE.MeshLambertMaterial({ color: '#56514c', flatShading: true }), 400);
-    this.dots.count = 0;
-    this.dots.frustumCulled = false;
     const pdisc = new THREE.CircleGeometry(1, 5);
     pdisc.rotateX(-Math.PI / 2);
     this.pores = new THREE.InstancedMesh(pdisc, new THREE.MeshBasicMaterial({ color: '#070605' }), 400);
@@ -165,7 +166,7 @@ export class BeadView {
     this.pores.frustumCulled = false;
 
     this.grooveMat = new THREE.MeshBasicMaterial({ color: '#050403', side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
-    this.group.add(this.drops, this.holes, this.dots, this.pores);
+    this.group.add(this.drops, this.holes, this.pores);
 
     // Molten pool: a white-hot lens of metal with an orange tail where it is freezing behind the arc.
     const lens = new THREE.SphereGeometry(1, 12, 5, 0, Math.PI * 2, 0, Math.PI / 2);
@@ -310,10 +311,11 @@ export class BeadView {
     // Ripples already there (the gate kept for the end card) are cold; new ones are stamped as they appear.
     this.born = src ? src.seams.map((sr) => new Float32Array(sr.cap).fill(Number.NaN).fill(-1e9, 0, sr.count)) : [];
     this.dropAt = src ? src.seams.map((sr) => new Float32Array(sr.cap * 3).fill(Number.NaN)) : [];
+    this.spBorn = src ? src.seams.map((sr) => new Float32Array(sr.spCap).fill(Number.NaN).fill(-1e9, 0, sr.spN)) : [];
     this.strayN0 = 0;
     this.drops.count = 0;
     this.pool.visible = this.tail.visible = this.mark.visible = false;
-    this.holes.count = this.dots.count = this.pores.count = 0;
+    this.holes.count = this.pores.count = 0;
     if (!src) return;
     for (const sr of src.seams) {
       const g = new THREE.Mesh(this.ribbon(sr, 2.2, 0.5), this.grooveMat);
@@ -412,7 +414,7 @@ export class BeadView {
   private rebuild(): void {
     const src = this.src!;
     const welding = src.stage === 'weld';
-    let k = 0, kh = 0, kd = 0, kp = 0;
+    let k = 0, kh = 0, kp = 0;
     let si = -1;
     const M = this.tmpM, P = this.tmpP, S = this.tmpS, Q = this.tmpQ, C = this.tmpC;
     const p = this.pt;
@@ -484,18 +486,6 @@ export class BeadView {
         M.compose(P, this.frame(1, this.tmpQ2), S);
         this.holes.setMatrixAt(kh++, M);
       }
-      for (let i = 0; i < sr.spN && kd < 400; i++) {
-        sr.pointAt(sr.spS[i], p);
-        const d = sr.spD[i];
-        P.set(p.x + p.bx * d, p.y + p.by * d, p.z + p.bz * d);
-        this.nv.set(p.nx, p.ny, p.nz);
-        this.snap(P, this.nv);
-        P.addScaledVector(this.nv, 0.4).multiplyScalar(MM);
-        const r = 0.5 + 0.7 * hash(i, 6);
-        S.set(r * MM, r * 0.7 * MM, r * MM);
-        M.compose(P, this.tmpQ.identity(), S);
-        this.dots.setMatrixAt(kd++, M);
-      }
     }
     // Stray drops, after the seams'.
     const s0 = k;
@@ -514,16 +504,39 @@ export class BeadView {
       this.drops.setColorAt(k, C);
     }
     this.strayRange = [s0, k];
+    // Spatter: small drops thrown off the arc, stuck round the joint; they land glowing and cool like the rest.
+    this.spRange.length = 0;
+    for (let si2 = 0; si2 < src.seams.length; si2++) {
+      const sr = src.seams[si2], spB = this.spBorn[si2];
+      const a0 = k;
+      for (let i = 0; i < sr.spN && k < CAP + STRAY + SPAT; i++, k++) {
+        if (spB && Number.isNaN(spB[i])) spB[i] = this.clock;
+        sr.pointAt(sr.spS[i], p);
+        const d = sr.spD[i];
+        P.set(p.x + p.bx * d, p.y + p.by * d, p.z + p.bz * d);
+        this.nv.set(p.nx, p.ny, p.nz);
+        this.snap(P, this.nv);
+        const r = 0.7 + 1.0 * hash(i, 6);
+        P.addScaledVector(this.nv, r * 0.25).multiplyScalar(MM);
+        Q.setFromUnitVectors(this.ay.set(0, 1, 0), this.nv);
+        S.set(r * MM, r * 0.75 * MM, r * MM);
+        M.compose(P, Q, S);
+        this.drops.setMatrixAt(k, M);
+        C.copy(this.dull).multiplyScalar(0.8 + 0.3 * hash(i, 8));
+        C.toArray(this.baseCol, k * 3);
+        this.crust(C, this.clock - (spB ? spB[i] : -1e9), i);
+        this.drops.setColorAt(k, C);
+      }
+      this.spRange.push([a0, k]);
+    }
     this.drops.count = k;
     this.drops.instanceMatrix.needsUpdate = true;
     if (this.drops.instanceColor) this.drops.instanceColor.needsUpdate = true;
     // Chalk marks a joint still to weld: gone from each seam once it is closed.
     this.chalk.forEach((c, i) => (c.visible = src.stage === 'weld' && !src.seams[i]?.filled));
     this.holes.count = kh;
-    this.dots.count = kd;
     this.pores.count = kp;
     this.holes.instanceMatrix.needsUpdate = true;
-    this.dots.instanceMatrix.needsUpdate = true;
     this.pores.instanceMatrix.needsUpdate = true;
     for (let i = 0; i < this.grooves.length; i++) this.grooves[i].visible = true;
   }
@@ -582,6 +595,19 @@ export class BeadView {
         this.tmpC.fromArray(this.baseCol, k * 3);
         this.crust(this.tmpC, age, j);
         this.tmpC.toArray(col, k * 3);
+      }
+    }
+    for (let s = 0; s < this.spRange.length; s++) {
+      const [a0, a1] = this.spRange[s], spB = this.spBorn[s];
+      for (let k = a0, i = 0; k < a1; k++, i++) {
+        const age = this.clock - (spB ? spB[i] : -1e9);
+        // Small drops cool faster than the bead.
+        glow[k] = age < 8 ? 2.0 * Math.exp(-age / 1.2) : 0;
+        if (age < 6.5) {
+          this.tmpC.fromArray(this.baseCol, k * 3);
+          this.crust(this.tmpC, age, i);
+          this.tmpC.toArray(col, k * 3);
+        }
       }
     }
     this.dGlow.needsUpdate = true;

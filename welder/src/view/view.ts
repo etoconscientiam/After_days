@@ -1266,6 +1266,7 @@ export class View {
     u.uMaskT.value = g.stats.maskTransmission;
     u.uMaskSee.value = g.stats.maskSee;
     u.uMaskWindow.value = g.stats.maskWindow;
+    u.uMaskWear.value = g.stats.maskWear;
     u.uGlare.value = g.glare;
     u.uArcOn.value = arcOn;
     if (lit) {

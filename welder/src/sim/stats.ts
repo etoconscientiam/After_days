@@ -28,6 +28,7 @@ export function baseStats(): Stats {
     wheels: 1,
     apprentice: 0,
     rodWild: 1,
+    maskWear: 1,
   };
 }
 

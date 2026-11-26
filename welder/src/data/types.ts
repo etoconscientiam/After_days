@@ -110,7 +110,9 @@ export type StatId =
   | 'wheels'
   | 'apprentice'
   /** How wildly a bare rod runs: 1 bare (spattery, uneven puddle), less with coated rods. Looks only. */
-  | 'rodWild';
+  | 'rodWild'
+  /** How worn the mask's glass is: 1 the old scratched one, less on better glass. Looks only. */
+  | 'maskWear';
 
 export interface Effects {
   add?: Partial<Record<StatId, number>>;

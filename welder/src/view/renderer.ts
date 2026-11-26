@@ -25,6 +25,7 @@ uniform float uMaskPos;
 uniform float uMaskT;
 uniform float uMaskSee;
 uniform float uMaskWindow;
+uniform float uMaskWear;
 uniform vec3 uMaskTint;
 uniform vec3 uShell;
 uniform float uGlare;
@@ -112,13 +113,14 @@ void main() {
   vec2 s2 = mat2(0.8, -0.6, 0.6, 0.8) * gp;
   float scr = smoothstep(0.86, 0.97, vn(vec2(s1.x * 0.04, s1.y * 0.7))) * step(0.7, vn(gp * 0.05 + 3.0))
             + smoothstep(0.88, 0.98, vn(vec2(s2.x * 0.03, s2.y * 0.8) + 11.0)) * step(0.74, vn(gp * 0.045 + 9.0));
-  float wear = edge * (0.35 + 0.65 * patchy) + scr * (0.12 + 0.88 * deep) * 0.6;
+  float wear = (edge * (0.35 + 0.65 * patchy) + scr * (0.12 + 0.88 * deep) * 0.6) * uMaskWear;
   float dust = max(step(0.9988 - 0.006 * deep, h21(gp + 17.0)), step(0.9992 - 0.005 * deep, h21(floor(gp * 0.5) + 31.0)) * 0.8);
+  dust *= step(0.15, uMaskWear) * min(1.0, uMaskWear * 1.6);
   float lumc = dot(c, vec3(0.3, 0.6, 0.1));
   lumc = lumc / (1.0 + lumc);
   vec3 haze = vec3(0.9, 1.0, 0.92) * wear * (0.035 + 0.06 * lumc + 0.08 * halo) + dust * halo * 0.08;
   // Vignette: the eye sits deep in the hood, the rim of the window falls off into its dark.
-  float gv = mix(0.12, 1.0, rim * rim) * (1.0 - 0.55 * deep * deep);
+  float gv = mix(mix(0.5, 0.12, uMaskWear), 1.0, rim * rim) * (1.0 - (0.2 + 0.35 * uMaskWear) * deep * deep);
   // Through the glass: the arc and hot metal at the glass's transmission, plus a dim, compressed view of the
   // rest so the work stays readable (a lighter glass shows more of it).
   // What the arc lights up is held back hard (that is what the glass is for): the room seen through it is
@@ -314,6 +316,7 @@ export class LowRes {
         uMaskT: { value: 0.02 },
         uMaskSee: { value: 0.2 },
         uMaskWindow: { value: 0.7 },
+        uMaskWear: { value: 1 },
         uMaskTint: { value: new THREE.Vector3(...SKIN.mask.tint) },
         uShell: { value: new THREE.Vector3(...SKIN.mask.shell) },
         uGlare: { value: 0 },
