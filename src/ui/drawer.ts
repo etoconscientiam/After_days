@@ -53,7 +53,7 @@ export class Drawer {
 
   constructor(private g: () => Game) {
     for (const id of TABS) {
-      const b = h('button', { class: 'tab', onclick: () => this.toggleView(id), 'aria-label': t('tabs.' + id) }, tabIcon(id, 26), h('span', { class: 'tab-label' }, t('tabs.' + id)), h('i', { class: 'dot' })) as HTMLButtonElement;
+      const b = h('button', { class: 'tab', onclick: () => this.toggleView(id), 'aria-label': t('tabs.' + id) }, tabIcon(id, 24), h('span', { class: 'tab-label' }, t('tabs.' + id)), h('i', { class: 'dot' })) as HTMLButtonElement;
       this.tabButtons.set(id, b);
       this.tabbar.append(b);
     }
