@@ -201,8 +201,14 @@ export function drawDepth(c: CanvasRenderingContext2D, w: number, h: number, g: 
 }
 
 // ---------------------------------------------------------------- history and the chart
+const BEDROCK = CFG.matIndex.bedrock ?? -1;
+
 export class History {
   t: number[] = []; life: number[] = []; absorb: number[] = [];
+  /** shares of each material in the grid (water and bedrock left out), one map per sample */
+  comp: Map<number, number>[] = [];
+  /** oxygen, % */
+  o2: number[] = [];
   private acc = 99;
   constructor(private every = 2, private max = 120) {}
   sample(dt: number, g: Game): boolean {
@@ -211,9 +217,77 @@ export class History {
     this.acc = 0;
     const life = g.lifeIncome() * g.stats.energyMul, ab = g.absorbRate, tot = g.incomePerSec() + ab;
     this.t.push(tot); this.life.push(life); this.absorb.push(ab);
-    if (this.t.length > this.max) { this.t.shift(); this.life.shift(); this.absorb.shift(); }
+    const mat = g.grid.mat, cnt = new Map<number, number>();
+    let n = 0;
+    for (let i = 0; i < mat.length; i++) {
+      const m = mat[i];
+      if (!m || m === WATER || m === BEDROCK) continue;
+      cnt.set(m, (cnt.get(m) ?? 0) + 1); n++;
+    }
+    const sh = new Map<number, number>();
+    if (n) for (const [m, c] of cnt) sh.set(m, c / n);
+    this.comp.push(sh); this.o2.push(g.run.oxygen);
+    if (this.t.length > this.max) { this.t.shift(); this.life.shift(); this.absorb.shift(); this.comp.shift(); this.o2.shift(); }
     return true;
   }
+  /** the n materials with the largest share now (at least 1 %) */
+  top(n = 5): number[] {
+    const last = this.comp[this.comp.length - 1];
+    if (!last) return [];
+    return [...last.entries()].sort((a, b) => b[1] - a[1]).slice(0, n).filter(([, v]) => v >= 0.01).map(([m]) => m);
+  }
+}
+
+/** The colour of a material in the panel (its first grain colour). */
+export const matColor = (m: number): string => { const c = matRGB[m] ?? [128, 128, 128]; return `rgb(${c[0]},${c[1]},${c[2]})`; };
+
+/** What the strata are made of, over time: a stacked pixel area, the top materials (bottom up, the largest first)
+ *  and the rest as one dark band on top; faint grain inside the bands, a dark seam between them. */
+export function drawComp(c: CanvasRenderingContext2D, w: number, h: number, hs: History, top: number[]): void {
+  c.clearRect(0, 0, w, h);
+  const n = hs.comp.length;
+  if (!n) return;
+  for (let x = 0; x < w; x++) {
+    const s = hs.comp[n === 1 ? 0 : Math.round((x / (w - 1)) * (n - 1))];
+    let y = h;
+    const v = top.map((m) => s.get(m) ?? 0);
+    const parts: [number, RGB][] = [[Math.max(0, 1 - v.reduce((a, b) => a + b, 0)), [70, 62, 56]], ...v.map((k, i): [number, RGB] => [k, matRGB[top[i]] ?? [128, 128, 128]])];
+    for (let p = 0; p < parts.length; p++) {
+      const hh = parts[p][0] * h, y0 = Math.round(y - hh), col = parts[p][1];
+      for (let yy = y0; yy < Math.round(y); yy++) {
+        const k = 0.9 + 0.1 * hash(x >> 1, yy, 3);
+        c.fillStyle = `rgb(${col[0] * k},${col[1] * k},${col[2] * k})`;
+        c.fillRect(x, yy, 1, 1);
+      }
+      if (y0 > 0 && y0 < h && p < parts.length - 1) { c.fillStyle = 'rgba(0,0,0,0.35)'; c.fillRect(x, y0, 1, 1); }
+      y -= hh;
+    }
+  }
+}
+
+/** The air: oxygen over time as a pale blue line over a dithered fill, faint lines every 5 %, the era's goal as an
+ *  amber dashed line. Returns the top of the scale (%). */
+export function drawAir(c: CanvasRenderingContext2D, w: number, h: number, hs: History, goal: number | null): number {
+  c.clearRect(0, 0, w, h);
+  const n = hs.o2.length;
+  const top = Math.max(25, (goal ?? 0) + 4, ...hs.o2.map((v) => v + 2));
+  c.fillStyle = 'rgba(255,240,210,0.06)';
+  for (let v = 5; v < top; v += 5) c.fillRect(0, Math.round(h - 1 - (v / top) * (h - 2)), w, 1);
+  if (goal != null) {
+    const y = Math.round(h - 1 - (goal / top) * (h - 2));
+    c.fillStyle = '#f2b54a';
+    for (let x = 0; x < w; x += 3) c.fillRect(x, y, 2, 1);
+  }
+  if (!n) return top;
+  const Y = (v: number) => Math.round(h - 1 - (v / top) * (h - 2));
+  for (let x = 0; x < w; x++) {
+    const f = n === 1 ? 0 : (x / (w - 1)) * (n - 1), i = Math.floor(f), k = f - i;
+    const v = hs.o2[i] + ((hs.o2[Math.min(n - 1, i + 1)] ?? hs.o2[i]) - hs.o2[i]) * k;
+    const y = Y(v);
+    for (let yy = y + 1; yy < h; yy++) if ((x + yy) % 2 === 0) { c.fillStyle = `rgba(110,170,230,${0.5 - 0.35 * (yy - y) / h})`; c.fillRect(x, yy, 1, 1); }
+    c.fillStyle = '#9fd0ff'; c.fillRect(x, y, 1, 1);
+  }
+  return top;
 }
 
 /** A pixel chart: the total as a dithered amber area, life as a green line, absorption as a blue one.

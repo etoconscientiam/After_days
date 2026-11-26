@@ -1,6 +1,6 @@
 // The left panel of the desktop layout: what a player at a big screen wants at a glance, all the time. Three looks
 // to choose from (?desk=a|b|c while we compare): A «Планета» — the planet the strata are making, B «Разрез» — the whole
-// depth laid down so far, C «Приборы» — instruments (the eras, the income chart, the pile ring, the oxygen tube).
+// depth laid down so far, C «Приборы» — instruments (the eras, the pile ring). A and C also show what the strata are made of and the air.
 // Built once (and on a language change), refreshed twice a second; the planet turns every frame.
 import { CFG } from '../config';
 import type { Game } from '../core/game';
@@ -8,7 +8,7 @@ import type { Hud } from './hud';
 import { $, h, setText } from './dom';
 import { t, fmt } from './i18n';
 import { rockIcon, energyIcon } from './icons';
-import { Planet, History, drawDepth, drawChart, drawRing, drawTube, ERA_COLORS } from './deskViz';
+import { Planet, History, drawDepth, drawRing, drawComp, drawAir, matColor, ERA_COLORS } from './deskViz';
 
 const ROMAN = ['0', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
 export type DeskLook = 'a' | 'b' | 'c';
@@ -51,8 +51,12 @@ export class InfoPanel {
       h('div', { class: 'ip-era-sub' }, this.ref('eraSub', h('span', {})))];
   }
   private goalsBlock(): HTMLElement { return this.section(t('info.goals'), this.ref('goals', h('div', { class: 'ip-goals' }))); }
-  private incomeChart(w: number, hgt: number): HTMLElement {
-    return h('div', { class: 'ip-chart' }, this.canvas('chart', w, hgt, 'dv-chart'), this.ref('chartMax', h('span', { class: 'ip-chart-max' })));
+  private compBlock(): HTMLElement {
+    return this.section(t('info.comp'), h('div', { class: 'ip-chart' }, this.canvas('comp', 116, 44, 'dv-chart')), this.ref('compLegend', h('div', { class: 'ip-legend cols' })));
+  }
+  private airBlock(): HTMLElement {
+    return this.section(t('info.air'), h('div', { class: 'ip-chart' }, this.canvas('air', 116, 36, 'dv-chart'), this.ref('airTop', h('span', { class: 'ip-chart-max' }))),
+      this.row('o2', 'O₂'), this.row('o2need', t('info.o2need'), 'small'));
   }
   private incomeRows(): HTMLElement[] {
     return [
@@ -73,7 +77,9 @@ export class InfoPanel {
           ...this.eraHead(),
           h('div', { class: 'ip-chips' }, this.ref('chLand', h('span', { class: 'ip-chip land' })), this.ref('chForest', h('span', { class: 'ip-chip forest' })), this.ref('chO2', h('span', { class: 'ip-chip o2' })))),
         this.goalsBlock(),
-        this.section(t('info.income'), this.incomeChart(116, 40), ...this.incomeRows()),
+        this.section(t('info.income'), ...this.incomeRows()),
+        this.compBlock(),
+        this.airBlock(),
         this.specialsBlock(),
       );
     } else if (this.look === 'b') {
@@ -96,11 +102,12 @@ export class InfoPanel {
           h('div', { class: 'ip-era' }, this.ref('eraName', h('span', { class: 'ip-era-name' })), this.ref('eraHurry', h('small', {}))),
           eras,
           h('div', { class: 'ip-era-sub' }, this.ref('eraSub', h('span', {})))),
-        this.section(t('info.income'), this.incomeChart(116, 46), ...this.incomeRows()),
-        h('section', { class: 'ip-sec ip-instr' },
-          h('div', { class: 'ip-ring' }, h('h3', {}, t('info.pile')), h('div', { class: 'ip-ring-in' }, this.canvas('ring', 44, 44, 'dv-ring'), this.ref('ringLegend', h('div', { class: 'ip-legend' })))),
-          h('div', { class: 'ip-tube' }, h('h3', {}, 'O₂'), this.canvas('tube', 10, 60, 'dv-tube'), this.ref('tubeV', h('b', {})))),
         this.goalsBlock(),
+        this.section(t('info.income'), ...this.incomeRows()),
+        this.compBlock(),
+        this.airBlock(),
+        h('section', { class: 'ip-sec ip-instr' },
+          h('div', { class: 'ip-ring' }, h('h3', {}, t('info.pile')), h('div', { class: 'ip-ring-in' }, this.canvas('ring', 44, 44, 'dv-ring'), this.ref('ringLegend', h('div', { class: 'ip-legend' }))))),
         this.specialsBlock(),
       );
     }
@@ -111,12 +118,19 @@ export class InfoPanel {
     const g = this.g(), r = g.run;
     const sig = g.state.settings.lang + this.look;
     if (sig !== this.sig) { this.sig = sig; this.build(); this.acc = 1; }
-    if (this.hist.sample(dt, g) && this.cv.chart) setText(this.refs.chartMax, t('hud.perSec', { v: fmt(drawChart(this.cv.chart.getContext('2d')!, this.cv.chart.width, this.cv.chart.height, this.hist)) }));
-    if (this.look === 'a') this.planet.draw(g, dt);
-    if (this.look === 'c' && this.cv.tube) {
-      const c = g.eraDef().cond;
-      drawTube(this.cv.tube.getContext('2d')!, 10, 60, r.oxygen, c.type === 'oxygen' ? c.value! : null);
+    const goal = g.eraDef().cond.type === 'oxygen' ? g.eraDef().cond.value! : null;
+    if (this.hist.sample(dt, g)) {
+      const top = this.hist.top(5);
+      if (this.cv.comp) {
+        drawComp(this.cv.comp.getContext('2d')!, this.cv.comp.width, this.cv.comp.height, this.hist, top);
+        const last = this.hist.comp[this.hist.comp.length - 1];
+        this.refs.compLegend.replaceChildren(...top.map((m) => h('div', { class: 'ip-row small' },
+          h('span', { class: 'ip-ico' }, h('i', { class: 'ip-sw', style: `background:${matColor(m)}` }), t('materials.' + CFG.materials[m].id)),
+          h('b', {}, fmt((last.get(m) ?? 0) * 100, 0) + '%'))));
+      }
+      if (this.cv.air) setText(this.refs.airTop, fmt(drawAir(this.cv.air.getContext('2d')!, this.cv.air.width, this.cv.air.height, this.hist, goal), 0) + '%');
     }
+    if (this.look === 'a') this.planet.draw(g, dt);
     this.acc += dt;
     if (this.acc < 0.5) return;
     this.acc = 0;
@@ -140,6 +154,12 @@ export class InfoPanel {
     setText(this.refs.incLife, t('hud.perSec', { v: fmt(g.lifeIncome() * g.stats.energyMul) }));
     setText(this.refs.incAbsorb, t('hud.perSec', { v: fmt(g.absorbRate) }));
     setText(this.refs.incTap, fmt(g.clickValue()));
+    // the air
+    if (this.refs.o2) {
+      setText(this.refs.o2, fmt(r.oxygen, 1) + '%');
+      const c = g.eraDef().cond;
+      setText(this.refs.o2need, c.type === 'oxygen' ? fmt(c.value!, 0) + '%' : '—');
+    }
     // the special materials: icons with counts in a row
     const sp = CFG.B.sand.specials.order.filter((id) => g.specialKnown(id));
     const ssig = sp.join(',');
@@ -173,7 +193,6 @@ export class InfoPanel {
       }
       drawRing(this.cv.ring.getContext('2d')!, 44, parts.map(([, p, c]) => [p, c]));
       this.refs.ringLegend.replaceChildren(...parts.map(([n, p, c]) => h('div', { class: 'ip-row small' }, h('span', { class: 'ip-ico' }, h('i', { class: 'ip-sw', style: `background:${c}` }), n), h('b', {}, fmt(p * 100, 0) + '%'))));
-      setText(this.refs.tubeV, fmt(r.oxygen, 1) + '%');
     }
   }
 }

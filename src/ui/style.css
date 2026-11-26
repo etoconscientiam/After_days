@@ -1019,6 +1019,9 @@ html.desktop #side-right .card .name { font-size: 15px; min-height: 2.2em; }
 .ip-legend { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .ip-legend .ip-row { font-size: 13px !important; }
 .ip-legend .ip-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ip-legend.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1px 10px; }
+.ip-legend.cols .ip-row { font-size: 14px !important; }
+.ip-legend.cols .ip-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ip-tube { flex: none; display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .ip-tube canvas { width: 14px; height: 84px; }
 .ip-tube b { font-family: var(--num); font-weight: 400; font-size: 13px; color: var(--bone); }
