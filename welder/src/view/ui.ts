@@ -6,6 +6,23 @@ import { t } from '../i18n';
 import type { Order } from '../sim/orders';
 import { jobSheet, payAtGrade, seamProgress, JobSheet } from '../sim/jobs';
 
+/**
+ * The dust that hides a word you can't read yet (like a spoiler in a chat): sparse pixel specks of varied
+ * brightness on a tile, set as a CSS image; CSS jumps it about so the specks shimmer.
+ */
+function makeSpoilerDust(): void {
+  const c = document.createElement('canvas');
+  c.width = 24;
+  c.height = 12;
+  const x = c.getContext('2d')!;
+  for (let i = 0; i < 110; i++) {
+    const a = 0.15 + Math.random() * 0.6;
+    x.fillStyle = `rgba(200, 184, 152, ${a.toFixed(2)})`;
+    x.fillRect(Math.floor(Math.random() * 24), Math.floor(Math.random() * 12), 1, 1);
+  }
+  document.documentElement.style.setProperty('--spoil', `url(${c.toDataURL()})`);
+}
+
 /** The close button in a window's corner: a pixel cross on a small plate, which stays put while the window scrolls. */
 const CLOSE_X = `<div class="x" title="Esc"><svg viewBox="0 0 7 7" aria-hidden="true">${[0, 1, 2, 3, 4, 5, 6].map((i) => `<rect x="${i}" y="${i}" width="1" height="1"/><rect x="${6 - i}" y="${i}" width="1" height="1"/>`).join('')}</svg></div>`;
 import { payForSeams, seamLosses } from '../sim/quality';
@@ -90,6 +107,7 @@ export class UI {
     this.hudL.append(this.money, this.craftBtn, this.rodEl, this.stagesEl);
     root.append(this.hudL, this.langBtn, this.jobEl, this.craftEl, this.tourEl, this.ctrl, this.promptEl, this.whyEl, this.appStatus, this.hint, this.tip, this.stampEl, this.toasts, this.board, this.endEl, this.start, this.dbgEl, this.cursor);
     this.dbgEl.style.display = 'none';
+    makeSpoilerDust();
     this.stagesEl.addEventListener('pointerdown', (e) => {
       const n = (e.target as HTMLElement).closest<HTMLElement>('.next');
       if (!n) return;
@@ -225,7 +243,6 @@ export class UI {
       <div class="row">${t('job.diff')} <span class="stars">${this.stars(s.stars)}</span></div>
       <div class="row">${t('job.stages', { n: s.stages.length })}</div>
       <ol>${rows}</ol>
-      <div class="row dim">${t('job.money')}</div>
       ${req.length ? `<div class="row">${t('job.req')}: ${req.join(' · ')}</div>` : ''}
       <div class="btns"><span class="take">${t('job.take')}</span><span class="later">${t('job.later')}</span></div>`;
     this.jobEl.style.display = 'block';
@@ -342,10 +359,10 @@ export class UI {
     const W = BALANCE.weld.fillMin;
     if (b.stage === 'weld' && cur >= 0 && !b.seams[cur].filled) {
       const ok = b.seams[cur].coverage(W) >= SKIP_AT;
-      next = `<div class="next${ok ? '' : ' off'}" data-seam="${cur}">${t(ok ? 'job.next' : 'job.nextAt')}</div>`;
+      next = `<div class="next${ok ? '' : ' off'}" data-seam="${cur}">${t('job.next')}</div>`;
     } else if (b.stage === 'chip') {
       const ok = 1 - b.slagLeft >= SKIP_AT;
-      next = `<div class="next${ok ? '' : ' off'}" data-seam="-1">${t(ok ? 'job.next' : 'job.nextAt')}</div>`;
+      next = `<div class="next${ok ? '' : ' off'}" data-seam="-1">${t('job.next')}</div>`;
     }
     const html = `<b>${t('part.' + b.order.part)}</b><ol>${rows.join('')}</ol>${sum}${next}`;
     if (html !== this.stagesHtml) {
@@ -480,17 +497,16 @@ export class UI {
     const L = seamLosses(b.seams[seam], b.part?.thick ?? 1);
     const know: Record<string, number> = { tempo: g.stats.knowTempo, arc: g.stats.knowArc, fusion: g.stats.knowFusion, hand: g.stats.knowHand };
     const out: string[] = [];
-    let unknown = 0;
     // Losses can add up past the whole seam (it is then simply worthless): show them as shares of what was lost.
     const sum = L.tempo + L.arc + L.fusion + L.hand;
     const k1 = sum > 1 ? 1 / sum : 1;
     for (const k of ['tempo', 'arc', 'fusion', 'hand'] as const) {
       const v = L[k] * k1;
       if (v < 0.03) continue;
-      if (know[k]) out.push(`<span class="cause">${t('cause.' + k)} −${Math.round(v * 100)}%</span>`);
-      else unknown += v;
+      // A cause not yet learned is there but unreadable, under a shimmer of dust (until the craft teaches it).
+      const name = know[k] ? t('cause.' + k) : `<i class="spoil">${t('cause.' + k)}</i>`;
+      out.push(`<span class="cause${know[k] ? '' : ' unk'}">${name} −${Math.round(v * 100)}%</span>`);
     }
-    if (unknown >= 0.03) out.push(`<span class="cause unk">? −${Math.round(unknown * 100)}%</span>`);
     return out.join('<b>·</b>');
   }
 

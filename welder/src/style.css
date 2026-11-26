@@ -621,3 +621,20 @@ body.ui-modal #game { cursor: var(--cur); }
 #stages .q .off { color: #4a4034; }
 #stages .sum .q { margin-left: auto; }
 #stages .sum .q + em { margin-left: 0.8em; padding-left: 0; }
+
+/* A word not yet learned: hidden under shimmering dust, like a spoiler. */
+#stages .spoil {
+  font-style: normal;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+  background: var(--spoil) 0 0 / calc(var(--px) * 24) calc(var(--px) * 12) repeat;
+  image-rendering: pixelated;
+  animation: spoil 0.7s steps(1) infinite;
+}
+@keyframes spoil {
+  0% { background-position: 0 0; }
+  25% { background-position: calc(var(--px) * 7) calc(var(--px) * 3); }
+  50% { background-position: calc(var(--px) * 13) calc(var(--px) * -5); }
+  75% { background-position: calc(var(--px) * 4) calc(var(--px) * 8); }
+}
