@@ -584,9 +584,9 @@ export class Game {
   /** Particles in a tapped pile. */
   pileSize(): number { return Math.round(SAND.pile.base + SAND.pile.perLevel * this.stats.pileSize); }
 
-  tap(X: number, shard = -1): number {
+  tap(X: number, shard = -1, pile = true): number {
     const e = this.click(shard);
-    if (this.state.phase === 'play') tapPile(this, X, this.pileSize());
+    if (pile && this.state.phase === 'play') tapPile(this, X, this.pileSize());
     return e;
   }
 

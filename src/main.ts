@@ -378,6 +378,8 @@ drawer.onToast = (s) => hud.notify('sys', s, '#EDE3D0');
 input.onArtifact = (shard) => { audio.unlock(); game.click(shard); renderer.onClick(game.mods.shards ? game.shardXs()[shard] : WW / 2); };
 input.onCast = (x, y) => renderer.burst(x, y, '#9fd0ff', 8);
 // a tap anywhere in the world: the thing answers with an impulse (the nearest shard in a shard world)
+/** when the last pile fell from a tap: a faster tap gives Energy only (pile.minGapMs) */
+let lastPileAt = -1e9;
 input.onImpulse = (x, y) => {
   audio.unlock();
   let shard = -1, ax = WW / 2;
@@ -387,9 +389,12 @@ input.onImpulse = (x, y) => {
     ax = xs[shard];
   }
   // the thing answers with an impulse, and a pile falls into the column that was tapped
-  game.tap(x, shard);
+  const now = performance.now();
+  const pile = now - lastPileAt >= (CFG.B.sand.pile.minGapMs ?? 0);
+  if (pile) lastPileAt = now;
+  game.tap(x, shard, pile);
   // the pile fed what the era goal needs (its lever's niche): a green flash over it
-  if (pileFeedsLever(game, x)) renderer.burst(x, y, '#9cc060', 10);
+  if (pile && pileFeedsLever(game, x)) renderer.burst(x, y, '#9cc060', 10);
   renderer.onClick(ax);
   renderer.tapAt(x, y);
 };
