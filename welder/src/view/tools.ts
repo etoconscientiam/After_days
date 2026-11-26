@@ -232,7 +232,7 @@ export class Tools {
     this.left.visible = !!at;
     if (!at) return;
     // The left hand only steadies the job: a little smaller, so it never crowds the work.
-    this.left.scale.setScalar(1 + (this.kAt(cam, at) - 1) * 0.6);
+    this.left.scale.setScalar(1 + (this.kAt(cam, at) - 1) * 0.25);
     this.left.position.copy(at);
     const distal = this.lDis.copy(this.lDist).normalize();
     const back = this.lRt.copy(this.lBack).addScaledVector(distal, -this.lBack.dot(distal)).normalize();
@@ -251,11 +251,46 @@ export class Tools {
     cam.updateMatrixWorld();
     const near = Math.max(this.viewZ(cam, 0, 0.14), this.viewZ(cam, 0.25 * co, 0.14 + 0.25 * so));
     this.leftNear = near;
-    if (this.leftOut ? near < -0.15 : near > -0.11) this.leftOut = !this.leftOut;
+    // And however far the fist is, the forearm must not take over the picture: how thick it looks.
+    const cover = this.screenCover(cam);
+    this.leftCover = cover;
+    const tooBig = this.leftOut ? near > -0.24 || cover > 0.35 : near > -0.19 || cover > 0.4;
+    this.leftOut = tooBig;
     this.left.visible = !this.leftOut;
   }
   private leftOut = false;
   leftNear = 0;
+  leftCover = 0;
+  /**
+   * How thick the left forearm looks: its girth over the distance, as a share of the screen's height, taken
+   * along the stretch of it that is on screen.
+   */
+  private screenCover(cam: THREE.Camera): number {
+    const tanH = Math.tan(((cam as THREE.PerspectiveCamera).fov * Math.PI) / 360);
+    let worst = 0;
+    const v = this.tmp, sc = this.tE;
+    this.handL.forearm.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh) return;
+      const g = m.geometry;
+      if (!g.boundingBox) g.computeBoundingBox();
+      const b = g.boundingBox!;
+      sc.setFromMatrixScale(m.matrixWorld);
+      const girth = (Math.max(b.max.x - b.min.x, b.max.z - b.min.z) / 2) * Math.max(sc.x, sc.z);
+      const cx = (b.min.x + b.max.x) / 2, cz = (b.min.z + b.max.z) / 2;
+      for (let i = 0; i <= 4; i++) {
+        v.set(cx, b.min.y + ((b.max.y - b.min.y) * i) / 4, cz).applyMatrix4(m.matrixWorld).applyMatrix4(cam.matrixWorldInverse);
+        if (v.z > -0.02) continue;
+        const r = girth / (-v.z * tanH);
+        // Only what is on screen: the stretch that runs off the edge toward the shoulder is not in the picture.
+        const px = v.x / (-v.z * tanH * ((cam as THREE.PerspectiveCamera).aspect || 1)), py = v.y / (-v.z * tanH);
+        if (Math.abs(px) - r > 1 || Math.abs(py) - r > 1) continue;
+        worst = Math.max(worst, r);
+      }
+    });
+    return worst;
+  }
+
   /** View-space z of a point of the tongs' frame (negative is in front of the eye). */
   private viewZ(cam: THREE.Camera, x: number, y: number): number {
     return this.tmp.set(x, y, 0).applyMatrix4(this.left.matrixWorld).applyMatrix4(cam.matrixWorldInverse).z;
