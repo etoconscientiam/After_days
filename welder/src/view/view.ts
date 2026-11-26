@@ -1046,7 +1046,6 @@ export class View {
       const on = k === key || k === this.hover;
       for (const m of this.ws.hiMats[k]) m.emissive.set(on ? '#3a2a1a' : '#000000');
     }
-    this.bead.highlight(f.target === 'seam' ? f.seam : -1, 1);
     let hint = f.hint && this.tour < 0 ? t('hint.' + f.hint) : '';
     if (this.rig.mode === 'walk') hint = f.target ? t('hint.toBench') : '';
     this.ui.setHint(hint, f.target === 'mask' && this.rig.mode !== 'walk');

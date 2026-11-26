@@ -125,8 +125,6 @@ export class BeadView {
   private pores: THREE.InstancedMesh;
   private grooves: THREE.Mesh[] = [];
   private grooveMat: THREE.MeshBasicMaterial;
-  private hiMat: THREE.MeshBasicMaterial;
-  private hi: THREE.Mesh[] = [];
   private src: BeadSource | null = null;
   /** Moves a point (part-local mm) along -n onto the part's surface; used for spatter on curved parts. */
   private snap: (p: THREE.Vector3, n: THREE.Vector3) => void = () => {};
@@ -194,7 +192,6 @@ export class BeadView {
     this.pores.frustumCulled = false;
 
     this.grooveMat = new THREE.MeshBasicMaterial({ color: '#050403', side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
-    this.hiMat = new THREE.MeshBasicMaterial({ color: '#c89a70', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
     this.group.add(this.holes, this.dots, this.pores);
 
     // Molten pool: a white-hot lens of metal with an orange tail where it is freezing behind the arc.
@@ -327,10 +324,6 @@ export class BeadView {
       this.group.remove(g);
       g.geometry.dispose();
     }
-    for (const g of this.hi) {
-      this.group.remove(g);
-      g.geometry.dispose();
-    }
     for (const g of this.chalk) {
       this.group.remove(g);
       g.geometry.dispose();
@@ -342,7 +335,6 @@ export class BeadView {
     this.strips = [];
     this.chalk = [];
     this.grooves = [];
-    this.hi = [];
     this.src = src;
     this.snap = snap;
     this.rev = -1;
@@ -356,10 +348,6 @@ export class BeadView {
       g.renderOrder = 1;
       this.grooves.push(g);
       this.group.add(g);
-      const h = new THREE.Mesh(this.ribbon(sr, 5, 0.8), this.hiMat);
-      h.renderOrder = 2;
-      this.hi.push(h);
-      this.group.add(h);
       const st = this.makeStrip(sr);
       st.groove = g;
       st.gBase = (g.geometry.attributes.position.array as Float32Array).slice();
@@ -570,11 +558,6 @@ export class BeadView {
     return g;
   }
 
-  /** Which seam to highlight (-1 none) and how strongly. Steady, no pulsing. */
-  highlight(seam: number, k: number): void {
-    this.hiMat.opacity = k * 0.16;
-    for (let i = 0; i < this.hi.length; i++) this.hi[i].visible = i === seam && k > 0;
-  }
 
   update(dt = 0): void {
     this.clock += dt;
