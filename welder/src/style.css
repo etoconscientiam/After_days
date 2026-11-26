@@ -194,8 +194,8 @@ html, body {
   border: calc(var(--px) * 2) solid #4a3422;
   display: none;
 }
-#board h3 { margin: 0 0 calc(var(--px) * 4); font-size: var(--fh); line-height: calc(var(--fh) * 1.25); font-family: var(--fhf); font-weight: 400; color: #e8d8b0; letter-spacing: 0.2em; }
-#board .cards { display: grid; grid-template-columns: 1fr 1fr; gap: calc(var(--px) * 4); }
+#board h3 { margin: 0 0 0.6em; font-size: var(--fh); line-height: calc(var(--fh) * 1.25); font-family: var(--fhf); font-weight: 400; color: #e8d8b0; letter-spacing: 0.2em; }
+#board .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7em; }
 #board .card {
   background: #b8aa8c;
   color: #2a1e14;
@@ -208,10 +208,11 @@ html, body {
 #board .card.off { opacity: 0.55; cursor: default; }
 #board .card b { display: block; font-size: 1em; }
 #board .card .who { color: #5a4834; }
-#board .card ul { margin: calc(var(--px) * 1.5) 0 0; padding-left: calc(var(--px) * 5); }
+#board .card ul { margin: 0.35em 0 0; padding: 0; list-style: none; }
+#board .card li + li { margin-top: 0.15em; }
 #board .card .pay { position: absolute; right: calc(var(--px) * 3); top: calc(var(--px) * 3); font-weight: 400; color: #6a4a10; }
 #board .card .why { color: #8a2a10; margin-top: calc(var(--px) * 1.5); }
-#board .close { margin-top: calc(var(--px) * 4); text-align: right; color: var(--dim); cursor: pointer; }
+#board .close { margin-top: 0.8em; text-align: right; color: var(--dim); cursor: pointer; }
 #board .empty { color: var(--dim); }
 #app-status {
   position: absolute;
@@ -380,18 +381,18 @@ html, body {
 #craft h3 { margin: 0; font-size: var(--fh); line-height: calc(var(--fh) * 1.25); font-family: var(--fhf); font-weight: 400; color: #f0e0b8; letter-spacing: 0.2em; }
 #craft .money-line { color: #e8c878; margin: calc(var(--px) * 1) 0 calc(var(--px) * 3); }
 #craft h4 { margin: calc(var(--px) * 4) 0 calc(var(--px) * 2); color: #c8a878; letter-spacing: 0.15em; text-transform: uppercase; font-size: 1em; }
-#craft .items { display: grid; grid-template-columns: 1fr 1fr; gap: calc(var(--px) * 3); }
+#craft .items { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7em; }
 #craft .item { position: relative; background: #b8aa8c; color: #2a1e14; padding: calc(var(--px) * 3); }
 #craft .item.owned { background: #7a8a6a; }
 #craft .item.off { opacity: 0.6; }
 #craft .item b { display: block; padding-right: calc(var(--px) * 14); }
 #craft .item .cost { position: absolute; right: calc(var(--px) * 3); top: calc(var(--px) * 3); font-weight: 400; color: #6a4a10; }
-#craft .item p { margin: calc(var(--px) * 1.5) 0; font-size: 1em; }
+#craft .item p { margin: 0.35em 0; font-size: 1em; }
 #craft .buy { display: inline-block; white-space: nowrap; cursor: pointer; padding: calc(var(--px) * 1) calc(var(--px) * 4); background: #2a1e14; color: #f0e0b8; }
 #craft .buy:hover { background: #4a3422; }
 #craft .no { color: #8a2a10; font-size: 1em; }
 #craft .own { color: #1e3a14; font-weight: 400; }
-#craft .close { margin-top: calc(var(--px) * 4); text-align: right; color: var(--dim); cursor: pointer; }
+#craft .close { margin-top: 0.8em; text-align: right; color: var(--dim); cursor: pointer; }
 #tour {
   display: none;
   max-width: max(calc(var(--px) * 110), 15em);
@@ -477,9 +478,10 @@ html, body {
 #craft-btn .k { border: none; padding: 0; margin-left: calc(var(--px) * 1.5); color: #e8c878; }
 #money { padding: 0 calc(var(--px) * 3); color: #2a1e14; }
 #stages { padding: calc(var(--px) * 0.5) calc(var(--px) * 1.5); }
-#job, #craft, #board, #end .panel { padding: calc(var(--px) * 2) calc(var(--px) * 3); }
-#craft .item, #board .card { padding: calc(var(--px) * 0.5) calc(var(--px) * 1.5); }
-#craft .item .cost, #board .card .pay { right: calc(var(--px) * 1); top: calc(var(--px) * 0.5); }
+/* Inside the windows and their cards: room for the words, in the font's own units. */
+#job, #craft, #board, #end .panel { padding: 0.6em 1em 0.8em; }
+#craft .item, #board .card { padding: 0.5em 0.9em 0.6em; }
+#craft .item .cost, #board .card .pay { right: 0.9em; top: 0.5em; }
 #stamp { padding: 0 calc(var(--px) * 5); }
 #job .btns span, #craft .buy, #board .close, #craft .close, #start .go, #end .go, #start .links span { display: inline-block; white-space: nowrap; padding: 0 calc(var(--px) * 3); cursor: pointer; }
 #start .go { color: #ffe6a8 !important; font-size: var(--fh); line-height: calc(var(--fh) * 1.25); font-family: var(--fhf); font-weight: 400; }
