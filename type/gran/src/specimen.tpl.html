@@ -1,0 +1,339 @@
+<title>Грань — Gran</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a foundry proof sheet. Left margin carries labels like a ledger; the live font owns the page. */
+@font-face { font-family: "Gran"; src: url(data:font/woff2;base64,{{WOFF2}}) format("woff2"); font-display: block; }
+:root {
+  --paper: #f2f3f1;
+  --sheet: #fbfbfa;
+  --ink: #141517;
+  --muted: #5f646b;
+  --rule: #d6d9dc;
+  --accent: #3b3fd8;      /* proof blue: off-curve points, controls */
+  --mark: #d2382b;        /* on-curve points, as in a font editor */
+  --guide: #b9c4e8;
+  --f-gran: "Gran", "IBM Plex Sans", sans-serif;
+  --f-text: "IBM Plex Sans", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --s-1: 13px; --s0: 16px; --s1: 20px; --s2: 28px; --s3: 44px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper: #0f1012; --sheet: #16181b; --ink: #ebebe7; --muted: #9aa0a8; --rule: #2c3036;
+  --accent: #8d91ff; --mark: #ff7a6b; --guide: #34406a; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --paper: #0f1012; --sheet: #16181b; --ink: #ebebe7; --muted: #9aa0a8; --rule: #2c3036;
+  --accent: #8d91ff; --mark: #ff7a6b; --guide: #34406a; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--paper); color: var(--ink); font: 400 var(--s0)/1.6 var(--f-text); }
+.wrap { max-width: 1180px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0; }
+a { color: var(--accent); text-underline-offset: 2px; }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+p { margin: 0; max-width: 66ch; }
+.mono { font-family: var(--f-mono); font-size: var(--s-1); letter-spacing: .02em; }
+
+/* hero */
+.hero { padding-block: 40px 28px; border-bottom: 1px solid var(--rule); }
+.hero-top { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; align-items: baseline; }
+.hero-top .mono { color: var(--muted); }
+.stage { font-family: var(--f-gran); line-height: .98; margin-block: 28px 20px; font-size: clamp(64px, 15vw, 210px); letter-spacing: -0.005em; font-optical-sizing: none; overflow-wrap: anywhere; }
+.stage .sc { font-variant-caps: all-small-caps; }
+.controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px 32px; align-items: end; }
+.ctl label { display: flex; justify-content: space-between; font-family: var(--f-mono); font-size: var(--s-1); color: var(--muted); }
+.ctl output { color: var(--ink); }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.presets { display: flex; flex-wrap: wrap; gap: 8px; }
+.presets button { font: 500 var(--s-1) var(--f-mono); color: var(--ink); background: transparent; border: 1px solid var(--rule); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
+.presets button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.presets button:focus-visible, input:focus-visible, .toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.lede { margin-top: 24px; font-size: var(--s1); line-height: 1.45; max-width: 52ch; }
+
+/* sections: ledger with margin label */
+section { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 16px 40px; padding-block: 48px; border-bottom: 1px solid var(--rule); }
+section > .label { font-family: var(--f-mono); font-size: var(--s-1); color: var(--muted); text-transform: uppercase; letter-spacing: .08em; padding-top: 6px; }
+section > .body { min-width: 0; display: grid; gap: 24px; }
+section h2 { font-size: var(--s2); line-height: 1.2; font-weight: 600; }
+@media (max-width: 760px) { section { grid-template-columns: minmax(0, 1fr); gap: 8px; padding-block: 36px; } }
+
+.findings { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 0; border-top: 1px solid var(--rule); }
+.finding { padding: 18px 20px 20px 0; border-bottom: 1px solid var(--rule); display: grid; gap: 6px; align-content: start; min-width: 0; }
+.finding h3 { font-size: var(--s0); font-weight: 600; }
+.finding p { color: var(--ink); font-size: 15px; }
+.finding .src { color: var(--muted); font-size: 13px; }
+
+.rules { display: grid; gap: 28px; }
+.rule { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 24px; align-items: center; }
+@media (max-width: 760px) { .rule { grid-template-columns: minmax(0, 1fr); } }
+.rule h3 { font-size: var(--s1); font-weight: 600; margin-bottom: 6px; }
+.dets { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+figure { margin: 0; }
+.det { background: var(--sheet); border: 1px solid var(--rule); }
+.det figcaption { font: 12px/1.4 var(--f-mono); color: var(--muted); padding: 6px 8px; border-top: 1px solid var(--rule); }
+svg.dz { display: block; width: 100%; height: auto; aspect-ratio: 1; }
+
+/* design space */
+.space { display: grid; grid-template-columns: auto 1fr 1fr 1fr; gap: 1px; background: var(--rule); border: 1px solid var(--rule); overflow-x: auto; }
+.space > div { background: var(--sheet); padding: 14px 16px; min-width: 0; }
+.space .ax { font: 12px var(--f-mono); color: var(--muted); display: flex; align-items: center; }
+.space .cellg { font-family: var(--f-gran); font-optical-sizing: none; font-size: clamp(30px, 5vw, 56px); line-height: 1.05; white-space: nowrap; }
+@media (max-width: 600px) { .space { grid-template-columns: auto 1fr; } .space .mid { display: none; } }
+
+.sizes { display: grid; gap: 14px; }
+.sz { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 12px; align-items: baseline; border-top: 1px solid var(--rule); padding-top: 10px; }
+.sz .mono { color: var(--muted); }
+.sz .t { font-family: var(--f-gran); font-optical-sizing: auto; overflow-wrap: anywhere; }
+@media (max-width: 600px) { .sz { grid-template-columns: minmax(0,1fr); gap: 2px; } }
+
+.scdemo { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.scbox { background: var(--sheet); border: 1px solid var(--rule); padding: 16px; display: grid; gap: 8px; }
+.scbox .g { font-family: var(--f-gran); font-size: 76px; line-height: 1; position: relative; font-optical-sizing: none; }
+.scbox .mono { color: var(--muted); }
+
+/* proofs */
+.proof-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.toggle { font: 500 var(--s-1) var(--f-mono); background: transparent; color: var(--ink); border: 1px solid var(--rule); padding: 6px 12px; border-radius: 999px; cursor: pointer; }
+.proofs { display: grid; gap: 18px; }
+.prow { display: grid; gap: 6px; }
+.plabel { display: flex; gap: 12px; align-items: baseline; font-family: var(--f-mono); font-size: var(--s-1); }
+.plabel span { color: var(--muted); }
+.pcells { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 6px; background: var(--sheet); border: 1px solid var(--rule); padding: 8px; }
+.pcells figure { flex: 0 0 auto; text-align: center; }
+.pcells figcaption { font: 11px var(--f-mono); color: var(--muted); }
+svg.gs { height: 150px; width: auto; display: block; }
+.ink { fill: var(--ink); fill-rule: nonzero; }
+.gd line { stroke: var(--guide); stroke-width: 3; }
+.hd line { stroke: var(--accent); stroke-width: 2.5; }
+.on rect { fill: var(--mark); }
+.off circle { fill: var(--sheet); stroke: var(--accent); stroke-width: 3; }
+.pts-off .hd, .pts-off .on, .pts-off .off { display: none; }
+.pts-on .ink { fill-opacity: .28; stroke: var(--ink); stroke-width: 2; }
+.dz .ink { fill-opacity: 1; stroke: none; }
+.dz .hd, .dz .on, .dz .off { display: none; }
+.dz .gd line { stroke-width: 2; }
+
+table { border-collapse: collapse; width: 100%; font-size: 14px; font-variant-numeric: tabular-nums; }
+.tscroll { overflow-x: auto; }
+th, td { padding: 7px 10px; border-bottom: 1px solid var(--rule); text-align: right; white-space: nowrap; }
+thead th { font-weight: 600; vertical-align: bottom; }
+thead th span, tbody th { font-weight: 400; color: var(--muted); }
+tbody th { text-align: left; }
+td { font-family: var(--f-mono); }
+
+ol.road { margin: 0; padding-left: 1.3em; display: grid; gap: 10px; max-width: 70ch; }
+ol.road li::marker { font-family: var(--f-mono); color: var(--muted); }
+.sources { columns: 2 300px; column-gap: 32px; font-size: 14px; margin: 0; padding-left: 1.1em; }
+.sources li { break-inside: avoid; margin-bottom: 6px; }
+footer { padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
+@media (prefers-reduced-motion: no-preference) { .stage { transition: font-variation-settings .25s ease; } }
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="hero-top">
+      <span class="mono">Gran · рабочее имя · прототип 0.01</span>
+      <span class="mono">оси: opsz 12–33 · SERF 0–100 · 7 знаков + капитель</span>
+    </div>
+    <div class="stage" id="stage">НОЖ дао<br>Hanna <span class="sc">НОЖ</span></div>
+    <div class="controls">
+      <div class="ctl"><label for="opsz">Оптический размер <output id="opszv">12</output></label>
+        <input id="opsz" type="range" min="12" max="33" step="0.5" value="12"></div>
+      <div class="ctl"><label for="serf">Гротеск → антиква <output id="serfv">0</output></label>
+        <input id="serf" type="range" min="0" max="100" step="1" value="0"></div>
+      <div class="presets" role="group" aria-label="Начертания">
+        <button data-o="12" data-s="0" aria-pressed="true">Text Grotesk</button>
+        <button data-o="12" data-s="100" aria-pressed="false">Text Antiqua</button>
+        <button data-o="33" data-s="0" aria-pressed="false">Display Grotesk</button>
+        <button data-o="33" data-s="50" aria-pressed="false">Display Flare</button>
+        <button data-o="33" data-s="100" aria-pressed="false">Display Antiqua</button>
+      </div>
+    </div>
+    <p class="lede">Вариативная суперсемья для кириллицы и латиницы: гротеск и антиква в одном файле, с оптическими размерами для текста (12 px) и заголовков (33 px). Идея в том, что засечка не приклеена к гротеску. Она вырастает из той же грани, которая в гротеске работает срезом и ловушкой для краски.</p>
+  </header>
+
+  <section>
+    <div class="label">Исследование</div>
+    <div class="body">
+      <h2>Что сейчас происходит в шрифтостроении</h2>
+      <div class="findings">
+        <div class="finding"><h3>Вариативность стала нормой</h3>
+          <p>Обзоры 2026 года говорят о вариативных шрифтах как о стандартной практике, а не о тренде: браузеры и редакторы поддерживают их полностью. Серьёзный релиз без вариативной версии уже выглядит неполным. Новизна теперь в том, какие оси придуманы и зачем.</p>
+          <span class="src">Pangram Pangram, Creative Bloq, Kittl</span></div>
+        <div class="finding"><h3>Ось «гротеск → антиква» уже занята</h3>
+          <p>Dinamo Arizona упаковала пять жанров (Sans, Flare, Mix, Text, Serif) в один файл с осью SRFF. Есть Belarius (переход к брусковой засечке), Foreday (засечка × вес), Adaptable. Сам переход больше не удивляет, поэтому удивлять должна логика: откуда засечка берётся и почему.</p>
+          <span class="src">ABC Dinamo, TypeTogether, MyFonts</span></div>
+        <div class="finding"><h3>Гибриды на русской сцене</h3>
+          <p>type.today выпустил Fluxetype (май 2026, Никита Канарев): пересечение гуманистического гротеска и антиквы без засечек, три оси, включая высоту строчных, четыре оптических размера, расширенная кириллица. CSTM Zhivov делает обратное привычному: переносит церковнославянскую конструкцию в латиницу.</p>
+          <span class="src">type.today, CSTM Fonts</span></div>
+        <div class="finding"><h3>Оптический размер решает больше, чем жирность</h3>
+          <p>Текстовый мастер получает более высокие строчные, низкий контраст, широкие пропорции, свободный апрош и открытые формы. Дисплейный мастер наоборот. В CSS <span class="mono">font-optical-sizing: auto</span> выставляет opsz равным размеру в px, поэтому мастера 12 и 33 срабатывают сами. Klim Die Grotesk через opsz управляет даже спейсингом.</p>
+          <span class="src">OpenType spec (opsz), Google Fonts Knowledge, Klim</span></div>
+        <div class="finding"><h3>Ловушки для краски стали языком</h3>
+          <p>Функциональный вырез в узлах, который не даёт узлу забиться на мелком кегле, у Dinamo Whyte Inktrap стал выразительным приёмом. Ловушка меняет смысл с размером: на 12 px она нужна, на 33 px её видно, и она работает как характер.</p>
+          <span class="src">ABC Dinamo, Toshi Omagari «Ink traps and pals»</span></div>
+        <div class="finding"><h3>Кириллица против капители</h3>
+          <p>Русские строчные почти без выносных, и латинскому глазу они кажутся капителью (н, к, ж, т). Значит, капитель обязана отличаться от строчных: она выше x-height, шире, с прописной конструкцией. Строчным нужны свои, «строчные» детали. Болгарские формы ставятся через locl, а выносные д, ц, щ делают короче полных.</p>
+          <span class="src">MyFonts / Fontsmith, type.today, W3C Cyrillic Gap Analysis</span></div>
+        <div class="finding"><h3>Широкое перо в контрасте</h3>
+          <p>В антикве диагонали следуют движению пера: штрих, идущий вниз-вправо, толстый, восходящий тонкий. Для Ж это значит: левая верхняя ветвь и правая нижняя ноги толстые, а правая верхняя и левая нижняя волосные. Гротеск эту логику сохраняет в мелочах: верхние ветви чуть легче нижних.</p>
+          <span class="src">классика шрифтостроения, разбор кириллических антиква type.today</span></div>
+        <div class="finding"><h3>Производство важнее эффекта</h3>
+          <p>Вариативный шрифт требует одинаковой структуры точек во всех мастерах, совместной конвертации кривых в квадратичные, флага перекрытий, таблиц STAT и fvar, проверки интерполяции в промежуточных точках, а потом хинтинга и fontbakery. Профессиональный уровень чаще теряется именно тут, а не в рисунке.</p>
+          <span class="src">OpenType 1.9, fontTools</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="label">Концепция</div>
+    <div class="body">
+      <h2>Грань: одна геометрия для среза, ловушки и засечки</h2>
+      <p>Арт-идея не в декоре. Это сквозное правило: каждая буква собрана из прямых штрихов и гладких кривых, а в местах напряжения появляется плоская грань. В гротеске грань режет внутрь, в антикве она выходит наружу и становится засечкой. Отсюда имя.</p>
+      <div class="rules">
+        <div class="rule"><div><h3>Срез верха штамба</h3><p>Верх строчных штамбов срезан под углом 10–15%. Это след будущей засечки, который виден уже в гротеске. На оси SERF тот же срез вытягивается во флажок антиквы, без смены конструкции.</p></div>
+          <div class="dets">{{D_FACET}}</div></div>
+        <div class="rule"><div><h3>Ловушка, которая становится гранью</h3><p>На 12 px узел n, a и Ж прорезан глубоко, чтобы буква не забивалась. К 33 px вырез мелеет до небольшой кристаллической фаски: функция на мелком кегле, характер на крупном.</p></div>
+          <div class="dets">{{D_TRAP}}</div></div>
+        <div class="rule"><div><h3>Гранёный бракет</h3><p>Засечка антиквы — клин с прямой фаской вместо привычной скруглённой подставки. Для текста она короткая и плотная, чтобы выдерживать мелкий кегль. Для дисплея длинная, с тонким кончиком и высоким контрастом.</p></div>
+          <div class="dets">{{D_SERIF}}</div></div>
+        <div class="rule"><div><h3>Ж по логике пера</h3><p>Ветви и ноги сходятся не к штамбу, а к точке рядом с ним. Так узел легче, а три ловушки на каждую сторону держат его открытым. В антикве контраст распределён по движению пера.</p></div>
+          <div class="dets">{{D_ZHE}}</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="label">Дизайн-пространство</div>
+    <div class="body">
+      <h2>Четыре мастера и всё между ними</h2>
+      <p>Рисуются четыре угла: текст и дисплей, гротеск и антиква. Промежуточные значения, вроде полузасечки Flare на SERF 50, интерполируются. Вертикальные метрики вдоль оси засечек одинаковые, поэтому гротеск и антикву можно смешивать в одной строке.</p>
+      <div class="space">
+        <div class="ax"></div><div class="ax">SERF 0 · гротеск</div><div class="ax mid">SERF 50 · flare</div><div class="ax">SERF 100 · антиква</div>
+        <div class="ax">opsz 12</div>
+        <div class="cellg" style="font-variation-settings:'opsz' 12,'SERF' 0">Жда</div>
+        <div class="cellg mid" style="font-variation-settings:'opsz' 12,'SERF' 50">Жда</div>
+        <div class="cellg" style="font-variation-settings:'opsz' 12,'SERF' 100">Жда</div>
+        <div class="ax">opsz 33</div>
+        <div class="cellg" style="font-variation-settings:'opsz' 33,'SERF' 0">Жда</div>
+        <div class="cellg mid" style="font-variation-settings:'opsz' 33,'SERF' 50">Жда</div>
+        <div class="cellg" style="font-variation-settings:'opsz' 33,'SERF' 100">Жда</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="label">Кегли 12 и 33</div>
+    <div class="body">
+      <h2>В рабочем размере</h2>
+      <p>Здесь размер настоящий, а оптический размер браузер выбирает сам через <span class="mono">font-optical-sizing: auto</span>. В строках только готовые знаки: H O n o a Ж д и кириллические Н О о а, собранные из компонентов.</p>
+      <div class="sizes">
+        <div class="sz"><span class="mono">12 px · гротеск</span><span class="t" style="font-size:12px;font-variation-settings:'SERF' 0">НОЖ дао ода Hanna anon noon nano HOnoaЖд <span style="font-variant-caps:all-small-caps">НОЖ</span> HOnoaЖд НОЖ дао ода Hanna anon noon nano</span></div>
+        <div class="sz"><span class="mono">12 px · flare</span><span class="t" style="font-size:12px;font-variation-settings:'SERF' 50">НОЖ дао ода Hanna anon noon nano HOnoaЖд <span style="font-variant-caps:all-small-caps">НОЖ</span> HOnoaЖд НОЖ дао ода Hanna anon noon nano</span></div>
+        <div class="sz"><span class="mono">12 px · антиква</span><span class="t" style="font-size:12px;font-variation-settings:'SERF' 100">НОЖ дао ода Hanna anon noon nano HOnoaЖд <span style="font-variant-caps:all-small-caps">НОЖ</span> HOnoaЖд НОЖ дао ода Hanna anon noon nano</span></div>
+        <div class="sz"><span class="mono">33 px · гротеск</span><span class="t" style="font-size:33px;font-variation-settings:'SERF' 0">НОЖ дао Hanna nano <span style="font-variant-caps:all-small-caps">НОЖ</span></span></div>
+        <div class="sz"><span class="mono">33 px · flare</span><span class="t" style="font-size:33px;font-variation-settings:'SERF' 50">НОЖ дао Hanna nano <span style="font-variant-caps:all-small-caps">НОЖ</span></span></div>
+        <div class="sz"><span class="mono">33 px · антиква</span><span class="t" style="font-size:33px;font-variation-settings:'SERF' 100">НОЖ дао Hanna nano <span style="font-variant-caps:all-small-caps">НОЖ</span></span></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="label">Капитель</div>
+    <div class="body">
+      <h2>Капитель нарисована, а не уменьшена</h2>
+      <p>Уменьшенные прописные выглядят светлыми и узкими. Капитель Gran строится по конструкции прописных, но со штамбом строчных +4%, шире на 8–10% и с чуть более свободным апрошем. Её высота на 20 единиц выше x-height (552 против 532 на 12 px): так кириллическая капитель не сливается со строчными. Включается через <span class="mono">smcp</span> и <span class="mono">c2sc</span>.</p>
+      <div class="scdemo">
+        <div class="scbox"><span class="mono">Прописные</span><span class="g" style="font-variation-settings:'opsz' 12,'SERF' 0">НОЖ</span></div>
+        <div class="scbox"><span class="mono">Капитель · c2sc</span><span class="g" style="font-variation-settings:'opsz' 12,'SERF' 0;font-variant-caps:all-small-caps">НОЖ</span></div>
+        <div class="scbox"><span class="mono">Капитель · антиква 33</span><span class="g" style="font-variation-settings:'opsz' 33,'SERF' 100;font-variant-caps:all-small-caps">НОЖ</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="label">Пруфы</div>
+    <div class="body">
+      <div class="proof-head"><h2>Контуры всех мастеров</h2>
+        <button class="toggle" id="pts" aria-pressed="false">Показать точки</button></div>
+      <p>Красные квадраты отмечают точки на контуре, синие кружки — управляющие точки. Линии показывают базовую линию, x-height, высоту капители и прописных. Засечки и ловушки есть в каждом мастере: в гротеске они схлопнуты в ноль, поэтому структура точек одинакова везде, и интерполяция чистая.</p>
+      <div class="proofs pts-off" id="proofs">{{PROOFS}}</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="label">Параметры</div>
+    <div class="body">
+      <h2>Числа мастеров</h2>
+      <p>Единицы на кегль 1000. Высота прописных 700 во всех мастерах. Выносные д: −170 на 12 px, −152 на 33 px, это короче полных выносных. Нависания круглых: 12/11 и 10/9 единиц.</p>
+      <div class="tscroll"><table><thead><tr><th></th>{{THEAD}}</tr></thead><tbody>{{TBODY}}</tbody></table></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="label">Дальше</div>
+    <div class="body">
+      <h2>Порядок работы</h2>
+      <ol class="road">
+        <li>Утвердить ДНК на этих 7 знаках: срез, ловушки, гранёный бракет, пропорции, контраст.</li>
+        <li>Контрольные знаки и спейсинг по строкам HHOHOO / nnonno / ННОНОО: H O n o задают ритм всем остальным.</li>
+        <li>Базовая кириллица и латиница (A–Z, А–Я, a–z, а–я), строчные с «строчными» деталями (к, ж, л, д, в), отдельные формы для ё, й, ъ.</li>
+        <li>Ось wght (Light–Black) третьим измерением, затем курсив как самостоятельный рисунок, не наклон.</li>
+        <li>Капитель на весь алфавит, цифры (пропорциональные, моноширинные, старостильные), пунктуация, валюты (₽ € $ ₸ ₴), стрелки.</li>
+        <li>Latin Extended-A, расширенная кириллица (украинский, белорусский, сербский, македонский, казахский), locl для болгарского и сербского.</li>
+        <li>Кернинг по классам, хинтинг, fontbakery, тесты в Word, InDesign, Figma и браузерах. Проверка имени на товарный знак.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section>
+    <div class="label">Источники</div>
+    <div class="body">
+      <ul class="sources">
+        <li><a href="https://abcdinamo.com/news/typeface-release-abc-arizona">ABC Arizona: Five Fonts in One</a></li>
+        <li><a href="https://abcdinamo.com/news/arizona-design-space">Arizona’s Design Space</a></li>
+        <li><a href="https://the-brandidentity.com/feed/dinamos-johannes-breyer-process-behind-innovative-sans-serif-superfamily-abc-arizona/">Johannes Breyer об Arizona</a></li>
+        <li><a href="https://type.today/en/journal/fluxetype">type.today: Fluxetype</a></li>
+        <li><a href="https://type.today/en/journal/zhivov">type.today: Zhivov</a></li>
+        <li><a href="https://type.today/en/journal/jan26">type.today digest, январь 2026</a></li>
+        <li><a href="https://typenetwork.com/articles/type-network-heads-east-with-cstm-fonts">Type Network и CSTM Fonts</a></li>
+        <li><a href="https://typetype.org/blog/20-best-cyrillic-fonts-of-2025/">TypeType: кириллица 2025</a></li>
+        <li><a href="https://www.type-together.com/Futura®100 Cyrillic">TypeTogether: Futura 100 Cyrillic</a></li>
+        <li><a href="https://fonts.google.com/knowledge/glossary/optical_size_axis">Google Fonts: optical size axis</a></li>
+        <li><a href="https://learn.microsoft.com/en-us/typography/opentype/otspec183/dvaraxistag_opsz">OpenType: ось opsz</a></li>
+        <li><a href="https://klim.co.nz/blog/die-grotesk-design-information/">Klim: Die Grotesk</a></li>
+        <li><a href="https://tosche.net/blog/ink-traps-and-pals">Toshi Omagari: Ink traps and pals</a></li>
+        <li><a href="https://eyeondesign.aiga.org/dinamos-latest-font-release-brings-victorian-type-technology-into-the-digital-realm/">Eye on Design: Whyte Inktrap</a></li>
+        <li><a href="https://www.myfonts.com/a/font/content/4-things-every-graphic-designer-needs-to-know-about-cyrillic">MyFonts: 4 things about Cyrillic</a></li>
+        <li><a href="https://www.myfonts.com/a/font/content/cyrillic-script-variations-and-the-importance-of-localisation">MyFonts: Cyrillic localisation</a></li>
+        <li><a href="https://www.w3.org/TR/2024/DNOTE-cyrl-gap-20240723">W3C: Cyrillic Gap Analysis</a></li>
+        <li><a href="https://pangrampangram.com/blogs/journal/future-of-variable-fonts">Pangram Pangram: The Future of Variable Fonts</a></li>
+        <li><a href="https://www.creativebloq.com/design/fonts-typography/breaking-rules-and-bringing-joy-top-typography-trends-for-2026">Creative Bloq: тренды 2026</a></li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>Gran 0.01. Шрифт на этой странице встроен прямо в неё: 7 знаков, капитель для Н О Ж, четыре мастера, 2 оси. Обзоры трендов от маркетплейсов — рекламные источники, их прогнозы стоит воспринимать как мнение.</footer>
+</div>
+
+<script>
+(function () {
+  var stage = document.getElementById('stage');
+  var o = document.getElementById('opsz'), s = document.getElementById('serf');
+  var ov = document.getElementById('opszv'), sv = document.getElementById('serfv');
+  var btns = document.querySelectorAll('.presets button');
+  function apply() {
+    stage.style.fontVariationSettings = "'opsz' " + o.value + ", 'SERF' " + s.value;
+    ov.textContent = o.value; sv.textContent = s.value;
+    btns.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.o === o.value && b.dataset.s === s.value)); });
+  }
+  o.addEventListener('input', apply); s.addEventListener('input', apply);
+  btns.forEach(function (b) { b.addEventListener('click', function () { o.value = b.dataset.o; s.value = b.dataset.s; apply(); }); });
+  var t = document.getElementById('pts'), pr = document.getElementById('proofs');
+  t.addEventListener('click', function () {
+    var on = pr.classList.toggle('pts-on'); pr.classList.toggle('pts-off', !on);
+    t.setAttribute('aria-pressed', String(on)); t.textContent = on ? 'Скрыть точки' : 'Показать точки';
+  });
+  apply();
+})();
+</script>
