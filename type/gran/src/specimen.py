@@ -13,11 +13,13 @@ from masters import MASTERS, params  # noqa: E402
 data = json.load(open(os.path.join(ROOT, "build", "outlines.json")))
 woff2_old = base64.b64encode(open(os.path.join(ROOT, "fonts", "archive", "GranVF-0.01.woff2"), "rb").read()).decode()
 woff2_old2 = base64.b64encode(open(os.path.join(ROOT, "fonts", "archive", "GranVF-0.02.woff2"), "rb").read()).decode()
+woff2_old3 = base64.b64encode(open(os.path.join(ROOT, "fonts", "archive", "GranVF-0.03.woff2"), "rb").read()).decode()
+calib = base64.b64encode(open(os.path.join(ROOT, "research", "calibration-overlay.png"), "rb").read()).decode()
 study = base64.b64encode(open(os.path.join(ROOT, "research", "velvetyne-study.png"), "rb").read()).decode()
 woff2 = base64.b64encode(open(os.path.join(ROOT, "fonts", "GranVF.woff2"), "rb").read()).decode()
 
 ORDER = [("H", "H"), ("O", "O"), ("Zhe-cy", "Ж"), ("n", "n"), ("o", "o"),
-         ("a", "a"), ("a.lubok", "a·33"), ("de-cy", "д"), ("h.sc", "н·sc"), ("o.sc", "о·sc"),
+         ("a", "a"), ("de-cy", "д"), ("h.sc", "н·sc"), ("o.sc", "о·sc"),
          ("zhe-cy.sc", "ж·sc")]
 MLABEL = {"TextGrotesk": ("12 px", "Гротеск"), "TextAntiqua": ("12 px", "Антиква"),
           "DisplayGrotesk": ("33 px", "Гротеск"), "DisplayAntiqua": ("33 px", "Антиква"),
@@ -57,7 +59,7 @@ def glyph_svg(g, m, box=None, cls="gs"):
     hs = "".join(f'<line x1="{a[0]:.0f}" y1="{a[1]:.0f}" x2="{b[0]:.0f}" y2="{b[1]:.0f}"/>' for a, b in handles)
     guides = "".join(
         f'<line x1="-40" x2="{adv+40}" y1="{y}" y2="{y}"/>'
-        for y in (0, p["xh"], p["cap"]) + ((p["sc"],) if g.endswith(".sc") else ()) + ((p["dd"],) if g == "de-cy" else ()))
+        for y in (0, p["xh"], p["cap"]) + ((p["xh"] + (22 if p["opsz"] == 12 else 20),) if g.endswith(".sc") else ()) + ((p["dd"],) if g == "de-cy" else ()))
     vb = f"-40 -260 {adv+80} 1060"
     if box:
         x0, y0, x1, y1 = box
@@ -93,12 +95,13 @@ def cell(m, k, fmt="{:.0f}"):
 
 
 table_rows = [
-    ("Высота строчных (x)", "xh"), ("Высота капители", "sc"),
+    ("Высота строчных (x)", "xh"),
     ("Штамб прописных V", "V"), ("Штамб строчных v", "v"),
     ("Горизонталь прописных", "Hc"), ("Горизонталь строчных", "hl"),
     ("Вынос засечки прописных", "proj"), ("Толщина засечки у кончика", "tt"),
-    ("Глубина надреза, доля штамба", "knifeD"), ("Угол пера, °", "phi"),
-    ("Наклон просвета O, °", "oTilt"), ("Апрош у штамба H", "sb"),
+    ("Ширина n (штамб—штамб)", "wn"), ("Ширина o", "wo"), ("Ширина O", "wO"),
+    ("Наклон оси контраста O, °", "tilt"), ("Апрош H (от края знака)", "sbH"),
+    ("Апрош n слева / справа", "sbnL"), ("Апрош o", "sbo"),
 ]
 order_m = [m for m, *_ in MASTERS]
 thead = "".join(f"<th>{MLABEL[m][1]}<br><span>{MLABEL[m][0]}</span></th>" for m in order_m)
@@ -157,32 +160,33 @@ def a_box(m, g):
     return (-10, -80, adv + 10, P[m]["xh"] + 80)
 
 
+def a_box(m, g="a"):
+    adv = data[g][m]["adv"]
+    return (-10, -80, adv + 10, P[m]["xh"] + 80)
+
+
 DETAILS = {
-    "FACET": detail("n", "TextGrotesk", facet_box("TextGrotesk"), "Гротеск 12: срез 20%")
-    + detail("n", "DisplayAntiqua", facet_box("DisplayAntiqua"), "Антиква 33: срез стал клинком"),
-    "TRAP": detail("n", "TextGrotesk", nbox("TextGrotesk"), "12 px: короткий надрез-ловушка")
-    + detail("n", "DisplayGrotesk", nbox("DisplayGrotesk"), "33 px: надрез через полштамба"),
-    "ZHE": detail("Zhe-cy", "TextGrotesk", zbox("TextGrotesk"), "12 px: дуги заходят в штамб")
-    + detail("Zhe-cy", "DisplayAntiqua", zbox("DisplayAntiqua"), "33 px: нож оставил просвет"),
-    "DE": detail("de-cy", "TextGrotesk", de_box("TextGrotesk"), "Гротеск 12: срезы наружу")
-    + detail("de-cy", "DisplayAntiqua", de_box("DisplayAntiqua"), "Антиква 33: лезвия"),
-    "PINCH": detail("o", "DisplayGrotesk", o_box2("DisplayGrotesk"), "Гротеск 33: острия на 12 и 6 часов")
-    + detail("o", "DisplayAntiquaBlack", o_box2("DisplayAntiquaBlack"), "Антиква 33 Black: на 11 и 5"),
-    "ALUB": detail("a", "TextGrotesk", a_box("TextGrotesk", "a"), "до 21 px: текстовая а")
-    + detail("a.lubok", "DisplayAntiquaBlack", a_box("DisplayAntiquaBlack", "a.lubok"), "от 21 px: лубочная а"),
+    "N": detail("n", "TextGrotesk", nbox("TextGrotesk"), "Гротеск 12: узел плеча")
+    + detail("n", "DisplayAntiqua", facet_box("DisplayAntiqua"), "Антиква 33: срез и флажок"),
+    "A": detail("a", "TextGrotesk", a_box("TextGrotesk"), "Гротеск: срез 24°")
+    + detail("a", "TextAntiqua", a_box("TextAntiqua"), "Антиква: капля"),
     "O": detail("O", "DisplayGrotesk", o_box("DisplayGrotesk"), "Гротеск: ось 0°")
-    + detail("O", "DisplayAntiqua", o_box("DisplayAntiqua"), "Антиква 33: просвет повёрнут на 15°"),
+    + detail("O", "DisplayAntiqua", o_box("DisplayAntiqua"), "Антиква 33: ось 12°"),
+    "ZHE": detail("Zhe-cy", "TextGrotesk", zbox("TextGrotesk"), "Гротеск: сужение к узлу")
+    + detail("Zhe-cy", "TextAntiqua", zbox("TextAntiqua"), "Антиква: контраст по перу"),
+    "DE": detail("de-cy", "TextGrotesk", de_box("TextGrotesk"), "Гротеск 12")
+    + detail("de-cy", "DisplayAntiqua", de_box("DisplayAntiqua"), "Антиква 33"),
 }
 
 tpl = open(os.path.join(HERE, "specimen.tpl.html"), encoding="utf-8").read()
 html = (tpl.replace("{{WOFF2}}", woff2).replace("{{PROOFS}}", proof_rows)
-        .replace("{{THEAD}}", thead)
-        .replace("{{D_TRAP}}", DETAILS["TRAP"])
-        .replace("{{D_ZHE}}", DETAILS["ZHE"]).replace("{{D_FACET}}", DETAILS["FACET"])
-        .replace("{{D_DE}}", DETAILS["DE"]).replace("{{D_O}}", DETAILS["O"])
+        .replace("{{THEAD}}", thead).replace("{{TBODY}}", tbody)
+        .replace("{{D_N}}", DETAILS["N"]).replace("{{D_A}}", DETAILS["A"])
+        .replace("{{D_O}}", DETAILS["O"]).replace("{{D_ZHE}}", DETAILS["ZHE"])
+        .replace("{{D_DE}}", DETAILS["DE"])
         .replace("{{WOFF2OLD}}", woff2_old).replace("{{WOFF2OLD2}}", woff2_old2)
-        .replace("{{D_PINCH}}", DETAILS["PINCH"]).replace("{{D_ALUB}}", DETAILS["ALUB"])
-        .replace("{{STUDY}}", study).replace("{{TBODY}}", tbody))
+        .replace("{{WOFF2OLD3}}", woff2_old3)
+        .replace("{{STUDY}}", study).replace("{{CALIB}}", calib))
 out = os.path.join(ROOT, "specimen.html")
 open(out, "w", encoding="utf-8").write(html)
 print(out, len(html) // 1024, "KB")

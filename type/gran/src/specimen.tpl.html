@@ -7,6 +7,7 @@
 @font-face { font-family: "Gran"; src: url(data:font/woff2;base64,{{WOFF2}}) format("woff2"); font-display: block; }
 @font-face { font-family: "Gran001"; src: url(data:font/woff2;base64,{{WOFF2OLD}}) format("woff2"); font-display: block; }
 @font-face { font-family: "Gran002"; src: url(data:font/woff2;base64,{{WOFF2OLD2}}) format("woff2"); font-display: block; }
+@font-face { font-family: "Gran003"; src: url(data:font/woff2;base64,{{WOFF2OLD3}}) format("woff2"); font-display: block; }
 :root {
   --paper: #f2f3f1;
   --sheet: #fbfbfa;
@@ -150,23 +151,20 @@ footer { padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
 <div class="wrap">
   <header class="hero">
     <div class="hero-top">
-      <span class="mono">Gran · рабочее имя · прототип 0.03 «Лубок»</span>
-      <span class="mono">оси: opsz 12–33 · SERF 0–100 · wght 400–900 · 7 знаков + капитель</span>
+      <span class="mono">Gran · рабочее имя · прототип 0.04 «Строгая»</span>
+      <span class="mono">оси: opsz 12–33 · SERF 0–100 · 7 знаков + капитель</span>
     </div>
     <div class="controls">
       <div class="ctl"><label for="opsz">Размер и оптика, px <output id="opszv">12</output></label>
         <input id="opsz" type="range" min="12" max="33" step="0.5" value="12"></div>
       <div class="ctl"><label for="serf">Гротеск → антиква <output id="serfv">0</output></label>
         <input id="serf" type="range" min="0" max="100" step="1" value="0"></div>
-      <div class="ctl"><label for="wght">Жирность <output id="wghtv">400</output></label>
-        <input id="wght" type="range" min="400" max="900" step="10" value="400"></div>
       <div class="presets" role="group" aria-label="Начертания">
-        <button data-o="12" data-s="0" data-w="400" aria-pressed="true">Text Grotesk</button>
-        <button data-o="12" data-s="100" data-w="400" aria-pressed="false">Text Antiqua</button>
-        <button data-o="33" data-s="0" data-w="400" aria-pressed="false">Display Grotesk</button>
-        <button data-o="33" data-s="100" data-w="400" aria-pressed="false">Display Antiqua</button>
-        <button data-o="33" data-s="50" data-w="650" aria-pressed="false">Display Flare Bold</button>
-        <button data-o="33" data-s="100" data-w="900" aria-pressed="false">Display Antiqua Black</button>
+        <button data-o="12" data-s="0" aria-pressed="true">Text Grotesk</button>
+        <button data-o="12" data-s="100" aria-pressed="false">Text Antiqua</button>
+        <button data-o="33" data-s="0" aria-pressed="false">Display Grotesk</button>
+        <button data-o="33" data-s="50" aria-pressed="false">Display Flare</button>
+        <button data-o="33" data-s="100" aria-pressed="false">Display Antiqua</button>
       </div>
     </div>
     <div class="realbox">
@@ -175,7 +173,7 @@ footer { padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
     </div>
     <div class="cap mono lupa"><span>Лупа: тот же оптический размер, крупно</span><output id="lupav">×10</output></div>
     <div class="stage" id="stage">НОЖ дао<br>Hanna <span class="sc">НОЖ</span></div>
-    <p class="lede">Вариативная суперсемья для кириллицы и латиницы: гротеск и антиква в одном файле, с оптическими размерами для текста (12 px) и заголовков (33 px). Идея в том, что вся семья вырезана одним ножом и нарисована одним пером: в гротеске нож режет внутрь, в антикве из того же среза вырастает засечка.</p>
+    <p class="lede">Вариативная суперсемья для кириллицы и латиницы: гротеск и антиква в одном файле, с оптическими размерами для текста (12 px) и заголовков (33 px). Версия 0.04 строгая: качество рисунка прежде всего, характер в двух деталях.</p>
   </header>
 
   <section>
@@ -231,37 +229,44 @@ footer { padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
   <section>
     <div class="label">Концепция</div>
     <div class="body">
-      <h2>Лубок: буквы, вырезанные ножом по липовой доске</h2>
-      <p>0.01 была безликой, 0.02 нашла логику ножа, но осталась вежливой. 0.03 берёт урок Velvetyne. У затеи есть народный источник: русский лубок XVII–XVIII веков. Это та же гравюра на дереве, что и Марсельское таро у Basteleur, только наша. Резчик не может провести волосяную линию и не может скруглить внутренний угол. Поэтому просветы острые, как миндалины, массы тяжёлые, а каждый срез делает один нож. На 12 px всё это спрятано в здоровый текстовый шрифт. К 33 px и к жирности 900 лубок выходит наружу.</p>
+      <h2>Строгая: сначала безупречная основа</h2>
+      <p>Три первые попытки строились от идеи: грань, нож, лубок. Основа при этом оставалась любительской: строчные на 8–10% шире нормы, тесный спейсинг, склеенные узлы, приклеенные засечки. В 0.04 порядок обратный. Пропорции, толщины, нависания и апроши откалиброваны по эталонам профессионального уровня (Inter для гротеска, Source Serif 4 для антиквы), каждый знак перерисован цельным контуром. Характер оставлен в двух деталях.</p>
       <div class="rules">
-        <div class="rule"><div><h3>Просвет-миндалина</h3><p>Внутренний овал заострён там, где сходятся два реза: сверху и снизу в гротеске, на 11 и 5 часов в антикве. На 12 px острота почти не видна, на 33 px и в Black это главный знак семьи.</p></div>
-          <div class="dets">{{D_PINCH}}</div></div>
-        <div class="rule"><div><h3>Лубочная а</h3><p>Выше 21 px строчная а меняет конструкцию: двухъярусную текстовую сменяет одноярусная лубочная со шпорой на штамбе и клиновидной пяткой. Работает через FeatureVariations (rvrn): шрифт сам подставляет знак по значению оси opsz.</p></div>
-          <div class="dets">{{D_ALUB}}</div></div>
-        <div class="rule"><div><h3>Срез верха штамба</h3><p>Верх строчных штамбов срезан ножом: 20% наклона в тексте, 30% на дисплее. В антикве тот же срез продолжается в клинок флажковой засечки с вогнутым брюшком.</p></div>
-          <div class="dets">{{D_FACET}}</div></div>
-        <div class="rule"><div><h3>Надрез вместо ловушки</h3><p>Там, где плечо n или верх чаши a отходит от штамба, контур не останавливается, а продолжает идти в штамб узким надрезом. На 12 px надрез короткий и широкий и работает как ловушка для краски. На 33 px он длинный и тонкий и прорезает штамб больше чем наполовину.</p></div>
-          <div class="dets">{{D_TRAP}}</div></div>
-        <div class="rule"><div><h3>Ж как )|(</h3><p>Ветвь и нога каждой стороны собраны в одну дугу. На 12 px дуги заходят в штамб, чтобы узел не забивался. На 33 px нож отделяет их волосяным просветом. В антикве контраст распределён по перу: дуга толще там, где перо идёт вниз-вправо.</p></div>
-          <div class="dets">{{D_ZHE}}</div></div>
-        <div class="rule"><div><h3>д с ногой-саблей</h3><p>Левая нога вертикальна у перекладины и уходит влево у основания, как сабля. Выносные срезаны ножом наискосок, наружу. В антикве срезы расширяются в лезвия.</p></div>
-          <div class="dets">{{D_DE}}</div></div>
-        <div class="rule"><div><h3>Поворот пера</h3><p>Внешний овал всегда гладкий, поворачивается только просвет. В гротеске ось контраста вертикальна. В антикве она наклонена на 9° в тексте и на 15° на дисплее, поэтому тонкие места уходят на 11 и 5 часов, как у широкого пера.</p></div>
+        <div class="rule"><div><h3>Плечо n</h3><p>Дуга отходит от штамба высоко (на 0,86 высоты строчных) и сужается в узле, внутренний изгиб приходит в штамб на 0,62. В антикве узел тоньше, а верх штамба срезан и продолжается флажковой засечкой — первая деталь характера.</p></div>
+          <div class="dets">{{D_N}}</div></div>
+        <div class="rule"><div><h3>Концевой элемент a</h3><p>Вторая деталь характера: в гротеске конец крюка срезан под 24°, это даёт строке лёгкий наклон без курсива. В антикве на том же месте классическая капля. Чаша тонеет у штамба, просвет держит форму.</p></div>
+          <div class="dets">{{D_A}}</div></div>
+        <div class="rule"><div><h3>Круглые</h3><p>Внешний контур круглее внутреннего, поэтому на диагоналях овал не темнеет. Круглые на 3–6% толще прямых и выходят за линии на 10–15 единиц. В антикве ось контраста наклонена на 8° в тексте и 12° на дисплее.</p></div>
           <div class="dets">{{D_O}}</div></div>
+        <div class="rule"><div><h3>Ж</h3><p>Прямые ветви сходятся в точке чуть в стороне от штамба и сужаются к узлу на 10–12%, чтобы центр не чернел. В антикве контраст распределён по перу: ветвь, идущая вниз-вправо, толстая.</p></div>
+          <div class="dets">{{D_ZHE}}</div></div>
+        <div class="rule"><div><h3>д</h3><p>Русская трапециевидная форма. Нога вертикальна под перекладиной и плавно уходит влево у основания. Выносные короче полных (−160 против привычных −200 у р и у), чтобы строка не рябила.</p></div>
+          <div class="dets">{{D_DE}}</div></div>
       </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="label">Сверка</div>
+    <div class="body">
+      <h2>Наложение на эталоны</h2>
+      <p>Серым — Gran, красным — эталон в том же масштабе: по высоте строчных для строчных и по высоте прописных для прописных. Это проверка качества, а не копирование: свои отличия видны сразу (Ж без горизонтальной перемычки, другие засечки, капля, срез концевого элемента). Совпадать должны пропорции, вес и спокойствие кривых.</p>
+      <figure class="study"><img src="data:image/png;base64,{{CALIB}}" alt="Наложение знаков Gran на Inter и Source Serif 4" width="1500" height="1480"></figure>
     </div>
   </section>
 
   <section>
     <div class="label">Было → стало</div>
     <div class="body">
-      <h2>Три попытки на одном тексте</h2>
-      <p>Знаки и метрики те же, меняются конструкции. Набрано дисплейной антиквой; в 0.03 добавлена жирность Black.</p>
+      <h2>Четыре попытки на одном тексте</h2>
+      <p>Знаки и метрики те же. Набрано дисплейной антиквой и дисплейным гротеском.</p>
       <div class="ba">
         <div class="baw"><span class="mono">0.01 «Грань»</span><span class="bag old" style="font-family:'Gran001';font-variation-settings:'opsz' 33,'SERF' 100">Жад НОЖ</span></div>
         <div class="baw"><span class="mono">0.02 «Резец»</span><span class="bag old" style="font-family:'Gran002';font-variation-settings:'opsz' 33,'SERF' 100">Жад НОЖ</span></div>
-        <div class="baw"><span class="mono">0.03 «Лубок» · Regular</span><span class="bag" style="font-variation-settings:'opsz' 33,'SERF' 100,'wght' 400">Жад НОЖ</span></div>
-        <div class="baw"><span class="mono">0.03 «Лубок» · Black</span><span class="bag" style="font-variation-settings:'opsz' 33,'SERF' 100,'wght' 900">Жад НОЖ</span></div>
+        <div class="baw"><span class="mono">0.03 «Лубок»</span><span class="bag old" style="font-family:'Gran003';font-variation-settings:'opsz' 33,'SERF' 100,'wght' 400">Жад НОЖ</span></div>
+        <div class="baw"><span class="mono">0.04 «Строгая» · антиква</span><span class="bag" style="font-variation-settings:'opsz' 33,'SERF' 100">Жад НОЖ</span></div>
+        <div class="baw"><span class="mono">0.03 «Лубок» · гротеск</span><span class="bag old" style="font-family:'Gran003';font-variation-settings:'opsz' 33,'SERF' 0,'wght' 400">Жад НОЖ</span></div>
+        <div class="baw"><span class="mono">0.04 «Строгая» · гротеск</span><span class="bag" style="font-variation-settings:'opsz' 33,'SERF' 0">Жад НОЖ</span></div>
       </div>
     </div>
   </section>
@@ -269,8 +274,8 @@ footer { padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
   <section>
     <div class="label">Дизайн-пространство</div>
     <div class="body">
-      <h2>Восемь мастеров и всё между ними</h2>
-      <p>Рисуются восемь углов: текст и дисплей, гротеск и антиква, Regular и Black. Промежуточные значения, вроде полузасечки Flare на SERF 50, интерполируются. Вертикальные метрики вдоль оси засечек одинаковые, поэтому гротеск и антикву можно смешивать в одной строке.</p>
+      <h2>Четыре мастера и всё между ними</h2>
+      <p>Рисуются четыре угла: текст и дисплей, гротеск и антиква. Промежуточные значения, вроде полузасечки Flare на SERF 50, интерполируются. Вертикальные метрики вдоль оси засечек одинаковые, поэтому гротеск и антикву можно смешивать в одной строке.</p>
       <div class="space">
         <div class="ax"></div><div class="ax">SERF 0 · гротеск</div><div class="ax mid">SERF 50 · flare</div><div class="ax">SERF 100 · антиква</div>
         <div class="ax">opsz 12</div>
@@ -281,10 +286,6 @@ footer { padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
         <div class="cellg" style="font-variation-settings:'opsz' 33,'SERF' 0">Жда</div>
         <div class="cellg mid" style="font-variation-settings:'opsz' 33,'SERF' 50">Жда</div>
         <div class="cellg" style="font-variation-settings:'opsz' 33,'SERF' 100">Жда</div>
-        <div class="ax">33 · Black</div>
-        <div class="cellg" style="font-variation-settings:'opsz' 33,'SERF' 0,'wght' 900">Жда</div>
-        <div class="cellg mid" style="font-variation-settings:'opsz' 33,'SERF' 50,'wght' 900">Жда</div>
-        <div class="cellg" style="font-variation-settings:'opsz' 33,'SERF' 100,'wght' 900">Жда</div>
       </div>
     </div>
   </section>
@@ -301,8 +302,6 @@ footer { padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
         <div class="sz"><span class="mono">33 px · гротеск</span><span class="t" style="font-size:33px;font-variation-settings:'SERF' 0">НОЖ дао Hanna nano <span style="font-variant-caps:all-small-caps">НОЖ</span></span></div>
         <div class="sz"><span class="mono">33 px · flare</span><span class="t" style="font-size:33px;font-variation-settings:'SERF' 50">НОЖ дао Hanna nano <span style="font-variant-caps:all-small-caps">НОЖ</span></span></div>
         <div class="sz"><span class="mono">33 px · антиква</span><span class="t" style="font-size:33px;font-variation-settings:'SERF' 100">НОЖ дао Hanna nano <span style="font-variant-caps:all-small-caps">НОЖ</span></span></div>
-        <div class="sz"><span class="mono">12 px · Black</span><span class="t" style="font-size:12px;font-variation-settings:'SERF' 0,'wght' 900">НОЖ дао ода Hanna anon noon nano HOnoaЖд <span style="font-variant-caps:all-small-caps">НОЖ</span> HOnoaЖд НОЖ дао ода Hanna anon noon nano</span></div>
-        <div class="sz"><span class="mono">33 px · антиква Black</span><span class="t" style="font-size:33px;font-variation-settings:'SERF' 100,'wght' 900">НОЖ дао Hanna nano <span style="font-variant-caps:all-small-caps">НОЖ</span></span></div>
       </div>
     </div>
   </section>
@@ -382,7 +381,7 @@ footer { padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
     </div>
   </section>
 
-  <footer>Gran 0.03. Шрифт на этой странице встроен прямо в неё: 7 знаков, капитель для Н О Ж, восемь мастеров, 3 оси. Обзоры трендов от маркетплейсов — рекламные источники, их прогнозы стоит воспринимать как мнение.</footer>
+  <footer>Gran 0.04. Шрифт на этой странице встроен прямо в неё: 7 знаков, капитель для Н О Ж, четыре мастера, 2 оси. Обзоры трендов от маркетплейсов — рекламные источники, их прогнозы стоит воспринимать как мнение.</footer>
 </div>
 
 <script>
@@ -393,8 +392,7 @@ footer { padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
   var ov = document.getElementById('opszv'), sv = document.getElementById('serfv');
   var btns = document.querySelectorAll('.presets button');
   function apply() {
-    var fvs = "'opsz' " + o.value + ", 'SERF' " + s.value + ", 'wght' " + w.value;
-    wv.textContent = w.value;
+    var fvs = "'opsz' " + o.value + ", 'SERF' " + s.value;
     stage.style.fontVariationSettings = fvs;
     real.style.fontVariationSettings = fvs;
     real.style.fontSize = o.value + 'px';
@@ -402,12 +400,11 @@ footer { padding-block: 32px 48px; color: var(--muted); font-size: 14px; }
     var px = parseFloat(getComputedStyle(stage).fontSize);
     lupav.textContent = '×' + (px / parseFloat(o.value)).toFixed(1).replace('.0', '');
     ov.textContent = o.value; sv.textContent = s.value;
-    btns.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.o === o.value && b.dataset.s === s.value && b.dataset.w === w.value)); });
+    btns.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.o === o.value && b.dataset.s === s.value)); });
   }
   window.addEventListener('resize', apply);
-  var w = document.getElementById('wght'), wv = document.getElementById('wghtv');
-  o.addEventListener('input', apply); s.addEventListener('input', apply); w.addEventListener('input', apply);
-  btns.forEach(function (b) { b.addEventListener('click', function () { o.value = b.dataset.o; s.value = b.dataset.s; w.value = b.dataset.w; apply(); }); });
+  o.addEventListener('input', apply); s.addEventListener('input', apply);
+  btns.forEach(function (b) { b.addEventListener('click', function () { o.value = b.dataset.o; s.value = b.dataset.s; apply(); }); });
   var t = document.getElementById('pts'), pr = document.getElementById('proofs');
   t.addEventListener('click', function () {
     var on = pr.classList.toggle('pts-on'); pr.classList.toggle('pts-off', !on);
