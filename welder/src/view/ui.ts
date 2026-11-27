@@ -114,6 +114,8 @@ export class UI {
     this.root = root;
     this.money.append(el('i'), this.moneyVal);
     this.endEl.style.display = 'none';
+    // The start screen shows only when asked for (a shift begun from the intro never opens it).
+    this.start.style.display = 'none';
     // Left column, one flow top to bottom: money, the craft book, the rod, the job's stages.
     this.hudL.append(this.money, this.craftBtn, this.rodEl, this.stagesEl);
     root.append(this.hudL, this.langBtn, this.setBtn, this.jobEl, this.craftEl, this.tourEl, this.ctrl, this.promptEl, this.whyEl, this.appStatus, this.sayEl, this.hint, this.tip, this.stampEl, this.toasts, this.board, this.endEl, this.start, this.setEl, this.dbgEl, this.cursor);
@@ -822,6 +824,10 @@ export class UI {
       if (a === 'intro' && onIntro) return onIntro();
       onGo(a === 'new');
     };
+  }
+
+  hideStart(): void {
+    this.start.style.display = 'none';
   }
 
   showEnd(rows: [string, string][], onGo: () => void): void {

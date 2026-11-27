@@ -1657,6 +1657,7 @@ export class View {
   /** Begin the shift. `fromWhite`: the intro's final flash covers the switch, so no fade in from black. */
   start(fromWhite = false): void {
     this.started = true;
+    this.ui.hideStart();
     this.ui.setLangButton(getLang());
     this.lr.u.uFade.value = fromWhite ? 0 : 1;
     this.syncWorld();
