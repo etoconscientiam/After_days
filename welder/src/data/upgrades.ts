@@ -11,6 +11,7 @@ export const UPGRADES: UpgradeDef[] = [
   { id: 'ear', group: 'craft', cost: 7, requires: { owns: ['guild'] }, effects: { set: { knowArc: 1 } }, slot: -1, model: '' },
   { id: 'fusion', group: 'craft', cost: 9, requires: { owns: ['guild'], ordersDone: 3 }, effects: { set: { knowFusion: 1 } }, slot: -1, model: '' },
   { id: 'hand', group: 'craft', cost: 9, requires: { owns: ['guild'], ordersDone: 3 }, effects: { set: { knowHand: 1 } }, slot: -1, model: '' },
+  { id: 'tack', group: 'craft', cost: 8, requires: { owns: ['guild'], ordersDone: 4 }, effects: { set: { knowFit: 1 } }, slot: -1, model: '' },
   {
     id: 'coated',
     group: 'tools',

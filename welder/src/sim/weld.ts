@@ -63,6 +63,8 @@ export class Arc {
   /** Heat at the pool. */
   pool = 0;
   litTime = 0;
+  /** Where on the joint the arc caught (a short touch that stays near it is a tack). */
+  s0 = 0;
   emptyNotified = false;
   /** Seconds the rod has been held on the joint without catching (striking by touch). */
   touch = 0;
@@ -263,6 +265,21 @@ function extinguish(b: Bench, reason: ArcOutReason, ctx: WeldCtx): void {
   const a = b.arc;
   if (!a.lit) return;
   a.lit = false;
+  // A short touch that stayed put on a long joint: a tack, which holds the joint there.
+  const T = BALANCE.tack;
+  const sr = b.seams[a.seam];
+  if (sr && sr.len >= T.minLen && a.litTime < T.maxTime && Math.abs(sr.delta(a.s0, a.s)) < T.maxTravel) {
+    const c = sr.cellAt(a.s);
+    let any = false;
+    for (let k = -1; k <= 1; k++) {
+      const cc = sr.closed ? (((c + k) % sr.n) + sr.n) % sr.n : c + k;
+      if (cc >= 0 && cc < sr.n && sr.metal[cc] > 0.08) {
+        sr.tack[cc] = 1;
+        any = true;
+      }
+    }
+    if (any) ctx.bus.emit('tack', { bench: b.id, seam: a.seam, s: a.s });
+  }
   a.scratch = 0;
   a.spatterRate = 0;
   a.unstable = 0;
@@ -392,6 +409,7 @@ function stepWeld(b: Bench, inp: TorchIn, ctx: WeldCtx): void {
       a.v = 0;
       a.rip = 0;
       a.litTime = 0;
+      a.s0 = proj.s;
       ctx.bus.emit('arcStrike', { bench: b.id, x: inp.x, y: inp.y, z: inp.z });
     }
     return;
@@ -504,6 +522,7 @@ function stepWeld(b: Bench, inp: TorchIn, ctx: WeldCtx): void {
   a.d = proj.d;
   const cHere = sr.cellAt(a.s);
   a.pool = sr.heat[cHere];
+  if (sr.len >= BALANCE.tack.minLen) pullJoint(sr, cHere, a.dir, a.litTime, dt);
 
   // Burn-through.
   for (let cc = cHere - 4; cc <= cHere + 4; cc++) {
@@ -569,6 +588,40 @@ function stepWeld(b: Bench, inp: TorchIn, ctx: WeldCtx): void {
     sr.filled = true;
     sr.quality = seamQuality(sr, part.thick);
     ctx.bus.emit('seamFilled', { bench: b.id, seam: proj.seam, quality: sr.quality });
+  }
+}
+
+/**
+ * A long joint pulls out of line while the arc runs on it with nothing holding it ahead: a tack, or bead
+ * laid earlier and gone cold, within reach in the way the arc goes. The drift only grows; each cell takes
+ * the drift there is at the moment its bead is laid (the start of a run is fine, its far end is not).
+ */
+function pullJoint(sr: SeamRun, cHere: number, dir: number, litTime: number, dt: number): void {
+  const T = BALANCE.tack;
+  const span = Math.max(T.span, sr.len * T.spanShare);
+  const reach = Math.ceil(span / sr.cell);
+  // A touch that may yet be a tack doesn't pull anything.
+  if (litTime > T.maxTime) {
+    let held = false;
+    for (let k = 2; k <= reach; k++) {
+      let c = cHere + dir * k;
+      if (sr.closed) c = ((c % sr.n) + sr.n) % sr.n;
+      else if (c < 0 || c >= sr.n) break;
+      if (sr.tack[c] || (sr.metal[c] >= W.fillMin && sr.heat[c] < T.solidHeat)) {
+        held = true;
+        break;
+      }
+    }
+    if (!held) sr.drift = Math.min(T.max, sr.drift + T.grow * dt);
+  }
+  for (let k = -3; k <= 3; k++) {
+    let c = cHere + k;
+    if (sr.closed) c = ((c % sr.n) + sr.n) % sr.n;
+    else if (c < 0 || c >= sr.n) continue;
+    if (!sr.laid[c] && sr.metal[c] >= W.fillMin) {
+      sr.laid[c] = 1;
+      sr.pull[c] = sr.drift;
+    }
   }
 }
 

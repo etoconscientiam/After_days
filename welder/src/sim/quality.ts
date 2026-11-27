@@ -24,11 +24,12 @@ interface CellLoss {
   off: number;
   pores: number;
   hole: number;
+  fit: number;
 }
 
 function cellLoss(sr: SeamRun, c: number, mI: number, out: CellLoss): number {
   const W = BALANCE.weld;
-  out.fill = out.fuse = out.off = out.pores = out.hole = 0;
+  out.fill = out.fuse = out.off = out.pores = out.hole = out.fit = 0;
   if (sr.hole[c]) {
     out.hole = 1;
     return 0;
@@ -41,14 +42,17 @@ function cellLoss(sr: SeamRun, c: number, mI: number, out: CellLoss): number {
   const afterFuse = fill * (0.3 + 0.7 * fuse);
   const afterOff = afterFuse * (1 - 0.5 * off);
   const sc = Math.max(0, afterOff - 0.6 * sr.pores[c]);
+  // A joint pulled out of line by the heat (no tacks): the bead there bridges a bad fit.
+  const fit = sc * (1 - BALANCE.tack.loss * sr.pull[c]);
   out.fill = 1 - fill;
   out.fuse = fill - afterFuse;
   out.off = afterFuse - afterOff;
   out.pores = afterOff - sc;
-  return sc;
+  out.fit = sc - fit;
+  return fit;
 }
 
-const tmpLoss: CellLoss = { fill: 0, fuse: 0, off: 0, pores: 0, hole: 0 };
+const tmpLoss: CellLoss = { fill: 0, fuse: 0, off: 0, pores: 0, hole: 0, fit: 0 };
 
 /** Score of cells [c0, c1] of a seam, 0..1 (a stretch of the bead: what one chip of slag uncovers). */
 export function stretchScore(sr: SeamRun, c0: number, c1: number, thick = 1): number {
@@ -87,7 +91,7 @@ function rhythmLoss(sr: SeamRun): number {
  */
 export function seamQuality(sr: SeamRun, thick = 1): number {
   const L = seamLosses(sr, thick);
-  return Math.max(0, Math.min(1, 1 - L.tempo - L.fusion - L.hand - L.arc));
+  return Math.max(0, Math.min(1, 1 - L.tempo - L.fusion - L.hand - L.arc - L.fit));
 }
 
 /**
@@ -95,9 +99,9 @@ export function seamQuality(sr: SeamRun, thick = 1): number {
  * heaped bead, uneven ripple), fusion (cold, not fused, burnt through), hand (wandering off the joint),
  * arc (arc length: pores and spatter). Each is the share of the seam's score it cost.
  */
-export function seamLosses(sr: SeamRun, thick = 1): { tempo: number; fusion: number; hand: number; arc: number } {
+export function seamLosses(sr: SeamRun, thick = 1): { tempo: number; fusion: number; hand: number; arc: number; fit: number } {
   const mI = idealMetal(thick);
-  let fill = 0, fuse = 0, off = 0, pores = 0, hole = 0, cnt = 0;
+  let fill = 0, fuse = 0, off = 0, pores = 0, hole = 0, fit = 0, cnt = 0;
   for (let c = sr.edge; c < sr.n - sr.edge; c++) {
     cnt++;
     cellLoss(sr, c, mI, tmpLoss);
@@ -106,10 +110,11 @@ export function seamLosses(sr: SeamRun, thick = 1): { tempo: number; fusion: num
     off += tmpLoss.off;
     pores += tmpLoss.pores;
     hole += tmpLoss.hole;
+    fit += tmpLoss.fit;
   }
   const k = cnt ? 1 / cnt : 0;
   const spatter = Math.min(0.08, sr.spN * 0.0015);
-  return { tempo: fill * k + rhythmLoss(sr), fusion: (fuse + hole) * k, hand: off * k, arc: pores * k + spatter };
+  return { tempo: fill * k + rhythmLoss(sr), fusion: (fuse + hole) * k, hand: off * k, arc: pores * k + spatter, fit: fit * k };
 }
 
 export function partQuality(seams: SeamRun[], thick = 1): number {

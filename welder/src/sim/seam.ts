@@ -63,6 +63,11 @@ export class SeamRun {
   readonly dev: Float32Array;
   readonly hole: Uint8Array;
   readonly pores: Uint8Array;
+  /** Tacks along the joint, and how far out of line each cell was when its bead was laid (0..1). */
+  readonly tack: Uint8Array;
+  readonly pull: Float32Array;
+  readonly laid: Uint8Array;
+  drift = 0;
   private readonly tmp: Float32Array;
   maxHeat = 0;
 
@@ -122,6 +127,9 @@ export class SeamRun {
     this.dev = new Float32Array(n);
     this.hole = new Uint8Array(n);
     this.pores = new Uint8Array(n);
+    this.tack = new Uint8Array(n);
+    this.pull = new Float32Array(n);
+    this.laid = new Uint8Array(n);
     this.tmp = new Float32Array(n);
     this.cap = rippleCap;
     this.rS = new Float32Array(rippleCap);

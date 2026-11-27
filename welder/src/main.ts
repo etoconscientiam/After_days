@@ -53,7 +53,7 @@ function boot(): void {
   applySettings();
   onSettings(applySettings);
   view.onStep = () => sound.step();
-  view.onSfx = (k, v) => sound.sfx(k, v ?? 0);
+  view.onSfx = (k, v, n) => sound.sfx(k, v ?? 0, n ?? 0);
   // RU / EN switch in the corner, at any time.
   view.ui.onLang = () => {
     const next: Lang = getLang() === 'en' ? 'ru' : 'en';

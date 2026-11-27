@@ -17,6 +17,8 @@ export interface SimEvents {
   cantReach: { bench: BenchId; seam: number };
   arcOut: { bench: BenchId; reason: ArcOutReason };
   arcStick: { bench: BenchId };
+  /** A short touch of the arc that holds a long joint in place. */
+  tack: { bench: BenchId; seam: number; s: number };
   arcUnstick: { bench: BenchId };
   burnThrough: { bench: BenchId; seam: number; s: number; x: number; y: number; z: number };
   seamFilled: { bench: BenchId; seam: number; quality: number };

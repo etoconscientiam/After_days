@@ -99,6 +99,8 @@ export type StatId =
   | 'knowArc'
   | 'knowFusion'
   | 'knowHand'
+  /** Knowledge: you can tell where the joint pulled out of line for want of tacks. */
+  | 'knowFit'
   | 'maskWindow'
   | 'strikeMul'
   | 'spatterMul'

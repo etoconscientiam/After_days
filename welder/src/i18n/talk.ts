@@ -73,6 +73,9 @@ export const talkRu: Record<string, string> = {
   're.keeper.ok': 'Держит. Спасибо.',
   're.keeper.bad': 'Оно же… живое было. Осторожнее надо.',
 
+  'cause.fit': 'подгонка',
+  'up.tack.name': 'Прихватки',
+  'up.tack.desc': 'Видишь, где длинный стык повело от жара.',
   'part.relic': 'Оправа изделия',
   'seam.foot': 'ножка',
   'seam.band': 'обруч',
@@ -159,6 +162,9 @@ export const talkEn: Record<string, string> = {
   're.keeper.ok': 'It holds. Thank you.',
   're.keeper.bad': 'It was… alive. You must be careful.',
 
+  'cause.fit': 'fit-up',
+  'up.tack.name': 'Tacks',
+  'up.tack.desc': 'You see where a long joint was pulled out of line by the heat.',
   'part.relic': 'Relic mount',
   'seam.foot': 'foot',
   'seam.band': 'band',

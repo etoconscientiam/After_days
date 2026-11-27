@@ -75,7 +75,11 @@ export class View {
   /** Called on every footstep (for the sound). */
   onStep: () => void = () => {};
   /** One-shot sounds the view asks for (coins landing, the ding of a clean stretch, a closed seam). */
-  onSfx: (kind: 'coin' | 'ding' | 'seam', v?: number) => void = () => {};
+  onSfx: (kind: 'coin' | 'ding' | 'seam' | 'stamp', v?: number, n?: number) => void = () => {};
+  /** Clean chips in a row (each rings a step higher); a poor one breaks the run. */
+  private chipStreak = 0;
+  /** A spark that runs along a seam the moment it closes. */
+  private sweeps: { seam: number; t: number; q: number }[] = [];
   /** Hit-stop: the whole game holds for a few frames on a strong moment. */
   private freezeT = 0;
   /** The customer stays at the door a moment after taking the job (to say their word), and nods or shakes their head. */
@@ -742,6 +746,13 @@ export class View {
       if (e.bench !== 'player') return;
       this.setPart(e.part);
       this.bead.attach(g.player, this.snapToPart);
+      this.chipStreak = 0;
+      this.sweeps.length = 0;
+      // The job lands on the bench: a thump and a puff of the bench's dust round its foot.
+      for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * Math.PI * 2;
+        this.fx.slag(BENCH.x + Math.cos(a) * 0.12, BENCH.y + 0.01, BENCH.z + Math.sin(a) * 0.09, 1.5);
+      }
       this.setCustomer(g.player.order?.customer ?? 'neighbour');
       if (g.player.order) this.ui.say(bringLine(g, g.player.order), 5, t('cust.' + g.player.order.customer));
       this.custLinger = 0;
@@ -770,6 +781,10 @@ export class View {
       const line = [e.holes ? `${t('end.holes')}: ${e.holes}` : '', e.pores ? t('stamp.pores', { n: e.pores }) : ''].filter(Boolean).join(' · ');
       const o = g.player.order;
       this.ui.stamp(e.grade, line, o ? payForSeams(g.player.seams, o.reward) : undefined, o?.reward);
+      setTimeout(() => {
+        this.onSfx('stamp', e.grade === 'clean' ? 1 : e.grade === 'fair' ? 0.6 : 0.2);
+        if (!settings.soft) this.shakeT = Math.max(this.shakeT, 0.08);
+      }, 140);
       this.inspect();
     });
     b.on('slagChip', (e) => {
@@ -778,14 +793,19 @@ export class View {
       this.shakeT = 0.09;
       this.p2w(e.x, e.y, e.z, this.v3).addScaledVector(this.normW, 2 * MM * this.S);
       this.fx.slag(this.v3.x, this.v3.y, this.v3.z, e.amount);
-      // The moment of truth: what this stretch of bead turned out to be, in money and in sound.
-      this.onSfx('ding', e.q);
+      // The moment of truth: what this stretch of bead turned out to be, in money and in sound. Clean
+      // stretches in a row ring higher and higher.
+      this.chipStreak = e.q >= 0.8 ? this.chipStreak + 1 : 0;
+      this.onSfx('ding', e.q, this.chipStreak);
       if (e.q >= 0.8) {
         this.freeze(0.04);
         this.fx.spatter(this.v3.x, this.v3.y + 0.004, this.v3.z, 6, 0.05);
       }
       const sp = this.toScreen(this.v3);
-      if (sp && e.value >= 0.05) this.ui.popup(`+${e.value.toFixed(1)} ◆`, sp[0], sp[1], e.q >= 0.8 ? '' : e.q >= 0.55 ? 'mid' : 'low');
+      if (sp && e.value >= 0.05) {
+        const run = this.chipStreak >= 3 ? `  ×${this.chipStreak}` : '';
+        this.ui.popup(`+${e.value.toFixed(1)} ◆${run}`, sp[0], sp[1], (e.q >= 0.8 ? '' : e.q >= 0.55 ? 'mid' : 'low') + (run ? ' streak' : ''));
+      }
     });
     b.on('seamFilled', (e) => {
       if (e.bench !== 'player') return;
@@ -794,6 +814,7 @@ export class View {
       this.onSfx('seam');
       const sr = g.player.seams[e.seam];
       if (!sr) return;
+      this.sweeps.push({ seam: e.seam, t: 0, q: e.quality });
       sr.pointAt(sr.len / 2, this.pt);
       const sp = this.toScreen(this.p2w(this.pt.x, this.pt.y, this.pt.z, this.v3d));
       if (sp) this.ui.popup(`${t('pop.seam')} ${Math.round(e.quality * 100)}%`, sp[0], sp[1] - 8 * this.scale, 'big');
@@ -1058,6 +1079,27 @@ export class View {
     this.ws.customer = f;
   }
 
+  /** The closing spark runs the length of the seam in a blink, brighter on a good one. */
+  private updateSweeps(dt: number): void {
+    const b = this.game.player;
+    for (let i = this.sweeps.length - 1; i >= 0; i--) {
+      const w = this.sweeps[i];
+      const sr = b.seams[w.seam];
+      const t0 = w.t;
+      w.t += dt;
+      const T = 0.45;
+      if (!sr || t0 >= T) {
+        this.sweeps.splice(i, 1);
+        continue;
+      }
+      const s = Math.min(1, w.t / T) * sr.len;
+      sr.pointAt(s, this.pt);
+      this.p2w(this.pt.x, this.pt.y, this.pt.z, this.v3).addScaledVector(this.normW, 2 * MM * this.S);
+      const n = settings.soft ? 1 : w.q >= 0.8 ? 3 : 2;
+      this.fx.spatter(this.v3.x, this.v3.y, this.v3.z, n, 0);
+    }
+  }
+
   /** A bow for good work, a slow shake of the head for bad; the slip with their words stays over their head. */
   private animateCustomer(dt: number): void {
     const c = this.ws.customer;
@@ -1078,7 +1120,7 @@ export class View {
     // Over their head when they are in sight; otherwise from the door, at the top of the picture.
     const seen = !!sp && sp[0] > this.cssW * 0.25 && sp[0] < this.cssW * 0.75 && sp[1] > this.cssH * 0.12 && sp[1] < this.cssH * 0.7;
     const x = seen ? sp![0] : this.cssW / 2;
-    const y = seen ? sp![1] : this.cssH * 0.2;
+    const y = seen ? sp![1] : this.cssH * 0.14;
     this.ui.placeSay(x, y);
   }
 
@@ -1242,6 +1284,7 @@ export class View {
     // A made thing from before breathes a cold light of its own.
     const relic = partMaterials(this.tx).relic as THREE.MeshLambertMaterial;
     relic.emissiveIntensity = 0.55 + 0.3 * Math.sin(performance.now() / 1000 * 1.7) * Math.sin(performance.now() / 1000 * 0.53 + 1);
+    this.updateSweeps(dt);
     this.custLinger = Math.max(0, this.custLinger - dt);
     this.ws.customer.visible = b.stage !== 'empty' || this.custLinger > 0;
     this.animateCustomer(dt);

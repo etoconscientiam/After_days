@@ -388,16 +388,22 @@ export class Sound {
   }
 
   /** One-shots the view asks for: a coin landing in the pot, the ding of a clean stretch, a seam closed. */
-  sfx(kind: 'coin' | 'ding' | 'seam', v = 0): void {
+  sfx(kind: 'coin' | 'ding' | 'seam' | 'stamp', v = 0, n = 0): void {
     if (!this.ok) return;
     if (kind === 'coin') {
       this.tone(2637 + this.rng.next() * 300, 0.05, 0.12, 'triangle');
       this.tone(3520, 0.025, 0.08, 'sine', 0, 0.03);
     } else if (kind === 'ding') {
       // Pitch by how good the stretch is: a bright ding for clean, a dull tick for poor.
-      const f = 660 + 900 * v;
+      // Pitch by how good the stretch is; clean ones in a row climb a step each (up to an octave).
+      const f = (660 + 900 * v) * Math.pow(2, Math.min(12, Math.max(0, n - 1) * 2) / 12);
       this.tone(f, 0.03 + 0.05 * v, 0.25 + 0.3 * v, 'sine');
       if (v > 0.8) this.tone(f * 1.5, 0.03, 0.35, 'sine', 0, 0.04);
+    } else if (kind === 'stamp') {
+      // The verdict lands: a dull stamp on paper, and for good work a bright ring after it.
+      this.thump(95, 0.35, 0.12);
+      this.burst(900, 0.7, 0.18, 0.05, 'lowpass');
+      if (v >= 0.6) this.tone(v >= 1 ? 1568 : 1175, 0.04, 0.5, 'triangle', 0, 0.06);
     } else {
       this.thump(80, 0.3, 0.15);
       this.tone(988, 0.05, 0.4, 'triangle');
@@ -416,6 +422,10 @@ export class Sound {
       if (e.bench !== 'player') return;
       if (e.reason === 'long') this.burst(1400, 1.2, 0.3, 0.06);
       if (e.reason === 'power') this.burst(900, 1, 0.18, 0.04);
+    });
+    // A tack: a short dry tick as the touch of arc freezes in place.
+    b.on('tack', (e) => {
+      if (e.bench === 'player') this.tone(1500, 0.05, 0.05, 'square');
     });
     b.on('arcStick', (e) => {
       if (e.bench === 'player') this.thump(90, 0.25, 0.12);

@@ -567,12 +567,12 @@ export class UI {
   private causes(seam: number): string {
     const g = this.game, b = g.player;
     const L = seamLosses(b.seams[seam], b.part?.thick ?? 1);
-    const know: Record<string, number> = { tempo: g.stats.knowTempo, arc: g.stats.knowArc, fusion: g.stats.knowFusion, hand: g.stats.knowHand };
+    const know: Record<string, number> = { tempo: g.stats.knowTempo, arc: g.stats.knowArc, fusion: g.stats.knowFusion, hand: g.stats.knowHand, fit: g.stats.knowFit };
     const out: string[] = [];
     // Losses can add up past the whole seam (it is then simply worthless): show them as shares of what was lost.
-    const sum = L.tempo + L.arc + L.fusion + L.hand;
+    const sum = L.tempo + L.arc + L.fusion + L.hand + L.fit;
     const k1 = sum > 1 ? 1 / sum : 1;
-    for (const k of ['tempo', 'arc', 'fusion', 'hand'] as const) {
+    for (const k of ['tempo', 'arc', 'fusion', 'hand', 'fit'] as const) {
       const v = L[k] * k1;
       if (v < 0.03) continue;
       // A cause not yet learned is there but unreadable, under a shimmer of dust (until the craft teaches it).
@@ -730,8 +730,9 @@ export class UI {
   stamp(grade: GradeId, line: string, pay?: number, reward?: number): void {
     const head = pay !== undefined && reward !== undefined ? `${this.coins(pay)} / ${reward} ◆` : t('grade.' + grade);
     this.stampEl.innerHTML = `${head}<small>${[t('grade.' + grade), line].filter(Boolean).join(' · ')}</small>`;
-    this.stampEl.className = grade === 'bad' || grade === 'rough' ? 'bad' : '';
+    this.stampEl.className = (grade === 'bad' || grade === 'rough' ? 'bad' : grade === 'clean' ? 'gold' : '') + ' slam';
     this.stampEl.style.display = 'block';
+    void this.stampEl.offsetWidth;
     this.stampT = 2.4;
   }
 

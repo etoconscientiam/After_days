@@ -82,6 +82,29 @@ export const BALANCE = {
     swapTime: 0.9,
   },
 
+  /**
+   * Tacks. A long joint welded straight through pulls out of line with the heat: the further the run goes
+   * with nothing holding the joint ahead (a tack, or laid metal gone cold), the worse the fit where the bead
+   * comes later. A tack is a short touch of the arc that stays put.
+   */
+  tack: {
+    /** Joints shorter than this hold by themselves. */
+    minLen: 60,
+    /** Nothing within this far ahead (mm; or a share of a long joint) and the joint drifts. */
+    span: 40,
+    spanShare: 1 / 4.5,
+    /** How fast the drift grows while the arc runs unheld (per second), and its ceiling. */
+    grow: 0.08,
+    max: 0.6,
+    /** What a fully drifted cell loses of its score. */
+    loss: 0.45,
+    /** A tack: the arc out again within this long, having moved less than this. */
+    maxTime: 0.9,
+    maxTravel: 8,
+    /** Laid metal holds once it has cooled below this. */
+    solidHeat: 0.7,
+  },
+
   chip: {
     radius: 12,
     cooldown: 0.09,
@@ -133,12 +156,12 @@ export const BALANCE = {
     perOrder: 0.07,
     maxOrders: 12,
     /** What each job brought back and not yet put right takes off it. */
-    perReturn: 0.1,
+    perReturn: 0.05,
   },
 
   /** A job that comes out bad comes back: always if bad, sometimes if rough; it pays part of the first fee. */
   returns: {
-    roughChance: 0.35,
+    roughChance: 0.2,
     after: [30, 55] as [number, number],
     payMul: 0.5,
     minPay: 2,

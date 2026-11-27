@@ -814,3 +814,28 @@ body.ui-modal #game { cursor: var(--cur); }
 .ret { color: var(--bad); }
 #job .ret, #board .ret { color: #8a2a18; }
 #board .card.ret { border-color: #8a2a18; }
+
+/* The verdict comes down like a stamp: big and faint, then hard onto the paper with a jolt. */
+#stamp.slam { animation: stamp-slam 0.3s steps(6) both; }
+@keyframes stamp-slam {
+  0% { opacity: 0; transform: translate(-50%, -50%) rotate(-9deg) scale(1.9); }
+  55% { opacity: 1; transform: translate(-50%, -50%) rotate(-3deg) scale(0.94); }
+  100% { opacity: 1; transform: translate(-50%, -50%) rotate(-4deg) scale(1); }
+}
+/* Clean work: a glint runs across the stamp. */
+#stamp.gold { overflow: hidden; }
+#stamp.gold::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 18%;
+  left: -30%;
+  background: linear-gradient(90deg, transparent, rgba(255, 244, 200, 0.55), transparent);
+  animation: stamp-glint 0.9s steps(10) 0.35s both;
+  pointer-events: none;
+}
+@keyframes stamp-glint { to { left: 120%; } }
+/* A run of clean chips: the sum jumps a little bigger. */
+.pop.streak { color: #fff4c0; animation: pop 1.2s ease-out forwards, pop-jump 0.25s steps(3); }
+@keyframes pop-jump { 0% { font-size: 1.5em; } 100% { font-size: 1em; } }

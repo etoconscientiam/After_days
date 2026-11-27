@@ -14,6 +14,7 @@ export function baseStats(): Stats {
     knowArc: 0,
     knowFusion: 0,
     knowHand: 0,
+    knowFit: 0,
     maskWindow: 0.7,
     strikeMul: 1,
     // Bare rods at the start: a lot of spatter; coated rods bring it down (upgrades.ts).
