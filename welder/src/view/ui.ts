@@ -734,17 +734,18 @@ export class UI {
     );
   }
 
-  showStart(resume: boolean, onGo: (fresh: boolean) => void, onLang: () => void): void {
+  showStart(resume: boolean, onGo: (fresh: boolean) => void, onLang: () => void, onIntro?: () => void): void {
     this.start.style.display = 'flex';
     this.start.innerHTML = `<h1>${t('title')}</h1><div class="sub">${t('subtitle')}</div>
       <div class="go">${resume ? t('resume') : t('start')}</div>
       <div class="small">${t('controls')}</div>
-      <div class="links">${resume ? `<span data-a="new">${t('newShift')}</span>` : ''}<span data-a="lang">${t('lang')}</span></div>`;
+      <div class="links">${resume ? `<span data-a="new">${t('newShift')}</span>` : ''}${onIntro ? `<span data-a="intro">${t('intro')}</span>` : ''}<span data-a="lang">${t('lang')}</span></div>`;
     this.start.onpointerdown = (e) => {
       const a = (e.target as HTMLElement).dataset.a;
       e.stopPropagation();
       if (a === 'lang') return onLang();
       this.start.style.display = 'none';
+      if (a === 'intro' && onIntro) return onIntro();
       onGo(a === 'new');
     };
   }

@@ -106,14 +106,18 @@ function boot(): void {
         }
         showStart();
       },
+      playIntro,
     );
-  // A new shift opens with the intro (?nointro skips it, ?intro forces it); a saved one with the start screen.
-  if ((!resume && !params.has('nointro')) || params.has('intro')) {
+  // The intro, then the shift (from a new one, or from the start screen's link to see it again).
+  function playIntro() {
     paused = true;
     const intro = new Intro({ onDone: (fromWhite) => begin(fromWhite) });
     (window as unknown as { welderIntro: Intro }).welderIntro = intro;
     intro.start();
-  } else showStart();
+  }
+  // A new shift opens with the intro (?nointro skips it, ?intro forces it); a saved one with the start screen.
+  if ((!resume && !params.has('nointro')) || params.has('intro')) playIntro();
+  else showStart();
   addEventListener('pointerdown', () => sound.resume());
   addEventListener('beforeunload', () => {
     if (game.started) {

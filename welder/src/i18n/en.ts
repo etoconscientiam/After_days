@@ -4,6 +4,7 @@ export const en = {
   start: 'click to start',
   resume: 'click to continue the shift',
   newShift: 'start a new shift',
+  intro: 'intro',
   lang: 'Русский',
   controls: 'At the bench: LMB strike & weld · wheel or ↑/↓ arc length · A/D, W/S or right-drag turn the work · TAB next seam · SPACE mask · R new rod · E step back. In the room: WASD walk · mouse look · E act',
 
