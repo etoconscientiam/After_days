@@ -905,6 +905,11 @@
     "legendWater": "water",
     "legendWindow": "transforming",
     "lensHint": "Tap a layer to see it up close",
+    "lensEra": "Epoch {n} · laid in {y}",
+    "lensPhys": "Depth {d} m · {p} MPa · {t} °C",
+    "lensTo": "→ {rock}: {when}",
+    "lensStays": "Will not change any more",
+    "lensValue": "The thing gets",
     "lensLabel": "{rock} · Epoch {n}",
     "ruler": "Epochs: tap to zoom in",
     "eraN": "Epoch {n}: {name}"

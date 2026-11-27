@@ -10,13 +10,18 @@ import type { Renderer } from '../render/renderer';
 import type { Input } from './input';
 import { $, h, toggle } from './dom';
 import { t, fmt } from './i18n';
-import { rockIcon } from './icons';
+import { rockIcon, energyIcon } from './icons';
+import { forecastParticle, conditionsAt } from '../core/forecast';
+import { VALUE, absorbUnit, specialsOf } from '../core/absorb';
+import { P_FOSSIL, P_FRAGMENT } from '../world/Grid';
+import { fmtCountdown } from './hud';
 import { lensPixel, eraPixel, bedPixel, ROMAN } from './pixelIcons';
 import { WH, WW } from '../render/common';
 import { ERA_COLORS } from '../render/section';
 
 const LENS_N = 60;     // lens pixels across (one lens pixel = one world pixel on screen)
 const LENS_Z = 3;      // magnification
+const BASE = CFG.B.layout.sectionTop;
 
 export class Geologist {
   btn = $('#geo-btn') as HTMLButtonElement;
@@ -64,6 +69,7 @@ export class Geologist {
     this.lens.addEventListener('click', () => this.closeLens());
     this.ruler.after(this.lens);
     this.input.onLens = (x, y) => this.openLens(x, y);
+    this.input.onLensMove = (x, y) => this.moveLens(x, y);
     this.input.onLensMiss = () => { if (this.lensAt) this.closeLens(); else this.set(false); };
   }
 
@@ -83,9 +89,26 @@ export class Geologist {
   hint(): void { this.hintT = 10; this.btn.classList.add('hint'); }
 
   // ---------- lens ----------
-  private openLens(x: number, y: number): void {
-    this.lensAt = { x, y };
+  /** The lens looks at a whole particle: its middle (section-local), so the particle is right in the centre. */
+  private snap(x: number, y: number): { x: number; y: number } {
+    const gx = Math.floor(x / 2), gr = Math.floor((y + BASE) / 2);
+    return { x: gx * 2 + 1, y: gr * 2 + 1 - BASE };
+  }
+
+  /** The finger moves with the lens held: it follows, no new animation; repainted at once. */
+  private moveLens(x: number, y: number): void {
+    if (!this.lensAt) { this.openLens(x, y); return; }
+    const p = this.snap(x, y);
+    if (p.x === this.lensAt.x && p.y === this.lensAt.y) return;
+    this.lensAt = p;
     this.lensAge = 9;
+    this.infoKey = '';
+  }
+
+  private openLens(x: number, y: number): void {
+    this.lensAt = this.snap(x, y);
+    this.lensAge = 9;
+    this.infoKey = '';
     this.lens.hidden = false;
     this.lens.classList.remove('in');
     void this.lens.offsetWidth;
@@ -95,13 +118,30 @@ export class Geologist {
   closeLens(): void {
     this.lensAt = null;
     this.lens.hidden = true;
+    this.ren.lensCell = null;
   }
+
+  private infoKey = '';
+  private blink = 0;
 
   private paintLens(): void {
     const at = this.lensAt!;
     const sec = this.ren.section;
     const out = new Uint32Array(this.lensImg.data.buffer);
     const L = sec.paintLens(out, LENS_N, at.x, at.y, LENS_Z);
+    // the particle under study: a frame right around it in the middle of the glass (amber over a dark line), blinking
+    if (L) {
+      this.blink ^= 1;
+      const u0 = Math.round((L.x * 2 - at.x) * LENS_Z + LENS_N / 2), v0 = Math.round((L.r * 2 - BASE - at.y) * LENS_Z + LENS_N / 2);
+      const S = 2 * LENS_Z;
+      const amber = this.blink ? 0xff4ab5f2 : 0xff7ad2ff, dark = 0xff0c0a0e;
+      for (let k = -2; k <= S + 1; k++) for (const [u, v, c] of [[u0 + k, v0 - 1, amber], [u0 + k, v0 + S, amber], [u0 - 1, v0 + k, amber], [u0 + S, v0 + k, amber],
+        [u0 + k, v0 - 2, dark], [u0 + k, v0 + S + 1, dark], [u0 - 2, v0 + k, dark], [u0 + S + 1, v0 + k, dark]] as [number, number, number][]) {
+        if (k < -1 && (v === v0 - 1 || v === v0 + S || u === u0 - 1 || u === u0 + S)) continue;
+        if (u >= 0 && u < LENS_N && v >= 0 && v < LENS_N) out[v * LENS_N + u] = c;
+      }
+      this.ren.lensCell = { x: L.x, r: L.r };
+    } else this.ren.lensCell = null;
     // round: outside the circle is transparent
     const r2 = (LENS_N / 2) ** 2;
     for (let v = 0; v < LENS_N; v++) for (let u = 0; u < LENS_N; u++) {
@@ -109,10 +149,38 @@ export class Geologist {
       if (dx * dx + dy * dy > r2) out[v * LENS_N + u] = 0;
     }
     this.lensCv.getContext('2d')!.putImageData(this.lensImg, 0, 0);
-    if (L) {
-      const rock = CFG.materials[L.mat].id;
-      this.lensLabel.replaceChildren(rockIcon(rock, 16), h('span', {}, t('geo.lensLabel', { rock: t('materials.' + rock), n: ROMAN[L.era] ?? String(L.era) })));
-    }
+    this.paintInfo(L);
+  }
+
+  /** The card under the glass: what the particle is, when it was laid, where it lies, what it will become and what
+   *  it is worth to the thing. Rebuilt only when the particle (or what is known of it) changes. */
+  private paintInfo(L: { mat: number; era: number; i: number; x: number; r: number } | null): void {
+    const g = this.g();
+    if (!L) { if (this.infoKey !== 'none') { this.infoKey = 'none'; this.lensLabel.replaceChildren(h('div', { class: 'li-sub' }, t('geo.lensHint'))); } return; }
+    const grid = g.grid, m = L.mat, id = CFG.materials[m].id;
+    const f = forecastParticle(g, L.x, L.r);
+    const c = conditionsAt(g, L.x, L.r);
+    const fl = grid.flags[L.i];
+    const fossil = (fl & P_FOSSIL) !== 0, fragment = (fl & P_FRAGMENT) !== 0;
+    // what the thing gets for it when it takes this row: energy now, and the special material it holds
+    const val = VALUE[m] * (fossil ? CFG.B.sand.absorb.fossilMul : 1) * absorbUnit(g);
+    const spec = Object.entries(specialsOf(new Uint8Array([m])));
+    const fTxt = !f ? t('geo.lensStays') : f.ok ? t('geo.lensTo', { rock: t('rocks.' + f.rock), when: t('geo.years', { v: fmt(Math.max(1, f.years), 0) }) })
+      : t('geo.lensTo', { rock: t('rocks.' + f.rock), when: t('geo.' + f.reason) });
+    const vTxt = fmt(val, val < 10 ? 2 : 1);
+    const key = [L.i, m, Math.round(c.Peff * 10), Math.round(c.T), fTxt, vTxt, fossil, fragment].join('|');
+    if (key === this.infoKey) return;
+    this.infoKey = key;
+    const spName = (s: number) => t('species.' + CFG.species[s - 1]?.id + '.name');
+    this.lensLabel.replaceChildren(
+      h('div', { class: 'li-head' }, rockIcon(id, 16), h('span', {}, t('materials.' + id))),
+      h('div', { class: 'li-sub' }, t('geo.lensEra', { n: ROMAN[L.era] ?? String(L.era), y: fmtCountdown(CFG.zeroYear - grid.birth[L.i]) + '⟡' })),
+      h('div', { class: 'li-sub' }, t('geo.lensPhys', { d: fmt(c.depth * 2, 0), p: fmt(c.Peff, 1), t: fmt(c.T, 0) })),
+      h('div', { class: 'li-sub' + (f && f.ok ? ' ok' : '') }, fTxt),
+      ...(fossil || fragment ? [h('div', { class: 'li-sub fossil' }, t(fossil ? 'tip.fossil' : 'tip.fragment', { s: spName(grid.spec[L.i]) }))] : []),
+      h('div', { class: 'li-val' }, h('span', {}, t('geo.lensValue')), energyIcon(14), h('b', {}, vTxt),
+        ...spec.map(([sid, n]) => h('span', { class: 'li-spec' }, rockIcon(sid, 14), h('b', {}, '+' + fmt(n, n < 1 ? 1 : 0))))),
+    );
   }
 
   // ---------- layout helpers ----------
@@ -175,8 +243,13 @@ export class Geologist {
         const lx = F.toUiX(this.lensAt.x), ly = F.toUiY(top + this.lensAt.y);
         const size = LENS_N * F.px;
         this.lensCv.style.width = this.lensCv.style.height = size + 'px';
+        // above the particle, so the finger never covers the glass (below it when there is no room above); the card
+        // goes on the far side from the finger
+        const cardH = this.lensLabel.offsetHeight || 90;
+        const above = ly - size - 22 - cardH >= 70;
+        this.lens.classList.toggle('below', !above);
         this.lens.style.left = Math.max(4, Math.min(stripL - size - 2, lx - size / 2)) + 'px';
-        this.lens.style.top = Math.max(F.toUiY(top) - size * 0.4, ly - size / 2) + 'px';
+        this.lens.style.top = (above ? ly - size - 22 - cardH : ly + 22) + 'px';
         this.lensAge += dt;
         if (this.lensAge > 0.25) { this.lensAge = 0; this.paintLens(); }
       }

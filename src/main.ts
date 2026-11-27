@@ -547,7 +547,7 @@ function frame(now: number): void {
     const below = game.state.phase === 'play' && game.run.sink.rows === 0;
     if (!below && game.state.phase === 'play' && !f.pressTaught) { pressHintT += dtReal; if (pressHintT > 14) f.pressTaught = true; }
     const hint = !below && game.state.phase === 'play' && !f.pressTaught;
-    const show = (below || hint) && !menu.open;
+    const show = (below || hint) && !menu.open && !renderer.geologist;   // not over the lens
     if (pl.hidden === show) pl.hidden = !show;
     toggle(pl, 'press-hint', hint);
     if (show) {

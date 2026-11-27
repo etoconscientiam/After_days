@@ -146,6 +146,8 @@ export class Renderer {
   private cloudsSkinned = false;
   /** Geologist view (brief 5, A3): heat, groundwater and transformation windows over a dimmed section */
   geologist = false;
+  /** the particle the lens is looking at (grid column and row), framed in the strata */
+  lensCell: { x: number; r: number } | null = null;
   /** transformation glow per column (eases toward the game's hotNow, fades when the transformation ends) */
   private hot = new Float32Array(WW);
   private hotY = new Float32Array(WW);
@@ -1767,6 +1769,15 @@ export class Renderer {
       c.fillStyle = '#fffae6';
       c.fillRect(gl.x, gy, 1, 1);
       c.globalAlpha = 1;
+    }
+    // the particle under the lens: a small blinking frame right around it in the strata
+    if (this.lensCell && this.geologist) {
+      const lx = this.lensCell.x * 2, ly = this.lensCell.r * 2 + gdy;
+      const on = Math.sin(this.t * 8) > -0.3;
+      c.fillStyle = on ? '#ffd27a' : '#f2b54a';
+      c.fillRect(lx - 1, ly - 1, 4, 1); c.fillRect(lx - 1, ly + 2, 4, 1); c.fillRect(lx - 1, ly, 1, 2); c.fillRect(lx + 2, ly, 1, 2);
+      c.fillStyle = 'rgba(12,10,14,0.85)';
+      c.fillRect(lx - 2, ly - 2, 6, 1); c.fillRect(lx - 2, ly + 3, 6, 1); c.fillRect(lx - 2, ly - 1, 1, 4); c.fillRect(lx + 3, ly - 1, 1, 4);
     }
     if (this.hover && !this.targeting) {
       // only a small marker: a year does not lie on one line across the particles, so no band across the section

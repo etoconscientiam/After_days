@@ -504,8 +504,19 @@ html[data-tremor] #ui { animation: letterTremor 0.14s steps(1) infinite; }
 #lens .lens-glass canvas { border-radius: 50%; display: block; image-rendering: pixelated; }
 #lens .lens-shine { position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
   background: radial-gradient(circle at 32% 26%, rgba(255,255,255,0.22), rgba(255,255,255,0) 38%), radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 62%, rgba(0,0,0,0.35) 100%); }
-#lens .lens-label { display: flex; align-items: center; gap: 5px; padding: 2px 8px 3px 4px; border-radius: 7px; white-space: nowrap; font-size: 16px; line-height: 1;
-  background: rgba(20,17,15,0.85); color: var(--bone); box-shadow: 0 2px 6px rgba(0,0,0,0.5); margin-top: 6px; }
+#lens .lens-label { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 4px 8px 5px; white-space: nowrap; font-size: 16px; line-height: 18px;
+  background: #1a1512; color: var(--bone); box-shadow: 0 0 0 2px #8a6a3a, 0 0 0 4px #0c0a09; margin-bottom: 10px; pointer-events: none; }
+/* above the finger: the card on top, the glass under it (nearest the particle); below the finger: the other way */
+#lens { cursor: default; flex-direction: column-reverse; }
+#lens.below { flex-direction: column; }
+#lens.below .lens-label { margin-bottom: 0; margin-top: 10px; }
+#lens .li-head { display: flex; align-items: center; gap: 6px; color: var(--amber); }
+#lens .li-sub { color: var(--bone-dim); }
+#lens .li-sub.ok { color: var(--moss, #8fae6a); }
+#lens .li-sub.fossil { color: #e4ddc8; }
+#lens .li-val { display: flex; align-items: center; gap: 4px; color: var(--bone); margin-top: 2px; }
+#lens .li-val b { color: var(--amber); font-weight: normal; margin-right: 4px; }
+#lens .li-spec { display: inline-flex; align-items: center; gap: 2px; }
 
 /* Book → Debug */
 .book-debug { display: flex; align-items: center; gap: 8px; margin-top: 16px; opacity: 0.8; }

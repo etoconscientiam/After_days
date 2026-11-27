@@ -429,7 +429,7 @@ export class SectionRenderer {
   }
 
   /** Paint the lens: N×N pixels around section-local (cx, cy), magnified Z times. Returns what is at its centre. */
-  paintLens(out: Uint32Array, N: number, cx: number, cy: number, Z: number): { mat: number; era: number } | null {
+  paintLens(out: Uint32Array, N: number, cx: number, cy: number, Z: number): { mat: number; era: number; i: number; x: number; r: number } | null {
     const g = this.g;
     if (!g) return null;
     const grid = g.grid, px = this.px;
@@ -456,7 +456,7 @@ export class SectionRenderer {
     if (x < 0 || x >= GW || r < 0 || r >= grid.floor) return null;
     const i = r * GW + x;
     if (!grid.mat[i] || KIND[grid.mat[i]] === K_SOLID) return null;
-    return { mat: grid.mat[i], era: eraOfYear(grid.birth[i]) };
+    return { mat: grid.mat[i], era: eraOfYear(grid.birth[i]), i, x, r };
   }
 }
 

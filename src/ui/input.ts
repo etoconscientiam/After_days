@@ -40,10 +40,11 @@ export class Input {
     const c = this.canvas;
     c.addEventListener('pointermove', (e) => {
       if (this.hold && this.hold.id === e.pointerId) { this.hold.m = this.world(e); return; }
+      if (this.lensDrag === e.pointerId) { const p = this.lensPoint(this.world(e)); if (p) this.onLensMove(p.x, p.y); return; }
       if (e.pointerType === 'mouse' || e.pointerType === 'pen' || this.targeting) this.move(e);
     });
-    c.addEventListener('pointerup', (e) => this.up(e));
-    c.addEventListener('pointercancel', (e) => this.up(e));
+    c.addEventListener('pointerup', (e) => { if (this.lensDrag === e.pointerId) this.lensDrag = null; this.up(e); });
+    c.addEventListener('pointercancel', (e) => { if (this.lensDrag === e.pointerId) this.lensDrag = null; this.up(e); });
     c.addEventListener('pointerleave', () => { this.mouse = null; this.ren.hover = null; this.tooltip.hidden = true; });
     c.addEventListener('pointerdown', (e) => {
       if (e.pointerType === 'mouse' && e.button !== 0) return;
@@ -176,9 +177,22 @@ export class Input {
   /** Geologist mode (the lens button): tapping a layer opens the lens on it; tapping off the layers closes it. */
   geologist = false;
   onLens: (x: number, y: number) => void = () => {};
+  /** the lens follows a finger (or the mouse) held down on the strata */
+  onLensMove: (x: number, y: number) => void = () => {};
+  private lensDrag: number | null = null;
   onLensMiss: () => void = () => {};
   /** A finger (or the mouse) down on the strata: a short tap is an impulse, a hold is a press. */
   private hold: { id: number; t0: number; m: { x: number; y: number }; pressing: boolean } | null = null;
+
+  /** Where the lens looks for a pointer at world (x, y): kept on the strata (section-local y). */
+  private lensPoint(m: { x: number; y: number }): { x: number; y: number } | null {
+    const sec = this.ren.section;
+    const x = Math.max(0, Math.min(sec.SW - 1, this.col(m.x)));
+    const sy = this.ren.sectionY(Math.max(0, m.y));
+    if (sy === null) return null;
+    const y = Math.max(sec.topD[x], Math.min(sec.horizonTop[x] - 1, Math.min(sec.cut - 1, sy)));
+    return { x: x + 0.5, y };
+  }
 
   /** Is (world x, y) on the strata (not the horizon/bedrock)? */
   private onStrata(m: { x: number; y: number }): boolean {
@@ -216,8 +230,12 @@ export class Input {
     // Geologist: a tap on a layer opens the lens there; a tap off the layers closes it
     if (this.geologist) {
       const sy = this.ren.sectionY(m.y);
-      if (this.onStrata(m) && sy !== null && sy < this.ren.section.cut) this.onLens(this.col(m.x) + 0.5, sy);
-      else this.onLensMiss();
+      if (this.onStrata(m) && sy !== null && sy < this.ren.section.cut) {
+        this.onLens(this.col(m.x) + 0.5, sy);
+        // hold and move: the lens goes with the finger
+        this.lensDrag = e.pointerId;
+        try { this.canvas.setPointerCapture(e.pointerId); } catch { /* not all pointers can be captured */ }
+      } else this.onLensMiss();
       return;
     }
     // on the strata: wait — a hold becomes a press, a short tap an impulse
