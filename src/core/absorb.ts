@@ -67,7 +67,7 @@ function absorbLine(g: Game, line: BandLine): void {
   // the special materials of the line go to their counters (the only way to get them)
   const gains = specialsOf(line.mats);
   for (const id in gains) g.addSpecial(id, gains[id]);
-  const e = line.v * absorbUnit(g);
+  const e = line.v * absorbUnit(g) * (1 + g.stats.absorbBonus);
   const r = g.run;
   r.energy += e;
   r.energyEarned += e;

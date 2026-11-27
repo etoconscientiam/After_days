@@ -39,6 +39,8 @@ export interface RunState {
   era: number;
   energy: number;
   energyEarned: number;
+  /** taps that dropped a pile in this run (the bell rings every 25th) */
+  taps?: number;
   boost: number;                  // seconds of click boost left
   pop: Record<string, number[]>;  // per species: [water, shore, land]
   peak: Record<string, number>;

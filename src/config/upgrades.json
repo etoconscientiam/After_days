@@ -1,5 +1,5 @@
 {
- "_comment": "In-run upgrades. Branch pile (energy): pileSize adds sand.pile.perLevel particles to a tapped pile; the others (pileMat, opens in epoch era) are the composition of the piles as in the prototype: value per level is the share that material makes of the piles, all shares together at most sand.pileShareMax (Game.pileShares, sources.ts pileMix). price = base * growth^level (per-upgrade growth overrides). Effect doubles at each milestone level when milestones=true (the upgrade of the upgrades). unlock: what opens it — another upgrade at a level (upgrade, level), the Energy earned in this run (earned), an epoch (era); a locked one is shown only as the next to come (the first two), so a new player meets the upgrades one by one, cheapest first. effect.kind: add (value*level) or mul (value^level).",
+ "_comment": "In-run upgrades as a tree growing from the thing (ui/tree.ts). tree: branch, parent (a node, «thing» the centre, «hub» the gate of the special materials that opens with the first one absorbed), x/y on the board (the thing at 0,0), kind (core: no cap, its effect doubles at each milestone level; small; key: a keystone that changes a rule; choice: one of a pair, the other closes for the run), max (levels; none for core), needMax (the parent taken to the end first), pair, icon. A node opens when its parent has a level (or is full, with needMax), its epoch has come (era) and its pair is not taken. Branch pile (energy): pileSize adds sand.pile.perLevel particles to a tapped pile; the others with pileMat are the composition of the piles (share per level, all shares at most sand.pileShareMax). price = base * growth^level. effect.kind: add (value*level) or mul (value^level).",
  "growth": 1.15,
  "milestones": [
   5,
@@ -17,20 +17,14 @@
    "stat": "clickAdd",
    "kind": "add",
    "value": 1,
-   "milestones": true
-  },
-  {
-   "id": "radiance",
-   "branch": "awakening",
-   "currency": "energy",
-   "base": 30,
-   "stat": "passiveAdd",
-   "kind": "add",
-   "value": 0.6,
    "milestones": true,
-   "unlock": {
-    "upgrade": "impulse",
-    "level": 3
+   "tree": {
+    "branch": "tap",
+    "parent": "thing",
+    "x": -90,
+    "y": -70,
+    "kind": "core",
+    "icon": "hand"
    }
   },
   {
@@ -43,9 +37,100 @@
    "value": 0.9,
    "growth": 1.6,
    "milestones": false,
-   "unlock": {
-    "upgrade": "impulse",
-    "level": 5
+   "tree": {
+    "branch": "tap",
+    "parent": "impulse",
+    "x": -150,
+    "y": -160,
+    "kind": "small",
+    "max": 5,
+    "icon": "clock"
+   }
+  },
+  {
+   "id": "impulsePower",
+   "branch": "awakening",
+   "currency": "energy",
+   "base": 200,
+   "stat": "clickMul",
+   "kind": "mul",
+   "value": 1.12,
+   "milestones": false,
+   "extra": {
+    "stat": "boostMax",
+    "value": 0.2
+   },
+   "growth": 1.5,
+   "tree": {
+    "branch": "tap",
+    "parent": "impulse",
+    "x": -200,
+    "y": -60,
+    "kind": "small",
+    "max": 10,
+    "icon": "spark"
+   }
+  },
+  {
+   "id": "double",
+   "branch": "awakening",
+   "currency": "energy",
+   "base": 8000,
+   "growth": 2.5,
+   "stat": "doubleTap",
+   "kind": "add",
+   "value": 0.1,
+   "milestones": false,
+   "tree": {
+    "branch": "tap",
+    "parent": "tempo",
+    "x": -225,
+    "y": -250,
+    "kind": "key",
+    "max": 3,
+    "needMax": true,
+    "icon": "double"
+   }
+  },
+  {
+   "id": "echo",
+   "branch": "awakening",
+   "currency": "energy",
+   "base": 12000,
+   "growth": 1.6,
+   "stat": "tapEcho",
+   "kind": "add",
+   "value": 0.005,
+   "milestones": false,
+   "tree": {
+    "branch": "tap",
+    "parent": "impulsePower",
+    "x": -295,
+    "y": -110,
+    "kind": "small",
+    "max": 5,
+    "icon": "wave"
+   }
+  },
+  {
+   "id": "bell",
+   "branch": "awakening",
+   "currency": "energy",
+   "base": 160000,
+   "growth": 1,
+   "stat": "bell",
+   "kind": "add",
+   "value": 1,
+   "milestones": false,
+   "tree": {
+    "branch": "tap",
+    "parent": "echo",
+    "x": -375,
+    "y": -190,
+    "kind": "key",
+    "max": 1,
+    "needMax": true,
+    "icon": "bell"
    }
   },
   {
@@ -57,40 +142,208 @@
    "kind": "add",
    "value": 1,
    "growth": 1.3,
-   "unlock": {
-    "earned": 200
+   "milestones": false,
+   "tree": {
+    "branch": "pile",
+    "parent": "thing",
+    "x": -115,
+    "y": 35,
+    "kind": "small",
+    "max": 10,
+    "icon": "pile"
    }
   },
   {
-   "id": "impulsePower",
-   "branch": "awakening",
+   "id": "tower",
+   "branch": "pile",
    "currency": "energy",
-   "base": 200,
-   "stat": "clickMul",
+   "base": 6000,
+   "growth": 1,
+   "stat": "pileSpread",
    "kind": "mul",
-   "value": 1.12,
-   "milestones": true,
-   "extra": {
-    "stat": "boostMax",
-    "value": 0.2
-   },
-   "growth": 1.5,
-   "unlock": {
-    "upgrade": "impulse",
-    "level": 8
+   "value": 0.6,
+   "milestones": false,
+   "tree": {
+    "branch": "pile",
+    "parent": "pileSize",
+    "x": -215,
+    "y": 0,
+    "kind": "choice",
+    "max": 1,
+    "needMax": true,
+    "pair": "scatter",
+    "icon": "tower"
    }
   },
   {
-   "id": "drizzle",
-   "branch": "awakening",
+   "id": "scatter",
+   "branch": "pile",
+   "currency": "energy",
+   "base": 6000,
+   "growth": 1,
+   "stat": "pileSpread",
+   "kind": "mul",
+   "value": 1.8,
+   "milestones": false,
+   "tree": {
+    "branch": "pile",
+    "parent": "pileSize",
+    "x": -215,
+    "y": 80,
+    "kind": "choice",
+    "max": 1,
+    "needMax": true,
+    "pair": "tower",
+    "icon": "scatter"
+   }
+  },
+  {
+   "id": "pileSand",
+   "branch": "pile",
+   "currency": "energy",
+   "base": 90,
+   "stat": "pile",
+   "pileMat": "sand",
+   "era": 1,
+   "kind": "add",
+   "value": 0.05,
+   "growth": 1.3,
+   "milestones": false,
+   "tree": {
+    "branch": "pile",
+    "parent": "pileSize",
+    "x": -130,
+    "y": 130,
+    "kind": "small",
+    "max": 5,
+    "icon": "grain"
+   }
+  },
+  {
+   "id": "pileClay",
+   "branch": "pile",
    "currency": "energy",
    "base": 150,
-   "stat": "drizzle",
+   "stat": "pile",
+   "pileMat": "clay",
+   "era": 1,
    "kind": "add",
-   "value": 0.1,
-   "growth": 1.4,
-   "unlock": {
-    "era": 1
+   "value": 0.05,
+   "growth": 1.3,
+   "milestones": false,
+   "tree": {
+    "branch": "pile",
+    "parent": "pileSand",
+    "x": -215,
+    "y": 170,
+    "kind": "small",
+    "max": 5,
+    "icon": "grain"
+   }
+  },
+  {
+   "id": "pileShell",
+   "branch": "pile",
+   "currency": "energy",
+   "base": 900,
+   "stat": "pile",
+   "pileMat": "shellOoze",
+   "era": 2,
+   "kind": "add",
+   "value": 0.05,
+   "growth": 1.3,
+   "milestones": false,
+   "tree": {
+    "branch": "pile",
+    "parent": "pileClay",
+    "x": -300,
+    "y": 200,
+    "kind": "small",
+    "max": 5,
+    "icon": "shell"
+   }
+  },
+  {
+   "id": "pilePeat",
+   "branch": "pile",
+   "currency": "energy",
+   "base": 6000,
+   "stat": "pile",
+   "pileMat": "orgLand",
+   "era": 3,
+   "kind": "add",
+   "value": 0.05,
+   "growth": 1.3,
+   "milestones": false,
+   "tree": {
+    "branch": "pile",
+    "parent": "pileShell",
+    "x": -380,
+    "y": 240,
+    "kind": "small",
+    "max": 5,
+    "icon": "leaf"
+   }
+  },
+  {
+   "id": "pileResin",
+   "branch": "pile",
+   "currency": "energy",
+   "base": 30000,
+   "stat": "pile",
+   "pileMat": "resin",
+   "era": 4,
+   "kind": "add",
+   "value": 0.04,
+   "growth": 1.3,
+   "milestones": false,
+   "tree": {
+    "branch": "pile",
+    "parent": "pilePeat",
+    "x": -460,
+    "y": 280,
+    "kind": "small",
+    "max": 5,
+    "icon": "drop"
+   }
+  },
+  {
+   "id": "beds",
+   "branch": "pile",
+   "currency": "energy",
+   "base": 32000,
+   "growth": 1,
+   "stat": "bedsStick",
+   "kind": "mul",
+   "value": 0.33,
+   "milestones": false,
+   "tree": {
+    "branch": "pile",
+    "parent": "pileClay",
+    "x": -275,
+    "y": 270,
+    "kind": "key",
+    "max": 1,
+    "needMax": true,
+    "icon": "beds"
+   }
+  },
+  {
+   "id": "radiance",
+   "branch": "awakening",
+   "currency": "energy",
+   "base": 30,
+   "stat": "passiveAdd",
+   "kind": "add",
+   "value": 0.6,
+   "milestones": true,
+   "tree": {
+    "branch": "life",
+    "parent": "thing",
+    "x": 8,
+    "y": 110,
+    "kind": "core",
+    "icon": "sun"
    }
   },
   {
@@ -107,50 +360,34 @@
     "value": 0.02
    },
    "growth": 1.42,
-   "unlock": {
-    "upgrade": "radiance",
-    "level": 3
+   "tree": {
+    "branch": "life",
+    "parent": "radiance",
+    "x": -40,
+    "y": 200,
+    "kind": "core",
+    "icon": "wave"
    }
   },
   {
-   "id": "striving",
+   "id": "sea",
    "branch": "awakening",
    "currency": "energy",
-   "base": 300,
-   "stat": "timeSpeed",
+   "base": 3200,
+   "growth": 1.5,
+   "stat": "seaCapacity",
    "kind": "add",
-   "value": 0.05,
-   "growth": 1.35,
-   "unlock": {
-    "upgrade": "radiance",
-    "level": 8
-   }
-  },
-  {
-   "id": "sediment",
-   "branch": "awakening",
-   "currency": "energy",
-   "base": 300,
-   "stat": "deposition",
-   "kind": "add",
-   "value": 0.05,
-   "growth": 1.35,
-   "unlock": {
-    "upgrade": "drizzle",
-    "level": 2
-   }
-  },
-  {
-   "id": "widePress",
-   "branch": "awakening",
-   "currency": "energy",
-   "base": 1500,
-   "stat": "pressRadius",
-   "kind": "add",
-   "value": 6,
+   "value": 0.1,
+   "era": 2,
    "milestones": false,
-   "unlock": {
-    "earned": 3000
+   "tree": {
+    "branch": "life",
+    "parent": "resonance",
+    "x": -110,
+    "y": 280,
+    "kind": "small",
+    "max": 5,
+    "icon": "fish"
    }
   },
   {
@@ -162,77 +399,283 @@
    "kind": "add",
    "value": 0.05,
    "growth": 1.5,
-   "era": 3
-  },
-  {
-   "id": "pileSand",
-   "branch": "pile",
-   "currency": "energy",
-   "base": 90,
-   "stat": "pile",
-   "pileMat": "sand",
-   "era": 1,
-   "kind": "add",
-   "value": 0.05,
-   "growth": 1.3
-  },
-  {
-   "id": "pileClay",
-   "branch": "pile",
-   "currency": "energy",
-   "base": 150,
-   "stat": "pile",
-   "pileMat": "clay",
-   "era": 1,
-   "kind": "add",
-   "value": 0.05,
-   "growth": 1.3
-  },
-  {
-   "id": "pileShell",
-   "branch": "pile",
-   "currency": "energy",
-   "base": 900,
-   "stat": "pile",
-   "pileMat": "shellOoze",
-   "era": 2,
-   "kind": "add",
-   "value": 0.05,
-   "growth": 1.3
-  },
-  {
-   "id": "pilePeat",
-   "branch": "pile",
-   "currency": "energy",
-   "base": 6000,
-   "stat": "pile",
-   "pileMat": "orgLand",
    "era": 3,
-   "kind": "add",
-   "value": 0.05,
-   "growth": 1.3
+   "milestones": false,
+   "tree": {
+    "branch": "life",
+    "parent": "resonance",
+    "x": -15,
+    "y": 295,
+    "kind": "small",
+    "max": 5,
+    "icon": "leaf"
+   }
   },
   {
-   "id": "pileResin",
-   "branch": "pile",
+   "id": "breath",
+   "branch": "awakening",
    "currency": "energy",
-   "base": 30000,
-   "stat": "pile",
-   "pileMat": "resin",
-   "era": 4,
+   "base": 1600,
+   "growth": 1.5,
+   "stat": "oxygenMul",
    "kind": "add",
-   "value": 0.04,
-   "growth": 1.3
+   "value": 0.15,
+   "era": 1,
+   "milestones": false,
+   "tree": {
+    "branch": "life",
+    "parent": "radiance",
+    "x": 80,
+    "y": 195,
+    "kind": "small",
+    "max": 5,
+    "icon": "lungs"
+   }
   },
   {
-   "id": "timeFlow",
-   "branch": "special",
-   "currency": "oil",
-   "base": 3,
+   "id": "evo",
+   "branch": "awakening",
+   "currency": "energy",
+   "base": 12000,
+   "growth": 1,
+   "stat": "wildSpeed",
+   "kind": "add",
+   "value": 1,
+   "era": 1,
+   "milestones": false,
+   "tree": {
+    "branch": "life",
+    "parent": "breath",
+    "x": 125,
+    "y": 280,
+    "kind": "key",
+    "max": 1,
+    "needMax": true,
+    "icon": "dna"
+   }
+  },
+  {
+   "id": "striving",
+   "branch": "awakening",
+   "currency": "energy",
+   "base": 300,
    "stat": "timeSpeed",
    "kind": "add",
-   "value": 0.03,
-   "growth": 1.35
+   "value": 0.05,
+   "growth": 1.35,
+   "milestones": false,
+   "tree": {
+    "branch": "time",
+    "parent": "thing",
+    "x": 112,
+    "y": 70,
+    "kind": "small",
+    "max": 10,
+    "icon": "clock"
+   }
+  },
+  {
+   "id": "hurry",
+   "branch": "awakening",
+   "currency": "energy",
+   "base": 8000,
+   "growth": 2,
+   "stat": "hurryAdd",
+   "kind": "add",
+   "value": 0.5,
+   "milestones": false,
+   "tree": {
+    "branch": "time",
+    "parent": "striving",
+    "x": 210,
+    "y": 128,
+    "kind": "small",
+    "max": 3,
+    "icon": "arrow"
+   }
+  },
+  {
+   "id": "sleep",
+   "branch": "awakening",
+   "currency": "energy",
+   "base": 20000,
+   "growth": 3,
+   "stat": "offlineHours",
+   "kind": "add",
+   "value": 4,
+   "milestones": false,
+   "tree": {
+    "branch": "time",
+    "parent": "striving",
+    "x": 190,
+    "y": 215,
+    "kind": "key",
+    "max": 2,
+    "needMax": true,
+    "icon": "moon"
+   }
+  },
+  {
+   "id": "memory",
+   "branch": "awakening",
+   "currency": "energy",
+   "base": 200000,
+   "growth": 1,
+   "stat": "eraMemory",
+   "kind": "add",
+   "value": 60,
+   "milestones": false,
+   "tree": {
+    "branch": "time",
+    "parent": "hurry",
+    "x": 300,
+    "y": 172,
+    "kind": "key",
+    "max": 1,
+    "needMax": true,
+    "icon": "book"
+   }
+  },
+  {
+   "id": "drizzle",
+   "branch": "awakening",
+   "currency": "energy",
+   "base": 150,
+   "stat": "drizzle",
+   "kind": "add",
+   "value": 0.1,
+   "growth": 1.4,
+   "milestones": false,
+   "tree": {
+    "branch": "depth",
+    "parent": "thing",
+    "x": 124,
+    "y": -15,
+    "kind": "small",
+    "max": 10,
+    "icon": "rain"
+   }
+  },
+  {
+   "id": "sediment",
+   "branch": "awakening",
+   "currency": "energy",
+   "base": 300,
+   "stat": "deposition",
+   "kind": "add",
+   "value": 0.05,
+   "growth": 1.35,
+   "milestones": false,
+   "tree": {
+    "branch": "depth",
+    "parent": "drizzle",
+    "x": 214,
+    "y": -50,
+    "kind": "small",
+    "max": 5,
+    "icon": "grain"
+   }
+  },
+  {
+   "id": "hunger",
+   "branch": "awakening",
+   "currency": "energy",
+   "base": 10000,
+   "growth": 1.6,
+   "stat": "absorbBonus",
+   "kind": "add",
+   "value": 0.2,
+   "milestones": false,
+   "tree": {
+    "branch": "depth",
+    "parent": "sediment",
+    "x": 308,
+    "y": -34,
+    "kind": "small",
+    "max": 5,
+    "icon": "maw"
+   }
+  },
+  {
+   "id": "maw",
+   "branch": "awakening",
+   "currency": "energy",
+   "base": 120000,
+   "growth": 1,
+   "stat": "sinkMul",
+   "kind": "mul",
+   "value": 1.5,
+   "milestones": false,
+   "tree": {
+    "branch": "depth",
+    "parent": "hunger",
+    "x": 400,
+    "y": -82,
+    "kind": "key",
+    "max": 1,
+    "needMax": true,
+    "icon": "maw"
+   }
+  },
+  {
+   "id": "widePress",
+   "branch": "awakening",
+   "currency": "energy",
+   "base": 1500,
+   "stat": "pressRadius",
+   "kind": "add",
+   "value": 6,
+   "milestones": false,
+   "tree": {
+    "branch": "depth",
+    "parent": "drizzle",
+    "x": 192,
+    "y": 42,
+    "kind": "small",
+    "max": 3,
+    "icon": "press"
+   }
+  },
+  {
+   "id": "heavy",
+   "branch": "awakening",
+   "currency": "energy",
+   "base": 16000,
+   "growth": 1.6,
+   "stat": "pressPower",
+   "kind": "add",
+   "value": 0.5,
+   "milestones": false,
+   "tree": {
+    "branch": "depth",
+    "parent": "widePress",
+    "x": 285,
+    "y": 64,
+    "kind": "small",
+    "max": 5,
+    "icon": "press"
+   }
+  },
+  {
+   "id": "compaction",
+   "branch": "awakening",
+   "currency": "energy",
+   "base": 80000,
+   "growth": 1,
+   "stat": "transformSpeed",
+   "kind": "add",
+   "value": 0.5,
+   "milestones": false,
+   "tree": {
+    "branch": "depth",
+    "parent": "heavy",
+    "x": 375,
+    "y": 42,
+    "kind": "key",
+    "max": 1,
+    "needMax": true,
+    "icon": "gem"
+   }
   },
   {
    "id": "press",
@@ -242,17 +685,57 @@
    "stat": "press",
    "kind": "add",
    "value": 0.1,
-   "growth": 1.3
+   "growth": 1.3,
+   "milestones": false,
+   "tree": {
+    "branch": "under",
+    "parent": "hub",
+    "x": -30,
+    "y": -205,
+    "kind": "small",
+    "max": 10,
+    "icon": "press"
+   }
   },
   {
-   "id": "boneSense",
+   "id": "deepPress",
    "branch": "special",
-   "currency": "amber",
-   "base": 2,
-   "stat": "fossilChance",
+   "currency": "coal",
+   "base": 30,
+   "stat": "kMax",
    "kind": "add",
-   "value": 0.05,
-   "growth": 1.35
+   "value": 0.5,
+   "growth": 1.45,
+   "milestones": false,
+   "tree": {
+    "branch": "under",
+    "parent": "press",
+    "x": -64,
+    "y": -290,
+    "kind": "small",
+    "max": 5,
+    "icon": "press"
+   }
+  },
+  {
+   "id": "timeFlow",
+   "branch": "special",
+   "currency": "oil",
+   "base": 3,
+   "stat": "timeSpeed",
+   "kind": "add",
+   "value": 0.03,
+   "growth": 1.35,
+   "milestones": false,
+   "tree": {
+    "branch": "under",
+    "parent": "hub",
+    "x": 84,
+    "y": -208,
+    "kind": "small",
+    "max": 10,
+    "icon": "clock"
+   }
   },
   {
    "id": "depthPull",
@@ -262,7 +745,17 @@
    "stat": "layerWeight",
    "kind": "add",
    "value": 0.05,
-   "growth": 1.35
+   "growth": 1.35,
+   "milestones": false,
+   "tree": {
+    "branch": "under",
+    "parent": "timeFlow",
+    "x": 154,
+    "y": -268,
+    "kind": "small",
+    "max": 5,
+    "icon": "arrow"
+   }
   },
   {
    "id": "coreHeat",
@@ -272,7 +765,37 @@
    "stat": "geoHeat",
    "kind": "add",
    "value": 2,
-   "growth": 1.4
+   "growth": 1.4,
+   "milestones": false,
+   "tree": {
+    "branch": "under",
+    "parent": "timeFlow",
+    "x": 64,
+    "y": -302,
+    "kind": "small",
+    "max": 5,
+    "icon": "flame"
+   }
+  },
+  {
+   "id": "boneSense",
+   "branch": "special",
+   "currency": "amber",
+   "base": 2,
+   "stat": "fossilChance",
+   "kind": "add",
+   "value": 0.05,
+   "growth": 1.35,
+   "milestones": false,
+   "tree": {
+    "branch": "under",
+    "parent": "hub",
+    "x": 176,
+    "y": -162,
+    "kind": "small",
+    "max": 5,
+    "icon": "bone"
+   }
   },
   {
    "id": "voice",
@@ -286,17 +809,17 @@
    "extra": {
     "stat": "tribeAttract",
     "value": 0.05
+   },
+   "milestones": false,
+   "tree": {
+    "branch": "under",
+    "parent": "boneSense",
+    "x": 260,
+    "y": -208,
+    "kind": "small",
+    "max": 5,
+    "icon": "bell"
    }
-  },
-  {
-   "id": "deepPress",
-   "branch": "special",
-   "currency": "coal",
-   "base": 30,
-   "stat": "kMax",
-   "kind": "add",
-   "value": 0.5,
-   "growth": 1.45
   },
   {
    "id": "earthLight",
@@ -306,7 +829,18 @@
    "stat": "energyMul",
    "kind": "mul",
    "value": 1.25,
-   "growth": 1.6
+   "growth": 1.6,
+   "milestones": false,
+   "tree": {
+    "branch": "under",
+    "parent": "depthPull",
+    "x": 225,
+    "y": -330,
+    "kind": "key",
+    "max": 3,
+    "needMax": true,
+    "icon": "gem"
+   }
   }
  ],
  "density": {

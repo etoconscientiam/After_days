@@ -14,6 +14,7 @@ import { chronicleCard } from './chronicle';
 import { energyIcon, rockIcon, tabIcon, elementIcon, oxygenIcon, portrait, exhibit } from './icons';
 import { habitatPixel, releasePixel, bugPixel, pilePixel as pileIcon, ROMAN } from './pixelIcons';
 import { WW } from '../render/common';
+import { TreeView } from './tree';
 import { assetUrl } from '../render/assets';
 
 export type TabId = 'life' | 'elements' | 'upgrades' | 'epoch' | 'book';
@@ -87,6 +88,8 @@ export class Drawer {
     $('#rock-pop').hidden = true;
     $('#fieldnote').hidden = true;
     this.el.classList.add('open');
+    // the tree needs room: the Upgrades drawer stands taller
+    toggle(this.el, 'tall', id === 'upgrades');
     this.el.setAttribute('aria-hidden', 'false');
     for (const [k, b] of this.tabButtons) toggle(b, 'active', k === id);
     this.sig = '';
@@ -110,8 +113,7 @@ export class Drawer {
   /** Open the Upgrades on the group of this rock (from the header). */
   openUpgradesAt(rock: string): void {
     if (this.open !== 'upgrades') this.toggleView('upgrades');
-    const el = this.body.querySelector(`.group-title[data-rock="${rock}"]`) as HTMLElement | null;
-    if (el) { this.body.scrollTo({ top: el.offsetTop - 8, behavior: 'smooth' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1200); }
+    this.tree?.focusCurrency(rock);
   }
 
   close(): void {
@@ -224,7 +226,7 @@ export class Drawer {
     switch (id) {
       case 'life': return CFG.species.map((s) => (g.speciesUnlocked(s) ? 1 : g.speciesGate(s) ? 2 : 0)).join('') + r.era + (r.mutationOffer ? 'm' + r.mutationEraOffered : '') + (this.expanded ?? '') + g.stats.buyBest + g.stats.shepherdSlots;
       case 'elements': return CFG.elements.map((e) => (g.elementAvailable(e) ? 1 : 0)).join('') + g.stats.autoSlots;
-      case 'upgrades': return CFG.B.sand.specials.order.filter((id) => g.specialKnown(id)).join(',') + g.mods.living + '|' + CFG.upgrades.map((u) => (g.upgradeOpen(u) ? 1 : 0)).join('');
+      case 'upgrades': return CFG.B.sand.specials.order.filter((id) => g.specialKnown(id)).join(',') + g.mods.living;
       case 'epoch': return String(g.meta.prestiges);
       case 'book': return this.bookTab + g.legacy.notes.length + '|' + g.legacy.fossils + '|' + g.legacy.chronicle.length + '|' + Object.keys(g.legacy.relics).length;
       case 'rocks': return g.legacy.discovered.join(',');
@@ -437,17 +439,6 @@ export class Drawer {
   }
 
   // ---------- Upgrades ----------
-  /** An upgrade still closed: its name dimmed and what opens it. */
-  private lockedRow(g: Game, u: UpgradeDef, ico: HTMLElement): HTMLElement {
-    const k = g.upgradeLock(u) ?? {};
-    const why: string[] = [];
-    if (k.upgrade) why.push(t('upgrades.unlockAt', { name: t('upgrades.' + k.upgrade + '.name'), n: k.level ?? 1 }));
-    if (k.earned) why.push(t('upgrades.unlockEarned', { v: fmt(k.earned) }));
-    if (k.era) why.push(t('upgrades.opensEra', { n: ROMAN[k.era] ?? String(k.era), name: t('era.' + k.era) }));
-    return h('div', { class: 'row dim' }, h('div', { class: 'r-ico' }, h('span', { class: 'silhouette' }, ico)), h('div', { class: 'r-name' }, t('upgrades.' + u.id + '.name')), h('div', { class: 'r-act' }),
-      h('div', { class: 'hint' }, why.join(' · ')));
-  }
-
   private upgradeRow(g: Game, u: UpgradeDef): HTMLElement {
     const name = h('div', { class: 'r-name' });
     const eff = h('div', { class: 'r-eff' });
@@ -478,47 +469,14 @@ export class Drawer {
     return row;
   }
 
+  private tree: TreeView | null = null;
+
   private buildUpgrades(g: Game): void {
-    this.body.append(h('div', { class: 'group-title' }, energyIcon(18), t('upgrades.awakening')));
-    // open ones to buy; of the closed ones only the next two, with what opens them (one by one, cheapest first)
-    let teased = 0;
-    for (const u of CFG.upgrades.filter((x) => x.currency === 'energy' && x.branch !== 'pile')) {
-      if (g.upgradeOpen(u)) { this.body.append(this.upgradeRow(g, u)); continue; }
-      if (teased++ >= 2) continue;
-      this.body.append(this.lockedRow(g, u, energyIcon(26)));
-    }
-    // branch «pile composition»: the size of a tapped pile and the shares of materials in it, opening by epochs
-    const shareNow = h('small', {});
-    this.body.append(h('div', { class: 'group-title', 'data-rock': 'pile' }, pileIcon(18), t('upgrades.pile'), shareNow));
-    this.refreshers.push(() => {
-      // the composition of the piles: the zone's own share (the rest are the bought materials, see the bar over the tabs)
-      setText(shareNow, t('upgrades.pileNow', { n: g.pileSize(), p: fmt(g.pileShares().own * 100, 0) }));
-    });
-    for (const u of CFG.upgrades.filter((x) => x.branch === 'pile')) {
-      if (!u.pileMat && !g.upgradeOpen(u)) { this.body.append(this.lockedRow(g, u, pileIcon(26, u.pileMat))); continue; }
-      if (u.era && g.run.era < u.era) {
-        this.body.append(h('div', { class: 'row dim' }, h('div', { class: 'r-ico' }, h('span', { class: 'silhouette' }, pileIcon(26, u.pileMat))), h('div', { class: 'r-name' }, t('upgrades.' + u.id + '.name')), h('div', { class: 'r-act' }),
-          h('div', { class: 'hint' }, t('upgrades.opensEra', { n: ROMAN[u.era] ?? String(u.era), name: t('era.' + u.era) }))));
-        continue;
-      }
-      this.body.append(this.upgradeRow(g, u));
-    }
-    const byRock = new Map<string, UpgradeDef[]>();
-    for (const u of CFG.upgrades.filter((x) => x.currency !== 'energy')) byRock.set(u.currency, [...(byRock.get(u.currency) ?? []), u]);
-    const locked: [string, UpgradeDef[]][] = [];
-    for (const [rock, list] of byRock) {
-      if (!g.specialKnown(rock)) { locked.push([rock, list]); continue; }
-      const stock = h('small', {});
-      this.body.append(h('div', { class: 'group-title', 'data-rock': rock }, rockIcon(rock, 20), t('rocks.' + rock), stock));
-      this.refreshers.push(() => setText(stock, fmt(g.run.rocks[rock] ?? 0, 0)));
-      for (const u of list) this.body.append(this.upgradeRow(g, u));
-    }
-    for (const [rock, list] of locked) {
-      for (const u of list) {
-        this.body.append(h('div', { class: 'row dim' }, h('div', { class: 'r-ico' }, h('span', { class: 'silhouette' }, rockIcon(rock, 26))), h('div', { class: 'r-name' }, t('upgrades.' + u.id + '.name')), h('div', { class: 'r-act' }),
-          h('div', { class: 'hint' }, t('upgrades.need', { rock: t('rocks.' + rock) }) + '. ' + t('upgrades.howTo', { how: t('rockHow.' + rock) }))));
-      }
-    }
+    // the tree of the thing (ui/tree.ts): kept between rebuilds, so the view stays where the player left it
+    if (!this.tree) this.tree = new TreeView(this.g, holdToRepeat);
+    this.body.append(this.tree.el);
+    const tree = this.tree;
+    this.refreshers.push(() => tree.refresh());
     if (g.mods.living) {
       this.body.append(h('div', { class: 'group-title' }, t('upgrades.ranks')));
       for (const rk of CFG.B.sand.specials.order.filter((id) => g.specialKnown(id))) {

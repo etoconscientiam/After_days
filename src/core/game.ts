@@ -337,7 +337,7 @@ export class Game {
     let v = this.eraDef().yps * (1 + st.timeSpeed) * (1 + st.timeSpeedDensity) * (1 + st.traitTime) * this.lifeMultiplier();
     if (withBoost && this.run.boost > 0) v *= CFG.B.energy.boostMul;
     if (withBoost && this.run.buffs.timeT > 0) v *= this.run.buffs.timeMul;
-    if (this.hurrying()) v *= CFG.B.time.hurryMul;
+    if (this.hurrying()) v *= CFG.B.time.hurryMul + this.stats.hurryAdd;
     return v;
   }
 
@@ -377,7 +377,7 @@ export class Game {
     let e = (CFG.B.energy.click + st.clickAdd) * st.clickMul * st.energyMul;
     // clicks scale gently with passive income so they never become worthless (most of a tap's energy comes later,
     // when its pile reaches the thing and is absorbed: core/absorb.ts)
-    e += this.incomePerSec(false) * CFG.B.energy.clickIncomeShare;
+    e += this.incomePerSec(false) * (CFG.B.energy.clickIncomeShare + st.tapEcho);
     if (this.run.boost > 0) e *= CFG.B.energy.boostMul;
     return e;
   }
@@ -546,7 +546,7 @@ export class Game {
       this.physMs += (performance.now() - t0 - this.physMs) * 0.1;
     } else this.moving = 0;
     fluidStep(this, dt);
-    const sunk = sinkStep(this.grid, r.sink, dt, (g, y) => { pushBand(this, captureRow(g, y)); this.archive.addRow(g, y); });
+    const sunk = sinkStep(this.grid, r.sink, dt * this.stats.sinkMul, (g, y) => { pushBand(this, captureRow(g, y)); this.archive.addRow(g, y); });
     // the sparks of new rock ride down with their grains
     if (sunk) for (const gl of this.glints) { gl.y += sunk * 2; if (gl.row !== undefined) gl.row += sunk; }
     this.layBeds(dt);
@@ -588,8 +588,17 @@ export class Game {
   buryWalker(id: string, zi: number, k: number, X: number): number { return buryUnits(this, id, zi, k, X); }
 
   tap(X: number, shard = -1, pile = true): number {
-    const e = this.click(shard);
-    if (pile && this.state.phase === 'play') tapPile(this, X, this.pileSize());
+    let e = this.click(shard);
+    if (pile && this.state.phase === 'play') {
+      const r = this.run;
+      r.taps = (r.taps ?? 0) + 1;
+      // «Bell»: every 25th tap a big pile and ten times the Energy
+      const bell = this.stats.bell > 0 && r.taps % 25 === 0;
+      if (bell) { const x = this.clickValue() * 9; r.energy += x; r.energyEarned += x; e += x; if (!this.headless) this.bus.emit('bell', { x: X }); }
+      tapPile(this, X, this.pileSize() * (bell ? 5 : 1));
+      // «Double strike»: now and then a second pile beside the first
+      if (this.stats.doubleTap > 0 && this.rng.next() < this.stats.doubleTap) tapPile(this, X + (this.rng.next() < 0.5 ? -14 : 14), this.pileSize());
+    }
     return e;
   }
 
@@ -713,6 +722,8 @@ export class Game {
     if (r.year < CFG.eras[era].start) r.year = CFG.eras[era].start;
     this.statsDirty = true;
     this.bus.emit('eraChanged', { era });
+    // «Memory of the epochs»: a new epoch brings its first moments of income at once
+    if (this.stats.eraMemory > 0 && this.state.phase === 'play') { const e = this.incomePerSec() * this.stats.eraMemory; r.energy += e; r.energyEarned += e; }
     triggerEcho(this, 'era:' + era);
     // the last high satellite goes out as era 0 ends (first run of a world only)
     if (era >= 1 && this.meta.prestiges === 0) triggerEcho(this, 'lastSatellite');
@@ -850,15 +861,28 @@ export class Game {
     return c === 'energy' ? this.run.energy : this.run.rocks[c] ?? 0;
   }
 
-  /** What still keeps an upgrade closed (null: it is open). */
-  upgradeLock(u: UpgradeDef): { upgrade?: string; level?: number; earned?: number; era?: number } | null {
-    const r = this.run, k = u.unlock;
-    const era = Math.max(u.era ?? 0, k?.era ?? 0);
-    const out: { upgrade?: string; level?: number; earned?: number; era?: number } = {};
+  /** The special materials' gate of the tree: open once one of them has been absorbed. */
+  hubOpen(): boolean { return CFG.B.sand.specials.order.some((id) => this.specialKnown(id)); }
+
+  /** The levels an upgrade can reach (Infinity for a core node). */
+  upgradeMax(u: UpgradeDef): number { return u.tree?.max ?? Infinity; }
+
+  /** What still keeps an upgrade closed in the tree (null: it is open): its parent (a level, or full with needMax),
+   *  its epoch, the other one of its pair, the gate of the special materials. */
+  upgradeLock(u: UpgradeDef): { parent?: string; full?: boolean; era?: number; pair?: string; hub?: boolean } | null {
+    const r = this.run, tr = u.tree;
+    const out: { parent?: string; full?: boolean; era?: number; pair?: string; hub?: boolean } = {};
     let locked = false;
-    if (era && r.era < era) { out.era = era; locked = true; }
-    if (k?.upgrade && this.upgradeLevel(k.upgrade) < (k.level ?? 1)) { out.upgrade = k.upgrade; out.level = k.level ?? 1; locked = true; }
-    if (k?.earned && r.energyEarned < k.earned) { out.earned = k.earned; locked = true; }
+    if (u.era && r.era < u.era) { out.era = u.era; locked = true; }
+    if (tr) {
+      if (tr.parent === 'hub') { if (!this.hubOpen()) { out.hub = true; locked = true; } }
+      else if (tr.parent !== 'thing') {
+        const p = CFG.upgrades.find((x) => x.id === tr.parent)!;
+        const pl = this.upgradeLevel(p.id);
+        if (tr.needMax ? pl < this.upgradeMax(p) : pl < 1) { out.parent = p.id; out.full = !!tr.needMax; locked = true; }
+      }
+      if (tr.pair && this.upgradeLevel(tr.pair) > 0) { out.pair = tr.pair; locked = true; }
+    }
     return locked ? out : null;
   }
 
@@ -871,6 +895,8 @@ export class Game {
     const u = CFG.upgrades.find((x) => x.id === id);
     if (!u) return false;
     if (!this.upgradeOpen(u)) return false;
+    if (u.tree?.pair && this.upgradeLevel(u.tree.pair) > 0) return false;
+    if (this.upgradeLevel(id) >= this.upgradeMax(u)) return false;
     const cost = this.upgradeCost(id);
     if (this.currency(u.currency) < cost) return false;
     if (u.currency === 'energy') this.run.energy -= cost;

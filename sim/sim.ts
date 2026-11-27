@@ -72,6 +72,12 @@ function botBuy() {
   }
   // branch «pile composition»: a player spends spare energy on it (a few percent of the stock at a time)
   for (const u of CFG.upgrades) if (u.branch === 'pile') while (g.upgradeCost(u.id) < g.run.energy * 0.03 && g.buyUpgrade(u.id)) {}
+  // the rest of the tree (keystones, forks, the new nodes): a player takes what opens when it is cheap enough
+  for (const u of CFG.upgrades) if (u.currency === 'energy' && u.tree && u.branch !== 'pile') {
+    if (u.tree.kind === 'choice' && u.id === 'tower') continue;          // the bot always takes Scatter
+    if (['impulse', 'radiance', 'striving', 'sediment', 'drizzle', 'impulsePower', 'resonance', 'fertility'].includes(u.id)) continue;   // rated above
+    while (g.upgradeCost(u.id) < g.run.energy * 0.05 && g.buyUpgrade(u.id)) {}
+  }
 }
 
 /** Make room for a species the era condition needs by releasing the weakest earners in its habitat. */

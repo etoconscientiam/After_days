@@ -44,7 +44,7 @@ export function lifeStep(g: Game, dy: number): void {
   // oxygen
   let o2 = 0;
   for (const sp of CFG.species) if (sp.oxygen) o2 += sp.oxygen * totalPop(g, sp.id);
-  r.oxygen = Math.min(CFG.B.oxygen.max, r.oxygen + o2 * dy);
+  r.oxygen = Math.min(CFG.B.oxygen.max, r.oxygen + o2 * (1 + g.stats.oxygenMul) * dy);
 
   const predIn = [0, 0, 0];
   for (const sp of CFG.species) if (sp.predator) for (let z = 0; z < 3; z++) predIn[z] += r.pop[sp.id][z];

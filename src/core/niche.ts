@@ -137,7 +137,7 @@ export function wildStep(g: Game, dt: number): void {
     T[sp.id] = (T[sp.id] ?? 0) + dt;
     if (w < grow) {
       // a big niche (a forest) fills faster than a few units: one every growSec / (cap / 8)
-      if (T[sp.id] < N.growSec / Math.max(1, grow / 8)) continue;
+      if (T[sp.id] < N.growSec / Math.max(1, grow / 8) / (1 + g.stats.wildSpeed)) continue;
       T[sp.id] = 0;
       const zi = g.freeZoneFor(sp);
       if (zi < 0) continue;

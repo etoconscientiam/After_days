@@ -371,6 +371,70 @@
     "pileResin": {
       "name": "Resin in the pile",
       "desc": "Share in the piles: +4% a level (amber). All extras together up to 60%"
+    },
+    "double": {
+      "name": "Double Strike",
+      "desc": "+10% chance a tap drops two piles at once"
+    },
+    "echo": {
+      "name": "Echo",
+      "desc": "Every tap adds another +0.5% of the income per second"
+    },
+    "bell": {
+      "name": "Bell",
+      "desc": "Every 25th tap: a pile ×5 and Energy ×10"
+    },
+    "tower": {
+      "name": "Tower",
+      "desc": "Piles fall in a narrow column: higher hills, steeper slopes"
+    },
+    "scatter": {
+      "name": "Scatter",
+      "desc": "Piles spread wider: flatter, thinner beds"
+    },
+    "beds": {
+      "name": "Bedding",
+      "desc": "The extra of the piles lasts 3 times longer: thicker, cleaner beds"
+    },
+    "sea": {
+      "name": "Warm Sea",
+      "desc": "+10% room for life in the sea"
+    },
+    "breath": {
+      "name": "Breath",
+      "desc": "+15% oxygen from life"
+    },
+    "evo": {
+      "name": "Fast Evolution",
+      "desc": "Wild life arises twice as fast"
+    },
+    "hurry": {
+      "name": "Hurry",
+      "desc": "Once the epoch goal is met, time hurries ×0.5 more"
+    },
+    "sleep": {
+      "name": "Sleep of Ages",
+      "desc": "+4 hours of progress while you are away"
+    },
+    "memory": {
+      "name": "Memory of Epochs",
+      "desc": "Each new epoch brings a minute of income at once"
+    },
+    "hunger": {
+      "name": "Hunger of the Thing",
+      "desc": "Absorbed rows give +20% Energy"
+    },
+    "maw": {
+      "name": "Maw",
+      "desc": "The thing takes rows 50% faster"
+    },
+    "heavy": {
+      "name": "Heavy Hand",
+      "desc": "The press squeezes 50% harder"
+    },
+    "compaction": {
+      "name": "Compaction",
+      "desc": "Every change of rock 50% faster"
     }
   },
   "rockHow": {
@@ -1002,5 +1066,42 @@
     "fossils": "Fossils",
     "oxygen": "Oxygen",
     "species": "Species · units"
+  },
+  "tree": {
+    "thing": "The Thing",
+    "thingDesc": "Everything grows from here. Each branch is its own way to change the world above the thing.",
+    "hub": "Depths",
+    "hubDesc": "The branch of the special materials. Opens with the first coal, oil, amber or diamond absorbed.",
+    "centre": "CENTRE",
+    "center": "To the centre",
+    "level": "Level {v}",
+    "levelOf": "Level {v} / {m}",
+    "now": "now",
+    "opens": "Opens",
+    "needLevel": "«{name}» at least level 1",
+    "needFull": "«{name}» to the end",
+    "needHub": "the first special material absorbed",
+    "instead": "instead of «{name}»",
+    "coreNote": "No cap: the effect doubles at levels 5, 10, 25, 50 and 100.",
+    "keyNote": "Keystone: it changes a rule of the game.",
+    "choiceNote": "A fork: the other one closes until the next prestige.",
+    "full": "Taken to the end",
+    "hours": "h",
+    "sec": "s",
+    "on": "on",
+    "branch": {
+      "tap": "TOUCH",
+      "pile": "PILE",
+      "life": "LIFE",
+      "time": "TIME",
+      "depth": "DEPTH",
+      "under": "DEPTHS"
+    },
+    "kind": {
+      "core": "no cap",
+      "small": "node",
+      "key": "keystone",
+      "choice": "fork"
+    }
   }
 }

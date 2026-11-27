@@ -16,6 +16,7 @@ export interface GameEvents {
   absorb: { energy: number; mat: string; value: number; mats: Uint8Array; looks: Uint8Array; gains: Record<string, number> };
   /** a tapped pile buried rooted life (n units of species id), its organics sealed under it */
   lifeBuried: { id: string; n: number; x: number };
+  bell: { x: number };
   /** a unit of a species arose on its own (first: the species was not there before) */
   wildBorn: { id: string; zi: number; first: boolean };
   /** a wild unit died as its niche shrank (last: the species is gone) */

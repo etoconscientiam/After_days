@@ -203,7 +203,8 @@ export function pileMix(g: Game, zi: number): { m: number; w: number }[] {
   const base = { m: src.base, w: Math.max(1e-6, src.bg) };
   const r = g.run;
   const sh = g.pileShares();
-  if (r.pileSlot === undefined || g.rng.next() < 0.25 || (r.pileSlot && !sh.mats.some((q) => q[0] === r.pileSlot))) {
+  const change = 0.25 * g.stats.bedsStick;
+  if (r.pileSlot === undefined || g.rng.next() < change || (r.pileSlot && !sh.mats.some((q) => q[0] === r.pileSlot))) {
     let u = g.rng.next() * S.pileExtraShare;
     r.pileSlot = '';
     for (const [id, p] of sh.mats) { u -= p; if (u <= 0) { r.pileSlot = id; break; } }
@@ -228,7 +229,7 @@ export function pileMix(g: Game, zi: number): { m: number; w: number }[] {
   if (!extra.size) return [base];
   let et = 0;
   for (const w of extra.values()) et += w;
-  if (!extra.has(r.pileSec) || g.rng.next() < 0.25) {
+  if (!extra.has(r.pileSec) || g.rng.next() < change) {
     let u = g.rng.next() * et;
     for (const [m, w] of extra) { r.pileSec = m; u -= w; if (u <= 0) break; }
   }
@@ -309,7 +310,7 @@ export function tapPile(g: Game, X: number, n: number): number {
   const n0 = n;
   buryLife(g, x, zi, n0);
   const placed = dropPile(g.grid, g.rng, g.water, {
-    cx: x, n, mix: pileMix(g, zi), birth: g.run.year, y0: pileTop(g, x),
+    cx: x, n, mix: pileMix(g, zi), birth: g.run.year, y0: pileTop(g, x), wide: g.stats.pileSpread,
     decorate: (i, m) => { if (m === M.resin && g.rng.next() < 0.06 * (insects > 0 ? 3 : 1)) g.grid.flags[i] |= P_INSECT; },
     spill: (sx, m) => { if (g.spill.length < 600) g.spill.push({ x: sx, m, birth: g.run.year }); },
   }, g.headless);

@@ -1078,3 +1078,50 @@ html.desktop #side-right .card .name { font-size: 15px; min-height: 2.2em; }
 #overlay.dim { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(8, 6, 10, 0.66); }
 .note-plate .dot, .tab .dot, .dbg-btn.fast::after { border-radius: 0 !important; width: 6px; height: 6px; }
 .tab .dot { box-shadow: 0 0 0 2px #2a1a08; }
+
+/* ---- the tree of the thing (ui/tree.ts): a board of strata to drag around, pixel nodes, the card under it ---- */
+.tree { display: flex; flex-direction: column; gap: 8px; }
+.tree-vp { position: relative; height: 240px; overflow: hidden; touch-action: none; cursor: grab;
+  background: radial-gradient(circle at 50% 50%, rgba(242,181,74,0.10), rgba(242,181,74,0) 45%),
+    repeating-linear-gradient(180deg, #17130f 0 22px, #1a1612 22px 30px, #15110e 30px 52px, #1c1713 52px 58px);
+  box-shadow: inset 0 0 0 2px #3d342c, inset 0 0 24px rgba(0,0,0,0.6); }
+.tree-vp:active { cursor: grabbing; }
+.tree-inner { position: absolute; left: 50%; top: 50%; width: 0; height: 0; transform-origin: 0 0; }
+.tree-links { position: absolute; left: -600px; top: -500px; width: 1200px; height: 1000px; overflow: visible; pointer-events: none; }
+.tree-links line { transform: translate(600px, 500px); stroke-width: 3; }
+.tree-links line.on { stroke: #f2b54a; stroke-width: 4; }
+.tree-links line.open { stroke: #6e5e4c; }
+.tree-links line.off { stroke: #2e2620; }
+.tn { position: absolute; display: block; cursor: pointer; }
+.tn .tn-face { position: absolute; inset: 0; display: grid; place-items: center; background: #2c241e; box-shadow: inset 0 0 0 3px #6e5e4c, 0 3px 0 #0a0807; }
+.tn .tn-face canvas { display: block; image-rendering: pixelated; }
+.tn.part .tn-face { box-shadow: inset 0 0 0 3px #f2b54a, 0 3px 0 #0a0807; }
+.tn.max .tn-face { background: #f2b54a; box-shadow: inset 0 0 0 3px #ffd88a, 0 3px 0 #6e4a1c; }
+.tn.max .tn-face canvas { filter: brightness(0.25) sepia(1) saturate(3) hue-rotate(-10deg); }
+.tn.locked .tn-face { background: #141110; box-shadow: inset 0 0 0 3px #2e2620, 0 3px 0 #0a0807; }
+.tn.locked .tn-face canvas { filter: grayscale(1) brightness(0.35); }
+.tn.key::before, .tn.root::before { content: ''; position: absolute; inset: -6px; box-shadow: inset 0 0 0 3px #6e4a1c; }
+.tn.locked.key::before { box-shadow: inset 0 0 0 3px #231d18; }
+.tn.choice .tn-face { box-shadow: inset 0 0 0 3px #6e5e4c, 0 0 0 2px #0a0807, 0 3px 0 #0a0807; }
+.tn.afford .tn-face { animation: tnAfford 1.6s ease-in-out infinite; }
+@keyframes tnAfford { 50% { box-shadow: inset 0 0 0 3px #ffd88a, 0 0 10px rgba(242,181,74,0.55), 0 3px 0 #0a0807; } }
+.tn.picked::after { content: ''; position: absolute; inset: -9px; outline: 2px dashed #ffe6a8; }
+.tn .tn-badge { position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%); padding: 0 4px; min-width: 18px; text-align: center;
+  font-family: var(--num); font-size: 16px; line-height: 16px; color: var(--bone); background: #8a2f22; box-shadow: 0 0 0 2px #0a0807; white-space: nowrap; }
+.tn.max .tn-badge { background: #2a1a08; }
+.tn.locked .tn-badge { background: #1c1714; color: #5e5046; }
+.tree-ctl { position: absolute; right: 6px; top: 6px; display: flex; flex-direction: column; gap: 6px; }
+.tree-ctl .stone-btn { min-height: 30px; width: 30px; padding: 0; font-size: 16px; line-height: 1; }
+.tree-card { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; background: #1a1512; box-shadow: inset 0 0 0 2px #3d342c; min-height: 96px; }
+.tree-card .tc-tag { font-size: 16px; color: var(--bone-dim); }
+.tree-card .tc-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.tree-card .tc-name { font-size: 16px; color: var(--amber); }
+.tree-card .tc-lvl { font-size: 16px; color: var(--bone-dim); white-space: nowrap; }
+.tree-card .tc-desc { font-size: 16px; color: var(--bone); line-height: 20px; }
+.tree-card .tc-note { font-size: 16px; color: var(--bone-dim); line-height: 20px; }
+.tree-card .tc-lock { font-size: 16px; color: #c98a5a; line-height: 20px; }
+.tree-card .tc-done { font-size: 16px; color: var(--moss, #8fae6a); }
+.tree-card .tc-act { display: flex; justify-content: flex-end; margin-top: 2px; }
+html.desktop .tree-vp { height: 380px; }
+
+#drawer.tall { height: 56%; }

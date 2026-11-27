@@ -169,6 +169,8 @@ export function settleFast(g: Grid, rng: Rng, water: Water | null, x: number, m:
 }
 
 export interface PileSpec {
+  /** × the width the pile falls in (Tower narrows it, Scatter spreads it) */
+  wide?: number;
   /** column of the pile's centre */
   cx: number;
   /** number of particles */
@@ -193,7 +195,7 @@ function pileLayout(g: Grid, rng: Rng, spec: PileSpec): { cells: number[]; mats:
   const taken = new Set<number>();
   for (let tries = 0; tries < n * 4 && cells.length < n; tries++) {
     const a = rng.next() * Math.PI * 2, d = Math.sqrt(rng.next()) * r;
-    const x = Math.round(spec.cx + Math.cos(a) * d * 1.3), y = Math.round(y0 + r + Math.sin(a) * d);
+    const x = Math.round(spec.cx + Math.cos(a) * d * 1.3 * (spec.wide ?? 1)), y = Math.round(y0 + r + Math.sin(a) * d / Math.sqrt(spec.wide ?? 1));
     if (x < 0 || x >= GW || y < 0 || y >= g.floor) continue;
     const i = y * GW + x;
     if (g.mat[i] || taken.has(i)) continue;
