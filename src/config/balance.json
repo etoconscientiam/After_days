@@ -141,8 +141,8 @@
   "diversityBonus": 0.1
  },
  "save": {
-  "key": "strata.save.bare11",
-  "oldKeys": ["strata.save.v1", "strata.save.bare1", "strata.save.bare2", "strata.save.bare3", "strata.save.bare4", "strata.save.bare5", "strata.save.bare6", "strata.save.bare7", "strata.save.bare8", "strata.save.bare9", "strata.save.bare10"],
+  "key": "strata.save.bare12",
+  "oldKeys": ["strata.save.v1", "strata.save.bare1", "strata.save.bare2", "strata.save.bare3", "strata.save.bare4", "strata.save.bare5", "strata.save.bare6", "strata.save.bare7", "strata.save.bare8", "strata.save.bare9", "strata.save.bare10", "strata.save.bare11"],
   "autosave": 30,
   "version": 3
  },
