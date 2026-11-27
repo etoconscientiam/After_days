@@ -196,7 +196,7 @@ function buryFromPool(g: Game, x: number, zi: number, burialMul: number, fast: b
 export function pileMix(g: Game, zi: number): { m: number; w: number }[] {
   // as in the prototype: a pile is the zone's base and ONE more material, so the strata lie in thick clean beds,
   // and that one stays for a few piles in a row. It is a bought material (the «pile composition» branch: each has
-  // its share p, bought with energy) or the zone's own — what life lays down here. A pile carrying a bought
+  // its share p, bought with energy) or what an element at work brings. A pile carrying a bought
   // material holds pileExtraShare of it, and such piles come with the chance p / pileExtraShare: so over the piles
   // each material makes exactly its share p, the percentage the composition bar shows.
   const src = zoneSources(g)[zi];
@@ -213,9 +213,18 @@ export function pileMix(g: Game, zi: number): { m: number; w: number }[] {
     r.pileSec = mat(r.pileSlot);
     return [base, { m: r.pileSec, w: (base.w * x) / (1 - x) }];
   }
+  // nothing bought in this pile: only what the player set going changes it — an element at work (rain brings silt,
+  // drought sand); what life lays down reaches the strata by the drizzle, not by the taps (a pile that changed by
+  // itself over time read as an upgrade nobody bought)
   const extra = new Map<number, number>();
-  for (let k = 0; k < src.mats.length; k++) if (src.mats[k] !== src.base) extra.set(src.mats[k], (extra.get(src.mats[k]) ?? 0) + src.w[k]);
-  extra.delete(src.base);
+  const z = ZONES[zi];
+  for (const a of r.active) {
+    const el = CFG.elements.find((e) => e.id === a.id);
+    const boost = el?.params?.depositBoost?.[z];
+    if (!boost || !el?.params?.mat) continue;
+    const m = mat(el.params.mat);
+    if (m !== src.base) extra.set(m, (extra.get(m) ?? 0) + boost);
+  }
   if (!extra.size) return [base];
   let et = 0;
   for (const w of extra.values()) et += w;
