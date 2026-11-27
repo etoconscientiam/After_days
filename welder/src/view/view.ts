@@ -19,6 +19,7 @@ import { Rng } from '../core/rng';
 import { t, getLang } from '../i18n';
 import { seamPoint } from '../sim/seam';
 import { bringLine, replyLine } from './talk';
+import { animatePeople, setPose } from './people';
 import { settings } from '../settings';
 
 /** Part-local units are millimetres; inside partRoot one unit of geometry is a metre. */
@@ -1357,6 +1358,13 @@ export class View {
     const relic = partMaterials(this.tx).relic as THREE.MeshLambertMaterial;
     relic.emissiveIntensity = 0.55 + 0.3 * Math.sin(performance.now() / 1000 * 1.7) * Math.sin(performance.now() / 1000 * 0.53 + 1);
     this.updateSweeps(dt);
+    // People: the apprentice and the hands lean in to the work while there is work.
+    setPose(this.ws.apprentice, ['setup', 'weld', 'swap', 'chip'].includes(g.appState) ? 'work' : 'stand');
+    for (const w of g.workers) {
+      const e = this.ws.extra[w.i];
+      if (e) setPose(e.hand, w.state === 'idle' || w.state === 'hand' ? 'stand' : 'work');
+    }
+    animatePeople(dt, performance.now() / 1000);
     this.custLinger = Math.max(0, this.custLinger - dt);
     this.ws.customer.visible = b.stage !== 'empty' || this.custLinger > 0;
     this.animateCustomer(dt);

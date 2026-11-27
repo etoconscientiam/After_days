@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { SKIN } from '../skin/default';
+import { person, type Look } from './people';
 import { lambert } from './ps1';
 import {
   Textures,
@@ -154,71 +155,9 @@ function faceEye(o: THREE.Object3D): void {
 }
 
 /** A hooded figure: low poly, faceless, the way people look against the snow. */
-/**
- * A townsperson in low poly: boots, legs, a cloak that flares to the knee over a tunic, arms with hands, a head
- * under a hood, a cap or a guard's kettle helmet (the guard carries a spear). Everyone stands a little
- * differently.
- */
-export function figure(look: CustomerLook, mats: { skin: THREE.Material }): THREE.Group {
-  const g = new THREE.Group();
-  const cloak = lambert({ color: look.cloak });
-  const hood = lambert({ color: look.hood });
-  const tunic = lambert({ color: '#3a3430' });
-  const boot = lambert({ color: '#1e1a16' });
-  const belt = lambert({ color: '#4a3424' });
-  const h = look.height;
-  const hip = h * 0.48, shoulder = h * 0.8, head = h * 0.9;
-  // Legs and boots.
-  for (const sx of [-0.07, 0.07]) {
-    g.add(mesh(new THREE.BoxGeometry(0.085, hip - 0.1, 0.1), tunic, sx, 0.1 + (hip - 0.1) / 2, 0));
-    g.add(mesh(new THREE.BoxGeometry(0.1, 0.12, 0.16), boot, sx, 0.06, 0.02));
-  }
-  // Torso: tunic, then the cloak as an open bell from shoulders to knee.
-  g.add(mesh(new THREE.CylinderGeometry(0.13, 0.15, shoulder - hip + 0.04, 7), tunic, 0, (shoulder + hip) / 2, 0));
-  const bell = new THREE.LatheGeometry(
-    [[0.27, h * 0.3], [0.22, h * 0.5], [0.18, h * 0.68], [0.17, shoulder], [0.09, shoulder + 0.03]].map(([rr, yy]) => new THREE.Vector2(rr, yy)),
-    9,
-    Math.PI * 0.85,
-    Math.PI * 1.3,
-  );
-  const cl = new THREE.Mesh(bell, cloak);
-  (cloak as THREE.MeshLambertMaterial).side = THREE.DoubleSide;
-  cl.castShadow = true;
-  g.add(cl);
-  g.add(mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.03, 7), belt, 0, hip + 0.02, 0));
-  // Arms hanging a little forward, hands.
-  for (const sx of [-1, 1]) {
-    const arm = mesh(new THREE.BoxGeometry(0.075, shoulder - hip - 0.02, 0.08), cloak, sx * 0.19, (shoulder + hip) / 2 + 0.02, 0.02);
-    arm.rotation.z = sx * 0.08;
-    arm.rotation.x = -0.12;
-    g.add(arm);
-    g.add(mesh(new THREE.BoxGeometry(0.06, 0.07, 0.06), mats.skin, sx * 0.21, hip - 0.02, 0.06));
-  }
-  // Shoulders, neck, head.
-  g.add(mesh(new THREE.BoxGeometry(0.4, 0.08, 0.2), hood, 0, shoulder, 0));
-  g.add(mesh(new THREE.CylinderGeometry(0.04, 0.045, 0.06, 6), mats.skin, 0, shoulder + 0.05, 0));
-  g.add(mesh(new THREE.SphereGeometry(0.085, 8, 6), mats.skin, 0, head, 0.01));
-  if (look.hat === 'hood') {
-    const hd = mesh(new THREE.SphereGeometry(0.115, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.62), hood, 0, head + 0.02, -0.015);
-    g.add(hd);
-    g.add(mesh(new THREE.ConeGeometry(0.06, 0.12, 6), hood, 0, head + 0.08, -0.09));
-    // The face lies in the hood's shadow.
-    g.add(mesh(new THREE.BoxGeometry(0.11, 0.05, 0.01), lambert({ color: '#120e0c' }), 0, head + 0.035, 0.085));
-  } else if (look.hat === 'helmet') {
-    const steelH = lambert({ color: '#5a5c60' });
-    g.add(mesh(new THREE.SphereGeometry(0.1, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2), steelH, 0, head + 0.02, 0));
-    const brim = mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.012, 10), steelH, 0, head + 0.02, 0);
-    g.add(brim);
-    g.add(boxAt(0.016, 0.07, 0.01, steelH, 0, head - 0.03, 0.09));
-    // The spear.
-    g.add(mesh(new THREE.CylinderGeometry(0.012, 0.012, h * 1.15, 5), lambert({ color: '#4a3424' }), 0.24, h * 0.57, 0.08));
-    g.add(mesh(new THREE.ConeGeometry(0.025, 0.12, 4), steelH, 0.24, h * 1.17, 0.08));
-  } else {
-    g.add(mesh(new THREE.CylinderGeometry(0.1, 0.095, 0.05, 8), hood, 0, head + 0.06, 0));
-    g.add(boxAt(0.12, 0.012, 0.06, hood, 0, head + 0.035, 0.08));
-  }
-  // A satchel on one hip.
-  g.add(mesh(new THREE.BoxGeometry(0.13, 0.12, 0.06), belt, -0.17, hip - 0.04, 0.05));
+/** A person (view/people.ts); the skin material is kept for the customer swap. */
+export function figure(look: Look, mats: { skin: THREE.Material }): THREE.Group {
+  const g = person(look);
   g.userData.skin = mats.skin;
   return g;
 }
@@ -900,8 +839,7 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
   appBar.position.set(0, 1.5, 0.1);
   appBar.visible = false;
   appBench.add(appBar);
-  const apprentice = figure({ cloak: '#3a3028', hood: '#4a3a2c', hat: 'cap', height: 1.5 }, { skin: skinM });
-  apprentice.add(boxAt(0.2, 0.16, 0.06, glassM, 0, 1.3, -0.1));
+  const apprentice = figure({ cloak: '#3a3028', hood: '#4a3a2c', hat: 'cap', height: 1.5, coat: 'apron', role: 'smith', beard: 'none', hair: '#8a5a30', skin: '#d8a582' }, { skin: skinM });
   apprentice.position.set(-1.5, 0, 0.62);
   apprentice.rotation.y = Math.PI / 2;
   apprentice.visible = false;
@@ -973,11 +911,11 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
   const AX0 = -0.5, AX1 = RX, AZ0 = FZ + 0.24, SEG = 1.7;
   const annex = new THREE.Group();
   scene.add(annex);
-  const handLooks = [
-    { cloak: '#38342e', hood: '#56483a', hat: 'cap' as const, height: 1.66 },
-    { cloak: '#2e3430', hood: '#4a5246', hat: 'hood' as const, height: 1.58 },
-    { cloak: '#40342c', hood: '#5e4c3c', hat: 'cap' as const, height: 1.72 },
-    { cloak: '#34302c', hood: '#605040', hat: 'hood' as const, height: 1.64 },
+  const handLooks: Look[] = [
+    { cloak: '#38342e', hood: '#56483a', hat: 'cap', height: 1.66, coat: 'apron', role: 'smith', beard: 'short', hair: '#3a2a1c', pose: 'work' },
+    { cloak: '#2e3430', hood: '#4a5246', hat: 'cap', height: 1.58, coat: 'apron', role: 'smith', beard: 'none', hair: '#6a4a2c', pose: 'work' },
+    { cloak: '#40342c', hood: '#5e4c3c', hat: 'cap', height: 1.72, coat: 'apron', role: 'smith', beard: 'mustache', hair: '#2a1d14', pose: 'work' },
+    { cloak: '#34302c', hood: '#605040', hat: 'cap', height: 1.62, coat: 'apron', role: 'smith', beard: 'none', hair: '#8a5a30', female: true, pose: 'work' },
   ];
   const barBack = new THREE.MeshBasicMaterial({ color: '#1a120a' });
   const barFill = new THREE.MeshBasicMaterial({ color: '#f0b850' });
@@ -1037,7 +975,6 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
     g.visible = false;
     annex.add(g);
     const hand = figure(handLooks[i], { skin: skinM });
-    hand.add(boxAt(0.2, 0.16, 0.06, glassM, 0, handLooks[i].height * 0.86, 0.1));
     // He stands in front of his bench, facing it.
     hand.position.set(x + (east ? -0.48 : 0.48), 0, z);
     hand.rotation.y = east ? Math.PI / 2 : -Math.PI / 2;

@@ -9,6 +9,7 @@ import { setLang, getLang, Lang } from './i18n';
 import { demoWeld } from './dev';
 import { installFrames, installCursors } from './view/frames';
 import { Intro } from './intro/intro';
+import { figure } from './view/workshop';
 import { settings, onSettings } from './settings';
 import { Autopilot } from './sim/autopilot';
 import { emptyTorch } from './sim/weld';
@@ -328,7 +329,7 @@ function boot(): void {
   requestAnimationFrame(frame);
 
   // Handy in the console while tuning.
-  (window as unknown as { welder: unknown }).welder = { game, view, demo: (o: Parameters<typeof demoWeld>[1]) => demoWeld(game, o) };
+  (window as unknown as { welder: unknown }).welder = { game, view, figure, demo: (o: Parameters<typeof demoWeld>[1]) => demoWeld(game, o) };
 }
 
 // The pixel squircle frames, then the pixel font (in-world lettering is painted on canvases, so it must be

@@ -56,6 +56,14 @@ export interface CustomerLook {
   hood: string;
   hat: 'hood' | 'helmet' | 'cap';
   height: number;
+  /** The rest is picked from the colours if not given (view/people.ts). */
+  skin?: string;
+  hair?: string;
+  beard?: 'none' | 'stubble' | 'short' | 'long' | 'mustache';
+  female?: boolean;
+  coat?: 'cloak' | 'coat' | 'robe' | 'apron';
+  role?: 'guard' | 'carter' | 'north' | 'keeper' | 'neighbour' | 'smith' | 'plain';
+  trousers?: string;
 }
 
 export interface CustomerDef {
