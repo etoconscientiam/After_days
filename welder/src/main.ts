@@ -8,6 +8,7 @@ import { serialize, restore, SaveData } from './sim/save';
 import { setLang, getLang, Lang } from './i18n';
 import { demoWeld } from './dev';
 import { installFrames, installCursors } from './view/frames';
+import { Intro } from './intro/intro';
 
 const SAVE_KEY = 'welder.save';
 const LANG_KEY = 'welder.lang';
@@ -65,6 +66,20 @@ function boot(): void {
     }
   });
 
+  // Start the shift: once, whether from the start screen or at the end of the intro.
+  let begun = false;
+  const begin = (fromWhite: boolean) => {
+    if (begun) return;
+    begun = true;
+    paused = false;
+    sound.init(game);
+    sound.resume();
+    game.queue({ type: 'start' });
+    view.start(fromWhite);
+  };
+  // While the intro plays the game neither steps nor draws.
+  let paused = false;
+
   const showStart = () =>
     view.ui.showStart(
       resume,
@@ -78,10 +93,7 @@ function boot(): void {
           location.reload();
           return;
         }
-        sound.init(game);
-        sound.resume();
-        game.queue({ type: 'start' });
-        view.start();
+        begin(false);
       },
       () => {
         const next: Lang = getLang() === 'en' ? 'ru' : 'en';
@@ -95,7 +107,13 @@ function boot(): void {
         showStart();
       },
     );
-  showStart();
+  // A new shift opens with the intro (?nointro skips it, ?intro forces it); a saved one with the start screen.
+  if ((!resume && !params.has('nointro')) || params.has('intro')) {
+    paused = true;
+    const intro = new Intro({ onDone: (fromWhite) => begin(fromWhite) });
+    (window as unknown as { welderIntro: Intro }).welderIntro = intro;
+    intro.start();
+  } else showStart();
   addEventListener('pointerdown', () => sound.resume());
   addEventListener('beforeunload', () => {
     if (game.started) {
@@ -143,6 +161,10 @@ function boot(): void {
   const frame = (now: number) => {
     const dt = Math.min(0.25, (now - last) / 1000);
     last = now;
+    if (paused) {
+      requestAnimationFrame(frame);
+      return;
+    }
     // Hit-stop: hold the frame on a strong moment (the picture stays, the sim waits).
     if (view.consumeFreeze(dt)) {
       requestAnimationFrame(frame);

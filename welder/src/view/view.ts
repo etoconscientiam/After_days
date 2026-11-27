@@ -1511,10 +1511,11 @@ export class View {
     this.ui.updateStages();
   }
 
-  start(): void {
+  /** Begin the shift. `fromWhite`: the intro's final flash covers the switch, so no fade in from black. */
+  start(fromWhite = false): void {
     this.started = true;
     this.ui.setLangButton(getLang());
-    this.lr.u.uFade.value = 1;
+    this.lr.u.uFade.value = fromWhite ? 0 : 1;
     this.syncWorld();
     this.syncPile();
     this.ui.showMoney(this.game.money);

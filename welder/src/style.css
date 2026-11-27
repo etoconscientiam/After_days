@@ -646,3 +646,44 @@ body.ui-modal #game { cursor: var(--cur); }
 /* Difficulty stars: filled, and the rest dimmed. */
 .stars .on { color: #c8902a; }
 .stars .off { color: rgba(90, 72, 52, 0.35); }
+
+/* ------------------------------------------------------------------------------------------------
+ * The intro (src/intro): a 4:3 pixel picture fitted to the screen with black bars, the words typed in the
+ * HUD's font over a dark band at its foot, a skip link in the corner.
+ * ---------------------------------------------------------------------------------------------- */
+#intro { position: fixed; inset: 0; z-index: 1000; background: #000; cursor: default; user-select: none; }
+#intro .intro-pic { position: absolute; image-rendering: pixelated; }
+#intro .intro-band {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 0 4%;
+  background: linear-gradient(rgba(6, 5, 4, 0), rgba(6, 5, 4, 0.82) 30%, rgba(6, 5, 4, 0.9));
+  font-family: 'Strata Pixel', monospace;
+  line-height: 1.25;
+  color: #ece2cc;
+  pointer-events: none;
+}
+#intro .intro-text { max-width: 100%; text-align: center; text-shadow: 0 2px 0 #000; }
+#intro .intro-text .rest { visibility: hidden; }
+#intro .intro-text .who { color: #9a8c74; }
+#intro .intro-text .inner { font-style: italic; color: #cbbfa8; }
+#intro .intro-skip {
+  position: absolute;
+  right: 24px;
+  top: 20px;
+  padding: 6px 14px;
+  font-family: 'Strata Pixel', monospace;
+  color: #c8b898;
+  background: rgba(12, 9, 7, 0.7);
+  border: 2px solid #5a4834;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s;
+  cursor: pointer;
+}
+#intro .intro-skip.on { opacity: 1; pointer-events: auto; }
+#intro .intro-skip:hover { color: #ffe6a8; border-color: #c89a50; }
+#intro .intro-white { position: absolute; inset: 0; opacity: 0; pointer-events: none; }
