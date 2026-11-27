@@ -2506,7 +2506,8 @@ export class Renderer {
     for (const x of xs) {
       const a = this.ayAt(x) - 1;
       // a broad warm halo that spreads along the surface, and a small hot core
-      this.light(x, a + 2, (70 + boost * 16) * (1 + breath * 0.02), 0.28, [220, 130, 50], 0.28 * amp);
+      // (round, not flattened along the horizon: a flat wide halo read as a bright strip to both edges of the cut)
+      this.light(x, a + 2, (44 + boost * 10) * (1 + breath * 0.02), 0.75, [220, 130, 50], 0.24 * amp);
       // (softer than before: the geode it lies in must read — its dark rim and violet crystals)
       this.light(x, a, (40 + boost * 14 + fed * 6) * (1 + breath * 0.03), 0.65, [236, 150, 62], 0.4 * amp);
       this.light(x, a, 6 + fed * 2, 0.8, [255, 222, 150], 0.55 * amp);
