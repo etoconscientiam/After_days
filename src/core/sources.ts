@@ -298,7 +298,13 @@ export function buryUnits(g: Game, id: string, zi: number, k: number, X: number)
 
 export function tapPile(g: Game, X: number, n: number): number {
   const x = Math.max(2, Math.min(GW - 3, Math.floor(X / 2)));
-  const zi = g.zoneMap[wx(x)];
+  let zi = g.zoneMap[wx(x)];
+  {
+    const W0 = wx(x) * 3, u = g.rng.next();
+    const a = g.zoneMix[W0], b = a + g.zoneMix[W0 + 1];
+    const z2 = u < a ? 0 : u < b ? 1 : 2;
+    if (g.zoneMix[W0 + z2] > 0) zi = z2;
+  }
   const insects = g.run.pop.insects ? g.run.pop.insects[1] + g.run.pop.insects[2] : 0;
   const n0 = n;
   buryLife(g, x, zi, n0);

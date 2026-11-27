@@ -252,6 +252,10 @@
     "howTo": "How: {how}",
     "ranks": "Rock ranks",
     "rankUp": "Rank {n} → {m}",
+    "tempo": {
+      "name": "Tempo",
+      "desc": "Faster taps: the pause between them −10%"
+    },
     "impulse": {
       "name": "Impulse",
       "desc": "+1 Energy per click"
@@ -340,6 +344,9 @@
     "pile": "Pile composition",
     "pileNow": "{n} grains · the zone's own {p}%",
     "pileN": "{n} grains",
+    "unlockAt": "Opens at {name} level {n}",
+    "unlockEarned": "Opens once {v} Energy is earned",
+    "ms": "ms",
     "opensEra": "Opens in epoch {n} · {name}",
     "pileSize": {
       "name": "Bigger pile",

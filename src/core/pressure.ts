@@ -55,6 +55,8 @@ export interface GeoEnv {
   waterAt(x: number, b: number): boolean;
   /** sea column */
   marine(x: number): boolean;
+  /** the grid row of the water table: grains at or below it are wet whatever the zone (Infinity: none) */
+  waterTable: number;
   /** how many particles must lie above a particle before it compacts (as in the prototype: a load threshold, so the
    *  compaction front follows the shape of the pile); -1: no such gate */
   compactDepth: number;
@@ -203,7 +205,7 @@ export function geoTick(g: Grid, env: GeoEnv, rep: GeoReport = newReport()): Geo
       // nothing turns to rock under too thin a load (a fresh pile on the floor stays loose)
       if (!rules.length || dy <= 0 || (env.compactDepth >= 0 && depth < env.compactDepth)) continue;
       const T = env.T0 + grad * depth + env.heatAt(x, b);
-      const c: Cond = { Peff, T, water: gw || marine, depth, oxygen };
+      const c: Cond = { Peff, T, water: gw || marine || y >= env.waterTable, depth, oxygen };
       for (const rule of rules) {
         if (!env.ruleAllowed(rule)) continue;
         const rate = ruleRate(rule, c, mat, x, y);

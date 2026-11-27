@@ -59,6 +59,7 @@ export function geoEnv(g: Game, dy: number): GeoEnv {
     heatAt: (x, b) => heatAt(g, wx(x), b),
     waterAt: (x, b) => groundwaterAt(g, wx(x), b),
     marine: (x) => g.zoneMap[wx(x)] === 0,
+    waterTable: g.water.col.some((c) => c === 1) ? g.water.level : Infinity,
     finger: pr ? { x: pr.x, y: pr.y, r: pr.r, power: pr.power } : null,
     onTransform: (i, x, y, _from, to, rule, insect) => {
       if (insect) r.insectAmber++;

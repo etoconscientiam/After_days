@@ -379,7 +379,7 @@ drawer.onToast = (s) => hud.notify('sys', s, '#EDE3D0');
 input.onArtifact = (shard) => { audio.unlock(); game.click(shard); renderer.onClick(game.mods.shards ? game.shardXs()[shard] : WW / 2); };
 input.onCast = (x, y) => renderer.burst(x, y, '#9fd0ff', 8);
 // a tap anywhere in the world: the thing answers with an impulse (the nearest shard in a shard world)
-/** when the last pile fell from a tap: a faster tap gives Energy only (pile.minGapMs) */
+/** when the last tap counted (pile.minGapMs × Tempo between two) */
 let lastPileAt = -1e9;
 input.onImpulse = (x, y) => {
   audio.unlock();
@@ -390,9 +390,11 @@ input.onImpulse = (x, y) => {
     ax = xs[shard];
   }
   // the thing answers with an impulse, and a pile falls into the column that was tapped
+  // a tap sooner than the gap (Tempo shortens it) counts for nothing: no Energy, no pile
   const now = performance.now();
-  const pile = now - lastPileAt >= (CFG.B.sand.pile.minGapMs ?? 0);
-  if (pile) lastPileAt = now;
+  if (now - lastPileAt < game.tapGapMs()) return;
+  lastPileAt = now;
+  const pile = true;
   game.tap(x, shard, pile);
   // the pile fed what the era goal needs (its lever's niche): a green flash over it
   if (pile && pileFeedsLever(game, x)) renderer.burst(x, y, '#9cc060', 10);
@@ -513,6 +515,8 @@ let absorbGain = 0, absorbLabelT = 0;
 function absorbLabel(dt: number): void {
   absorbLabelT += dt;
   if (absorbLabelT < 0.8 || absorbGain <= 0 || game.state.phase !== 'play') return;
+  // the thing is out of sight under an open drawer: no «+N» floating over the drawer's cards
+  if (renderer.section.cut !== Infinity) { absorbGain = 0; return; }
   absorbLabelT = 0;
   const r = canvas.getBoundingClientRect();
   const x = r.left + (WW / 2 / WW) * r.width, y = r.top + ((renderer.lay.artifactY - 30) / WH) * r.height;

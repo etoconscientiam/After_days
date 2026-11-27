@@ -59,7 +59,7 @@ function botBuy() {
       if (id === 'radiance') gain = 0.5 * g.stats.energyMul;
       if (id === 'impulse') gain = cps * g.stats.clickMul * 0.5;
       if (id === 'impulsePower') gain = cps * g.stats.clickMul * 0.1 * 0.5;
-      if (id === 'resonance') gain = inc * 0.04;
+      if (id === 'resonance') gain = inc * 0.07;
       if (id === 'fertility') gain = g.run.era >= 3 ? inc * 0.05 : 0;
       if (id === 'striving') gain = inc * 0.05 * 0.5;
       if (id === 'sediment') gain = inc * 0.03 * 0.5 * Math.min(1, g.stats.drizzle);

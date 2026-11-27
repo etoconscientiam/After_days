@@ -59,7 +59,7 @@ export function conditionsAt(g: Game, x: number, y: number): { Peff: number; T: 
   if (f && (x - f.x) ** 2 + (y - f.y) ** 2 <= f.r * f.r) Peff *= 1 + 2 * f.power;
   const b = grid.birth[y * GW + x];
   const T = env.T0 + S.gradientPerRow * env.gradMul * Math.max(0, depth) + env.heatAt(x, b);
-  return { Peff, T, water: env.waterAt(x, b) || env.marine(x), depth: Math.max(0, depth), oxygen: depth < S.oxygenRows };
+  return { Peff, T, water: env.waterAt(x, b) || env.marine(x) || y >= env.waterTable, depth: Math.max(0, depth), oxygen: depth < S.oxygenRows };
 }
 
 /** Forecast for one particle at grid cell (x, y). */

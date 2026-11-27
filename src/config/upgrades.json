@@ -1,7 +1,8 @@
 {
- "_comment": "In-run upgrades. Branch pile (energy): pileSize adds sand.pile.perLevel particles to a tapped pile; the others (pileMat, opens in epoch era) are the composition of the piles as in the prototype: value per level is the share that material makes of the piles, all shares together at most sand.pileShareMax (Game.pileShares, sources.ts pileMix). price = base * growth^level (per-upgrade growth overrides). Effect doubles at each milestone level when milestones=true. effect.kind: add (value*level) or mul (value^level).",
+ "_comment": "In-run upgrades. Branch pile (energy): pileSize adds sand.pile.perLevel particles to a tapped pile; the others (pileMat, opens in epoch era) are the composition of the piles as in the prototype: value per level is the share that material makes of the piles, all shares together at most sand.pileShareMax (Game.pileShares, sources.ts pileMix). price = base * growth^level (per-upgrade growth overrides). Effect doubles at each milestone level when milestones=true (the upgrade of the upgrades). unlock: what opens it — another upgrade at a level (upgrade, level), the Energy earned in this run (earned), an epoch (era); a locked one is shown only as the next to come (the first two), so a new player meets the upgrades one by one, cheapest first. effect.kind: add (value*level) or mul (value^level).",
  "growth": 1.15,
  "milestones": [
+  5,
   10,
   25,
   50,
@@ -22,61 +23,146 @@
    "id": "radiance",
    "branch": "awakening",
    "currency": "energy",
-   "base": 25,
+   "base": 30,
    "stat": "passiveAdd",
    "kind": "add",
-   "value": 0.5,
-   "milestones": true
+   "value": 0.6,
+   "milestones": true,
+   "unlock": {
+    "upgrade": "impulse",
+    "level": 3
+   }
   },
   {
-   "id": "widePress",
+   "id": "tempo",
    "branch": "awakening",
    "currency": "energy",
-   "base": 400,
-   "stat": "pressRadius",
-   "kind": "add",
-   "value": 6,
-   "milestones": false
-  },
-  {
-   "id": "striving",
-   "branch": "awakening",
-   "currency": "energy",
-   "base": 50,
-   "stat": "timeSpeed",
-   "kind": "add",
-   "value": 0.05,
-   "growth": 1.35
-  },
-  {
-   "id": "drizzle",
-   "branch": "awakening",
-   "currency": "energy",
-   "base": 80,
-   "stat": "drizzle",
-   "kind": "add",
-   "value": 0.1,
-   "growth": 1.4
-  },
-  {
-   "id": "sediment",
-   "branch": "awakening",
-   "currency": "energy",
-   "base": 40,
-   "stat": "deposition",
-   "kind": "add",
-   "value": 0.05,
-   "growth": 1.35
+   "base": 60,
+   "stat": "tapGap",
+   "kind": "mul",
+   "value": 0.9,
+   "growth": 1.6,
+   "milestones": false,
+   "unlock": {
+    "upgrade": "impulse",
+    "level": 5
+   }
   },
   {
    "id": "pileSize",
    "branch": "pile",
    "currency": "energy",
-   "base": 60,
+   "base": 100,
    "stat": "pileSize",
    "kind": "add",
    "value": 1,
-   "growth": 1.3
+   "growth": 1.3,
+   "unlock": {
+    "earned": 200
+   }
+  },
+  {
+   "id": "impulsePower",
+   "branch": "awakening",
+   "currency": "energy",
+   "base": 200,
+   "stat": "clickMul",
+   "kind": "mul",
+   "value": 1.12,
+   "milestones": true,
+   "extra": {
+    "stat": "boostMax",
+    "value": 0.2
+   },
+   "growth": 1.5,
+   "unlock": {
+    "upgrade": "impulse",
+    "level": 8
+   }
+  },
+  {
+   "id": "drizzle",
+   "branch": "awakening",
+   "currency": "energy",
+   "base": 150,
+   "stat": "drizzle",
+   "kind": "add",
+   "value": 0.1,
+   "growth": 1.4,
+   "unlock": {
+    "era": 1
+   }
+  },
+  {
+   "id": "resonance",
+   "branch": "awakening",
+   "currency": "energy",
+   "base": 150,
+   "stat": "lifeEnergy",
+   "kind": "add",
+   "value": 0.08,
+   "milestones": true,
+   "extra": {
+    "stat": "seaCapacity",
+    "value": 0.02
+   },
+   "growth": 1.42,
+   "unlock": {
+    "upgrade": "radiance",
+    "level": 3
+   }
+  },
+  {
+   "id": "striving",
+   "branch": "awakening",
+   "currency": "energy",
+   "base": 300,
+   "stat": "timeSpeed",
+   "kind": "add",
+   "value": 0.05,
+   "growth": 1.35,
+   "unlock": {
+    "upgrade": "radiance",
+    "level": 8
+   }
+  },
+  {
+   "id": "sediment",
+   "branch": "awakening",
+   "currency": "energy",
+   "base": 300,
+   "stat": "deposition",
+   "kind": "add",
+   "value": 0.05,
+   "growth": 1.35,
+   "unlock": {
+    "upgrade": "drizzle",
+    "level": 2
+   }
+  },
+  {
+   "id": "widePress",
+   "branch": "awakening",
+   "currency": "energy",
+   "base": 1500,
+   "stat": "pressRadius",
+   "kind": "add",
+   "value": 6,
+   "milestones": false,
+   "unlock": {
+    "earned": 3000
+   }
+  },
+  {
+   "id": "fertility",
+   "branch": "awakening",
+   "currency": "energy",
+   "base": 8000,
+   "stat": "landCapacity",
+   "kind": "add",
+   "value": 0.05,
+   "growth": 1.5,
+   "era": 3
   },
   {
    "id": "pileSand",
@@ -139,36 +225,6 @@
    "growth": 1.3
   },
   {
-   "id": "impulsePower",
-   "branch": "awakening",
-   "currency": "energy",
-   "base": 40,
-   "stat": "clickMul",
-   "kind": "mul",
-   "value": 1.1,
-   "milestones": true,
-   "extra": {
-    "stat": "boostMax",
-    "value": 0.2
-   },
-   "growth": 1.5
-  },
-  {
-   "id": "resonance",
-   "branch": "awakening",
-   "currency": "energy",
-   "base": 50,
-   "stat": "lifeEnergy",
-   "kind": "add",
-   "value": 0.06,
-   "milestones": true,
-   "extra": {
-    "stat": "seaCapacity",
-    "value": 0.02
-   },
-   "growth": 1.42
-  },
-  {
    "id": "timeFlow",
    "branch": "special",
    "currency": "oil",
@@ -207,17 +263,6 @@
    "kind": "add",
    "value": 0.05,
    "growth": 1.35
-  },
-  {
-   "id": "fertility",
-   "branch": "awakening",
-   "currency": "energy",
-   "base": 1500,
-   "stat": "landCapacity",
-   "kind": "add",
-   "value": 0.05,
-   "growth": 1.5,
-   "era": 3
   },
   {
    "id": "coreHeat",

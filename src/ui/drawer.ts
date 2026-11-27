@@ -224,7 +224,7 @@ export class Drawer {
     switch (id) {
       case 'life': return CFG.species.map((s) => (g.speciesUnlocked(s) ? 1 : g.speciesGate(s) ? 2 : 0)).join('') + r.era + (r.mutationOffer ? 'm' + r.mutationEraOffered : '') + (this.expanded ?? '') + g.stats.buyBest + g.stats.shepherdSlots;
       case 'elements': return CFG.elements.map((e) => (g.elementAvailable(e) ? 1 : 0)).join('') + g.stats.autoSlots;
-      case 'upgrades': return CFG.B.sand.specials.order.filter((id) => g.specialKnown(id)).join(',') + g.mods.living;
+      case 'upgrades': return CFG.B.sand.specials.order.filter((id) => g.specialKnown(id)).join(',') + g.mods.living + '|' + CFG.upgrades.map((u) => (g.upgradeOpen(u) ? 1 : 0)).join('');
       case 'epoch': return String(g.meta.prestiges);
       case 'book': return this.bookTab + g.legacy.notes.length + '|' + g.legacy.fossils + '|' + g.legacy.chronicle.length + '|' + Object.keys(g.legacy.relics).length;
       case 'rocks': return g.legacy.discovered.join(',');
@@ -437,6 +437,17 @@ export class Drawer {
   }
 
   // ---------- Upgrades ----------
+  /** An upgrade still closed: its name dimmed and what opens it. */
+  private lockedRow(g: Game, u: UpgradeDef, ico: HTMLElement): HTMLElement {
+    const k = g.upgradeLock(u) ?? {};
+    const why: string[] = [];
+    if (k.upgrade) why.push(t('upgrades.unlockAt', { name: t('upgrades.' + k.upgrade + '.name'), n: k.level ?? 1 }));
+    if (k.earned) why.push(t('upgrades.unlockEarned', { v: fmt(k.earned) }));
+    if (k.era) why.push(t('upgrades.opensEra', { n: ROMAN[k.era] ?? String(k.era), name: t('era.' + k.era) }));
+    return h('div', { class: 'row dim' }, h('div', { class: 'r-ico' }, h('span', { class: 'silhouette' }, ico)), h('div', { class: 'r-name' }, t('upgrades.' + u.id + '.name')), h('div', { class: 'r-act' }),
+      h('div', { class: 'hint' }, why.join(' · ')));
+  }
+
   private upgradeRow(g: Game, u: UpgradeDef): HTMLElement {
     const name = h('div', { class: 'r-name' });
     const eff = h('div', { class: 'r-eff' });
@@ -451,7 +462,7 @@ export class Drawer {
       const lvl = g.upgradeLevel(u.id);
       name.replaceChildren(t('upgrades.' + u.id + '.name'), h('small', {}, lvl ? String(lvl) : ''));
       const cur = lvl > 0 ? upgradeEffect(lvl, u.value, u.kind, !!u.milestones) : 0;
-      const curStr = lvl > 0 && u.stat === 'pileSize' ? ` · +${fmt(cur * CFG.B.sand.pile.perLevel, 0)}` : lvl > 0 ? (u.kind === 'mul' ? ` · ×${fmt(cur, 2)}` : u.stat.endsWith('Add') || u.stat === 'geoHeat' || u.stat === 'kMax' ? ` · +${fmt(cur, 1)}` : ` · +${fmt(cur * 100, 0)}%`) : '';
+      const curStr = lvl > 0 && u.stat === 'tapGap' ? ` · ${fmt(g.tapGapMs(), 0)} ${t('upgrades.ms')}` : lvl > 0 && u.stat === 'pileSize' ? ` · +${fmt(cur * CFG.B.sand.pile.perLevel, 0)}` : lvl > 0 ? (u.kind === 'mul' ? ` · ×${fmt(cur, 2)}` : u.stat.endsWith('Add') || u.stat === 'geoHeat' || u.stat === 'kMax' ? ` · +${fmt(cur, 1)}` : ` · +${fmt(cur * 100, 0)}%`) : '';
       setText(eff, t('upgrades.' + u.id + '.desc') + curStr);
       const cost = g.upgradeCost(u.id);
       setText(price, fmt(cost));
@@ -469,7 +480,13 @@ export class Drawer {
 
   private buildUpgrades(g: Game): void {
     this.body.append(h('div', { class: 'group-title' }, energyIcon(18), t('upgrades.awakening')));
-    for (const u of CFG.upgrades.filter((x) => x.currency === 'energy' && x.branch !== 'pile')) this.body.append(this.upgradeRow(g, u));
+    // open ones to buy; of the closed ones only the next two, with what opens them (one by one, cheapest first)
+    let teased = 0;
+    for (const u of CFG.upgrades.filter((x) => x.currency === 'energy' && x.branch !== 'pile')) {
+      if (g.upgradeOpen(u)) { this.body.append(this.upgradeRow(g, u)); continue; }
+      if (teased++ >= 2) continue;
+      this.body.append(this.lockedRow(g, u, energyIcon(26)));
+    }
     // branch «pile composition»: the size of a tapped pile and the shares of materials in it, opening by epochs
     const shareNow = h('small', {});
     this.body.append(h('div', { class: 'group-title', 'data-rock': 'pile' }, pileIcon(18), t('upgrades.pile'), shareNow));
@@ -478,6 +495,7 @@ export class Drawer {
       setText(shareNow, t('upgrades.pileNow', { n: g.pileSize(), p: fmt(g.pileShares().own * 100, 0) }));
     });
     for (const u of CFG.upgrades.filter((x) => x.branch === 'pile')) {
+      if (!u.pileMat && !g.upgradeOpen(u)) { this.body.append(this.lockedRow(g, u, pileIcon(26, u.pileMat))); continue; }
       if (u.era && g.run.era < u.era) {
         this.body.append(h('div', { class: 'row dim' }, h('div', { class: 'r-ico' }, h('span', { class: 'silhouette' }, pileIcon(26, u.pileMat))), h('div', { class: 'r-name' }, t('upgrades.' + u.id + '.name')), h('div', { class: 'r-act' }),
           h('div', { class: 'hint' }, t('upgrades.opensEra', { n: ROMAN[u.era] ?? String(u.era), name: t('era.' + u.era) }))));

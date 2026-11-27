@@ -1,5 +1,5 @@
 // The Game: owns state + world, advances time, exposes player actions. No DOM access (runs in Node for the sim).
-import { CFG, M, ZONES, ZoneId, SpeciesDef, ElementDef, SX } from '../config';
+import { CFG, M, ZONES, ZoneId, SpeciesDef, ElementDef, SX, UpgradeDef } from '../config';
 import { Grid, GW, P_OLD } from '../world/Grid';
 import { Archive } from '../world/Archive';
 import { stepFull, Water } from './sand';
@@ -850,10 +850,27 @@ export class Game {
     return c === 'energy' ? this.run.energy : this.run.rocks[c] ?? 0;
   }
 
+  /** What still keeps an upgrade closed (null: it is open). */
+  upgradeLock(u: UpgradeDef): { upgrade?: string; level?: number; earned?: number; era?: number } | null {
+    const r = this.run, k = u.unlock;
+    const era = Math.max(u.era ?? 0, k?.era ?? 0);
+    const out: { upgrade?: string; level?: number; earned?: number; era?: number } = {};
+    let locked = false;
+    if (era && r.era < era) { out.era = era; locked = true; }
+    if (k?.upgrade && this.upgradeLevel(k.upgrade) < (k.level ?? 1)) { out.upgrade = k.upgrade; out.level = k.level ?? 1; locked = true; }
+    if (k?.earned && r.energyEarned < k.earned) { out.earned = k.earned; locked = true; }
+    return locked ? out : null;
+  }
+
+  upgradeOpen(u: UpgradeDef): boolean { return this.upgradeLevel(u.id) > 0 || !this.upgradeLock(u); }
+
+  /** The shortest time between two taps that count (ms): the base, shortened by Tempo, never under 30 ms. */
+  tapGapMs(): number { return Math.max(30, (CFG.B.sand.pile.minGapMs ?? 0) * this.stats.tapGap); }
+
   buyUpgrade(id: string): boolean {
     const u = CFG.upgrades.find((x) => x.id === id);
     if (!u) return false;
-    if (u.era && this.run.era < u.era) return false;
+    if (!this.upgradeOpen(u)) return false;
     const cost = this.upgradeCost(id);
     if (this.currency(u.currency) < cost) return false;
     if (u.currency === 'energy') this.run.energy -= cost;
