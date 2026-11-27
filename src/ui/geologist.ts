@@ -18,6 +18,64 @@ import { fmtCountdown } from './hud';
 import { lensPixel, eraPixel, bedPixel, ROMAN } from './pixelIcons';
 import { WH, WW } from '../render/common';
 import { ERA_COLORS } from '../render/section';
+import { fossilKind } from '../render/skins';
+
+/** Fossils as the lens sees them (one character = one lens pixel): '#' bone, '.' its shade. */
+const FOSSIL_ART: Record<string, string[]> = {
+  shell: [
+    '   ######   ',
+    '  #......#  ',
+    ' #.######.# ',
+    '#.#......#.#',
+    '#.#.####.#.#',
+    '#.#.#..#.#.#',
+    '#.#.#.##.#.#',
+    '#.#.#....#.#',
+    '#.#.######.#',
+    ' #........# ',
+    '  ########  '],
+  fish: [
+    '     #  #  #      ',
+    ' #   #  #  #  ### ',
+    '#.# # # # # #.###.',
+    '#################.',
+    '#.# # # # # #.###.',
+    ' #   #  #  #  ### ',
+    '     #  #  #      '],
+  bone: [
+    ' ##        ## ',
+    '#..#      #..#',
+    '#.############',
+    '############.#',
+    '#..#      #..#',
+    ' ##        ## '],
+  skull: [
+    '  #######  ',
+    ' #.......# ',
+    '#.........#',
+    '#..##.##..#',
+    '#..##.##..#',
+    '#....#....#',
+    ' #.......# ',
+    '  #.#.#.#  ',
+    '  #######  '],
+  leaf: [
+    '     #     ',
+    '    #.#    ',
+    '  # #.# #  ',
+    '   ##.##   ',
+    ' # #...# # ',
+    '  ##...##  ',
+    '# #.....# #',
+    ' ###...### ',
+    '    #.#    ',
+    '     #     ',
+    '     #     '],
+  chip: [
+    ' ## ',
+    '#..#',
+    ' #. '],
+};
 
 const LENS_N = 60;     // lens pixels across (one lens pixel = one world pixel on screen)
 const LENS_Z = 3;      // magnification
@@ -129,6 +187,8 @@ export class Geologist {
     const sec = this.ren.section;
     const out = new Uint32Array(this.lensImg.data.buffer);
     const L = sec.paintLens(out, LENS_N, at.x, at.y, LENS_Z);
+    // fossils in the glass: their own big silhouettes (the strata show them as a few pixels)
+    this.paintFossils(out, at);
     // the particle under study: a frame right around it in the middle of the glass (amber over a dark line), blinking
     if (L) {
       this.blink ^= 1;
@@ -152,6 +212,27 @@ export class Geologist {
     this.paintInfo(L);
   }
 
+  /** The fossils under the glass, each as a big pixel silhouette of its kind at its place (fragments: a few chips). */
+  private paintFossils(out: Uint32Array, at: { x: number; y: number }): void {
+    const sec = this.ren.section;
+    const half = LENS_N / 2;
+    for (const f of sec.fossils) {
+      const u = Math.round((f.x + 1 - at.x) * LENS_Z + half), v = Math.round((f.y + 1 - at.y) * LENS_Z + half);
+      if (u < -12 || u > LENS_N + 12 || v < -12 || v > LENS_N + 12) continue;
+      const sp = CFG.species[f.species];
+      const rows = f.fragment ? FOSSIL_ART.chip : FOSSIL_ART[sp ? fossilKind(sp.id) : 'bone'] ?? FOSSIL_ART.bone;
+      const light = f.rare ? 0xffc8f4ff : 0xffc0dce8, mid = f.rare ? 0xff50a0c8 : 0xff68808a, rim = 0xff141a22;
+      const H = rows.length, W = rows[0].length, u0 = u - (W >> 1), v0 = v - (H >> 1);
+      const on = (r: number, q: number) => r >= 0 && r < H && q >= 0 && q < W && rows[r][q] !== ' ';
+      for (let r = -1; r <= H; r++) for (let q = -1; q <= W; q++) {
+        const uu = u0 + q, vv = v0 + r;
+        if (uu < 0 || uu >= LENS_N || vv < 0 || vv >= LENS_N) continue;
+        if (on(r, q)) out[vv * LENS_N + uu] = rows[r][q] === '#' ? light : mid;
+        else if (on(r - 1, q) || on(r + 1, q) || on(r, q - 1) || on(r, q + 1)) out[vv * LENS_N + uu] = rim;
+      }
+    }
+  }
+
   /** The card under the glass: what the particle is, when it was laid, where it lies, what it will become and what
    *  it is worth to the thing. Rebuilt only when the particle (or what is known of it) changes. */
   private paintInfo(L: { mat: number; era: number; i: number; x: number; r: number } | null): void {
@@ -167,8 +248,8 @@ export class Geologist {
     const spec = Object.entries(specialsOf(new Uint8Array([m])));
     const fTxt = !f ? t('geo.lensStays') : f.ok ? t('geo.lensTo', { rock: t('rocks.' + f.rock), when: t('geo.years', { v: fmt(Math.max(1, f.years), 0) }) })
       : t('geo.lensTo', { rock: t('rocks.' + f.rock), when: t('geo.' + f.reason) });
-    const vTxt = fmt(val, val < 10 ? 2 : 1);
-    const key = [L.i, m, Math.round(c.Peff * 10), Math.round(c.T), fTxt, vTxt, fossil, fragment].join('|');
+    const vTxt = val > 0 && val < 0.01 ? '<0.01' : fmt(val, val < 10 ? 2 : 1);
+    const key = [L.i, m, Math.round(c.Peff * 10), Math.round(c.T), fTxt, vTxt, fossil, fragment, f ? Math.round(f.progress * 100) : -1].join('|');
     if (key === this.infoKey) return;
     this.infoKey = key;
     const spName = (s: number) => t('species.' + CFG.species[s - 1]?.id + '.name');
@@ -177,6 +258,8 @@ export class Geologist {
       h('div', { class: 'li-sub' }, t('geo.lensEra', { n: ROMAN[L.era] ?? String(L.era), y: fmtCountdown(CFG.zeroYear - grid.birth[L.i]) + '⟡' })),
       h('div', { class: 'li-sub' }, t('geo.lensPhys', { d: fmt(c.depth * 2, 0), p: fmt(c.Peff, 1), t: fmt(c.T, 0) })),
       h('div', { class: 'li-sub' + (f && f.ok ? ' ok' : '') }, fTxt),
+      // how far the change has gone, in the colour of the rock it becomes
+      ...(f ? [h('div', { class: 'li-prog' + (f.ok ? '' : ' halt') }, h('span', { class: 'track' }, h('i', { style: `width:${Math.round(Math.min(1, f.progress) * 100)}%;background:${(CFG.materials[f.toMat] as { px?: string[] }).px?.[0] ?? '#f2b54a'}` })), h('b', {}, Math.round(Math.min(1, f.progress) * 100) + '%'))] : []),
       ...(fossil || fragment ? [h('div', { class: 'li-sub fossil' }, t(fossil ? 'tip.fossil' : 'tip.fragment', { s: spName(grid.spec[L.i]) }))] : []),
       h('div', { class: 'li-val' }, h('span', {}, t('geo.lensValue')), energyIcon(14), h('b', {}, vTxt),
         ...spec.map(([sid, n]) => h('span', { class: 'li-spec' }, rockIcon(sid, 14), h('b', {}, '+' + fmt(n, n < 1 ? 1 : 0))))),

@@ -148,6 +148,10 @@ export class Renderer {
   geologist = false;
   /** the particle the lens is looking at (grid column and row), framed in the strata */
   lensCell: { x: number; r: number } | null = null;
+  private layerCv: HTMLCanvasElement | null = null;
+  private layerImg: ImageData | null = null;
+  private layerKey = '';
+  private layerAt = -9;
   /** transformation glow per column (eases toward the game's hotNow, fades when the transformation ends) */
   private hot = new Float32Array(WW);
   private hotY = new Float32Array(WW);
@@ -1955,6 +1959,33 @@ export class Renderer {
     // the section dims to 40% — down to the horizon, the rows beside the thing too (they stayed bright: a strip)
     c.fillStyle = 'rgba(10,8,12,0.6)';
     for (let x = 0; x < sec.SW; x++) c.fillRect(x, top + sec.topD[x], 1, sec.strataH - sec.topD[x]);
+    // the layer under the lens: every particle of the same material laid in the same epoch comes out of the dimming
+    // (where the bed runs, how it was folded), with a slow pulse
+    if (this.lensCell) {
+      const gr = g.grid, li = this.lensCell.r * GW + this.lensCell.x;
+      const m = gr.mat[li];
+      if (m && KIND[m] !== K_NONE && KIND[m] !== K_SOLID) {
+        const era = eraOfYear(gr.birth[li]);
+        const key = m + '|' + era + '|' + gr.version;
+        const now = this.t;
+        if (key !== this.layerKey && (now - this.layerAt > 0.3 || !this.layerKey.startsWith(m + '|' + era + '|'))) {
+          this.layerKey = key; this.layerAt = now;
+          if (!this.layerCv) { this.layerCv = document.createElement('canvas'); this.layerCv.width = WW; this.layerCv.height = WH; this.layerImg = this.layerCv.getContext('2d')!.createImageData(WW, WH); }
+          sec.paintLayer(m, era, new Uint32Array(this.layerImg!.data.buffer));
+          this.layerCv.getContext('2d')!.putImageData(this.layerImg!, 0, 0);
+        }
+        if (this.layerCv) {
+          const gdy = top - CFG.B.layout.sectionTop;
+          c.globalAlpha = 0.92;
+          c.drawImage(this.layerCv, 0, gdy);
+          c.globalCompositeOperation = 'lighter';
+          c.globalAlpha = 0.1 + 0.08 * Math.sin(this.t * 3);
+          c.drawImage(this.layerCv, 0, gdy);
+          c.globalCompositeOperation = 'source-over';
+          c.globalAlpha = 1;
+        }
+      }
+    }
     // heat: a warm orange that grows with temperature
     for (const cell of this.geoCells) {
       if (cell.x >= sec.SW) continue;

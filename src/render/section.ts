@@ -428,6 +428,25 @@ export class SectionRenderer {
     });
   }
 
+  /** One layer as it is drawn: the particles of material m laid in epoch era (the visible strata above the squeeze),
+   *  copied from the picture into out (WW×WH, transparent elsewhere). Returns how many particles. */
+  paintLayer(m: number, era: number, out: Uint32Array): number {
+    const g = this.g;
+    out.fill(0);
+    if (!g) return 0;
+    const grid = g.grid, buf = this.buf;
+    const sq0 = grid.sinkRow - CFG.B.sand.absorb.squeezeRows + 1;
+    let n = 0;
+    for (let r = 0; r < sq0; r++) for (let x = 0; x < GW; x++) {
+      const i = r * GW + x;
+      if (grid.mat[i] !== m || eraOfYear(grid.birth[i]) !== era) continue;
+      const o = r * 2 * WW + x * 2;
+      out[o] = buf[o]; out[o + 1] = buf[o + 1]; out[o + WW] = buf[o + WW]; out[o + WW + 1] = buf[o + WW + 1];
+      n++;
+    }
+    return n;
+  }
+
   /** Paint the lens: N×N pixels around section-local (cx, cy), magnified Z times. Returns what is at its centre. */
   paintLens(out: Uint32Array, N: number, cx: number, cy: number, Z: number): { mat: number; era: number; i: number; x: number; r: number } | null {
     const g = this.g;
