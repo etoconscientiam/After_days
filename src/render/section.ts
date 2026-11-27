@@ -241,6 +241,12 @@ export class SectionRenderer {
           continue;
         }
         particlePx(m, grid.look[i], px);
+        // the rows beside the thing, under the squeeze, never move: away from the thing they lie in the dark of the
+        // depth (as the deepest lines of the squeeze), or they read as a flat stripe across the cut
+        if (r > grid.sinkRow) {
+          const d = sideDark(grid, x * 2 + 1);
+          if (d < 0.999) for (let q = 0; q < 4; q++) px[q] = shade(px[q], d * (0.86 + 0.24 * hash2(x * 2 + (q & 1), r * 14 + (q >> 1))));
+        }
         // an epoch picked on the ruler: its grains stay lit where they lie (folded by heaps and faults), the rest dims
         if (focus >= 0 && eraOfYear(grid.birth[i]) !== focus) { px[0] = shade(px[0], 0.4); px[1] = shade(px[1], 0.4); px[2] = shade(px[2], 0.4); px[3] = shade(px[3], 0.4); }
         const o = yPix * WW + x * 2;
@@ -354,16 +360,17 @@ export class SectionRenderer {
       for (const c of cxs) dx = Math.min(dx, Math.abs(xx + 0.5 - c));
       const k = Math.max(0, 1 - (dx / FUNNEL_R) ** 2);
       const sag = Math.round(FUNNEL_SAG * k * k);
-      const far = Math.min(1, Math.max(0, (dx - 12) / 50));
-      const dark = 1 - 0.7 * far * far * (3 - 2 * far);
+      const dark = sideDark(grid, xx);
       for (let p = 0; p < H; p++) {
         const sp = Math.max(0, p - sag);
         const q = (sp * WW + xx) * 4, w = acc[q + 3];
         if (w < 0.35) continue;
         // away from the thing the lines darken with depth: the top line as it is, the deepest ones in shadow
         const kp = p / H;
-        const d = 1 - (1 - dark) * kp * (2 - kp);
-        buf[(y0 + p) * WW + xx] = pack32(acc[q] / w * d, acc[q + 1] / w * d, acc[q + 2] / w * d);
+        // a grain of its own in every pixel (the lines are pressed rock, not painted stripes), fixed in place
+        const grain = 0.86 + 0.24 * hash2(xx >> 1, (y0 + p) * 7 + (xx & 1));
+        const d = (1 - (1 - dark) * kp * (2 - kp)) * grain;
+        buf[(y0 + p) * WW + xx] = pack32(Math.min(255, acc[q] / w * d), Math.min(255, acc[q + 1] / w * d), Math.min(255, acc[q + 2] / w * d));
       }
     }
   }
@@ -469,6 +476,15 @@ export function rowScreenY(g: Game, row: number): number {
   const h = 2 * Math.pow(r, k);
   const y = r >= 1 ? 2 * k : (2 * (1 - Math.pow(r, k))) / (1 - r);
   return band0 * 2 + y + h / 2;
+}
+
+/** How dark the deepest strata are at screen column xx: lit around the thing, in shadow away from it. */
+function sideDark(grid: { artifacts: number[] }, xx: number): number {
+  let dx = WW;
+  if (grid.artifacts.length) for (const a of grid.artifacts) dx = Math.min(dx, Math.abs(xx + 0.5 - (a * 2 + CFG.B.sand.artifactW)));
+  else dx = Math.abs(xx + 0.5 - WW / 2);
+  const far = Math.min(1, Math.max(0, (dx - 12) / 50));
+  return 1 - 0.78 * far * far * (3 - 2 * far);
 }
 
 /** The funnel of the squeeze into the thing: half-width (px) and how far the lines bend down at its middle (px). */

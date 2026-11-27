@@ -362,7 +362,11 @@ export class Renderer {
           y = q * q * sy + 2 * q * p * my + p * p * cy + w;
         }
         const w = 0.25 + 0.6 * p;
-        const R = r + (255 - r) * w, G = gg + (214 - gg) * w, B = b + (130 - b) * w;
+        // away from the thing the line waits in the shadow of the depth (as the squeeze it came from), and lights up
+        // as it flies in: no bright line across the whole cut
+        const fd = Math.min(1, Math.max(0, (Math.abs(x - cx) - 12) / 50));
+        const dk = 1 - 0.78 * fd * fd * (3 - 2 * fd) * (1 - p);
+        const R = (r + (255 - r) * w) * dk, G = (gg + (214 - gg) * w) * dk, B = (b + (130 - b) * w) * dk;
         const X = Math.round(x), Y = Math.round(y);
         // near the thing the chunk melts into its light: it fades and only glows
         const melt = p > 0.7 ? (p - 0.7) / 0.3 : 0;
