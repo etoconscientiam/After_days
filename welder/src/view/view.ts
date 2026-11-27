@@ -765,6 +765,7 @@ export class View {
       this.syncWorld();
     });
     this.ui.onSkip = (seam) => this.game.queue({ type: 'skip', seam });
+    this.ui.onUpWorker = (i) => this.game.queue({ type: 'upWorker', i });
     this.ui.onDebugMoney = (n) => {
       g.devMoney(n);
       this.ui.renderCraft();
@@ -1212,7 +1213,7 @@ export class View {
   syncWorld(): void {
     const g = this.game;
     // The craft button glows when there is something new to do in it: the guild at first, the first new bench after the gate.
-    this.ui.setCraftButton(!!g.flags.shelf, (!!g.flags.shelf && !g.owned.guild) || (!!g.flags.season2 && !g.owned.bench2 && g.money >= 40));
+    this.ui.setCraftButton(!!g.flags.shelf, (!!g.flags.shelf && !g.owned.guild) || (!!g.flags.season2 && !g.owned.hire1 && g.money >= 25));
     for (const u of g.data.upgrades) {
       const owned = !!g.owned[u.id];
       const si = this.ws.shelfItems[u.id];
@@ -1222,9 +1223,12 @@ export class View {
     }
     this.ws.wheel2.visible = !!g.owned.wheel2;
     this.ws.apprentice.visible = !!g.owned.apprentice;
+    // The annex grows a room with every hand hired; each bench shows what its level has put on it.
+    this.ws.setAnnex(g.workers.length);
     this.ws.extra.forEach((e, i) => {
-      e.bench.visible = !!g.owned['bench' + (i + 2)];
-      e.hand.visible = !!g.owned['hire' + (i + 2)];
+      const w = g.workers.find((x) => x.i === i);
+      e.hand.visible = !!w;
+      e.levels.forEach((o, k) => (o.visible = !!w && k < w.lvl));
     });
     const board = this.ws.boardTags[0].parent!;
     board.visible = !!g.flags.board;
@@ -1463,7 +1467,10 @@ export class View {
       arcLight.color.setRGB(1, 0.45, 0.15);
     } else arcLight.color.set(L.arc.color);
 
-    // Apprentice corner.
+    // Apprentice corner, with the bar over his bench.
+    this.ws.appFill.scale.x = Math.max(0.001, g.appProgress());
+    this.ws.appFill.parent!.lookAt(this.rig.cam.position);
+    this.ws.appFill.parent!.visible = !!g.owned.apprentice && g.appState !== 'idle' && g.appState !== 'watching' && g.appState !== 'away';
     const ap = this.ws.lights.appArc;
     if (g.app.arc.lit) {
       ap.intensity = L.appArc.intensity * (0.5 + r.next());
@@ -1473,10 +1480,29 @@ export class View {
       if (n) this.fx.spatter(ap.position.x + r.signed() * 0.02, 0.83, ap.position.z, n, 0.2);
     } else ap.intensity = 0;
 
-    // The hired hands' benches.
+    // The hired hands' benches: the arc, the job on the bench, the bar of how far it is.
     for (const w of g.workers) {
       const e = this.ws.extra[w.i];
       if (!e) continue;
+      const part = w.bench.order?.part ?? '';
+      if (e.slot.userData.part !== part) {
+        e.slot.userData.part = part;
+        e.slot.clear();
+        if (part) {
+          const def = g.data.parts[part];
+          const pm = buildPart(def, this.tx);
+          const k = 0.0009;
+          pm.group.scale.setScalar(k);
+          const rr = def.rest ?? [0, 0, 0];
+          pm.group.rotation.set((rr[0] * Math.PI) / 180, (rr[1] * Math.PI) / 180, (rr[2] * Math.PI) / 180);
+          e.slot.add(pm.group);
+        }
+      }
+      const pg = g.workProgress(w);
+      e.fill.scale.x = Math.max(0.001, pg);
+      e.fill.visible = w.state !== 'idle';
+      // The bar always turns its face to you.
+      e.fill.parent!.lookAt(this.rig.cam.position);
       if (w.bench.arc.lit) {
         e.light.intensity = L.appArc.intensity * (0.5 + r.next());
         if (r.chance(dt * 16)) this.fx.spatter(e.spark.x, e.spark.y, e.spark.z + r.signed() * 0.03, 1 + r.int(0, 2), 0.2);

@@ -80,6 +80,8 @@ export interface OrderTemplate {
   minPay?: number;
   /** Only pinned on the board once this many orders have been handed over. */
   after?: number;
+  /** Only once this deal has been struck (after the gate). */
+  deal?: string;
 }
 
 /** Condition language shared by story beats and upgrade requirements. */

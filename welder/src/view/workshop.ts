@@ -38,6 +38,20 @@ const P = SKIN.palette;
 export const KEY_K = 2.5;
 export const LAMP_K = 0.35;
 
+/** One hand's place in the annex. */
+export interface Extra {
+  bench: THREE.Group;
+  hand: THREE.Group;
+  light: THREE.PointLight;
+  spark: THREE.Vector3;
+  /** Where the job he is on is set down. */
+  slot: THREE.Group;
+  /** The bar over the bench (scaled along x, 0..1). */
+  fill: THREE.Mesh;
+  /** What each level of the bench puts on it (index 0..4 for levels 1..5). */
+  levels: THREE.Group[];
+}
+
 export interface Workshop {
   scene: THREE.Scene;
   lights: {
@@ -62,8 +76,11 @@ export interface Workshop {
   customer: THREE.Group;
   apprentice: THREE.Group;
   appBench: THREE.Group;
-  /** After the gate: up to three more benches in a row across the middle of the room, each with its hired hand and a light for the arc. */
-  extra: { bench: THREE.Group; hand: THREE.Group; light: THREE.PointLight; spark: THREE.Vector3 }[];
+  /** The bar over the apprentice's bench (scaled along x, 0..1). */
+  appFill: THREE.Mesh;
+  /** After the gate: the annex, a bench for each hand in it (with what is on it and the bar over it). */
+  extra: Extra[];
+  setAnnex: (n: number) => void;
   pileSlot: THREE.Group;
   boardTags: THREE.Mesh[];
   shelfItems: Record<string, THREE.Object3D>;
@@ -271,8 +288,17 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
   scene.add(texBox(0.3, 1.95, 0.08, woodD, RX, 0.975, 0.25, 0.4));
   scene.add(texBox(0.3, 1.95, 0.08, woodD, RX, 0.975, 1.1, 0.4));
   scene.add(texBox(0.3, 0.1, 0.93, woodD, RX, 1.98, 0.675, 0.4));
-  // South wall behind you.
-  scene.add(texBox(2 * RX + 0.48, 2.5, 0.24, stone, 0, 1.25, FZ + 0.12, 1.8));
+  // South wall behind you: whole, or (once the annex is built) with a doorway into it (x 0.35..1.55).
+  const southWhole = texBox(2 * RX + 0.48, 2.5, 0.24, stone, 0, 1.25, FZ + 0.12, 1.8);
+  scene.add(southWhole);
+  const southOpen = new THREE.Group();
+  southOpen.add(texBox(0.35 + RX + 0.24, 2.5, 0.24, stone, (-RX - 0.24 + 0.35) / 2, 1.25, FZ + 0.12, 1.8));
+  southOpen.add(texBox(RX + 0.24 - 1.55, 2.5, 0.24, stone, (1.55 + RX + 0.24) / 2, 1.25, FZ + 0.12, 1.8));
+  southOpen.add(texBox(1.2, 0.4, 0.24, stone, 0.95, 2.3, FZ + 0.12, 1.8));
+  for (const x of [0.35, 1.55]) southOpen.add(texBox(0.1, 2.1, 0.3, woodD, x, 1.05, FZ + 0.12, 0.4));
+  southOpen.add(texBox(1.3, 0.1, 0.3, woodD, 0.95, 2.1, FZ + 0.12, 0.4));
+  southOpen.visible = false;
+  scene.add(southOpen);
   for (const x of [-RX + 0.06, RX - 0.06]) for (const z of [BACK_Z + 0.06, FZ - 0.06]) scene.add(texBox(0.14, 2.5, 0.14, woodD, x, 1.25, z, 0.5));
   // Timber: posts and a beam across the wall, ceiling joists.
   for (const x of [-1.1, -0.48, 1.3]) scene.add(texBox(0.12, 2.5, 0.12, woodD, x, 1.25, BACK_Z + 0.04, 0.5));
@@ -864,40 +890,22 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
   appBench.position.set(-1.92, 0, 0.62);
   appBench.rotation.y = Math.PI / 2;
   scene.add(appBench);
+  // A bar over his bench: how far along his job is.
+  const appBar = new THREE.Group();
+  appBar.add(boxAt(0.42, 0.045, 0.01, new THREE.MeshBasicMaterial({ color: '#1a120a' }), 0, 0, 0));
+  const appFill = boxAt(0.4, 0.03, 0.012, new THREE.MeshBasicMaterial({ color: '#f0b850' }), 0, 0, 0.004);
+  appFill.geometry.translate(0.2, 0, 0);
+  appFill.position.x = -0.2;
+  appBar.add(appFill);
+  appBar.position.set(0, 1.5, 0.1);
+  appBar.visible = false;
+  appBench.add(appBar);
   const apprentice = figure({ cloak: '#3a3028', hood: '#4a3a2c', hat: 'cap', height: 1.5 }, { skin: skinM });
   apprentice.add(boxAt(0.2, 0.16, 0.06, glassM, 0, 1.3, -0.1));
   apprentice.position.set(-1.5, 0, 0.62);
   apprentice.rotation.y = Math.PI / 2;
   apprentice.visible = false;
   scene.add(apprentice);
-
-  // After the gate: a row of new benches across the middle of the room, a hired hand at each (hidden until bought).
-  const extra: { bench: THREE.Group; hand: THREE.Group; light: THREE.PointLight; spark: THREE.Vector3 }[] = [];
-  const handLooks = [
-    { cloak: '#38342e', hood: '#56483a', hat: 'cap' as const, height: 1.66 },
-    { cloak: '#2e3430', hood: '#4a5246', hat: 'hood' as const, height: 1.58 },
-    { cloak: '#40342c', hood: '#5e4c3c', hat: 'cap' as const, height: 1.72 },
-  ];
-  [-0.75, 0, 0.75].forEach((x, i) => {
-    const z = 1.15;
-    const bg = new THREE.Group();
-    bg.add(texBox(0.6, 0.04, 0.5, wood, 0, 0.8, 0, 0.4));
-    for (const lx of [-0.26, 0.26]) bg.add(texBox(0.05, 0.78, 0.4, woodD, lx, 0.39, 0, 0.4));
-    bg.add(boxAt(0.18, 0.02, 0.12, iron, -0.04, 0.83, -0.05));
-    bg.position.set(x, 0, z);
-    bg.visible = false;
-    scene.add(bg);
-    // Each hand stands at his bench with his back to yours.
-    const hand = figure(handLooks[i], { skin: skinM });
-    hand.add(boxAt(0.2, 0.16, 0.06, glassM, 0, handLooks[i].height * 0.86, 0.1));
-    hand.position.set(x, 0, z - 0.45);
-    hand.visible = false;
-    scene.add(hand);
-    const light = new THREE.PointLight(SKIN.light.appArc.color, 0, 0, 2);
-    light.position.set(x, 0.92, z - 0.05);
-    scene.add(light);
-    extra.push({ bench: bg, hand, light, spark: new THREE.Vector3(x - 0.04, 0.84, z - 0.05) });
-  });
 
   // --- Behind you: stove, coal, a cot, the switchboard; jars and the river window to the west -----
   const coal = lambert({ color: '#141414' });
@@ -950,11 +958,137 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
   cot.add(boxAt(0.32, 0.1, 0.5, lambert({ color: '#9a8c78' }), -0.7, 0.5, 0, true));
   cot.position.set(1.15, 0, 1.98);
   scene.add(cot);
-  // Shelf over the cot: a cup, a candle, a folded letter from the north.
-  scene.add(texBox(0.9, 0.03, 0.2, wood, 1.15, 1.3, FZ - 0.1, 0.3));
-  scene.add(mesh(new THREE.CylinderGeometry(0.035, 0.03, 0.08, 7), lambert({ color: '#6a5a4a' }), 0.85, 1.355, FZ - 0.1));
-  scene.add(mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.07, 6), lambert({ color: '#d8ccb0' }), 1.1, 1.35, FZ - 0.1));
-  scene.add(boxAt(0.12, 0.01, 0.08, paper, 1.35, 1.32, FZ - 0.1));
+  // Shelf over the cot: a cup, a candle, a folded letter from the north. (Cot and shelf make way for the
+  // doorway into the annex.)
+  const cotShelf = new THREE.Group();
+  cotShelf.add(texBox(0.9, 0.03, 0.2, wood, 1.15, 1.3, FZ - 0.1, 0.3));
+  cotShelf.add(mesh(new THREE.CylinderGeometry(0.035, 0.03, 0.08, 7), lambert({ color: '#6a5a4a' }), 0.85, 1.355, FZ - 0.1));
+  cotShelf.add(mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.07, 6), lambert({ color: '#d8ccb0' }), 1.1, 1.35, FZ - 0.1));
+  cotShelf.add(boxAt(0.12, 0.01, 0.08, paper, 1.35, 1.32, FZ - 0.1));
+  scene.add(cotShelf);
+
+  // --- The annex: after the gate, every hand hired adds a room to it, behind the south wall ----------------
+  // Rooms 1.7 m deep, x -0.5..2.2; each with a bench against a side wall (east, west, east, west), the hand
+  // at it, the job he is on, what his bench's level has put on it, and a bar over it for how far the job is.
+  const AX0 = -0.5, AX1 = RX, AZ0 = FZ + 0.24, SEG = 1.7;
+  const annex = new THREE.Group();
+  scene.add(annex);
+  const handLooks = [
+    { cloak: '#38342e', hood: '#56483a', hat: 'cap' as const, height: 1.66 },
+    { cloak: '#2e3430', hood: '#4a5246', hat: 'hood' as const, height: 1.58 },
+    { cloak: '#40342c', hood: '#5e4c3c', hat: 'cap' as const, height: 1.72 },
+    { cloak: '#34302c', hood: '#605040', hat: 'hood' as const, height: 1.64 },
+  ];
+  const barBack = new THREE.MeshBasicMaterial({ color: '#1a120a' });
+  const barFill = new THREE.MeshBasicMaterial({ color: '#f0b850' });
+  const lampM = new THREE.MeshBasicMaterial({ color: '#ffd89a' });
+  const jarM = lambert({ color: '#6a8a70', transparent: true, opacity: 0.8 });
+  const extra: Extra[] = [0, 1, 2, 3].map((i) => {
+    const east = i % 2 === 0;
+    const z = AZ0 + SEG * i + SEG / 2;
+    const x = east ? AX1 - 0.3 : AX0 + 0.3;
+    const yaw = east ? -Math.PI / 2 : Math.PI / 2;
+    const g = new THREE.Group();
+    g.position.set(x, 0, z);
+    g.rotation.y = yaw;
+    // In the bench's own frame: x along the wall, -z toward the room... built facing +z (the hand stands at +z).
+    g.add(texBox(0.9, 0.05, 0.5, wood, 0, 0.8, 0, 0.4));
+    for (const lx of [-0.4, 0.4]) g.add(texBox(0.06, 0.78, 0.42, woodD, lx, 0.39, 0, 0.4));
+    g.add(texBox(0.84, 0.04, 0.4, woodD, 0, 0.2, 0, 0.4));
+    // Always there: a vise, a hammer, a bundle of rods, scrap under the bench.
+    g.add(boxAt(0.08, 0.07, 0.06, iron, -0.36, 0.86, -0.1));
+    g.add(boxAt(0.14, 0.02, 0.02, wood, 0.3, 0.835, 0.12));
+    g.add(boxAt(0.04, 0.035, 0.035, iron, 0.36, 0.84, 0.12));
+    for (let k = 0; k < 6; k++) g.add(boxAt(0.25, 0.006, 0.006, rustM, 0.15, 0.83 + (k % 2) * 0.006, -0.16 + k * 0.008));
+    g.add(boxAt(0.3, 0.08, 0.2, rustM, -0.15, 0.26, 0));
+    // By level: 2 an acid jar, 3 a lamp over the bench, 4 a gauge on the wall, 5 a copper cable and a good mask.
+    const lv: THREE.Group[] = [];
+    const L2 = new THREE.Group();
+    L2.add(mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.16, 8), jarM, -0.3, 0.9, -0.15));
+    L2.add(boxAt(0.02, 0.03, 0.02, copper, -0.3, 1.0, -0.15));
+    const L3 = new THREE.Group();
+    L3.add(boxAt(0.01, 0.5, 0.01, dark, 0, 1.75, -0.05));
+    L3.add(boxAt(0.12, 0.06, 0.12, iron, 0, 1.48, -0.05));
+    L3.add(boxAt(0.06, 0.02, 0.06, lampM, 0, 1.445, -0.05));
+    const L4 = new THREE.Group();
+    L4.add(boxAt(0.22, 0.18, 0.04, woodD, 0.22, 1.25, -0.26));
+    L4.add(mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.02, 10), paper, 0.22, 1.26, -0.235).rotateX(Math.PI / 2));
+    const L5 = new THREE.Group();
+    const coil = mesh(new THREE.TorusGeometry(0.07, 0.015, 4, 12), copper, 0.36, 0.84, -0.1);
+    coil.rotation.x = Math.PI / 2;
+    L5.add(coil);
+    L5.add(boxAt(0.2, 0.22, 0.06, iron, -0.2, 1.3, -0.26));
+    L5.add(boxAt(0.12, 0.05, 0.02, glassM, -0.2, 1.32, -0.23));
+    lv.push(new THREE.Group(), L2, L3, L4, L5);
+    for (const o of lv) g.add(o);
+    // The job on the bench, small (the view puts it here).
+    const slot = new THREE.Group();
+    slot.position.set(0, 0.84, 0.02);
+    g.add(slot);
+    // The bar over the bench: how far the job is.
+    const bar = new THREE.Group();
+    bar.add(boxAt(0.64, 0.08, 0.01, barBack, 0, 0, 0));
+    const fill = boxAt(0.6, 0.05, 0.012, barFill, 0, 0, 0.004);
+    fill.geometry.translate(0.3, 0, 0);
+    fill.position.x = -0.3;
+    bar.add(fill);
+    bar.position.set(0, 1.75, 0.15);
+    g.add(bar);
+    g.visible = false;
+    annex.add(g);
+    const hand = figure(handLooks[i], { skin: skinM });
+    hand.add(boxAt(0.2, 0.16, 0.06, glassM, 0, handLooks[i].height * 0.86, 0.1));
+    // He stands in front of his bench, facing it.
+    hand.position.set(x + (east ? -0.48 : 0.48), 0, z);
+    hand.rotation.y = east ? Math.PI / 2 : -Math.PI / 2;
+    hand.visible = false;
+    scene.add(hand);
+    const light = new THREE.PointLight(SKIN.light.appArc.color, 0, 0, 2);
+    light.position.set(x + (east ? -0.12 : 0.12), 0.95, z);
+    scene.add(light);
+    const spark = new THREE.Vector3(x + (east ? -0.05 : 0.05), 0.86, z);
+    return { bench: g, hand, light, spark, slot, fill, levels: lv };
+  });
+  let annexN = 0;
+  const lampLights: THREE.PointLight[] = [];
+  /** Build the annex for n hands: its rooms, walls, a lamp in each; the doorway opens, the cot goes. */
+  const setAnnex = (n: number) => {
+    n = Math.max(0, Math.min(4, n));
+    if (n === annexN) return;
+    annexN = n;
+    for (const c of [...annex.children]) if (!extra.some((e) => e.bench === c)) annex.remove(c);
+    for (const l of lampLights) scene.remove(l);
+    lampLights.length = 0;
+    southWhole.visible = n === 0;
+    southOpen.visible = n > 0;
+    cot.visible = cotShelf.visible = n === 0;
+    extra.forEach((e, i) => (e.bench.visible = i < n));
+    if (!n) return;
+    const D = SEG * n, W2 = AX1 - AX0, cz = AZ0 + D / 2;
+    const fl = mesh(tileUV(new THREE.PlaneGeometry(W2, D + 0.3, Math.ceil(W2 / CELL), Math.ceil(D / CELL)), W2, D + 0.3, 2.4), floorM, (AX0 + AX1) / 2, 0.001, cz - 0.15);
+    fl.rotation.x = -Math.PI / 2;
+    annex.add(fl);
+    const ce = mesh(tileUV(new THREE.PlaneGeometry(W2, D + 0.3, Math.ceil(W2 / CELL), Math.ceil(D / CELL)), W2, D + 0.3, 1.2), woodD, (AX0 + AX1) / 2, 2.5, cz - 0.15);
+    ce.rotation.x = Math.PI / 2;
+    annex.add(ce);
+    annex.add(texBox(0.24, 2.5, D, stone, AX1 + 0.12, 1.25, cz, 1.8));
+    annex.add(texBox(0.24, 2.5, D, stone, AX0 - 0.12, 1.25, cz, 1.8));
+    annex.add(texBox(W2 + 0.48, 2.5, 0.24, stone, (AX0 + AX1) / 2, 1.25, AZ0 + D + 0.12, 1.8));
+    for (let k = 0; k <= n; k++) {
+      // Fresh timber where one room meets the next.
+      for (const x of [AX0 + 0.06, AX1 - 0.06]) annex.add(texBox(0.12, 2.5, 0.12, woodD, x, 1.25, AZ0 + SEG * k + (k === n ? -0.06 : 0), 0.5));
+      annex.add(texBox(W2, 0.14, 0.12, woodD, (AX0 + AX1) / 2, 2.4, AZ0 + SEG * k, 0.5));
+    }
+    for (let k = 0; k < n; k++) {
+      const l = new THREE.PointLight('#ffcf90', 1.1, 3.6, 2);
+      l.position.set((AX0 + AX1) / 2, 2.1, AZ0 + SEG * k + SEG / 2);
+      scene.add(l);
+      lampLights.push(l);
+      annex.add(boxAt(0.1, 0.08, 0.1, lampM, l.position.x, 2.2, l.position.z));
+    }
+  };
+
+
   // Switchboard: knife switches and fuses, copper running up into the ceiling.
   const board2 = new THREE.Group();
   board2.add(texBox(0.6, 0.5, 0.04, woodD, 0, 0, 0, 0.3));
@@ -1020,15 +1154,33 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
     [1.55, -1.0, 2.2, -0.42], // barrel
     [-2.2, 1.05, -1.95, 2.05], // cells
   ];
-  const blocked = (x: number, z: number, r: number) => {
+  const blockedMain = (x: number, z: number, r: number) => {
     if (x < -RX + r || x > RX - r || z < BACK_Z + r || z > FZ - r) return true;
-    for (const [a, b, c, d] of solids) if (x > a - r && x < c + r && z > b - r && z < d + r) return true;
-    // The new benches, once they stand there (with their hand in front of each).
-    for (const e of extra) {
-      const p = e.bench.position;
-      if (e.bench.visible && x > p.x - 0.32 - r && x < p.x + 0.32 + r && z > p.z - 0.62 - r && z < p.z + 0.27 + r) return true;
+    for (const [a, b, c, d] of solids) {
+      // The cot is gone once the doorway into the annex is there.
+      if (annexN > 0 && a === 0.22 && b === 1.58) continue;
+      if (x > a - r && x < c + r && z > b - r && z < d + r) return true;
     }
     return false;
+  };
+  const blockedRoom = blockedMain;
+  const blocked = (x: number, z: number, r: number) => {
+    if (annexN > 0) {
+      // Through the doorway and in the annex: its walls and the benches (with their hands) in it.
+      if (z > FZ - r && x > 0.35 + r && x < 1.55 - r && z < AZ0 + r) return false;
+      if (z >= AZ0 - r) {
+        if (x < AX0 + r || x > AX1 - r || z > AZ0 + SEG * annexN - r) return true;
+        if (z < AZ0 && (x < 0.35 + r || x > 1.55 - r)) return true;
+        for (let i = 0; i < annexN; i++) {
+          const zc = AZ0 + SEG * i + SEG / 2;
+          const east = i % 2 === 0;
+          const x0 = east ? AX1 - 1.05 : AX0, x1 = east ? AX1 : AX0 + 1.05;
+          if (x > x0 - r && x < x1 + r && z > zc - 0.5 - r && z < zc + 0.5 + r) return true;
+        }
+        return false;
+      }
+    }
+    return blockedRoom(x, z, r);
   };
 
   // --- More of the lived-in clutter --------------------------------------------------------
@@ -1250,7 +1402,9 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
     customer,
     apprentice,
     appBench,
+    appFill,
     extra,
+    setAnnex,
     pileSlot,
     boardTags,
     shelfItems,

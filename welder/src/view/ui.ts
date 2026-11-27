@@ -81,6 +81,8 @@ export class UI {
   private tourEl = el('div', 'tour', 'label pe');
   craftOpen = false;
   onBuy: (id: string) => void = () => {};
+  /** Raise hand i's bench a level. */
+  onUpWorker: (i: number) => void = () => {};
   onCraftBtn: () => void = () => {};
   onLang: () => void = () => {};
   private langBtn = el('div', 'lang-btn', 'pe');
@@ -540,7 +542,7 @@ export class UI {
       });
       return `<h4>${t('craft.' + group)}</h4><div class="items">${cards.join('')}</div>`;
     };
-    this.craftEl.innerHTML = `${CLOSE_X}<h3>${t('craft.title')}</h3><div class="money-line">◆ ${g.money}</div>${sec('craft')}${sec('tools')}${sec('shop')}${g.flags.season2 ? sec('expand') : ''}<div class="close">${t('board.close')}</div>`;
+    this.craftEl.innerHTML = `${CLOSE_X}<h3>${t('craft.title')}</h3><div class="money-line">◆ ${g.money}</div>${sec('craft')}${sec('tools')}${sec('shop')}${g.flags.season2 ? sec('expand') + this.benchSec() : ''}<div class="close">${t('board.close')}</div>`;
     this.craftEl.querySelectorAll<HTMLElement>('.buy').forEach((b) =>
       b.addEventListener('pointerdown', (e) => {
         e.stopPropagation();
@@ -553,6 +555,25 @@ export class UI {
         this.closeCraft();
       }),
     );
+    this.craftEl.querySelectorAll<HTMLElement>('.buy[data-up]').forEach((b) =>
+      b.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+        this.onUpWorker(+b.dataset.up!);
+      }),
+    );
+  }
+
+  /** The hands' benches, each with its level (five) and what the next one brings. */
+  private benchSec(): string {
+    const g = this.game;
+    if (!g.workers.length) return '';
+    const cards = g.workers.map((w) => {
+      const cost = g.workerUpCost(w.i);
+      const top = !cost;
+      const state = top ? `<div class="own">✓ ${t('bench.top')}</div>` : g.money >= cost ? `<div class="buy" data-up="${w.i}">${t('bench.up')} · ◆ ${cost}</div>` : `<div class="no">${t('why.coins', { n: cost - g.money })}</div>`;
+      return `<div class="item ${top ? 'owned' : g.money >= cost ? 'can' : 'off'}"><b>${t('bench.name', { n: w.i + 1 })}</b><span class="cost stars">${this.stars(w.lvl)}</span><p>${top ? t('bench.lvl5') : t('bench.lvl' + (w.lvl + 1))}</p>${state}</div>`;
+    });
+    return `<h4>${t('craft.benches')}</h4><div class="items">${cards.join('')}</div>`;
   }
 
   /** One step of the workshop tour: a label at (x, y) with what this is and a "next" mark. */

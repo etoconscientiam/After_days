@@ -840,3 +840,8 @@ body.ui-modal #game { cursor: var(--cur); }
 /* A run of clean chips: the sum jumps a little bigger. */
 .pop.streak { color: #fff4c0; animation: pop 1.2s ease-out forwards, pop-jump 0.25s steps(3); }
 @keyframes pop-jump { 0% { font-size: 1.5em; } 100% { font-size: 1em; } }
+
+/* Bench levels: lit stars bright, the rest faint. */
+#craft .item .stars .on { color: #a86a10; }
+#craft .item .stars .off { color: rgba(90, 60, 30, 0.3); }
+#craft .item.owned .stars .on { color: #e8c060; }

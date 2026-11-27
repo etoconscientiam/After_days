@@ -153,7 +153,7 @@ export const BALANCE = {
 
   /** Each order handed over raises what new orders pay (the workshop's name), up to a cap. */
   reputation: {
-    perOrder: 0.07,
+    perOrder: 0.085,
     maxOrders: 12,
     /** What each job brought back and not yet put right takes off it. */
     perReturn: 0.05,
@@ -189,15 +189,21 @@ export const BALANCE = {
    * they stop until there is.
    */
   workers: {
-    wage: [5, 7, 9] as number[],
-    payEvery: 60,
-    setup: 4,
-    swap: 1.6,
-    chip: 4,
-    handOver: 1.5,
-    /** The board: this many more places per worker, and orders come this much faster per worker. */
+    /** Wages of each hand, per pay day (every `payEvery` seconds). */
+    wage: [2, 3, 4, 5] as number[],
+    payEvery: 20,
+    setup: 2.5,
+    swap: 1.2,
+    chip: 2.5,
+    handOver: 1,
+    /** The board: this many more places per hand, and orders come this much faster per hand. */
     boardPer: 2,
-    ratePer: 0.35,
+    ratePer: 0.4,
+    /** A bench's own five levels: what each next one costs, and what each level adds. */
+    levelCost: [30, 70, 150, 320] as number[],
+    /** Per level above the first: faster about the bench, and a steadier hand (less wander off the joint). */
+    levelSpeed: 0.3,
+    levelSteady: 0.15,
   },
 
   /** The day after the gate: morning again, then dusk and night in a cycle this long (s). */

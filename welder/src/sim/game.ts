@@ -27,6 +27,8 @@ export type Command =
   | { type: 'face'; seam: number; s: number }
   /** Leave the rest of the current stage (a seam, or the chipping) and move on, once SKIP_AT of it is done. */
   | { type: 'skip'; seam: number }
+  /** Raise a hand's bench one level (after the gate). */
+  | { type: 'upWorker'; i: number }
   /** Remember something outside the sim that belongs to this shift (a chapter of the story seen). */
   | { type: 'mark'; flag: string };
 
@@ -38,8 +40,9 @@ export type ApprenticeState = 'away' | 'watching' | 'idle' | 'setup' | 'weld' | 
 
 /** A hired hand at one of the new benches: welds simple jobs with the recorded hand, paid every minute. */
 export interface Worker {
-  /** Which of the new benches (0, 1, 2). */
+  /** Which of the hands (0..3), and his bench's level (1..5). */
   i: number;
+  lvl: number;
   bench: Bench;
   state: ApprenticeState;
   timer: number;
@@ -436,6 +439,9 @@ export class Game {
       case 'faceNext':
         this.faceNext();
         break;
+      case 'upWorker':
+        this.upWorker(c.i);
+        break;
       case 'mark':
         this.flags[c.flag] = true;
         break;
@@ -684,7 +690,7 @@ export class Game {
         if (old >= 0) this.board.splice(old, 1);
       }
       if (this.board.length < BALANCE.board.size + BALANCE.workers.boardPer * nw) {
-        this.board.push(rollBoardOrder(this.data, this.board, this.uid++, this.rng.get('orders'), this.repMul(), this.ordersDone, wantSimple));
+        this.board.push(rollBoardOrder(this.data, this.board, this.uid++, this.rng.get('orders'), this.repMul(), this.ordersDone, wantSimple, this.owned));
         this.bus.emit('boardChanged', { count: this.board.length });
       }
     }
@@ -702,7 +708,7 @@ export class Game {
         this.pile = null;
         this.bus.emit('pileChanged', { has: false });
         for (let i = 0; i < BALANCE.board.startOrders; i++)
-          this.board.push(rollBoardOrder(this.data, this.board, this.uid++, this.rng.get('orders'), this.repMul(), this.ordersDone));
+          this.board.push(rollBoardOrder(this.data, this.board, this.uid++, this.rng.get('orders'), this.repMul(), this.ordersDone, false, this.owned));
         this.nextArrival = BALANCE.board.arriveEvery;
         this.bus.emit('boardChanged', { count: this.board.length });
       }
@@ -737,18 +743,51 @@ export class Game {
     this.bus.emit('save', {});
   }
 
-  /** One hired hand per bench bought and hand hired (after a load, after hiring). */
-  syncWorkers(): void {
-    for (let i = 0; i < 3; i++) {
-      if (!this.owned['hire' + (i + 2)] || this.workers.some((w) => w.i === i)) continue;
+  /** One hand for each one hired (after a load, after hiring). */
+  syncWorkers(levels: number[] = []): void {
+    for (let i = 0; i < 4; i++) {
+      if (!this.owned['hire' + (i + 1)] || this.workers.some((w) => w.i === i)) continue;
       const bench = new Bench('worker');
-      this.workers.push({ i, bench, state: 'idle', timer: 0, replayer: new Replayer(), torch: emptyTorch() });
+      this.workers.push({ i, lvl: Math.max(1, Math.min(5, levels[i] ?? 1)), bench, state: 'idle', timer: 0, replayer: new Replayer(), torch: emptyTorch() });
       this.bus.emit('worker', { i, state: 'idle' });
     }
     this.workers.sort((a, b) => a.i - b.i);
   }
 
-  /** What the hands cost a minute, all together. */
+  /** What raising hand i's bench one level costs (0 if it is at the top). */
+  workerUpCost(i: number): number {
+    const w = this.workers.find((x) => x.i === i);
+    if (!w || w.lvl >= 5) return 0;
+    return BALANCE.workers.levelCost[w.lvl - 1];
+  }
+
+  private upWorker(i: number): void {
+    const w = this.workers.find((x) => x.i === i);
+    const cost = this.workerUpCost(i);
+    if (!w || !cost || this.money < cost) return;
+    this.money -= cost;
+    w.lvl++;
+    this.bus.emit('money', { money: this.money, delta: -cost });
+    this.bus.emit('worker', { i, state: w.state });
+    this.bus.emit('shopChanged', {});
+    this.bus.emit('save', {});
+  }
+
+  /** How far along a hand's job is, 0..1 (setting up, welding, chipping, handing over). */
+  workProgress(w: Worker): number {
+    const WK = BALANCE.workers;
+    const b = w.bench;
+    const k = this.stats.workerSpeed * (1 + WK.levelSpeed * (w.lvl - 1));
+    return jobProgress(w.state, b, w.timer, WK.setup / k, WK.chip / k, WK.handOver / k);
+  }
+
+  /** The apprentice's, the same way. */
+  appProgress(): number {
+    const AP = BALANCE.apprentice;
+    return jobProgress(this.appState, this.app, this.appTimer, AP.setup, AP.chip, AP.handOver);
+  }
+
+  /** What the hands cost a pay day, all together. */
   wages(): number {
     let w = 0;
     for (const x of this.workers) w += BALANCE.workers.wage[x.i] ?? 5;
@@ -774,8 +813,7 @@ export class Game {
         this.bus.emit('wages', { amount: due, paid: false });
       }
     }
-    const k = this.stats.workerSpeed;
-    for (const w of this.workers) this.stepWorker(w, dt, k);
+    for (const w of this.workers) this.stepWorker(w, dt, this.stats.workerSpeed * (1 + WK.levelSpeed * (w.lvl - 1)));
   }
 
   /** The apprentice's round, for a hired hand: take a simple job, set it up, weld it with the hand, chip, hand over. */
@@ -811,13 +849,13 @@ export class Game {
           newElectrode(b, this.ctx, WK.swap);
           break;
         }
-        if (b.swap <= 0 && this.habit) w.replayer.drive(b, this.habit, dt, t);
+        if (b.swap <= 0 && this.habit) w.replayer.drive(b, this.habit, dt, t, 1 - BALANCE.workers.levelSteady * (w.lvl - 1));
         break;
       case 'chip':
         w.timer -= dt;
         if (w.timer <= 0) {
           reveal(b, this.ctx);
-          w.timer = WK.handOver;
+          w.timer = WK.handOver / speed;
           set('hand');
         }
         break;
@@ -919,6 +957,34 @@ export class Game {
       set('chip');
     }
   }
+}
+
+/**
+ * How far along a bench's job is, 0..1: setting up (timer), welding (how much of the joints is laid),
+ * chipping (how much slag is off), handing over.
+ */
+function jobProgress(state: string, b: Bench, timer: number, setup: number, chip: number, hand: number): number {
+  const W = BALANCE.weld;
+  const laid = () => {
+    let a = 0, l = 0;
+    for (const sr of b.seams) {
+      a += sr.coverage(W.fillMin) * sr.len;
+      l += sr.len;
+    }
+    return l ? a / l : 0;
+  };
+  switch (state) {
+    case 'setup':
+      return 0.1 * (1 - Math.max(0, timer) / setup);
+    case 'weld':
+    case 'swap':
+      return 0.1 + 0.65 * laid();
+    case 'chip':
+      return 0.75 + 0.2 * (1 - Math.max(0, timer) / chip);
+    case 'hand':
+      return 0.95 + 0.05 * (1 - Math.max(0, timer) / hand);
+  }
+  return 0;
 }
 
 export type { Habit };

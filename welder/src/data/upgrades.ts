@@ -60,7 +60,7 @@ export const UPGRADES: UpgradeDef[] = [
   {
     id: 'apprentice',
     group: 'shop',
-    cost: 22,
+    cost: 20,
     requires: { flag: 'board' },
     effects: { set: { apprentice: 1 } },
     slot: 4,
@@ -69,19 +69,22 @@ export const UPGRADES: UpgradeDef[] = [
   {
     id: 'wheel2',
     group: 'shop',
-    cost: 32,
+    cost: 28,
     requires: { owns: ['jar'], flag: 'board' },
     effects: { add: { dynamoGain: 0.3, wheels: 1 }, mul: { dipMul: 0.75 } },
     slot: 5,
     model: 'wheel',
   },
-  // After the gate: the workshop grows. Benches, and someone at each of them (paid every minute).
-  { id: 'bench2', group: 'expand', cost: 40, requires: { flag: 'season2' }, effects: {}, slot: -1, model: '' },
-  { id: 'hire2', group: 'expand', cost: 15, requires: { owns: ['bench2'] }, effects: {}, slot: -1, model: '' },
-  { id: 'bench3', group: 'expand', cost: 90, requires: { owns: ['hire2'] }, effects: {}, slot: -1, model: '' },
-  { id: 'hire3', group: 'expand', cost: 25, requires: { owns: ['bench3'] }, effects: {}, slot: -1, model: '' },
-  { id: 'bench4', group: 'expand', cost: 180, requires: { owns: ['hire3'] }, effects: {}, slot: -1, model: '' },
-  { id: 'hire4', group: 'expand', cost: 40, requires: { owns: ['bench4'] }, effects: {}, slot: -1, model: '' },
-  { id: 'sign2', group: 'expand', cost: 60, requires: { owns: ['hire2'] }, effects: { add: { orderRate: 0.6, repCap: 10 } }, slot: -1, model: '' },
-  { id: 'school', group: 'expand', cost: 120, requires: { owns: ['hire3'] }, effects: { add: { workerSpeed: 0.8 } }, slot: -1, model: '' },
+  // After the gate: the workshop grows. Each hand hired adds a room to the annex behind the south wall with
+  // a bench for him (paid every pay day); deals bring new, better-paid kinds of orders.
+  { id: 'hire1', group: 'expand', cost: 25, requires: { flag: 'season2' }, effects: {}, slot: -1, model: '' },
+  { id: 'hire2', group: 'expand', cost: 70, requires: { owns: ['hire1'] }, effects: {}, slot: -1, model: '' },
+  { id: 'hire3', group: 'expand', cost: 160, requires: { owns: ['hire2'] }, effects: {}, slot: -1, model: '' },
+  { id: 'hire4', group: 'expand', cost: 340, requires: { owns: ['hire3'] }, effects: {}, slot: -1, model: '' },
+  { id: 'deal_carts', group: 'expand', cost: 45, requires: { owns: ['hire1'] }, effects: {}, slot: -1, model: '' },
+  { id: 'deal_north', group: 'expand', cost: 90, requires: { owns: ['hire2'] }, effects: {}, slot: -1, model: '' },
+  { id: 'deal_watch', group: 'expand', cost: 150, requires: { owns: ['hire2'] }, effects: {}, slot: -1, model: '' },
+  { id: 'deal_keeper', group: 'expand', cost: 260, requires: { owns: ['hire3'] }, effects: {}, slot: -1, model: '' },
+  { id: 'sign2', group: 'expand', cost: 60, requires: { owns: ['hire1'] }, effects: { add: { orderRate: 0.6, repCap: 10 } }, slot: -1, model: '' },
+  { id: 'school', group: 'expand', cost: 200, requires: { owns: ['hire3'] }, effects: { add: { workerSpeed: 0.5 } }, slot: -1, model: '' },
 ];

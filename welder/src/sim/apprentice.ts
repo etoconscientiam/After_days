@@ -90,7 +90,8 @@ export class Replayer {
     this.scr = 0;
   }
 
-  drive(b: Bench, h: Habit, dt: number, out: TorchIn): void {
+  /** `steady` < 1 keeps the hand closer to the joint than the habit had it (a better bench). */
+  drive(b: Bench, h: Habit, dt: number, out: TorchIn, steady = 1): void {
     const n = h.v.length;
     const i = Math.floor(this.t / AP.sampleDt) % n;
     this.t += dt;
@@ -145,7 +146,7 @@ export class Replayer {
       }
     }
     const p = sr.pointAt(this.s, this.pt);
-    const d = h.d[i];
+    const d = h.d[i] * steady;
     const sc = b.arc.lit ? 0 : Math.sin(this.scr * 38) * 4;
     out.x = p.x + p.bx * d + p.tx * sc;
     out.y = p.y + p.by * d + p.ty * sc;

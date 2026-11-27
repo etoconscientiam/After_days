@@ -30,8 +30,9 @@ export interface SaveData {
   visits?: Record<string, number>;
   lastGrade?: Record<string, string>;
   returns?: [number, OrderRow][];
-  /** After the gate: seconds into the current day. */
+  /** After the gate: seconds into the current day; each hand's bench level. */
   day?: number;
+  wl?: number[];
 }
 
 function row(o: Order): OrderRow {
@@ -88,6 +89,7 @@ export function serialize(g: Game): SaveData {
     visits: g.visits,
     lastGrade: g.lastGrade,
     day: Math.round((g.t - g.dayStart) * 10) / 10,
+    wl: [0, 1, 2, 3].map((i) => g.workers.find((w) => w.i === i)?.lvl ?? 1),
     returns: g.returns.map((x) => [Math.round((x.at - g.t) * 10) / 10, row(x.o)]),
   };
 }
@@ -121,7 +123,7 @@ export function restore(g: Game, d: SaveData): boolean {
   g.stats = computeStats(g.data, g.owned);
   g.dayStart = d.t - (d.day ?? d.t);
   g.workers = [];
-  g.syncWorkers();
+  g.syncWorkers(d.wl ?? []);
   if (g.flags.finale && !g.flags.season2) g.nightBoost = 1;
   return true;
 }
