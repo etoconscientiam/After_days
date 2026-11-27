@@ -142,39 +142,35 @@ export function itemPicture(id: string, size = 48): HTMLCanvasElement {
   return c;
 }
 
-/** The vessel the thing lies in: a bowl of worked dark stone sunk in the horizon, open to the strata above (the
- *  squeezed lines pour into its mouth). A light rim, a thin amber inlay along the walls, and a dark hollow the thing
- *  glows in, so it never gets lost among the grains. (cx, cy): the middle of the thing. */
-const VESSEL = { R: 11, H: 14, top: 8 };
+/** The vessel the thing lies in: a geode cut open, sunk in the horizon — a ragged rim of dark rock, a ring of
+ *  violet crystal teeth pointing in (cool against the thing's amber light) (a few of them glint), and a dark hollow the thing glows in, so it never gets lost
+ *  among the grains. (cx, cy): the middle of the thing. */
+const GEODE = { rx: 14, ry: 9 };
+const ghash = (x: number, y: number) => { let h = (x * 374761393 + y * 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 export function drawVessel(ctx: CanvasRenderingContext2D, cx: number, cy: number, t: number): void {
-  const x0 = Math.round(cx), y0 = Math.round(cy) - VESSEL.top;
-  const { R, H } = VESSEL;
-  for (let y = 0; y < H; y++) {
-    const k = y / (H - 1);
-    const inner = Math.round(R * Math.sqrt(Math.max(0, 1 - k * k * 0.85)));   // the hollow narrows toward the bottom
-    const outer = inner + (y === H - 1 ? 0 : 2) + (y >= H - 3 ? 1 : 0);
-    for (let x = -outer; x < outer; x++) {
-      const ax = x < 0 ? -x - 1 : x;
-      const px = x0 + x, py = y0 + y;
-      let col: string;
-      if (ax < inner && y < H - 1) {
-        // the hollow: near black, warmer toward the thing
-        const d = Math.hypot(x + 0.5, (y - VESSEL.top) * 1.4) / R;
-        const w = Math.max(0, 1 - d);
-        col = `rgb(${Math.round(16 + 70 * w)},${Math.round(11 + 40 * w)},${Math.round(9 + 16 * w)})`;
-      } else {
-        // the wall: dark stone, lit at the rim and the inner edge on the left, an amber inlay in the middle of the wall
-        const edge = ax === inner || ax === inner + 1 && y === H - 2;
-        const rim = y === 0;
-        const inlay = !rim && ax === inner + 1 && y > 1 && y < H - 2;
-        const glint = inlay && Math.sin(t * 1.6 + y * 0.9 + (x < 0 ? 0 : 2)) > 0.6;
-        col = rim ? (x < 0 ? '#8c7a62' : '#6e5e4c')
-          : inlay ? (glint ? '#e6b45a' : '#9a7034')
-          : edge ? (x < 0 ? '#57493c' : '#3e342c')
-          : y >= H - 2 ? '#1e1916' : '#2e2620';
-      }
-      ctx.fillStyle = col;
-      ctx.fillRect(px, py, 1, 1);
+  const x0 = Math.round(cx), y0 = Math.round(cy);
+  const { rx, ry } = GEODE;
+  for (let y = -ry - 2; y <= ry + 2; y++) for (let x = -rx - 2; x <= rx + 2; x++) {
+    // distance in the ellipse, with a ragged edge of its own (fixed: the same rock every frame)
+    const d = Math.hypot((x + 0.5) / rx, (y + 0.5) / ry) + (ghash(x, y) - 0.5) * 0.16;
+    if (d > 1.12) continue;
+    let col: string;
+    if (d > 0.96) {
+      // the rim of rock: dark, lit on the upper left
+      const lit = x + y < -4 && ghash(x + 7, y) > 0.35;
+      col = lit ? '#6b5a48' : ghash(x, y + 3) > 0.5 ? '#2c241e' : '#3a3028';
+    } else if (d > 0.74) {
+      // the crystals: amber teeth pointing in, light and dark facets, a few glinting in turn
+      const facet = ghash(Math.floor(Math.atan2(y, x) * 4), 9);
+      const tip = d < 0.8;
+      const glint = facet > 0.82 && Math.sin(t * 1.3 + facet * 40) > 0.75;
+      col = glint ? '#f4ecff' : tip ? (facet > 0.5 ? '#b89ad8' : '#7a5aa6') : (facet > 0.5 ? '#8a6ab8' : '#4a3468');
+    } else {
+      // the hollow: near black, warmer toward the thing
+      const w = Math.max(0, 1 - d / 0.74);
+      col = `rgb(${Math.round(18 + 60 * w)},${Math.round(12 + 34 * w)},${Math.round(10 + 14 * w)})`;
     }
+    ctx.fillStyle = col;
+    ctx.fillRect(x0 + x, y0 + y, 1, 1);
   }
 }

@@ -370,10 +370,11 @@ export class Renderer {
         const X = Math.round(x), Y = Math.round(y);
         // near the thing the chunk melts into its light: it fades and only glows
         const melt = p > 0.7 ? (p - 0.7) / 0.3 : 0;
-        c.fillStyle = rgb(R, G, B, 1 - melt);
+        // and away from the thing it is not shown until it lifts: no thin line across the cut
+        c.fillStyle = rgb(R, G, B, (1 - melt) * (1 - fd * (1 - p)));
         c.fillRect(X, Y, 2, 2);
         c.globalCompositeOperation = 'lighter';
-        c.fillStyle = rgb(255, 180, 90, (0.18 + 0.3 * p) * (1 - melt * 0.5));
+        c.fillStyle = rgb(255, 180, 90, (0.18 + 0.3 * p) * (1 - melt * 0.5) * (1 - fd * (1 - p)));
         c.fillRect(X - 1, Y, 1, 2); c.fillRect(X + 2, Y, 1, 2);
         if (melt > 0) { c.fillStyle = rgb(255, 220, 150, 0.5 * melt); c.fillRect(X, Y, 2, 2); }
         c.globalCompositeOperation = 'source-over';
@@ -1709,12 +1710,15 @@ export class Renderer {
     if (sec.cut !== Infinity) this.drawRibbon(g);
     const SW = sec.SW;
     // era boundaries: faint golden curves along the layers where an era began
+    const squeezeTop = (g.grid.sinkRow - CFG.B.sand.absorb.squeezeRows + 1) * 2 - CFG.B.layout.sectionTop;   // section-local
     for (let e = 1; e <= g.run.era; e++) {
       const b = CFG.eras[e].start;
       c.fillStyle = 'rgba(242,181,74,0.16)';
       for (let x = 0; x < SW; x++) {
         const y = sec.yAt(x, b);
-        if (y <= sec.topD[x] + 1 || y >= sec.strataH - 1 || y >= sec.cut) continue;
+        // not in the squeeze above the thing: there an epoch is a line pressed thin, and its gold ran across the
+        // whole cut as a thin orange stripe
+        if (y <= sec.topD[x] + 1 || y >= sec.strataH - 1 || y >= sec.cut || y >= squeezeTop) continue;
         c.fillRect(x, Math.round(top + y), 1, 1);
       }
     }
@@ -2503,8 +2507,9 @@ export class Renderer {
       const a = this.ayAt(x) - 1;
       // a broad warm halo that spreads along the surface, and a small hot core
       this.light(x, a + 2, (70 + boost * 16) * (1 + breath * 0.02), 0.28, [220, 130, 50], 0.28 * amp);
-      this.light(x, a, (40 + boost * 14 + fed * 6) * (1 + breath * 0.03), 0.65, [236, 150, 62], 0.62 * amp);
-      this.light(x, a, 11 + fed * 3, 0.8, [255, 222, 150], 0.7 * amp);
+      // (softer than before: the geode it lies in must read — its dark rim and violet crystals)
+      this.light(x, a, (40 + boost * 14 + fed * 6) * (1 + breath * 0.03), 0.65, [236, 150, 62], 0.4 * amp);
+      this.light(x, a, 6 + fed * 2, 0.8, [255, 222, 150], 0.55 * amp);
     }
     // a line just absorbed: the thing glows in its colour for a moment
     if (this.absorb) {
