@@ -26,6 +26,7 @@ const SKIP_AFTER = 2; // the skip button shows after this (at once if seen befor
 const FLASH = 0.4; // the final white flash of the arc
 const REVEAL = 1.2; // the game showing through the white
 const SEEN_KEY = 'welder.introSeen';
+import { FX_MARKS, WordFx, type WordRun } from './wordfx';
 
 const IMAGES = import.meta.glob('../../assets/intro/*.webp', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 
@@ -90,6 +91,7 @@ interface Particle {
   seed: number;
 }
 
+const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => v / 16 - 0.5);
 
 /** What the shown text of a line is, by the act's style. */
@@ -103,39 +105,47 @@ function shown(style: Style, l: Line): string {
  * cold — frost (pale, slow to come); cough — the band jolts and the typing stalls before the words;
  * father — his voice (warm, slower, softly fading in).
  */
-type Mark = '' | 'arc' | 'fire' | 'cold' | 'cough' | 'father';
-const MARKS = new Set(['arc', 'fire', 'cold', 'cough', 'father']);
+type Mark = '' | 'arc' | 'fire' | 'cold' | 'cough' | 'father' | 'artifact' | 'weld' | 'light' | 'smoke';
+const MARKS = new Set(['arc', 'fire', 'cold', 'cough', 'father', 'artifact', 'weld', 'light', 'smoke']);
 interface Parsed {
   text: string;
   marks: Mark[];
   /** Where a marked run begins. */
   starts: boolean[];
+  /** Which run each letter is in, and each run's strength ({smoke:0.5|…}) and end. */
+  run: number[];
+  strength: number[];
+  runEnd: number[];
 }
 const parsedCache = new WeakMap<Line, Parsed>();
 function parse(style: Style, l: Line): Parsed {
   const hit = parsedCache.get(l);
   if (hit) return hit;
   let text = '';
-  const marks: Mark[] = [], starts: boolean[] = [];
-  const put = (t: string, m: Mark) => {
+  const marks: Mark[] = [], starts: boolean[] = [], run: number[] = [], strength: number[] = [], runEnd: number[] = [];
+  const put = (t: string, m: Mark, k = 1) => {
+    if (!t) return;
+    strength.push(k);
     for (let i = 0; i < t.length; i++) {
       marks.push(m);
       starts.push(i === 0 && m !== '');
+      run.push(strength.length - 1);
     }
     text += t;
+    runEnd.push(text.length);
   };
-  const re = /\{(\w+)\|([^}]*)\}/g;
+  const re = /\{(\w+)(?::([\d.]+))?\|([^}]*)\}/g;
   let at = 0, m: RegExpExecArray | null;
   const src = l.text;
   if (style === 'voice') put('«', '');
   while ((m = re.exec(src))) {
     put(src.slice(at, m.index), '');
-    put(m[2], MARKS.has(m[1]) ? (m[1] as Mark) : '');
+    put(m[3], MARKS.has(m[1]) ? (m[1] as Mark) : '', m[2] ? +m[2] : 1);
     at = m.index + m[0].length;
   }
   put(src.slice(at), '');
   if (style === 'voice') put('»', '');
-  const p = { text, marks, starts };
+  const p = { text, marks, starts, run, strength, runEnd };
   parsedCache.set(l, p);
   return p;
 }
@@ -203,6 +213,9 @@ export class Intro {
   private warmNow = 0;
   private arcNow = 0;
   private selfArc = { v: 0, next: 0 };
+  private words = new WordFx();
+  private zap = 0;
+  private dtNow = 0;
   private doneAt = -1;
   private lineStarted = false;
   private waitFrom = -1;
@@ -245,7 +258,7 @@ export class Intro {
     this.screen.className = 'intro-pic';
     this.band.className = 'intro-band';
     this.textEl.className = 'intro-text';
-    this.band.append(this.textEl);
+    this.band.append(this.words.back, this.textEl, this.words.front);
     this.skipEl.className = 'intro-skip';
     this.skipEl.textContent = 'Пропустить ▸';
     this.white.className = 'intro-white';
@@ -499,6 +512,7 @@ export class Intro {
     // biggest at which every line of it fits the band.
     const fs = this.fitSize(w, bh, h >= 600 ? [48, 32] : [32]);
     this.band.style.fontSize = fs + 'px';
+    this.words.layout(w, bh, fs);
     this.skipEl.style.fontSize = (fs >= 48 ? 32 : 16) + 'px';
     this.band.style.lineHeight = fs * 1.25 + 'px';
   };
@@ -531,6 +545,7 @@ export class Intro {
 
   private frame = (now: number): void => {
     const dt = Math.min(0.1, (now - this.last) / 1000);
+    this.dtNow = dt;
     this.last = now;
     this.update(dt);
     if (this.phase === 'play' || this.phase === 'flash') {
@@ -744,8 +759,16 @@ export class Intro {
    * A fresh letter comes out hot and cools, like a drop of the bead; marked words keep their manner.
    */
   private drawText(): void {
+    const env = {
+      arc: this.arcNow,
+      warm: this.warmNow,
+      zap: () => (this.zap = 1),
+      sfx: (k: 'zap' | 'hiss') => (k === 'zap' ? this.blip(rnd(2600, 4800), 0.018, 0.018, 'sawtooth') : this.blip(rnd(5000, 8000), 0.01, 0.006, 'square')),
+    };
+    this.zap = Math.max(0, this.zap - this.dtNow * 9);
     if (this.phase !== 'play' || this.inTransition() || !this.lineStarted) {
       if (this.textEl.innerHTML) this.textEl.innerHTML = '';
+      this.words.frame(this.dtNow, [], env);
       return;
     }
     const s = this.shots[this.cur];
@@ -760,9 +783,11 @@ export class Intro {
       }
       arc = this.selfArc.v;
     }
+    arc = Math.max(arc * 0.7, this.zap);
     const warm = this.warmNow || Math.sin(this.clock * 6.1) * 0.5 + Math.sin(this.clock * 11.7) * 0.3;
     this.textEl.style.setProperty('--arc', arc.toFixed(2));
     this.textEl.style.setProperty('--warm', (0.5 + 0.5 * warm).toFixed(2));
+    this.textEl.style.setProperty('--sh', (((this.clock * 0.45) % 1.6) - 0.3).toFixed(3));
     // The father's words said again as the arc catches: lit white by it, then back to his warmth.
     const flare = l.event === 'ignite' && this.igniteAt >= 0 ? Math.exp(-(this.clock - this.igniteAt) / 2.2) : 0;
     this.textEl.style.setProperty('--flare', flare.toFixed(2));
@@ -772,28 +797,44 @@ export class Intro {
     const heat = this.heat(s);
     const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
     let html = s.style === 'dialog' && l.who ? `<span class="who">${esc(l.who)}:</span> ` : '';
-    let run = '', runMark: Mark | null = null;
+    let run = '', runAt = -1;
     const close = () => {
-      if (runMark !== null) html += runMark ? `<span class="m-${runMark}">${run}</span>` : run;
+      if (runAt >= 0) {
+        const mk = p.marks[runAt];
+        html += mk ? `<span class="m-${mk}" data-r="${p.run[runAt]}">${run}</span>` : run;
+      }
       run = '';
     };
     for (let i = 0; i < n; i++) {
       const mk = p.marks[i];
-      if (mk !== runMark) {
+      if (runAt < 0 || p.run[i] !== p.run[runAt]) {
         close();
-        runMark = mk;
+        runAt = i;
       }
       const ch = esc(p.text[i]);
       // Freshness 1 → 0 over the letter's first moments; frost and his voice come on slower.
       const slow = mk === 'cold' || mk === 'father';
       const f = Math.max(0, 1 - (this.clock - (this.letterAt[i] ?? -9)) / (slow ? 1.1 : 0.9));
-      const h = mk === '' || mk === 'cough' ? f * heat : f;
+      // Plain words cool by the act's heat; the shimmer of a thing from before is its own light.
+      const h = mk === 'artifact' ? 0 : mk === '' || mk === 'cough' || mk === 'smoke' || mk === 'weld' ? f * heat : f;
       run += h > 0.02 && ch.trim() ? `<span class="h" style="--h:${h.toFixed(2)}">${ch}</span>` : ch;
     }
     close();
     html += `<span class="rest">${esc(p.text.slice(n))}</span>`;
     html = `<span class="${s.style}">${html}</span>`;
     if (html !== this.textEl.innerHTML) this.textEl.innerHTML = html;
+
+    // Where the marked words stand now, for their pixel animations.
+    const runs: WordRun[] = [];
+    const u = this.words.unit, origin = this.words.front.getBoundingClientRect();
+    for (const el of this.textEl.querySelectorAll<HTMLElement>('[data-r]')) {
+      const k = +el.dataset.r!;
+      const mk = el.className.slice(2);
+      if (!FX_MARKS.has(mk)) continue;
+      const boxes = [...el.getClientRects()].map((r) => ({ x: (r.left - origin.left) / u, y: (r.top - origin.top) / u, w: r.width / u, h: r.height / u }));
+      runs.push({ id: `${this.cur}.${this.li}.${k}`, mark: mk, strength: p.strength[k], boxes, full: n >= p.runEnd[k] });
+    }
+    this.words.frame(this.dtNow, runs, env);
   }
 
   // ------------------------------------------------------------------ sound (hooks; missing files are skipped)
