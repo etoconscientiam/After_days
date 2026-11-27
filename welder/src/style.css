@@ -687,3 +687,35 @@ body.ui-modal #game { cursor: var(--cur); }
 #intro .intro-skip.on { opacity: 1; pointer-events: auto; }
 #intro .intro-skip:hover { color: #ffe6a8; border-color: #c89a50; }
 #intro .intro-white { position: absolute; inset: 0; opacity: 0; pointer-events: none; }
+/* Intro words: a fresh letter comes out hot and cools (--h 1 → 0); marked words keep their manner. */
+#intro .intro-text .h {
+  color: color-mix(in srgb, #ffe7a0 calc(var(--h) * 100%), currentColor);
+  text-shadow: 0 0 calc(var(--h) * 0.35em) rgba(255, 150, 50, var(--h)), 0 0 calc(var(--h) * 0.8em) rgba(255, 90, 20, calc(var(--h) * 0.7)), 0 2px 0 #000;
+}
+#intro .intro-text .m-arc {
+  color: #e2ecff;
+  text-shadow: 0 0 calc(0.1em + var(--arc, 0) * 0.45em) rgba(140, 190, 255, calc(0.3 + var(--arc, 0) * 0.6)), 0 2px 0 #000;
+}
+#intro .intro-text .m-arc .h {
+  color: color-mix(in srgb, #ffffff calc(var(--h) * 100%), currentColor);
+  text-shadow: 0 0 calc(0.2em + var(--h) * 0.6em) rgba(150, 200, 255, 0.9), 0 2px 0 #000;
+}
+#intro .intro-text .m-fire {
+  color: #f2b46c;
+  text-shadow: 0 0 calc(0.1em + var(--warm, 0.5) * 0.3em) rgba(255, 120, 40, calc(0.25 + var(--warm, 0.5) * 0.45)), 0 2px 0 #000;
+}
+#intro .intro-text .m-cold { color: #b7c8d8; }
+#intro .intro-text .m-cold .h { color: #b7c8d8; opacity: calc(1 - var(--h) * 0.85); text-shadow: 0 0 calc(var(--h) * 0.4em) rgba(200, 225, 255, 0.6), 0 2px 0 #000; }
+#intro .intro-text .m-father {
+  color: color-mix(in srgb, #ffffff calc(var(--flare, 0) * 100%), #e8c48e);
+  text-shadow: 0 0 calc(var(--flare, 0) * 0.6em) rgba(160, 205, 255, var(--flare, 0)), 0 2px 0 #000;
+}
+#intro .intro-text .m-father .h { color: inherit; opacity: calc(1 - var(--h)); text-shadow: inherit; }
+#intro .intro-text.cough { animation: intro-cough 0.6s ease-out; }
+@keyframes intro-cough {
+  0% { transform: none; }
+  10% { transform: translate(-1px, 0.12em); }
+  28% { transform: none; }
+  45% { transform: translate(1px, 0.08em); }
+  65%, 100% { transform: none; }
+}

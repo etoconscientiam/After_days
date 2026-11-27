@@ -53,9 +53,13 @@ interface FrameDef {
   fx?: Fx[];
   lines: Line[];
   brightness?: number;
+  /** How hot fresh letters come out (0..1); the act's if not set. */
+  heat?: number;
 }
 interface ActDef {
   style: Style;
+  /** How hot fresh letters come out in this act (0..1). */
+  heat?: number;
   ambient?: string;
   frames: FrameDef[];
 }
@@ -90,7 +94,71 @@ const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => 
 
 /** What the shown text of a line is, by the act's style. */
 function shown(style: Style, l: Line): string {
-  return style === 'voice' ? `«${l.text}»` : l.text;
+  return parse(style, l).text;
+}
+
+/**
+ * Marks a writer can put on words in a line, as {mark|words}: each is a manner of saying them.
+ * arc — lit by the arc (cold white, flickering with it); fire — lit by fire (warm, with the torches);
+ * cold — frost (pale, slow to come); cough — the band jolts and the typing stalls before the words;
+ * father — his voice (warm, slower, softly fading in).
+ */
+type Mark = '' | 'arc' | 'fire' | 'cold' | 'cough' | 'father';
+const MARKS = new Set(['arc', 'fire', 'cold', 'cough', 'father']);
+interface Parsed {
+  text: string;
+  marks: Mark[];
+  /** Where a marked run begins. */
+  starts: boolean[];
+}
+const parsedCache = new WeakMap<Line, Parsed>();
+function parse(style: Style, l: Line): Parsed {
+  const hit = parsedCache.get(l);
+  if (hit) return hit;
+  let text = '';
+  const marks: Mark[] = [], starts: boolean[] = [];
+  const put = (t: string, m: Mark) => {
+    for (let i = 0; i < t.length; i++) {
+      marks.push(m);
+      starts.push(i === 0 && m !== '');
+    }
+    text += t;
+  };
+  const re = /\{(\w+)\|([^}]*)\}/g;
+  let at = 0, m: RegExpExecArray | null;
+  const src = l.text;
+  if (style === 'voice') put('«', '');
+  while ((m = re.exec(src))) {
+    put(src.slice(at, m.index), '');
+    put(m[2], MARKS.has(m[1]) ? (m[1] as Mark) : '');
+    at = m.index + m[0].length;
+  }
+  put(src.slice(at), '');
+  if (style === 'voice') put('»', '');
+  const p = { text, marks, starts };
+  parsedCache.set(l, p);
+  return p;
+}
+
+/** Breath after punctuation: a comma is a short one, a full stop a longer one. */
+const BREATH: Record<string, number> = { ',': 0.14, '.': 0.42, '!': 0.42, '?': 0.42, '…': 0.5, ':': 0.3, ';': 0.3, '—': 0.2 };
+const SLOW: Partial<Record<Mark, number>> = { father: 1.7, cold: 1.9 };
+const COUGH_STALL = 0.6;
+
+/** Seconds before letter i of a line shows (after letter i − 1). */
+function letterDelay(p: Parsed, i: number): number {
+  let d = (SLOW[p.marks[i]] ?? 1) / CPS;
+  const prev = p.text[i - 1];
+  // A breath only where the punctuation ends a phrase (followed by a space), so "т.е." does not stumble.
+  if (prev && BREATH[prev] && /\s/.test(p.text[i])) d += BREATH[prev];
+  if (p.marks[i] === 'cough' && p.starts[i]) d += COUGH_STALL;
+  return d;
+}
+
+function lineTime(p: Parsed): number {
+  let t = 0;
+  for (let i = 0; i < p.text.length; i++) t += letterDelay(p, i);
+  return t;
 }
 
 export interface IntroOptions {
@@ -128,6 +196,13 @@ export class Intro {
   private curStart = 0;
   private li = 0;
   private typed = 0;
+  /** Time banked toward the next letter. */
+  private typeAcc = 0;
+  /** When each letter of the line showed (for its heat). */
+  private letterAt: number[] = [];
+  private warmNow = 0;
+  private arcNow = 0;
+  private selfArc = { v: 0, next: 0 };
   private doneAt = -1;
   private lineStarted = false;
   private waitFrom = -1;
@@ -161,7 +236,7 @@ export class Intro {
         const url = IMAGES[`../../assets/intro/${f.image}.webp`];
         if (url) img.src = url;
         let d = 0;
-        for (const l of f.lines) d += shown(a.style, l).length / CPS + LINE_PAUSE;
+        for (const l of f.lines) d += lineTime(parse(a.style, l)) + LINE_PAUSE + (l.wait ?? 0);
         this.shots.push({ act: ai, style: a.style, def: f, img, dur: Math.max(FRAME_MIN, d + FRAME_EXTRA), parts: [], spawn: (f.fx ?? []).map(() => 0) });
       }),
     );
@@ -223,6 +298,7 @@ export class Intro {
     if (!l || !this.lineStarted) return;
     const len = shown(s.style, l).length;
     if (this.typed < len) {
+      for (let i = Math.floor(this.typed); i < len; i++) this.letterAt[i] = this.clock - 0.3;
       this.typed = len;
       this.doneAt = this.clock;
     } else if (this.li < s.def.lines.length - 1) this.nextLine();
@@ -246,7 +322,10 @@ export class Intro {
 
   private nextLine(): void {
     this.li++;
+    this.textEl.classList.remove('cough');
     this.typed = 0;
+    this.typeAcc = 0;
+    this.letterAt = [];
     this.doneAt = -1;
     this.lineStarted = false;
   }
@@ -265,6 +344,8 @@ export class Intro {
     this.starts[this.cur] = this.clock;
     this.li = 0;
     this.typed = 0;
+    this.typeAcc = 0;
+    this.letterAt = [];
     this.doneAt = -1;
     this.lineStarted = false;
     this.textEl.innerHTML = '';
@@ -320,18 +401,36 @@ export class Intro {
       this.waitFrom = -1;
       this.beginLine();
     }
-    const text = shown(s.style, l);
+    const p = parse(s.style, l);
+    const text = p.text;
     if (this.typed < text.length) {
-      const before = Math.floor(this.typed);
-      this.typed = Math.min(text.length, this.typed + CPS * dt);
-      const after = Math.floor(this.typed);
-      if (after > before && /\S/.test(text.slice(before, after))) this.typeClick();
+      // Letter by letter at the pace of speech: breaths after punctuation, slower marked words.
+      const before = this.typed;
+      if (this.typeAcc === 0 && before === 0) this.cueAhead(p, 0);
+      this.typeAcc += dt;
+      while (this.typed < text.length && this.typeAcc >= letterDelay(p, this.typed)) {
+        this.typeAcc -= letterDelay(p, this.typed);
+        this.letterAt[this.typed] = this.clock;
+        this.typed++;
+        this.cueAhead(p, this.typed);
+      }
+      if (this.typed > before && /\S/.test(text.slice(before, this.typed))) this.typeClick();
       if (this.typed >= text.length) this.doneAt = this.clock;
     } else if (this.clock - this.doneAt >= LINE_PAUSE) {
       if (this.li < s.def.lines.length - 1) this.nextLine();
       else if (ft - this.tIn() >= s.dur) this.nextShot();
     }
     if (this.clock > SKIP_AFTER) this.skipEl.classList.add('on');
+  }
+
+  /** Before letter i is waited for: a cough shakes the band while the typing stalls. */
+  private cueAhead(p: Parsed, i: number): void {
+    if (i >= p.text.length || p.marks[i] !== 'cough' || !p.starts[i]) return;
+    this.textEl.classList.remove('cough');
+    void this.textEl.offsetWidth;
+    this.textEl.classList.add('cough');
+    this.blip(95, 0.09, 0.05, 'triangle');
+    setTimeout(() => this.blip(80, 0.08, 0.04, 'triangle'), 230);
   }
 
   /** Hand over to the game: once. From the final flash the picture turns white and the bench shows through it. */
@@ -417,7 +516,8 @@ export class Intro {
       for (const sh of this.shots)
         for (const l of sh.def.lines) {
           const who = sh.style === 'dialog' && l.who ? l.who + ': ' : '';
-          m.innerHTML = `<span class="${sh.style}">${who}${shown(sh.style, l)}</span>`;
+          const t = (who + shown(sh.style, l)).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+          m.innerHTML = `<span class="${sh.style}">${t}</span>`;
           if (m.offsetHeight > bh - 8) ok = false;
         }
       if (ok) {
@@ -485,7 +585,7 @@ export class Intro {
       }
     } else layers.push([this.cur, this.cur === 0 ? Math.min(1, ft / 0.6) : 1]);
 
-    let bright = 1, warm = 0;
+    let bright = 1, warm = 0, arcFx = false;
     for (const [i, a] of layers) {
       const s = this.shots[i];
       if (!s.img.complete || !s.img.naturalWidth) continue;
@@ -506,6 +606,7 @@ export class Intro {
               this.flick.arcNext = this.clock + 0.04 + Math.random() * 0.1;
             }
             bright *= this.flick.arc;
+            if (i === this.cur) arcFx = true;
           }
           if (f.type === 'torchFlicker') {
             const t = this.clock;
@@ -519,6 +620,8 @@ export class Intro {
     // The final flash: the arc whites the picture out.
     let white = 0;
     if (this.phase === 'flash') white = Math.min(1, (this.clock - this.phaseAt) / FLASH);
+    this.warmNow = warm;
+    this.arcNow = arcFx ? Math.max(0, Math.min(1, (this.flick.arc - 0.85) / 0.3)) : -1;
     this.post(bright, warm, white);
     const sc = this.sctx;
     sc.imageSmoothingEnabled = false;
@@ -630,7 +733,16 @@ export class Intro {
     s.parts = out;
   }
 
-  /** The words, typed: what is typed shown, the rest laid out but invisible (so lines never re-wrap). */
+  /** How hot fresh letters come out in this frame: by the act (fire, then dimmer, then winter), the arc brings it back. */
+  private heat(s: Shot): number {
+    if (this.ignited && s === this.shots[this.cur] && s.def.brightness !== undefined) return 1;
+    return s.def.heat ?? this.script.acts[s.act].heat ?? 0.6;
+  }
+
+  /**
+   * The words, typed: what is typed shown, the rest laid out but invisible (so lines never re-wrap).
+   * A fresh letter comes out hot and cools, like a drop of the bead; marked words keep their manner.
+   */
   private drawText(): void {
     if (this.phase !== 'play' || this.inTransition() || !this.lineStarted) {
       if (this.textEl.innerHTML) this.textEl.innerHTML = '';
@@ -639,11 +751,48 @@ export class Intro {
     const s = this.shots[this.cur];
     const l = s.def.lines[this.li];
     if (!l) return;
-    const text = shown(s.style, l);
+    // The light the marked words take: the frame's own arc and torches, else a flicker of their own.
+    let arc = this.arcNow;
+    if (arc < 0) {
+      if (this.clock >= this.selfArc.next) {
+        this.selfArc.v = Math.random() < 0.12 ? 1 : 0.2 + Math.random() * 0.45;
+        this.selfArc.next = this.clock + 0.05 + Math.random() * 0.12;
+      }
+      arc = this.selfArc.v;
+    }
+    const warm = this.warmNow || Math.sin(this.clock * 6.1) * 0.5 + Math.sin(this.clock * 11.7) * 0.3;
+    this.textEl.style.setProperty('--arc', arc.toFixed(2));
+    this.textEl.style.setProperty('--warm', (0.5 + 0.5 * warm).toFixed(2));
+    // The father's words said again as the arc catches: lit white by it, then back to his warmth.
+    const flare = l.event === 'ignite' && this.igniteAt >= 0 ? Math.exp(-(this.clock - this.igniteAt) / 2.2) : 0;
+    this.textEl.style.setProperty('--flare', flare.toFixed(2));
+
+    const p = parse(s.style, l);
     const n = Math.floor(this.typed);
+    const heat = this.heat(s);
     const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
-    const who = s.style === 'dialog' && l.who ? `<span class="who">${esc(l.who)}:</span> ` : '';
-    const html = `<span class="${s.style}">${who}${esc(text.slice(0, n))}<span class="rest">${esc(text.slice(n))}</span></span>`;
+    let html = s.style === 'dialog' && l.who ? `<span class="who">${esc(l.who)}:</span> ` : '';
+    let run = '', runMark: Mark | null = null;
+    const close = () => {
+      if (runMark !== null) html += runMark ? `<span class="m-${runMark}">${run}</span>` : run;
+      run = '';
+    };
+    for (let i = 0; i < n; i++) {
+      const mk = p.marks[i];
+      if (mk !== runMark) {
+        close();
+        runMark = mk;
+      }
+      const ch = esc(p.text[i]);
+      // Freshness 1 → 0 over the letter's first moments; frost and his voice come on slower.
+      const slow = mk === 'cold' || mk === 'father';
+      const f = Math.max(0, 1 - (this.clock - (this.letterAt[i] ?? -9)) / (slow ? 1.1 : 0.9));
+      const h = mk === '' || mk === 'cough' ? f * heat : f;
+      run += h > 0.02 && ch.trim() ? `<span class="h" style="--h:${h.toFixed(2)}">${ch}</span>` : ch;
+    }
+    close();
+    html += `<span class="rest">${esc(p.text.slice(n))}</span>`;
+    html = `<span class="${s.style}">${html}</span>`;
     if (html !== this.textEl.innerHTML) this.textEl.innerHTML = html;
   }
 
