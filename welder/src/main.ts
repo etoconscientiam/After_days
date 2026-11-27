@@ -134,7 +134,9 @@ function boot(): void {
   // and bought, a master's hand welding a kettle on this bench — then the arc's white, and under it the
   // workshop is put back as it is on the first morning.
   const SHOW_PART = 'kettle';
-  const SHOW_LEN = 6.9;
+  const SHOW_LEN = 11;
+  /** The showcase runs slowed down (sim seconds per real second), so the eye can follow the hand. */
+  const SHOW_SLOW = 0.6;
   let pilot: Autopilot | null = null;
   let showT = 0;
   const pilotTorch = emptyTorch();
@@ -161,7 +163,7 @@ function boot(): void {
   }
   const stepShowcase = (dt: number) => {
     showT += dt;
-    acc += dt;
+    acc += dt * SHOW_SLOW;
     while (acc >= STEP) {
       pilot!.step(game, pilotTorch);
       game.step({ torch: pilotTorch });
@@ -175,17 +177,25 @@ function boot(): void {
       veil.style.opacity = '1';
     }
     if (showT >= SHOW_LEN + 0.35) {
-      // Under the white: the shift as it really begins.
+      // Under the white: the workshop back to its first morning, and the story goes on from the white
+      // (the years, the winter, the name); its last flash opens the shift.
       pilot = null;
       game.reset();
       applySettings();
       view.endShowcase();
       acc = 0;
-      begin(true);
-      requestAnimationFrame(() => {
-        veil.style.transition = 'opacity 1.2s ease-out';
+      paused = true;
+      sound.suspend();
+      view.releaseInput();
+      const rest = ['years', 'winter', 'name'];
+      for (const c of rest) game.queue({ type: 'mark', flag: 'ch:' + c });
+      const intro = new Intro({ chapters: rest, onDone: (fromWhite) => begin(fromWhite) });
+      (window as unknown as { welderIntro: Intro }).welderIntro = intro;
+      intro.start();
+      setTimeout(() => {
+        veil.style.transition = 'none';
         veil.style.opacity = '0';
-      });
+      }, 900);
     }
   };
 
