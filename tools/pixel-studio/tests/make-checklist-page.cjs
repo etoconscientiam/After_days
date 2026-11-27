@@ -37,6 +37,7 @@ const groups = [...new Set(manual.map(m => m.group))];
 const manualHtml = groups.map(g => `<section class="mgroup"><h3>${esc(g)}</h3><ul>${manual.filter(m => m.group === g).map(m => `<li><label><input type="checkbox" id="${m.id}" data-id="${m.id}"><span>${esc(m.text)}</span></label><time data-for="${m.id}"></time></li>`).join('')}</ul></section>`).join('\n');
 
 const html = `<title>Чек-лист студии 3011</title>
+<link rel="artifact-thumbnail" href="thumb.png">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
