@@ -153,6 +153,32 @@ export class Game {
     });
   }
 
+  /**
+   * The showcase before the first shift: everything learned and bought, the shift begun, a job on the bench.
+   * Undone by reset().
+   */
+  showcase(part: string, customer: string): void {
+    for (const u of this.data.upgrades) this.owned[u.id] = true;
+    this.stats = computeStats(this.data, this.owned);
+    this.ctx.stats = this.stats;
+    this.started = true;
+    this.appState = 'watching';
+    this.power.flow = 1;
+    this.power.wheel = 1;
+    const o: Order = { uid: 99000, part, customer, reward: 20, req: {}, simple: false, urgent: false };
+    this.player.load(o, this.data.parts[part]);
+    this.bus.emit('orderTaken', { bench: 'player', uid: o.uid, part });
+  }
+
+  /** Back to a new shift, as if just made (the event bus and whoever listens to it stay). */
+  reset(): void {
+    const f = new Game(this.data, this.seed) as unknown as Record<string, unknown>;
+    const me = this as unknown as Record<string, unknown>;
+    for (const k of Object.keys(f)) if (k !== 'bus' && k !== 'data' && k !== 'ctx' && k !== 'seed') me[k] = f[k];
+    this.ctx.stats = this.stats;
+    this.rebindRng();
+  }
+
   /** Re-create RNG-backed context after loading a save. */
   rebindRng(): void {
     this.ctx.weld = this.rng.get('weld');

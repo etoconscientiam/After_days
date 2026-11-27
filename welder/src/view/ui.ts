@@ -840,6 +840,11 @@ export class UI {
     return this.endEl.style.display !== 'none';
   }
 
+  clearStamp(): void {
+    this.stampT = 0;
+    this.stampEl.style.display = 'none';
+  }
+
   /** A line over the customer's head for a few seconds. */
   say(text: string, sec: number, who = ''): void {
     this.sayEl.innerHTML = (who ? `<b>${who}</b>` : '') + text.replace(/</g, '&lt;');

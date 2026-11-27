@@ -391,6 +391,47 @@ export class View {
 
   // ------------------------------------------------------------------ juice
 
+  /** The showcase before the first shift: a master's hand at work, no hints, no words from the door. */
+  showcase = false;
+
+  /** Where the master's hand holds the rod this frame (part-local mm and the welding direction there). */
+  showDrive(tr: TorchIn, n: { x: number; y: number; z: number }): void {
+    const t = this.torch;
+    t.has = tr.has && !!this.part;
+    t.press = tr.press;
+    if (!t.has) return;
+    t.x = tr.x;
+    t.y = tr.y;
+    t.z = tr.z;
+    this.partRoot.updateMatrixWorld();
+    this.p2w(tr.x, tr.y, tr.z, this.surfW);
+    this.normW.set(n.x, n.y, n.z).transformDirection(this.partRoot.matrixWorld);
+  }
+
+  /** The showcase is over: the bench cleared for the real shift (the sim has been reset under it). */
+  endShowcase(): void {
+    this.showcase = false;
+    this.clearPart();
+    this.ui.say('', 0);
+    this.ui.clearStamp();
+    this.ui.setGauges(null, null, 0, 0);
+    this.chipStreak = 0;
+    this.sweeps.length = 0;
+    this.custLinger = 0;
+    this.ws.customer.visible = false;
+    this.torch.has = false;
+    this.rig.station();
+    this.ui.muteHint(false);
+    this.ui.setApprentice('');
+    this.syncWorld();
+    this.syncPile();
+    this.moneyShown = 0;
+    this.ui.showMoney(0);
+    this.ws.setMoney(0);
+    this.ui.updateStages();
+    this.ui.setRod(false, 1, false);
+  }
+
   /** Nothing in hand and nothing open: a moment the story can take the screen without cutting anything off. */
   calm(): boolean {
     const g = this.game;
@@ -754,7 +795,7 @@ export class View {
         this.fx.slag(BENCH.x + Math.cos(a) * 0.12, BENCH.y + 0.01, BENCH.z + Math.sin(a) * 0.09, 1.5);
       }
       this.setCustomer(g.player.order?.customer ?? 'neighbour');
-      if (g.player.order) this.ui.say(bringLine(g, g.player.order), 5, t('cust.' + g.player.order.customer));
+      if (g.player.order && !this.showcase) this.ui.say(bringLine(g, g.player.order), 5, t('cust.' + g.player.order.customer));
       this.custLinger = 0;
       this.ui.closeBoard();
       this.syncWorld();
@@ -839,7 +880,7 @@ export class View {
     });
     b.on('apprentice', (e) => {
       this.syncWorld();
-      this.ui.setApprentice(g.owned.apprentice ? t('app.' + e.state) : '');
+      this.ui.setApprentice(g.owned.apprentice && !this.showcase ? t('app.' + e.state) : '');
     });
     b.on('habitRecorded', () => {
       if (g.owned.apprentice) this.ui.toast(t('app.learned'));
@@ -1440,7 +1481,9 @@ export class View {
       const arcK = g.stats.knowArc ? 0.33 + ((a.L - A.goodLo) / (A.goodHi - A.goodLo)) * 0.34 : null;
       const vI = g.idealSpeed(b);
       const spK = g.stats.knowTempo ? 0.33 + ((a.v / Math.max(0.1, vI) - 0.75) / 0.55) * 0.34 : null;
-      this.ui.setGauges(arcK, spK, this.mouse.x, this.mouse.y);
+      // The gauges sit by the holder: at the cursor, or (the master's hand in the showcase) by the rod.
+      const gp = this.showcase ? this.toScreen(this.lastPartTip) : null;
+      this.ui.setGauges(arcK, spK, gp ? gp[0] + 40 * this.scale : this.mouse.x, gp ? gp[1] : this.mouse.y);
     } else this.ui.setGauges(null, null, 0, 0);
     this.stagesT -= dt;
     if (this.stagesT <= 0) {
@@ -1620,6 +1663,6 @@ export class View {
     this.syncPile();
     this.ui.showMoney(this.game.money);
     this.ws.setRods(12 - (this.game.log.electrodes % 12));
-    if (this.game.owned.apprentice) this.ui.setApprentice(t('app.' + this.game.appState));
+    if (this.game.owned.apprentice && !this.showcase) this.ui.setApprentice(t('app.' + this.game.appState));
   }
 }

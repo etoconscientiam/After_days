@@ -216,8 +216,9 @@ html, body {
 #board .empty { color: var(--dim); }
 #app-status {
   position: absolute;
-  right: calc(var(--px) * 6);
-  top: calc(var(--px) * 5);
+  right: calc(var(--px) * 5);
+  /* Under the gear and the language plate, not over them. */
+  top: calc(var(--px) * 8 + var(--fs) * 1.25 + var(--fu, 3px) * 6);
   color: var(--dim);
   text-shadow: var(--px) var(--px) 0 #000;
   display: none;
@@ -423,7 +424,7 @@ html, body {
 #gauges {
   position: absolute;
   display: none;
-  gap: calc(var(--px) * 9);
+  gap: max(calc(var(--px) * 9), 2.8em);
   pointer-events: none;
   transform: translate(calc(var(--px) * 10), -50%);
 }

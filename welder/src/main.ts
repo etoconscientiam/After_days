@@ -10,6 +10,8 @@ import { demoWeld } from './dev';
 import { installFrames, installCursors } from './view/frames';
 import { Intro } from './intro/intro';
 import { settings, onSettings } from './settings';
+import { Autopilot } from './sim/autopilot';
+import { emptyTorch } from './sim/weld';
 
 const SAVE_KEY = 'welder.save';
 const LANG_KEY = 'welder.lang';
@@ -68,6 +70,7 @@ function boot(): void {
   };
 
   game.bus.on('save', () => {
+    if (pilot) return;
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify(serialize(game)));
     } catch {
@@ -122,10 +125,70 @@ function boot(): void {
     paused = true;
     const told = ['prologue', ...['years', 'winter', 'name'].filter((c) => game.flags['ch:' + c])];
     game.queue({ type: 'mark', flag: 'ch:prologue' });
-    const intro = new Intro({ chapters: told, onDone: (fromWhite) => begin(fromWhite) });
+    const fresh = !game.started && game.t === 0;
+    const intro = new Intro({ chapters: told, onDone: (fromWhite) => (fresh ? showcase() : begin(fromWhite)) });
     (window as unknown as { welderIntro: Intro }).welderIntro = intro;
     intro.start();
   }
+  // Between the prologue and the first shift: seven seconds of the craft at its height — everything learned
+  // and bought, a master's hand welding a kettle on this bench — then the arc's white, and under it the
+  // workshop is put back as it is on the first morning.
+  const SHOW_PART = 'kettle';
+  const SHOW_LEN = 6.9;
+  let pilot: Autopilot | null = null;
+  let showT = 0;
+  const pilotTorch = emptyTorch();
+  const veil = document.createElement('div');
+  Object.assign(veil.style, { position: 'fixed', inset: '0', background: '#fff', opacity: '0', pointerEvents: 'none', zIndex: '999', transition: 'opacity 0.25s ease-in' });
+  document.body.append(veil);
+  // Nothing the player does reaches the game while the master works.
+  const hold = (e: Event) => {
+    if (!pilot) return;
+    e.stopPropagation();
+    if (e.type === 'keydown' || e.type === 'wheel' || e.type === 'contextmenu') e.preventDefault();
+  };
+  for (const ev of ['keydown', 'keyup', 'pointerdown', 'pointerup', 'wheel', 'contextmenu'] as const) addEventListener(ev, hold, true);
+  function showcase() {
+    paused = false;
+    sound.init(game);
+    sound.resume();
+    view.showcase = true;
+    view.ui.muteHint(true);
+    game.showcase(SHOW_PART, 'keeper');
+    view.start(true);
+    pilot = new Autopilot();
+    showT = 0;
+  }
+  const stepShowcase = (dt: number) => {
+    showT += dt;
+    acc += dt;
+    while (acc >= STEP) {
+      pilot!.step(game, pilotTorch);
+      game.step({ torch: pilotTorch });
+      acc -= STEP;
+    }
+    view.showDrive(pilotTorch, pilot!.nrm);
+    view.render(dt);
+    sound.update(game);
+    if (showT >= SHOW_LEN && veil.style.opacity === '0') {
+      veil.style.transition = 'opacity 0.25s ease-in';
+      veil.style.opacity = '1';
+    }
+    if (showT >= SHOW_LEN + 0.35) {
+      // Under the white: the shift as it really begins.
+      pilot = null;
+      game.reset();
+      applySettings();
+      view.endShowcase();
+      acc = 0;
+      begin(true);
+      requestAnimationFrame(() => {
+        veil.style.transition = 'opacity 1.2s ease-out';
+        veil.style.opacity = '0';
+      });
+    }
+  };
+
   // The rest of the story comes in chapters as the shift goes: the years when the town starts coming (the
   // board opens), the winter when the gate is brought at night, the name when the gate goes on the bench.
   // Each waits for a calm moment (nothing burning, nothing open) and is told once.
@@ -171,7 +234,7 @@ function boot(): void {
   else showStart();
   addEventListener('pointerdown', () => sound.resume());
   addEventListener('beforeunload', () => {
-    if (game.started) {
+    if (game.started && !pilot) {
       try {
         localStorage.setItem(SAVE_KEY, JSON.stringify(serialize(game)));
       } catch {
@@ -217,6 +280,19 @@ function boot(): void {
     const dt = Math.min(0.25, (now - last) / 1000);
     last = now;
     if (paused) {
+      requestAnimationFrame(frame);
+      return;
+    }
+    if (pilot) {
+      try {
+        stepShowcase(dt);
+      } catch (e) {
+        console.error(e);
+        pilot = null;
+        game.reset();
+        view.endShowcase();
+        begin(true);
+      }
       requestAnimationFrame(frame);
       return;
     }
