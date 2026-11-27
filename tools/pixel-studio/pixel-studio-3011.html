@@ -191,6 +191,19 @@ details.sub>div{padding:0 10px 10px;display:flex;flex-direction:column;gap:8px}
   padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
 .modal .card{background:var(--surface);border:1px solid var(--line-2);border-radius:10px;padding:14px;max-width:min(560px,100%);max-height:100%;display:flex;flex-direction:column;gap:10px;overflow:auto}
 .busy .card{width:min(360px,100%)}
+.modal .vcard{max-width:min(1000px,100%);width:100%}
+.vhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.vhead strong{margin-right:auto}
+.vgrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+@media (max-width:720px){.vgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.vtile{display:flex;flex-direction:column;gap:6px;min-width:0}
+.vpick{all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;gap:6px;border-radius:8px;padding:6px;border:1px solid var(--line);background:var(--bg)}
+.vpick:hover{border-color:var(--accent)}
+.vpick:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.vpick canvas{width:100%;height:auto;image-rendering:pixelated;border-radius:4px;background:#000;display:block}
+.vpick span{font-size:11.5px;color:var(--muted);line-height:1.3}
+.lamp.emitter{border-color:#9fd8ff;box-shadow:0 0 0 2px rgba(12,16,15,.6),0 0 14px 3px rgba(140,200,255,.4)}
+.lamp.emitter::after{background:#9fd8ff}
 .bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
 .bar i{display:block;height:100%;width:0;background:var(--warm);transition:width .15s}
 .modal img{max-width:100%;max-height:60vh;image-rendering:pixelated;align-self:center;border-radius:4px}
@@ -247,6 +260,7 @@ input[type=color]::-moz-color-swatch{border:0;border-radius:4px}
         <div class="tg">
           <button class="tb" id="cmpBtn" aria-pressed="false" title="Шторка до/после (C). Удерживайте пробел, чтобы увидеть исходник">До / после</button>
           <button class="tb" id="playBtn" aria-pressed="false" title="Проиграть анимацию глитча (P)">▶ Анимация</button>
+          <button class="tb" id="varBtn" title="9 вариантов лука на выбор (V)">Варианты</button>
         </div>
         <div class="tg">
           <button class="tb icon" id="zoomOut" title="Уменьшить (−, колесо мыши)" aria-label="Уменьшить">−</button>
@@ -277,6 +291,7 @@ input[type=color]::-moz-color-swatch{border:0;border-radius:4px}
           <span class="tag l" id="tagBefore" hidden>ДО</span>
           <span class="tag r" id="tagAfter" hidden>ПОСЛЕ</span>
           <div class="lamp" id="lamp" hidden tabindex="0" role="button" aria-label="Лампа: перетащите или двигайте стрелками"></div>
+          <div class="lamp emitter" id="emitter" hidden tabindex="0" role="button" aria-label="Источник частиц: перетащите или двигайте стрелками"></div>
         </div>
         <div class="drop" id="dropHint" hidden>Отпустите картинку</div>
         <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -585,6 +600,46 @@ input[type=color]::-moz-color-swatch{border:0;border-radius:4px}
             <p class="hint">Зерно идёт до палитры. Аберрация и глитч — после неё и дают новые цвета; галочка снова сводит их к палитре.</p>
           </div>
         </section>
+        <section class="sec" id="secCycle">
+          <h2><span class="n o">⟳</span>Палитровая анимация</h2>
+          <div class="body">
+            <div class="line"><input type="checkbox" id="cycleCb" data-bind="cycle.on" data-stage="E"><label for="cycleCb">Цвета бегут по кругу</label><span class="info" id="cycleInfo"></span></div>
+            <div class="seg" id="cycleSeg" role="group" aria-label="Какие цвета бегут">
+              <button data-cm="band">по яркости</button>
+              <button data-cm="hue">похожие на цвет</button>
+            </div>
+            <div class="row" data-r="cycle.lo,Яркость от,0,1,0.01,pct100,E"></div>
+            <div class="row" data-r="cycle.hi,Яркость до,0,1,0.01,pct100,E"></div>
+            <div class="line"><label for="cycleColor">Цвет</label><input type="color" id="cycleColor" data-bind="cycle.color" data-stage="E"></div>
+            <div class="row" data-r="cycle.tol,Похожесть,0,1,0.01,pct100,E"></div>
+            <div class="row" data-r="cycle.cycles,Оборотов за цикл,1,8,1,int,E"></div>
+            <div class="row" data-r="cycle.wave,Волна,0,1,0.01,pct100,E"></div>
+            <div class="row" data-r="cycle.dir,Направление,0,359,1,deg,E"></div>
+            <div class="line"><input type="checkbox" id="cyclePP" data-bind="cycle.pingpong" data-stage="E"><label for="cyclePP">Туда-обратно</label></div>
+            <p class="hint">Пиксели стоят, бегут только цвета — как в играх 90-х у Марка Феррари. Без волны выбранные цвета мерцают разом, с волной текут полосами. Движение видно при проигрывании (P) и в GIF/видео; на картинке — кадр на бегунке таймлайна.</p>
+          </div>
+        </section>
+        <section class="sec" id="secParts">
+          <h2><span class="n o">∴</span>Частицы</h2>
+          <div class="body">
+            <div class="line"><input type="checkbox" id="partsCb" data-bind="parts.on" data-stage="E"><label for="partsCb">Показывать частицы</label></div>
+            <div class="seg" id="partsSeg" role="group" aria-label="Вид частиц">
+              <button data-pt="rain">дождь</button><button data-pt="snow">снег</button><button data-pt="dust">пыль</button><button data-pt="steam">пар</button><button data-pt="sparks">искры</button>
+            </div>
+            <div class="row" data-r="parts.amount,Сколько,0,1,0.01,pct100,E"></div>
+            <div class="row" data-r="parts.speed,Скорость,0,1,0.01,pct100,E"></div>
+            <div class="row" data-r="parts.size,Размер,1,3,1,px,E"></div>
+            <div class="row" data-r="parts.wind,Ветер,-60,60,1,deg,E"></div>
+            <div class="row" data-r="parts.ex,Источник X,0,1,0.01,pct100,E"></div>
+            <div class="row" data-r="parts.ey,Источник Y,0,1,0.01,pct100,E"></div>
+            <div class="line">
+              <label for="partsColor">Цвет</label><input type="color" id="partsColor" data-bind="parts.color" data-stage="E">
+              <input type="checkbox" id="partsPal" data-bind="parts.toPal" data-stage="E"><label for="partsPal">в цветах палитры</label>
+              <button class="btn small" id="partsSeed">Перемешать</button>
+            </div>
+            <p class="hint" id="partsHint"></p>
+          </div>
+        </section>
         <section class="sec">
           <h2><span class="n o">▶</span>Анимация и экспорт</h2>
           <div class="body">
@@ -650,6 +705,19 @@ input[type=color]::-moz-color-swatch{border:0;border-radius:4px}
             <p class="hint">Аннотации тянутся мышью по кадру. Двойной щелчок по пустому месту кадра добавляет аннотацию туда, по аннотации — открывает её текст. У выноски точку на конце линии тоже можно тянуть. До 12 аннотаций.</p>
           </div>
         </section>
+        <section class="sec" id="secLive">
+          <h2><span class="n o">▶</span>Живой интерфейс</h2>
+          <div class="body">
+            <div class="line"><input type="checkbox" id="liveType" data-bind="shore.live.type" data-stage="D"><label for="liveType">Аннотации печатаются по буквам</label></div>
+            <div class="row" data-r="shore.live.typeDur,Время печати,0.1,1,0.01,pct100,D"></div>
+            <div class="line">
+              <input type="checkbox" id="livePop" data-bind="shore.live.pop" data-stage="D"><label for="livePop">Уведомление всплывает</label>
+              <input type="checkbox" id="liveSecs" data-bind="shore.live.secs" data-stage="D"><label for="liveSecs">Бегут секунды</label>
+            </div>
+            <div class="row" data-r="shore.live.glitch,Сбои интерфейса,0,1,0.01,pct100,D"></div>
+            <p class="hint">Работает при проигрывании (P) и в GIF/видео; на неподвижной картинке интерфейс показан целиком. «Время печати» — доля цикла. Вид аннотации «прицел» — рамка из уголков, которая сжимается на объекте, со сканирующей линией; противоположный угол рамки тянется мышью.</p>
+          </div>
+        </section>
       </div>
 
       <!-- ===== ФАЙЛ ===== -->
@@ -693,6 +761,19 @@ input[type=color]::-moz-color-swatch{border:0;border-radius:4px}
   </div>
 </div>
 
+<div class="modal" id="varModal" hidden>
+  <div class="card vcard" role="dialog" aria-label="Варианты">
+    <div class="vhead">
+      <strong id="varTitle">Варианты</strong>
+      <div class="seg sm" id="varMode" role="group" aria-label="Насколько отличаться"><button data-vm="bold" aria-pressed="true">смелые</button><button data-vm="soft" aria-pressed="false">мягкие</button></div>
+      <button class="btn small" id="varMore">Ещё 9</button>
+      <button class="tb icon" id="varClose" aria-label="Закрыть">×</button>
+    </div>
+    <div class="vgrid" id="varGrid"></div>
+    <p class="hint">Первый — как сейчас. Щелчок по картинке применяет вариант (отмена — Ctrl+Z). «Похожие» — девять вариантов вокруг выбранного. Кадр, сетка, Shore, частицы и палитровая анимация не меняются.</p>
+  </div>
+</div>
+
 <div class="modal" id="helpModal" hidden>
   <div class="card keys" role="dialog" aria-label="Горячие клавиши">
     <strong>Горячие клавиши</strong>
@@ -707,6 +788,7 @@ input[type=color]::-moz-color-swatch{border:0;border-radius:4px}
       <dt>R</dt><dd>перемешать глитч</dd>
       <dt>L · H</dt><dd>лампа · интерфейс Shore</dd>
       <dt>[ · ]</dt><dd>сетка мельче · крупнее</dd>
+      <dt>V</dt><dd>варианты лука</dd>
       <dt>, · . · Home · End</dt><dd>кадр назад · вперёд · в начало · в конец таймлайна</dd>
       <dt><span class="kmod">Ctrl</span> Alt S</dt><dd>видео MP4</dd>
       <dt>◆ у ползунка</dt><dd>анимировать его; дальше бегунок таймлайна + ползунок ставят ключи</dd>
@@ -765,6 +847,8 @@ const DEFAULTS = {
   vignette: 0.4,
   anim: { mode: 'bursts', frames: 16, fps: 10, recBlink: true, caPulse: true, size: 'half', vsize: 'full', loops: 3, vformat: 'auto', lockPal: true },
   keys: {},
+  cycle: { on: false, mode: 'band', lo: 0.55, hi: 1, color: '#d4c06a', tol: 0.3, cycles: 1, wave: 0.5, dir: 90, pingpong: false },
+  parts: { on: false, type: 'rain', amount: 0.5, size: 1, speed: 0.5, wind: 10, color: '#9fb3c8', ex: 0.72, ey: 0.62, toPal: true, seed: 7 },
   fx: { ca: 0, caMode: 'radial', shift: 0, bands: 0, blocks: 0, sort: 0, sortThr: 0.55, sortDir: 'h',
         vhs: 0, vhsPos: 0.72, dead: 0, grain: 0, grainColor: false, toPalette: false, seed: 3011 },
   shore: {
@@ -772,6 +856,7 @@ const DEFAULTS = {
     show: { corners: true, time: true, battery: true, blik: true },
     pos: { time: null, rec: null, battery: null, notif: null, blik: null },
     notesOn: true,
+    live: { type: true, typeDur: 0.35, pop: true, secs: true, glitch: 0.25 },
     notes: [
       { text: 'КУХНЯ · 19°C', kind: 'label', x: 0.07, y: 0.56, tx: 0.3, ty: 0.7, size: 1, on: true },
       { text: 'ПЫЛЬ: НОРМА', kind: 'pointer', x: 0.5, y: 0.2, tx: 0.42, ty: 0.34, size: 1, on: true }
@@ -1897,6 +1982,7 @@ const lumAt = (px, o) => 0.299 * px[o] + 0.587 * px[o + 1] + 0.114 * px[o + 2];
 function applyEffects() {
   const { W, H } = G, F = S.fx;
   const px = new Uint8ClampedArray(G.rgb);
+  if (KEYS_READY) { const fc = frameCtx(); if (cycleOn()) applyCycle(px, W, H, fc); else G.cycleN = 0; if (S.parts.on) drawParticles(px, W, H, fc); }
   const r = rng(F.seed);
   // сдвиг строк
   if (F.shift > 0.001) {
@@ -2076,7 +2162,7 @@ function pxCircle(ctx, cx, cy, r, u, ring) {
 
 /* ---------- интерфейс очков Shore ---------- */
 let shoreHits = [];
-const NOTE_KINDS = { label: 'подпись', box: 'рамка', plate: 'плашка', pointer: 'выноска' };
+const NOTE_KINDS = { label: 'подпись', box: 'рамка', plate: 'плашка', pointer: 'выноска', scan: 'прицел' };
 // Линия из «пикселей интерфейса» (клетки u×u) — чтобы выноска была в том же пиксельном стиле, что и шрифт
 function pxLine(ctx, x0, y0, x1, y1, u) {
   let a = Math.round(x0 / u), b = Math.round(y0 / u); const c = Math.round(x1 / u), d = Math.round(y1 / u);
@@ -2099,6 +2185,7 @@ function drawShore(ctx, cw, ch, hits, exact) {
   const hit = h => { if (hits) hits.push(h); };
   ctx.save();
   ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+  const live = KEYS_READY ? shoreLive(ctx, cw, ch, u) : { on: false, L: {} };
   ctx.fillStyle = col;
   if (sh.on) {
     const ty = m + 4 * u;
@@ -2110,7 +2197,7 @@ function drawShore(ctx, cw, ch, hits, exact) {
       ctx.fillRect(cw - m - L, ch - m - u, L, u); ctx.fillRect(cw - m - u, ch - m - L, u, L);
     }
     if (show.time !== false && String(sh.time || '').trim()) {
-      const t = String(sh.time).slice(0, 8), [x, y] = at('time', m + 4 * u, ty), w = textW(t, u);
+      const t = KEYS_READY ? liveTime(String(sh.time).slice(0, 8), live) : String(sh.time).slice(0, 8), [x, y] = at('time', m + 4 * u, ty), w = textW(t, u);
       drawText(ctx, t, x, y, u);
       hit({ type: 'el', key: 'time', x: x - 2 * u, y: y - 2 * u, w: w + 4 * u, h: 11 * u, lx: x, ly: y });
     }
@@ -2134,8 +2221,11 @@ function drawShore(ctx, cw, ch, hits, exact) {
     if (nn > 0) {
       const t = String(nn), r = t.length > 1 ? 7 : 5, [x, y] = at('notif', cw - m - 4 * u - 2 * r * u, ty + 9 * u);
       const cx = x + r * u, cy = y + r * u;
-      pxCircle(ctx, cx, cy, r, u);
-      ctx.fillStyle = ink; drawText(ctx, t, cx - Math.floor(textW(t, u) / 2 / u) * u, cy - 3 * u - Math.floor(u / 2), u); ctx.fillStyle = col;
+      let rr = r;
+      if (live.on && live.L.pop) { const pp = clamp(live.ac.i / Math.max(1, live.ac.fps * 0.4), 0, 1); rr = Math.round(r * (pp < 1 ? Math.min(1.25, Math.sin(pp * Math.PI * 0.6) * 1.3) : 1)); }
+      if (rr > 0) pxCircle(ctx, cx, cy, rr, u);
+      if (rr >= r) { ctx.fillStyle = ink; drawText(ctx, t, cx - Math.floor(textW(t, u) / 2 / u) * u, cy - 3 * u - Math.floor(u / 2), u); }
+      ctx.fillStyle = col;
       hit({ type: 'el', key: 'notif', x: x - u, y: y - u, w: 2 * r * u + 2 * u, h: 2 * r * u + 2 * u, lx: x, ly: y });
     }
     if (show.blik !== false) {
@@ -2146,31 +2236,49 @@ function drawShore(ctx, cw, ch, hits, exact) {
     }
   }
   // аннотации
+  let nk = 0;
   if (sh.notesOn) (sh.notes || []).forEach((n, i) => {
-    const text = String(n.text || '').trim();
-    if (!n.on || !text) return;
-    const q = u * (n.size === 2 ? 2 : 1), x = Math.round(n.x * cw), y = Math.round(n.y * ch), tw = textW(text, q);
+    const full = String(n.text || '').trim();
+    if (!n.on || !full) return;
+    const prog = KEYS_READY ? liveType(nk++, live) : 1, text = prog >= 1 ? full : full.slice(0, Math.ceil(prog * full.length));
+    const q = u * (n.size === 2 ? 2 : 1), x = Math.round(n.x * cw), y = Math.round(n.y * ch), tw = textW(full, q);
+    const cursor = (cx0, cy0) => { if (live.on && live.L.type && prog > 0 && prog < 1) ctx.fillRect(cx0 + textW(text, q) + q, cy0, 4 * q, 7 * q); };
     let bw, bh;
     ctx.fillStyle = col;
+    if (n.kind === 'scan') {
+      const tx = Math.round(n.tx * cw), ty2 = Math.round(n.ty * ch);
+      const x0 = Math.min(x, tx), y0 = Math.min(y, ty2), bw2 = Math.max(8 * u, Math.abs(tx - x)), bh2 = Math.max(8 * u, Math.abs(ty2 - y));
+      const close = live.on && live.L.type ? clamp(live.t / Math.max(0.05, live.L.typeDur || 0.35), 0, 1) : 1;
+      const sc = 1 + (1 - close) * 0.6, cxm = x0 + bw2 / 2, cym = y0 + bh2 / 2, hw = Math.round(bw2 / 2 * sc), hh = Math.round(bh2 / 2 * sc);
+      const Lc = Math.max(3 * u, Math.round(Math.min(hw, hh) * 0.45)), lx = Math.round(cxm - hw), ly = Math.round(cym - hh), rx = Math.round(cxm + hw), ry = Math.round(cym + hh);
+      ctx.fillRect(lx, ly, Lc, u); ctx.fillRect(lx, ly, u, Lc); ctx.fillRect(rx - Lc, ly, Lc, u); ctx.fillRect(rx - u, ly, u, Lc);
+      ctx.fillRect(lx, ry - u, Lc, u); ctx.fillRect(lx, ry - Lc, u, Lc); ctx.fillRect(rx - Lc, ry - u, Lc, u); ctx.fillRect(rx - u, ry - Lc, u, Lc);
+      if (live.on) { ctx.save(); ctx.globalAlpha *= 0.55; ctx.fillRect(lx, Math.min(ry - u, Math.round(ly + ((live.t * 2) % 1) * (ry - ly))), rx - lx, u); ctx.restore(); }
+      if (text) { drawText(ctx, text, lx, ly - 9 * q, q); cursor(lx, ly - 9 * q); }
+      hit({ type: 'note', i, part: 'text', x: Math.min(x, lx) - 3 * u, y: ly - 10 * q, w: Math.max(tw, 12 * u) + 6 * u, h: 10 * q + Lc, lx: x, ly: y });
+      hit({ type: 'note', i, part: 'target', x: tx - 6 * u, y: ty2 - 6 * u, w: 12 * u, h: 12 * u, lx: tx, ly: ty2 });
+      return;
+    }
+    if (prog <= 0) return;
     if (n.kind === 'box' || n.kind === 'plate') {
       bw = tw + 6 * q; bh = 11 * q;
       if (n.kind === 'plate') { ctx.fillRect(x, y, bw, bh); ctx.fillStyle = ink; }
       else { ctx.fillRect(x, y, bw, u); ctx.fillRect(x, y + bh - u, bw, u); ctx.fillRect(x, y, u, bh); ctx.fillRect(x + bw - u, y, u, bh); }
-      drawText(ctx, text, x + 3 * q, y + 2 * q, q); ctx.fillStyle = col;
+      drawText(ctx, text, x + 3 * q, y + 2 * q, q); cursor(x + 3 * q, y + 2 * q); ctx.fillStyle = col;
     } else if (n.kind === 'pointer') {
       bw = tw; bh = 9 * q + u;
-      drawText(ctx, text, x, y, q); ctx.fillRect(x, y + 9 * q, tw, u);
+      drawText(ctx, text, x, y, q); cursor(x, y); ctx.fillRect(x, y + 9 * q, Math.round(tw * prog), u);
       const tx = Math.round(n.tx * cw), ty2 = Math.round(n.ty * ch);
       const ax = clamp(tx, x, x + bw), ay = ty2 > y + bh ? y + bh : ty2 < y ? y - u : clamp(ty2, y, y + bh);
       const inside = tx >= x && tx <= x + bw && ty2 >= y && ty2 <= y + bh;
-      if (!inside) pxLine(ctx, ax, ay, tx, ty2, u);
+      if (!inside && prog >= 1) pxLine(ctx, ax, ay, tx, ty2, u);
       pxCircle(ctx, tx, ty2, 3, u, true); ctx.fillRect(tx - u, ty2 - u, 2 * u, 2 * u);
       hit({ type: 'note', i, part: 'text', x: x - 3 * u, y: y - 3 * u, w: bw + 6 * u, h: bh + 6 * u, lx: x, ly: y });
       hit({ type: 'note', i, part: 'target', x: tx - 6 * u, y: ty2 - 6 * u, w: 12 * u, h: 12 * u, lx: tx, ly: ty2 });
       return;
     } else {
       bw = 4 * q + tw; bh = 7 * q;
-      ctx.fillRect(x, y + 2 * q, 2 * q, 3 * q); drawText(ctx, text, x + 4 * q, y, q);
+      ctx.fillRect(x, y + 2 * q, 2 * q, 3 * q); drawText(ctx, text, x + 4 * q, y, q); cursor(x + 4 * q, y);
     }
     hit({ type: 'note', i, part: 'text', x: x - 3 * u, y: y - 3 * u, w: bw + 6 * u, h: bh + 6 * u, lx: x, ly: y });
   });
@@ -2260,6 +2368,8 @@ function renderDisplay() {
     b.drawImage(G.fish ? fishCv : workCv, 0, 0, beforeCv.width, beforeCv.height);
   }
   placeLamp();
+  if (KEYS_READY) placeEmitter();
+  $('#cycleInfo').textContent = !S.cycle.on ? '' : G.trueColor ? 'не работает с «Цвета оригинала»' : `в цикле ${G.cycleN || 0} цв.` + ((G.cycleN || 0) < 2 ? ' — расширьте выбор' : '');
   fillGifSizes();
   const ex = exportScale();
   const extra = [S.light.on ? 'свет' : '', fxActive() ? 'глитч' : ''].filter(Boolean).join(' + ');
@@ -2298,7 +2408,7 @@ function run() {
 /* ---------- привязка контролов ---------- */
 const FMT = {
   int: v => String(Math.round(v)), signed: v => (v > 0 ? '+' : '') + Math.round(v), pct: v => Math.round(v) + '%',
-  pct100: v => Math.round(v * 100) + '%', x2: v => (+v).toFixed(2), px: v => v + ' px', fps: v => v + ' к/с', px1: v => (+v).toFixed(2).replace(/\.?0+$/, '') + ' px'
+  pct100: v => Math.round(v * 100) + '%', x2: v => (+v).toFixed(2), px: v => v + ' px', fps: v => v + ' к/с', deg: v => Math.round(v) + '°', px1: v => (+v).toFixed(2).replace(/\.?0+$/, '') + ' px'
 };
 const RANGES = {};
 document.querySelectorAll('[data-r]').forEach(el => {
@@ -2358,6 +2468,14 @@ function syncUI() {
   $('#toPal').disabled = !fxActive() || S.palette.method === 'original';
   document.querySelectorAll('#caSeg button').forEach(b => { b.disabled = !(S.fx.ca > 0); });
   $('#methodHint').textContent = METHOD_HINT[S.pix.method];
+  document.querySelectorAll('#cycleSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.cm === S.cycle.mode)));
+  document.querySelectorAll('#partsSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.pt === S.parts.type)));
+  document.querySelectorAll('#secCycle input, #secCycle button').forEach(el => { if (el.id !== 'cycleCb') el.disabled = !S.cycle.on; });
+  if (S.cycle.on) { const hue = S.cycle.mode === 'hue'; $('#r-cycle-lo').disabled = hue; $('#r-cycle-hi').disabled = hue; $('#cycleColor').disabled = !hue; $('#r-cycle-tol').disabled = !hue; $('#r-cycle-dir').disabled = !(S.cycle.wave > 0); }
+  document.querySelectorAll('#secParts input, #secParts button').forEach(el => { if (el.id !== 'partsCb' && !el.closest('#partsSeg')) el.disabled = !S.parts.on; });
+  if (S.parts.on) { const em = S.parts.type === 'steam' || S.parts.type === 'sparks'; $('#r-parts-ex').disabled = !em; $('#r-parts-ey').disabled = !em; $('#r-parts-wind').disabled = S.parts.type === 'dust'; }
+  $('#partsHint').textContent = ({ rain: 'Косые капли с хвостом, наклон — ползунок «Ветер».', snow: 'Хлопья падают и покачиваются.', dust: 'Пылинки висят и мерцают — красиво в луче лампы.', steam: 'Пар поднимается от источника — голубой кружок на кадре, его можно тащить.', sparks: 'Искры летят из источника и падают — голубой кружок на кадре, его можно тащить.' })[S.parts.type] + ' Цикл замкнут: GIF и видео крутятся без шва. «В цветах палитры» берёт ближайший цвет палитры, чтобы частицы не выбивались из пиксель-арта.';
+  $('#r-shore-live-typeDur').disabled = !S.shore.live.type;
   $('#fishSel').disabled = !(S.fisheye > 0);
   $('#fishHint').textContent = !(S.fisheye > 0) ? 'Фишай искажает кадр до уменьшения, поэтому пиксели остаются ровными квадратами.'
     : S.fishMode === 'barrel' ? 'Бочка: углы на месте, центр раздувается, края кадра срезаются.'
@@ -2379,7 +2497,7 @@ function syncUI() {
     bursts: 'Почти чистая картинка, и в случайных кадрах — резкие срывы. Похоже на сбоящие очки.',
     roll: 'Полоса VHS проезжает сверху вниз за один цикл, строки дёргаются через кадр.',
     still: 'Глитч стоит на месте. Двигаются только ключи ползунков и REC.'
-  })[S.anim.mode] + ` Цикл ${sec.toFixed(1)} с.` + (!fxActive() && !(S.fx.grain > 0) && S.anim.mode !== 'roll' && !(KEYS_READY && tracks().length) ? ' Сейчас ни глитч, ни ключи не включены — двигаться будет только REC.' : '');
+  })[S.anim.mode] + ` Цикл ${sec.toFixed(1)} с.` + (!fxActive() && !(S.fx.grain > 0) && S.anim.mode !== 'roll' && !(KEYS_READY && tracks().length) && !S.cycle.on && !S.parts.on ? ' Сейчас ни глитч, ни ключи, ни бегущие цвета, ни частицы не включены — двигаться будет только интерфейс Shore.' : '');
   $('#seedInfo').textContent = 'вариант #' + S.fx.seed;
   $('#exp1080').textContent = S.aspect === '1:1' ? 'PNG 1080×1080' : 'PNG 1080×1920';
   $('#expGrid').textContent = `PNG сетка ${gridW()}×${gridH()}`;
@@ -2396,7 +2514,7 @@ function syncUI() {
     ? `Ширина прыгает по значениям, которые делят 1080 нацело: <b>${L.join(', ')}</b>. Высота ${S.aspect === '1:1' ? 'равна ширине' : '= ширина × 16/9'}: ${gridW()}×${gridH()}.`
     : `Любая ширина от 64 до 512. Сейчас сетка ${gridW()}×${gridH()}.`;
   // точки на вкладках, где что-то включено
-  const on = { light: S.light.on || S.glow.bloom > 0 || S.fog.amount > 0, fx: fxActive() || S.fx.grain > 0, shore: S.shore.on || (S.shore.notesOn && S.shore.notes.some(n => n.on && String(n.text).trim())) };
+  const on = { light: S.light.on || S.glow.bloom > 0 || S.fog.amount > 0, fx: fxActive() || S.fx.grain > 0 || S.cycle.on || S.parts.on, shore: S.shore.on || (S.shore.notesOn && S.shore.notes.some(n => n.on && String(n.text).trim())) };
   $('#noteAdd').disabled = S.shore.notes.length >= MAX_NOTES;
   document.querySelectorAll('.ptabs button').forEach(b => {
     const dot = b.querySelector('.dot'); const want = !!on[b.dataset.tab];
@@ -2459,6 +2577,7 @@ function setTab(t) {
   $('#panel').scrollTop = 0;
   if (t === 'src') requestAnimationFrame(drawCrop);
   placeLamp();
+  if (KEYS_READY) placeEmitter();
 }
 document.querySelector('.ptabs').addEventListener('click', e => { const b = e.target.closest('button[data-tab]'); if (b) setTab(b.dataset.tab); });
 $('#styles').innerHTML = STYLES.map(s => `<button data-style="${s.id}" aria-pressed="false">${s.name}</button>`).join('');
@@ -2830,7 +2949,7 @@ $('#tbPng').onclick = exportPng;
 $('#expGrid').onclick = () => { if (G.idx) gridCv.toBlob(b => saveBlob(b, `pixel3011_${G.W}x${G.H}.png`), 'image/png'); };
 
 /* ---------- пресеты (текст JSON, без localStorage) ---------- */
-const SAVE_KEYS = ['aspect', 'crop', 'pre', 'fisheye', 'fishMode', 'grid', 'pix', 'palette', 'dither', 'clean', 'outline', 'light', 'glow', 'fog', 'tone', 'tint', 'vignette', 'fx', 'anim', 'keys', 'shore'];
+const SAVE_KEYS = ['aspect', 'crop', 'pre', 'fisheye', 'fishMode', 'grid', 'pix', 'palette', 'dither', 'clean', 'outline', 'light', 'glow', 'fog', 'tone', 'tint', 'vignette', 'fx', 'anim', 'keys', 'cycle', 'parts', 'shore'];
 function presetText() {
   const settings = {}; for (const k of SAVE_KEYS) settings[k] = JSON.parse(JSON.stringify(S[k]));
   const o = { app: 'pixel-studio-3011', version: 2, settings, scene: $('#sceneText').value };
@@ -3294,7 +3413,8 @@ function restoreAfterFrames() {
 }
 function computeAnimFrame(i, n, pal, draw) {
   applyTimeline(i);
-  withFrame(animFrame(i, n), () => { computeFrom(frameLevel(), pal); draw(); });
+  ANIM_CTX = { i, n, fps: S.anim.fps };
+  try { withFrame(animFrame(i, n), () => { computeFrom(frameLevel(), pal); draw(); }); } finally { ANIM_CTX = null; }
 }
 function drawOut(ctx, sz, w, h, bg) {
   ctx.globalAlpha = 1;
@@ -3453,7 +3573,8 @@ async function exportVideo() {
         computeAnimFrame(i, n, pal, () => { cache[i] = { img: new ImageData(new Uint8ClampedArray(G.out), G.W, G.H), bg: hexOf(G.pal[G.darkest]) }; drawOut(c, sz, w, h, cache[i].bg); });
       } else {
         applyTimeline(i);
-        withFrame(animFrame(i, n), () => { gridCv.width = G.W; gridCv.height = G.H; gridCv.getContext('2d').putImageData(cache[i].img, 0, 0); drawOut(c, sz, w, h, cache[i].bg); });
+        ANIM_CTX = { i, n, fps };
+        try { withFrame(animFrame(i, n), () => { gridCv.width = G.W; gridCv.height = G.H; gridCv.getContext('2d').putImageData(cache[i].img, 0, 0); drawOut(c, sz, w, h, cache[i].bg); }); } finally { ANIM_CTX = null; }
       }
       const vf = new VideoFrame(cv, { timestamp: f * dur, duration: dur });
       enc.encode(vf, { keyFrame: f % Math.max(1, fps * 2) === 0 });
@@ -3478,6 +3599,245 @@ async function exportVideo() {
 $('#tbMp4').onclick = exportVideo; $('#vidBtn').onclick = exportVideo; $('#expVid').onclick = exportVideo;
 
 var KEYS_READY = true;
+
+/* ---------- кадр анимации, который сейчас рисуется ---------- */
+// ANIM_CTX задаётся при проигрывании и сборке GIF/видео; вне анимации кадр — бегунок таймлайна
+var ANIM_CTX = null;
+const frameCtx = () => ANIM_CTX || { i: TL.frame, n: nFrames(), fps: S.anim.fps, still: true };
+
+/* ---------- палитровая анимация (color cycling) ---------- */
+const cycleOn = () => S.cycle.on && !G.trueColor && G.idx && G.idx.length === G.W * G.H && G.pal.length > 1;
+function cycleRamp() {
+  const C = S.cycle, pal = G.pal, lum = pal.map(c => 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]);
+  let ids;
+  if (C.mode === 'hue') {
+    const t = parseColor(C.color) || [212, 192, 106], tl = new Float32Array(3), o = new Float32Array(3);
+    oklab(t[0], t[1], t[2], tl, 0);
+    ids = pal.map((c, i) => { oklab(clamp(Math.round(c[0]), 0, 255), clamp(Math.round(c[1]), 0, 255), clamp(Math.round(c[2]), 0, 255), o, 0); return [i, Math.hypot(o[0] - tl[0], o[1] - tl[1], o[2] - tl[2])]; })
+      .filter(([, d]) => d <= 0.04 + C.tol * 0.4).map(([i]) => i);
+  } else {
+    const lo = Math.min(C.lo, C.hi) * 255, hi = Math.max(C.lo, C.hi) * 255;
+    ids = pal.map((c, i) => i).filter(i => lum[i] >= lo && lum[i] <= hi);
+  }
+  return ids.sort((a, b) => lum[a] - lum[b]);
+}
+function applyCycle(px, W, H, fc) {
+  const ids = cycleRamp(), L = ids.length; G.cycleN = L;
+  if (L < 2) return;
+  const C = S.cycle, pos = new Int16Array(G.pal.length).fill(-1);
+  ids.forEach((id, k) => { pos[id] = k; });
+  const P = C.pingpong ? 2 * L - 2 : L;
+  const shift = fc.i / fc.n * P * Math.max(1, Math.round(C.cycles));
+  const a = C.dir * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a), wave = C.wave * P * 3 / Math.max(W, H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x, k = pos[G.idx[i]]; if (k < 0) continue;
+    let s = Math.floor(k + shift - (x * dx + y * dy) * wave); s = ((s % P) + P) % P;
+    if (C.pingpong && s >= L) s = P - s;
+    const c = G.pal[ids[s]], o = i * 4; px[o] = c[0]; px[o + 1] = c[1]; px[o + 2] = c[2];
+  }
+}
+
+/* ---------- частицы на сетке ---------- */
+const PART_COLORS = { rain: '#9fb3c8', snow: '#e8eef0', dust: '#efe0a6', steam: '#c9cdc7', sparks: '#ffc46b' };
+const PART_NAMES = { rain: 'дождь', snow: 'снег', dust: 'пыль', steam: 'пар', sparks: 'искры' };
+const B4 = bayer(4);
+function drawParticles(px, W, H, fc) {
+  const P = S.parts, t = fc.i / fc.n, r = rng(P.seed * 9973 + 17), TAU = Math.PI * 2;
+  let col = parseColor(P.color) || [201, 214, 224];
+  if (P.toPal && !G.trueColor && G.pal.length) {
+    let best = 0, bd = Infinity; G.pal.forEach((c, i) => { const d = dist(col[0], col[1], col[2], c[0], c[1], c[2]); if (d < bd) { bd = d; best = i; } });
+    col = G.pal[best];
+  }
+  const sz = clamp(Math.round(P.size), 1, 3), sp = P.speed, slope = Math.tan(clamp(P.wind, -60, 60) * Math.PI / 180);
+  const wrap = (v, m) => ((v % m) + m) % m;
+  const put = (x, y, a) => {
+    x = Math.round(x); y = Math.round(y);
+    for (let j = 0; j < sz; j++) for (let i = 0; i < sz; i++) {
+      const xx = x + i, yy = y + j; if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+      if (a < 1 && (B4[yy & 3][xx & 3] + 0.5) / 16 >= a) continue;
+      const o = (yy * W + xx) * 4; px[o] = col[0]; px[o + 1] = col[1]; px[o + 2] = col[2];
+    }
+  };
+  const ex = P.ex * W, ey = P.ey * H;
+  if (P.type === 'rain') {
+    const n = Math.round(P.amount * W * H / 55) + 1;
+    for (let k = 0; k < n; k++) {
+      const x0 = r() * W, y0 = r() * H, loops = 2 + Math.floor(r() * (1 + sp * 6)), len = 2 + Math.floor(r() * 3 + sp * 3);
+      const y = wrap(y0 + t * loops * H, H), x = wrap(x0 + y * slope, W);
+      for (let s = 0; s < len; s += sz) put(x - s * slope, y - s, s === 0 ? 1 : 0.7);
+    }
+  } else if (P.type === 'snow') {
+    const n = Math.round(P.amount * W * H / 90) + 1;
+    for (let k = 0; k < n; k++) {
+      const x0 = r() * W, y0 = r() * H, loops = 1 + Math.floor(r() * (1 + sp * 2)), m = 1 + Math.floor(r() * 2), A = 1 + r() * 3, ph = r();
+      const y = wrap(y0 + t * loops * H, H), x = wrap(x0 + A * Math.sin(TAU * (t * m + ph)) + y * slope, W);
+      put(x, y, r() < 0.3 ? 0.6 : 1);
+    }
+  } else if (P.type === 'dust') {
+    const n = Math.round(P.amount * W * H / 220) + 1;
+    for (let k = 0; k < n; k++) {
+      const x0 = r() * W, y0 = r() * H, R = 2 + r() * 6 * (0.5 + sp), m1 = 1 + Math.floor(r() * 2), m2 = 1 + Math.floor(r() * 2), m3 = 1 + Math.floor(r() * 3), p1 = r(), p2 = r(), p3 = r();
+      const x = x0 + R * Math.sin(TAU * (t * m1 + p1)), y = y0 + R * 0.6 * Math.sin(TAU * (t * m2 + p2));
+      put(x, y, 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(TAU * (t * m3 + p3))));
+    }
+  } else if (P.type === 'steam') {
+    const n = Math.round(6 + P.amount * 46);
+    for (let k = 0; k < n; k++) {
+      const ph = r(), loops = 1 + Math.floor(r() * (1 + sp * 2)), w2 = r(), jit = (r() - 0.5) * 2;
+      const s = wrap(t * loops + ph, 1);
+      const y = ey - s * H * 0.35, x = ex + Math.sin(TAU * (s * 1.5 + w2)) * s * W * 0.06 + jit + s * H * 0.35 * slope;
+      put(x, y, (1 - s) * 0.95);
+      if (s > 0.35) put(x + (r() < 0.5 ? 1 : -1), y, (1 - s) * 0.6);
+    }
+  } else if (P.type === 'sparks') {
+    const n = Math.round(8 + P.amount * 64);
+    for (let k = 0; k < n; k++) {
+      const ph = r(), loops = 1 + Math.floor(r() * (2 + sp * 3)), life = 0.3 + r() * 0.45, vx = (r() - 0.5) * W * 0.28, vy = -(0.15 + r() * 0.35) * H * 0.3;
+      const s = wrap(t * loops + ph, 1); if (s > life) continue;
+      const u = s / life, g = H * 0.32;
+      const x = ex + vx * u + slope * u * H * 0.1, y = ey + vy * u + g * u * u;
+      put(x, y, 1);
+      put(x - vx * 0.03, y - (vy + 2 * g * u) * 0.03, 0.6);
+    }
+  }
+}
+
+/* ---------- живой интерфейс Shore: что меняется от кадра к кадру ---------- */
+function shoreLive(ctx, cw, ch, u) {
+  const L = S.shore.live || {}, ac = ANIM_CTX;
+  const out = { on: !!ac, t: ac ? ac.i / ac.n : 0, blink: ac ? Math.floor(ac.i / ac.fps * 3) % 2 === 0 : true, ac, L };
+  if (ac && L.glitch > 0) {
+    const h = hash2(ac.i, 77, S.fx.seed), h2 = hash2(ac.i, 78, S.fx.seed);
+    if (h < L.glitch * 0.35) {
+      if (h2 < 0.5) ctx.translate(Math.round((hash2(ac.i, 79, S.fx.seed) - 0.5) * cw * 0.05 / u) * u, 0);
+      else ctx.globalAlpha = 0.3 + h2 * 0.4;
+      out.glitched = true;
+    }
+  }
+  return out;
+}
+function liveTime(t, live) {
+  const L = live.L;
+  if (!live.on || !L.secs || !/^\d{1,2}:\d{2}$/.test(t)) return t;
+  return t + ':' + String(Math.floor(live.ac.i / live.ac.fps) % 60).padStart(2, '0');
+}
+// сколько букв аннотации уже «напечатано» (1 = вся)
+function liveType(k, live) {
+  if (!live.on || !live.L.type) return 1;
+  const dur = Math.max(0.05, live.L.typeDur || 0.35), delay = k * 0.12;
+  return clamp((live.t - delay) / dur, 0, 1);
+}
+
+/* ---------- «Варианты»: 9 мини-превью с разными луками ---------- */
+const VAR = { list: [], busy: false, bold: true, seed: 1 };
+const PAL_NAMES = { gnet: '«гнёт»', fog: '«туман»', night: '«ночь»', kmeans: 'k-means', median: 'медиана', custom: 'ручная', original: 'оригинал' };
+const DITHER_NAMES = { none: 'без дизеринга', bayer2: 'Байер 2', bayer4: 'Байер 4', bayer8: 'Байер 8', fs: 'Флойд–Стейнберг', atkinson: 'Аткинсон' };
+const styleSnapshot = () => JSON.parse(JSON.stringify(Object.fromEntries(STYLE_KEYS.map(k => [k, S[k]]))));
+function makeVariant(base, r, bold) {
+  const v = JSON.parse(JSON.stringify(base)), pick = a => a[Math.floor(r() * a.length)];
+  const ch = p => r() < (bold ? p : p * 0.35);
+  const nudge = (x, a, lo, hi) => +clamp(x + (r() - 0.5) * a, lo, hi).toFixed(2);
+  const hsl = (h, s, l) => { const c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = l - c / 2; const [a, b, d] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x]; return hexOf([(a + m) * 255, (b + m) * 255, (d + m) * 255]); };
+  if (v.palette.method !== 'original' && ch(0.8)) { v.palette.method = pick(['gnet', 'gnet', 'fog', 'night', 'kmeans', 'kmeans', 'median']); v.palette.colors = pick([8, 12, 16, 22, 32]); }
+  if (v.palette.method !== 'original' && ch(0.7)) { v.dither.type = pick(['none', 'bayer2', 'bayer4', 'bayer4', 'bayer8', 'fs', 'atkinson']); v.dither.strength = +(0.15 + r() * 0.6).toFixed(2); }
+  else v.dither.strength = nudge(v.dither.strength, 0.2, 0, 1);
+  if (ch(0.35)) v.pix.method = pick(['avg', 'dominant', 'detail', 'center']);
+  if (ch(0.4)) { v.pix.look = pick(['none', 'none', 'grid', 'scan', 'led']); v.pix.lookStrength = +(0.3 + r() * 0.5).toFixed(2); }
+  v.tint = bold ? +(r() * 0.55).toFixed(2) : nudge(v.tint, 0.2, 0, 1);
+  v.vignette = bold ? +(0.1 + r() * 0.6).toFixed(2) : nudge(v.vignette, 0.2, 0, 1);
+  if (ch(0.5)) { v.tone.shadows = hsl(190 + r() * 70, 0.5, 0.3); v.tone.shadowsAmt = +(r() * 0.6).toFixed(2); v.tone.highlights = hsl(25 + r() * 40, 0.6, 0.7); v.tone.highlightsAmt = +(r() * 0.5).toFixed(2); }
+  if (ch(0.45)) {
+    v.light.on = r() < 0.6;
+    if (v.light.on) Object.assign(v.light, { x: +(0.1 + r() * 0.8).toFixed(2), y: +(0.1 + r() * 0.6).toFixed(2), color: pick(['#ffc46b', '#f2d589', '#9fc3ff', '#ff8a5c', '#c7f0d8']), power: +(0.8 + r() * 1.2).toFixed(2), radius: +(0.4 + r() * 1).toFixed(2), ambient: +(0.3 + r() * 0.5).toFixed(2), rays: r() < 0.5 ? +(0.3 + r() * 0.5).toFixed(2) : 0 });
+  } else if (v.light.on) { v.light.x = nudge(v.light.x, 0.2, -0.2, 1.2); v.light.y = nudge(v.light.y, 0.2, -0.2, 1.2); }
+  if (ch(0.3)) v.fog.amount = r() < 0.5 ? 0 : +(0.2 + r() * 0.4).toFixed(2);
+  if (ch(0.45)) { v.fx.ca = r() < 0.5 ? 0 : pick([1, 1.5, 2, 3]); v.fx.caMode = pick(['radial', 'horizontal', 'diagonal']); }
+  if (ch(0.35)) { v.fx.shift = r() < 0.5 ? 0 : +(r() * 0.4).toFixed(2); v.fx.bands = r() < 0.6 ? 0 : +(r() * 0.4).toFixed(2); v.fx.vhs = r() < 0.6 ? 0 : +(0.2 + r() * 0.4).toFixed(2); v.fx.grain = +(r() * 0.3).toFixed(2); v.fx.seed = 1 + Math.floor(r() * 9998); }
+  return v;
+}
+function variantCaption(v) {
+  const p = [PAL_NAMES[v.palette.method] || v.palette.method];
+  if (v.palette.method !== 'original') p.push(DITHER_NAMES[v.dither.type] || v.dither.type);
+  if (v.light.on) p.push('лампа');
+  if (v.fog.amount > 0) p.push('дымка');
+  if (v.fx.ca > 0 || v.fx.shift > 0 || v.fx.vhs > 0 || v.fx.bands > 0) p.push('глитч');
+  if (v.pix.look !== 'none') p.push({ grid: 'швы', scan: 'скан-линии', led: 'LED' }[v.pix.look]);
+  return p.join(' · ');
+}
+async function showVariants(base, label) {
+  if (VAR.busy || gifJob || vidJob) return;
+  stopPreview();
+  VAR.busy = true;
+  const modal = $('#varModal'), grid = $('#varGrid');
+  modal.hidden = false;
+  $('#varTitle').textContent = label || 'Варианты';
+  const r = rng(++VAR.seed * 7919 + (Date.now() & 0xffff));
+  VAR.list = [base].concat(Array.from({ length: 9 }, () => makeVariant(base, r, VAR.bold)));
+  grid.innerHTML = VAR.list.map((v, k) => `<div class="vtile"><button class="vpick" data-v="${k}" aria-label="Применить вариант ${k + 1}"><canvas width="10" height="10"></canvas><span>${k === 0 ? 'исходный · ' : ''}${variantCaption(v)}</span></button><button class="btn small vnear" data-v="${k}">Похожие</button></div>`).join('');
+  const keep = styleSnapshot(), keepGrid = { ...S.grid };
+  HIST.lock = true;
+  try {
+    S.grid.snap = false; S.grid.width = Math.min(keepGrid.width, 120);
+    buildWork();
+    const canv = grid.querySelectorAll('canvas');
+    for (let k = 0; k < VAR.list.length; k++) {
+      const v = VAR.list[k];
+      for (const key of STYLE_KEYS) S[key] = JSON.parse(JSON.stringify(v[key]));
+      buildBase(); quantize(); applyEffects();
+      const c = canv[k], s = Math.max(1, Math.floor(240 / G.W));
+      c.width = G.W * s; c.height = G.H * s;
+      const x = c.getContext('2d'); x.imageSmoothingEnabled = false; x.drawImage(gridCv, 0, 0, c.width, c.height);
+      await new Promise(res => requestAnimationFrame(res));
+      if (modal.hidden) break;
+    }
+  } catch (e) { console.error(e); toast('Не удалось собрать варианты: ' + e.message, true); }
+  finally {
+    for (const key of STYLE_KEYS) S[key] = keep[key];
+    S.grid = keepGrid;
+    HIST.lock = false; VAR.busy = false;
+    syncUI(); invalidate('A');
+  }
+}
+function applyVariant(k) {
+  const v = VAR.list[k]; if (!v || VAR.busy) return;
+  for (const key of STYLE_KEYS) S[key] = JSON.parse(JSON.stringify(v[key]));
+  S.style = ''; applyTimeline(TL.frame);
+  $('#varModal').hidden = true;
+  syncUI(); invalidate('B');
+  toast('Вариант применён: ' + variantCaption(v) + '. Отменить — Ctrl+Z.');
+}
+const openVariants = () => showVariants(styleSnapshot(), 'Варианты');
+$('#varBtn').onclick = openVariants;
+$('#varMore').onclick = () => showVariants(VAR.list[0] || styleSnapshot(), $('#varTitle').textContent);
+$('#varClose').onclick = () => { $('#varModal').hidden = true; };
+$('#varModal').addEventListener('click', e => {
+  if (e.target.id === 'varModal') { $('#varModal').hidden = true; return; }
+  const near = e.target.closest('.vnear'); if (near) { showVariants(VAR.list[+near.dataset.v], 'Похожие на вариант ' + (+near.dataset.v + 1)); return; }
+  const p = e.target.closest('.vpick'); if (p) applyVariant(+p.dataset.v);
+});
+$('#varMode').addEventListener('click', e => { const b = e.target.closest('button[data-vm]'); if (!b) return; VAR.bold = b.dataset.vm === 'bold'; document.querySelectorAll('#varMode button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); });
+
+/* ---------- элементы управления палитровой анимацией и частицами ---------- */
+$('#cycleSeg').addEventListener('click', e => { const b = e.target.closest('button[data-cm]'); if (!b) return; S.cycle.mode = b.dataset.cm; syncUI(); invalidate('E'); });
+$('#partsSeg').addEventListener('click', e => { const b = e.target.closest('button[data-pt]'); if (!b) return; S.parts.type = b.dataset.pt; S.parts.color = PART_COLORS[b.dataset.pt]; S.parts.on = true; syncUI(); invalidate('E'); });
+$('#partsSeed').onclick = () => { S.parts.seed = 1 + Math.floor(Math.random() * 9998); invalidate('E'); };
+const emitterEl = $('#emitter');
+function placeEmitter() {
+  const show = activeTab === 'fx' && S.parts.on && (S.parts.type === 'steam' || S.parts.type === 'sparks') && G.W > 0;
+  emitterEl.hidden = !show;
+  if (show) { emitterEl.style.left = S.parts.ex * 100 + '%'; emitterEl.style.top = S.parts.ey * 100 + '%'; }
+}
+(() => {
+  let on = false;
+  const setP = e => { const r = frameEl.getBoundingClientRect(); userSet('parts.ex', quant('parts.ex', (e.clientX - r.left) / r.width)); userSet('parts.ey', quant('parts.ey', (e.clientY - r.top) / r.height)); placeEmitter(); invalidate('E'); };
+  emitterEl.addEventListener('pointerdown', e => { on = true; emitterEl.setPointerCapture(e.pointerId); e.stopPropagation(); e.preventDefault(); });
+  emitterEl.addEventListener('pointermove', e => { if (on) setP(e); });
+  emitterEl.addEventListener('pointerup', () => { on = false; syncUI(); });
+  emitterEl.addEventListener('keydown', e => {
+    const d = { ArrowLeft: [-0.02, 0], ArrowRight: [0.02, 0], ArrowUp: [0, -0.02], ArrowDown: [0, 0.02] }[e.key]; if (!d) return; e.preventDefault();
+    userSet('parts.ex', quant('parts.ex', S.parts.ex + d[0])); userSet('parts.ey', quant('parts.ey', S.parts.ey + d[1])); placeEmitter(); syncUI(); invalidate('E');
+  });
+})();
 
 /* ---------- масштаб, перемещение, пипетка ---------- */
 const KSTEPS = [1, 2, 3, 4, 5, 6, 8, 10, 12, 16, 20, 24, 32, 40, 48];
@@ -3628,8 +3988,8 @@ window.addEventListener('keydown', e => {
   const t = e.target, tag = (t.tagName || '').toLowerCase();
   const typing = tag === 'textarea' || tag === 'select' || t.isContentEditable || (tag === 'input' && !['range', 'checkbox', 'color', 'button', 'file'].includes(t.type));
   const mod = e.ctrlKey || e.metaKey, k = e.key.toLowerCase();
-  if (e.key === 'Escape') { if (!$('#busy').hidden) { if (gifJob) gifJob.cancel = true; if (vidJob) vidJob.cancel = true; return; } if (!$('#helpModal').hidden) toggleHelp(false); if (!$('#saveModal').hidden) $('#saveModal').hidden = true; if (anim.on) stopPreview(); return; }
-  if (!$('#helpModal').hidden || !$('#saveModal').hidden || !$('#busy').hidden) return;
+  if (e.key === 'Escape') { if (!$('#busy').hidden) { if (gifJob) gifJob.cancel = true; if (vidJob) vidJob.cancel = true; return; } if (!$('#varModal').hidden) { $('#varModal').hidden = true; return; } if (!$('#helpModal').hidden) toggleHelp(false); if (!$('#saveModal').hidden) $('#saveModal').hidden = true; if (anim.on) stopPreview(); return; }
+  if (!$('#helpModal').hidden || !$('#saveModal').hidden || !$('#busy').hidden || !$('#varModal').hidden) return;
   if (mod) {
     if (k === 'z' && !typing) { e.preventDefault(); histGo(e.shiftKey ? 1 : -1); }
     else if (k === 'y' && !typing) { e.preventDefault(); histGo(1); }
@@ -3650,7 +4010,7 @@ window.addEventListener('keydown', e => {
     l: () => { S.light.on = !S.light.on; S.style = ''; syncUI(); invalidate('C'); toast(S.light.on ? 'Лампа включена.' : 'Лампа выключена.'); },
     h: () => { S.shore.on = !S.shore.on; syncUI(); invalidate('D'); },
     '0': () => $('#zoomFit').click(), '=': () => zoomStep(1), '+': () => zoomStep(1), '-': () => zoomStep(-1), '_': () => zoomStep(-1),
-    '[': () => stepGrid(-1), ']': () => stepGrid(1), ',': () => setPlayhead(TL.frame - 1), '.': () => setPlayhead(TL.frame + 1), 'Home': () => setPlayhead(0), 'End': () => setPlayhead(nFrames() - 1),
+    '[': () => stepGrid(-1), ']': () => stepGrid(1), v: () => openVariants(), 'м': () => openVariants(), ',': () => setPlayhead(TL.frame - 1), '.': () => setPlayhead(TL.frame + 1), 'Home': () => setPlayhead(0), 'End': () => setPlayhead(nFrames() - 1),
     'б': () => setPlayhead(TL.frame - 1), 'ю': () => setPlayhead(TL.frame + 1), '?': () => toggleHelp($('#helpModal').hidden), '/': () => toggleHelp($('#helpModal').hidden)
   }[e.key] || { 'с': () => $('#cmpBtn').click(), 'з': togglePreview, 'к': () => $('#reseedBtn').click(), 'д': () => act_l(), 'р': () => { S.shore.on = !S.shore.on; syncUI(); invalidate('D'); } }[k];
   if (act) { e.preventDefault(); act(); }

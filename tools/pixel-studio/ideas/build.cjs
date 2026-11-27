@@ -118,6 +118,7 @@ const EXCLUDED = [
   ['Нейросетевая карта глубины для фото', 'Модели вроде Depth Anything слишком тяжёлые для страницы. Для фото — глубина по яркости и ручной кисти.']
 ];
 const FIRST = ['shoreanim', 'cycle', 'particles', 'variants', 'gradmap', 'palettes', 'clpalette'];
+const DONE = new Set(['shoreanim', 'cycle', 'particles', 'variants']);
 
 const value = i => +(i.impact / COST[i.cost].w).toFixed(2);
 const stars = n => '●'.repeat(n) + '○'.repeat(5 - n);
@@ -125,9 +126,9 @@ const stars = n => '●'.repeat(n) + '○'.repeat(5 - n);
 // ---------- Markdown ----------
 let md = `# Идеи для «Пиксельной студии 3011»\n\nИсследование похожих программ: Aseprite, Pixelorama, PixelOver, Pixel Composer, Dither Boy, PhotoMosh и мобильные глитч-приложения, CRT-шейдеры, Laigter, Lospec, палитровая анимация Марка Феррари, ИИ-генераторы. Ниже — что из этого стоит перенести к нам.\n\n`;
 md += `**Затраты:** ${Object.values(COST).map(c => c.t).join('; ')}.  \n**Сложность** и **польза** — от 1 до 5. **Выгода** = польза ÷ вес затрат (S=1, M=2, L=3, XL=5).\n\n`;
-md += `## С чего начать\n\n${FIRST.map((id, n) => { const i = IDEAS.find(x => x.id === id); return `${n + 1}. **${i.title}** — ${i.gives}`; }).join('\n')}\n\n`;
+md += `## С чего начать\n\n${FIRST.map((id, n) => { const i = IDEAS.find(x => x.id === id); return `${n + 1}. ${DONE.has(id) ? '✅ ' : ''}**${i.title}** — ${i.gives}`; }).join('\n')}\n\n`;
 md += `## Все идеи\n\n| Идея | Раздел | Затраты | Сложность | Польза | Выгода |\n| --- | --- | --- | --- | --- | --- |\n`;
-for (const i of [...IDEAS].sort((a, b) => value(b) - value(a) || b.impact - a.impact)) md += `| ${i.title} | ${CATS[i.cat]} | ${i.cost} | ${i.diff}/5 | ${i.impact}/5 | ${value(i)} |\n`;
+for (const i of [...IDEAS].sort((a, b) => value(b) - value(a) || b.impact - a.impact)) md += `| ${DONE.has(i.id) ? '✅ ' : ''}${i.title} | ${CATS[i.cat]} | ${i.cost} | ${i.diff}/5 | ${i.impact}/5 | ${value(i)} |\n`;
 md += `\n## Подробно\n`;
 for (const [k, v] of Object.entries(CATS)) {
   const list = IDEAS.filter(i => i.cat === k); if (!list.length) continue;
@@ -139,7 +140,7 @@ fs.writeFileSync(path.join(__dirname, '..', 'IDEAS.md'), md);
 
 // ---------- HTML ----------
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-const data = IDEAS.map(i => ({ ...i, value: value(i), srcs: i.src.map(s => SRC[s]) }));
+const data = IDEAS.map(i => ({ ...i, done: DONE.has(i.id), value: value(i), srcs: i.src.map(s => SRC[s]) }));
 const html = `<title>Идеи для студии 3011</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -170,6 +171,8 @@ h2{font:600 13px/1 var(--f-body);text-transform:uppercase;letter-spacing:.08em;c
 .card p{margin:0;font-size:13.5px;color:var(--muted)}
 .meta{display:flex;flex-wrap:wrap;gap:6px;font:12px var(--f-mono)}
 .pill{padding:2px 7px;border-radius:5px;background:var(--raise);border:1px solid var(--line-2);white-space:nowrap}
+.pill.okp{color:var(--bg);background:var(--accent);border-color:transparent;font-size:11px;vertical-align:2px}
+.card.done{border-color:var(--accent)}
 .pill.c-S{color:var(--accent)} .pill.c-M{color:var(--fg)} .pill.c-L{color:var(--warm)} .pill.c-XL{color:#e07a62}
 .bar{display:inline-flex;gap:2px;vertical-align:middle}
 .bar i{width:7px;height:7px;border-radius:2px;background:var(--line-2)}
@@ -203,7 +206,7 @@ select{background:var(--bg);color:var(--fg);border:1px solid var(--line-2);borde
 <div class="wrap">
   <header>
     <h1>Идеи для <b>Пиксельной студии 3011</b></h1>
-    <p class="lead">Посмотрел, как устроены Aseprite, Pixelorama, PixelOver, Pixel Composer, Dither Boy, PhotoMosh и мобильные глитч-приложения, CRT-шейдеры, Laigter, Lospec и палитровая анимация Марка Феррари. Здесь — ${IDEAS.length} идей, которые стоит перенести к нам, с оценкой затрат, сложности и пользы.</p>
+    <p class="lead">Посмотрел, как устроены Aseprite, Pixelorama, PixelOver, Pixel Composer, Dither Boy, PhotoMosh и мобильные глитч-приложения, CRT-шейдеры, Laigter, Lospec и палитровая анимация Марка Феррари. Здесь — ${IDEAS.length} идей, которые стоит перенести к нам, с оценкой затрат, сложности и пользы. Сделано: ${DONE.size}.</p>
     <div class="legend">
       <span><b>Затраты:</b> S — полдня · M — одна итерация, как «ключи + MP4» · L — две · XL — три и больше</span>
       <span><b>Сложность</b> <span class="bar dif"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></span> и <b>польза</b> <span class="bar imp"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span> — от 1 до 5</span>
@@ -213,7 +216,7 @@ select{background:var(--bg);color:var(--fg);border:1px solid var(--line-2);borde
 
   <section>
     <h2>С чего начать</h2>
-    <div class="first">${FIRST.map(id => { const i = IDEAS.find(x => x.id === id); return `<article class="card"><h3>${esc(i.title)}</h3><p>${esc(i.gives)}</p><div class="meta"><span class="pill c-${i.cost}">затраты ${i.cost}</span><span class="pill">сложность ${i.diff}/5</span><span class="pill">польза ${i.impact}/5</span></div></article>`; }).join('')}</div>
+    <div class="first">${FIRST.map(id => { const i = IDEAS.find(x => x.id === id); return `<article class="card${DONE.has(id) ? ' done' : ''}"><h3>${esc(i.title)}${DONE.has(id) ? ' <span class="pill okp">сделано</span>' : ''}</h3><p>${esc(i.gives)}</p><div class="meta"><span class="pill c-${i.cost}">затраты ${i.cost}</span><span class="pill">сложность ${i.diff}/5</span><span class="pill">польза ${i.impact}/5</span></div></article>`; }).join('')}</div>
   </section>
 
   <section>
@@ -251,7 +254,7 @@ function render() {
     sort === 'cost' ? W[a.cost] - W[b.cost] || b.impact - a.impact :
     sort === 'diff' ? a.diff - b.diff || b.impact - a.impact :
     b.value - a.value || b.impact - a.impact);
-  document.getElementById('list').innerHTML = list.map(i => '<details class="idea"><summary><span class="ttl">' + esc(i.title) + '<small>' + esc(CATS[i.cat]) + '</small></span>' +
+  document.getElementById('list').innerHTML = list.map(i => '<details class="idea"><summary><span class="ttl">' + esc(i.title) + (i.done ? ' <span class="pill okp">сделано</span>' : '') + '<small>' + esc(CATS[i.cat]) + '</small></span>' +
     '<span class="scores"><span class="pill c-' + i.cost + '">' + i.cost + '</span><span>сложность ' + bar(i.diff, 'dif') + '</span><span>польза ' + bar(i.impact, 'imp') + '</span><span>выгода <b>' + i.value.toString().replace('.', ',') + '</b></span></span></summary>' +
     '<div class="body"><p><b>Что это.</b> ' + esc(i.what) + '</p><p><b>Что даст.</b> ' + esc(i.gives) + '</p>' +
     (i.srcs.length ? '<p><b>Где видели.</b> ' + i.srcs.map(s => '<a href="' + esc(s[1]) + '" target="_blank" rel="noopener">' + esc(s[0]) + '</a>').join(', ') + '</p>' : '') + '</div></details>').join('');

@@ -590,6 +590,87 @@ async function makeFixtures(browser) {
     await p.evaluate(() => { S.keys = {}; keysChanged(); }); await setS(p, s => { s.fx.shift = 0; s.fx.vhs = 0; s.fx.ca = 0; s.light.on = false; s.palette.method = 'gnet'; s.palette.colors = 22; }, 'C');
   }
 
+  if (want('живое') || want('частиц') || want('вариант')) {
+    section('16а. Частицы, бегущие цвета, живой Shore, варианты');
+    const frameHash = (i, n = 16) => p.evaluate(([i, n]) => { ANIM_CTX = { i, n, fps: 10 }; try { applyEffects(); } finally { ANIM_CTX = null; } let a = 2166136261; for (let k = 0; k < G.out.length; k += 3) a = Math.imul(a ^ G.out[k], 16777619); return a >>> 0; }, [i, n]);
+    await tab(p, 'fx');
+    await check('частицы: пять видов рисуются, кадры меняются, цикл замкнут', async () => {
+      const res = [];
+      for (const t of ['rain', 'snow', 'dust', 'steam', 'sparks']) {
+        await p.click(`#partsSeg button[data-pt="${t}"]`); await settle(p);
+        const off = await p.evaluate(() => { S.parts.on = false; applyEffects(); const h = G.out.slice(); S.parts.on = true; return Array.from(h.slice(0, 0)); });
+        const a0 = await frameHash(0), a5 = await frameHash(5), aN = await frameHash(16);
+        ok(a0 !== a5, t + ': кадры не меняются'); eq(aN, a0, t + ': кадр 16 не совпал с кадром 0'); res.push(t); void off;
+      }
+      return res.join(', ');
+    });
+    await check('частицы «в цветах палитры» не выходят из палитры', async () => { await setP(p, { parts: { on: true, type: 'snow', toPal: true, amount: 1 }, fx: { ca: 0, shift: 0, bands: 0, blocks: 0, sort: 0, vhs: 0, dead: 0, toPalette: false } }, 'E'); const pal = await palKeys(p); const cols = await gridColors(p); ok(cols.every(c => pal.includes(c)), 'есть цвета вне палитры'); });
+    await check('источник частиц виден только для пара и искр и тянется мышью', async () => {
+      await p.click('#partsSeg button[data-pt="snow"]'); await settle(p); ok(!await p.isVisible('#emitter'), 'виден для снега');
+      await p.click('#partsSeg button[data-pt="steam"]'); await settle(p); ok(await p.isVisible('#emitter'), 'не виден для пара');
+      const b = await p.locator('#emitter').boundingBox(), x0 = await p.evaluate(() => S.parts.ex);
+      await p.mouse.move(b.x + 13, b.y + 13); await p.mouse.down(); await p.mouse.move(b.x - 60, b.y - 40, { steps: 4 }); await p.mouse.up(); await settle(p);
+      ok(await p.evaluate(() => S.parts.ex) < x0); await tab(p, 'pix'); ok(!await p.isVisible('#emitter'), 'виден на другой вкладке'); await tab(p, 'fx');
+    });
+    await check('частицы выключены — их ползунки заблокированы', async () => { await p.uncheck('#partsCb'); await settle(p); eq(await p.evaluate(() => ['#r-parts-amount', '#partsColor', '#partsSeed'].map(s => $(s).disabled)), [true, true, true]); });
+    await check('бегущие цвета: считаются цвета, кадры меняются, цикл замкнут, цвета из палитры', async () => {
+      await p.check('#cycleCb'); await settle(p);
+      ok(/в цикле \d+ цв/.test(await p.textContent('#cycleInfo')), await p.textContent('#cycleInfo'));
+      const a0 = await frameHash(0), a3 = await frameHash(3), aN = await frameHash(16);
+      ok(a0 !== a3, 'кадры не меняются'); eq(aN, a0, 'цикл не замкнут');
+      const pal = await palKeys(p); ok((await gridColors(p)).every(c => pal.includes(c)), 'цвета вне палитры');
+    });
+    await check('бегущие цвета: режим «похожие на цвет», туда-обратно, несколько оборотов', async () => {
+      await p.click('#cycleSeg button[data-cm="hue"]'); await settle(p); ok(!await p.$eval('#cycleColor', e => e.disabled)); ok(await p.$eval('#r-cycle-lo', e => e.disabled));
+      await p.check('#cyclePP'); await slide(p, 'r-cycle-cycles', 3); eq(await frameHash(16), await frameHash(0), 'цикл не замкнут с туда-обратно');
+      await p.click('#cycleSeg button[data-cm="band"]'); await p.uncheck('#cyclePP'); await slide(p, 'r-cycle-cycles', 1);
+    });
+    await check('бегущие цвета не работают с «Цвета оригинала» и честно об этом пишут', async () => { await setP(p, { palette: { method: 'original' } }, 'C'); ok(/оригинала/.test(await p.textContent('#cycleInfo'))); await setP(p, { palette: { method: 'gnet' }, cycle: { on: false } }, 'C'); });
+    await tab(p, 'shore');
+    await check('живой Shore: на неподвижной картинке интерфейс целиком, в анимации — печатается', async () => {
+      const draw = (i) => p.evaluate(i => { const c = document.createElement('canvas'); c.width = 540; c.height = 960; const x = c.getContext('2d'); if (i != null) ANIM_CTX = { i, n: 16, fps: 10 }; try { drawShore(x, 540, 960, null); } finally { ANIM_CTX = null; } const d = x.getImageData(0, 0, 540, 960).data; let n = 0; for (let k = 3; k < d.length; k += 4) if (d[k]) n++; return n; }, i);
+      const still = await draw(null), f0 = await draw(0), f15 = await draw(15);
+      ok(f0 < still, `кадр 0 не пустее неподвижного (${f0} / ${still})`); ok(f15 >= still * 0.9, `к концу текст не допечатан (${f15} / ${still})`);
+    });
+    await check('бегущие секунды и всплывающее уведомление', async () => { eq(await p.evaluate(() => { const live = { on: true, ac: { i: 25, n: 40, fps: 10 }, L: S.shore.live }; return liveTime('03:11', live); }), '03:11:02'); await p.uncheck('#liveSecs'); eq(await p.evaluate(() => liveTime('03:11', { on: true, ac: { i: 25, n: 40, fps: 10 }, L: S.shore.live })), '03:11'); await p.check('#liveSecs'); });
+    await check('аннотация «прицел»: рисуется, второй угол тянется', async () => {
+      await p.evaluate(() => { S.shore.notes = [{ text: 'ОБЪЕКТ', kind: 'scan', x: 0.3, y: 0.4, tx: 0.6, ty: 0.6, size: 1, on: true }]; renderNotes(); invalidate('D'); }); await settle(p);
+      const pt = await p.evaluate(() => { const h = shoreHits.find(x => x.type === 'note' && x.part === 'target'); const r = afterCv.getBoundingClientRect(); return { x: r.left + (h.x + h.w / 2) * r.width / afterCv.width, y: r.top + (h.y + h.h / 2) * r.height / afterCv.height }; });
+      await p.mouse.move(pt.x, pt.y); await p.mouse.down(); await p.mouse.move(pt.x + 40, pt.y + 40, { steps: 4 }); await p.mouse.up(); await settle(p);
+      const n = await p.evaluate(() => S.shore.notes[0]); ok(n.tx > 0.6 && n.ty > 0.6, JSON.stringify(n)); eq(await p.$eval('.noterow .n-kind', e => e.value), 'scan');
+      await setS(p, s => { s.shore = JSON.parse(JSON.stringify(DEFAULTS.shore)); }, 'D'); await p.evaluate(() => renderNotes());
+    });
+    await check('«Варианты»: 10 плиток, первая — текущий лук, состояние после закрытия не меняется', async () => {
+      const s0 = await p.evaluate(() => snapState());
+      await p.locator('#info').click(); await p.keyboard.press('v'); await p.waitForFunction(() => !$('#varModal').hidden && !VAR.busy, null, { timeout: 30000 });
+      eq(await p.$$eval('.vpick', x => x.length), 10); ok(/исходный/.test(await p.textContent('.vpick[data-v="0"] span')));
+      await p.keyboard.press('Escape'); await settle(p); ok(await p.evaluate(() => $('#varModal').hidden)); eq(await p.evaluate(() => snapState()), s0, 'состояние изменилось без выбора');
+    });
+    await check('«Варианты»: щелчок применяет, Ctrl+Z возвращает, кадр, сетка и Shore не трогаются', async () => {
+      await setS(p, s => { s.grid.width = 135; s.crop.zoom = 1.7; s.shore.time = '09:09'; }, 'A'); await p.waitForTimeout(500);
+      const s0 = await p.evaluate(() => snapState());
+      await p.click('#varBtn'); await p.waitForFunction(() => !VAR.busy, null, { timeout: 30000 });
+      await p.click('.vpick[data-v="5"]'); await settle(p);
+      const s1 = await p.evaluate(() => snapState()); ok(s1 !== s0, 'ничего не применилось');
+      eq(await p.evaluate(() => [S.grid.width, S.crop.zoom, S.shore.time]), [135, 1.7, '09:09']);
+      await p.waitForTimeout(500); await p.click('#undoBtn'); await settle(p); eq(await p.evaluate(() => snapState()), s0, 'отмена не вернула');
+    });
+    await check('«Варианты»: «Похожие» и «Ещё 9», мягкий режим', async () => {
+      await p.click('#varBtn'); await p.waitForFunction(() => !VAR.busy, null, { timeout: 30000 });
+      await p.click('.vnear[data-v="3"]'); await p.waitForFunction(() => !VAR.busy, null, { timeout: 30000 }); ok(/Похожие на вариант 4/.test(await p.textContent('#varTitle')));
+      await p.click('#varMode button[data-vm="soft"]'); await p.click('#varMore'); await p.waitForFunction(() => !VAR.busy, null, { timeout: 30000 });
+      eq(await p.$$eval('.vpick', x => x.length), 10); await p.click('#varClose'); await settle(p);
+      await setS(p, s => { s.grid.width = 108; s.crop.zoom = 2.2; s.shore.time = '03:11'; }, 'A');
+    });
+    await check('GIF с частицами, бегущими цветами и живым Shore собирается, кадры разные', async () => {
+      await setP(p, { parts: { on: true, type: 'rain' }, cycle: { on: true }, anim: { frames: 6, size: 'small' } }, 'E'); await saved(p);
+      await p.click('#tbGif'); await p.waitForFunction(() => $('#busy').hidden && $('#tbGif').textContent === 'GIF', null, { timeout: 60000 }); await waitSaved(p);
+      const f = (await saved(p))[0]; const gi = gifInfo(f.buf); eq(gi.frames, 6);
+      await setP(p, { parts: { on: false }, cycle: { on: false }, anim: { frames: 16, size: 'half' } }, 'E');
+      return `${gi.w}×${gi.h}, ${gi.frames} кадров`;
+    });
+  }
+
   if (want('экспорт')) {
     section('17. Экспорт');
     for (const asp of ['9:16', '1:1']) {
