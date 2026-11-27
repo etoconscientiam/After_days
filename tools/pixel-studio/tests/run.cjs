@@ -614,6 +614,7 @@ async function makeFixtures(browser) {
 
   if (want('дизеринг')) {
     section('6. Дизеринг, чистка, обводка');
+    await tab(p, 'pix');
     const types = ['none', 'bayer2', 'bayer4', 'bayer8', 'fs', 'atkinson'];
     await check('шесть типов дизеринга дают разные картинки', async () => { const hs = new Set(); for (const t of types) { await setS(p, s => { s.dither.type = 'X'.replace('X', ''); }, 'C'); await p.selectOption('#ditherSel', t); await settle(p); hs.add((await hash(p)).g); } eq(hs.size, 6); });
     await check('сила 0 у Байера = без дизеринга', async () => { await setS(p, s => { s.dither = { type: 'none', strength: 0.5 }; }, 'C'); const a = await hash(p); await setS(p, s => { s.dither = { type: 'bayer4', strength: 0 }; }, 'C'); eq((await hash(p)).g, a.g); });
