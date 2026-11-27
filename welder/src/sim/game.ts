@@ -11,7 +11,7 @@ import { Recorder, Replayer, Habit } from './apprentice';
 import { payForSeams, gradeRank, idealSpeed } from './quality';
 import type { SeamRun } from './seam';
 import { computeGuide, Guide } from './guide';
-import { Estate } from './estate';
+import { Estate, placeAt } from './estate';
 import { kindOfPart, SHOP_KINDS, ShopKind } from '../data/estate';
 
 export type Command =
@@ -495,8 +495,8 @@ export class Game {
       }
       case 'courierBuy': {
         if (this.estate.courier || !this.owned.apprentice || !this.spend(BALANCE.estate.courier.cost)) break;
-        const h = { x: 160, y: 100 };
-        this.estate.courier = { lvl: 1, x: h.x, y: h.y, bag: [], to: '' };
+        const h = placeAt('home');
+        this.estate.courier = { lvl: 1, x: h.x, y: h.y, bag: [], to: '', path: [], left: false };
         this.milestone('courier');
         this.estateChanged();
         break;

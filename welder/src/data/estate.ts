@@ -1,7 +1,7 @@
 /**
  * The estate: a plan of the land round the workshop. In the middle the house with the workshop; the river
  * down the west side, the road out east to the market; plots round the house to buy and build on.
- * Coordinates are in the plan's own pixels (320×200).
+ * Coordinates are in the plan's own pixels (360×220).
  */
 
 export type ShopKind = 'wheel' | 'pots' | 'arms' | 'relic';
@@ -39,21 +39,33 @@ export interface PlotDef {
 }
 
 export const ESTATE = {
-  W: 320,
-  H: 200,
-  home: { x: 136, y: 80, w: 48, h: 40 },
-  /** Where things are sold (the courier walks there). */
-  market: { x: 296, y: 100 },
+  W: 360,
+  H: 220,
+  /** The house's yard (the house stands in it, its door at the bottom). */
+  home: { x: 136, y: 66, w: 72, h: 58 },
+  /** Where things are sold: the market before the town gate. */
+  market: { x: 300, y: 114 },
+  /** The town wall's west face and the gate in it. */
+  wallX: 326,
+  gateY: 110,
+  /** The bridge over the river (its y), for walking to the west bank. */
+  bridgeY: 140,
   plots: [
-    { id: 'nw', x: 58, y: 18, w: 54, h: 40, kind: 'river', price: 50 },
-    { id: 'n', x: 133, y: 14, w: 54, h: 40, kind: 'plain', price: 35 },
-    { id: 'ne', x: 208, y: 18, w: 54, h: 40, kind: 'road', price: 60 },
-    { id: 'w', x: 58, y: 80, w: 54, h: 40, kind: 'river', price: 50 },
-    { id: 'e', x: 208, y: 120, w: 54, h: 40, kind: 'road', price: 60 },
-    { id: 'sw', x: 58, y: 142, w: 54, h: 40, kind: 'river', price: 50 },
-    { id: 's', x: 133, y: 146, w: 54, h: 40, kind: 'plain', price: 35 },
+    { id: 'nw', x: 16, y: 18, w: 62, h: 46, kind: 'river', price: 50 },
+    { id: 'n', x: 146, y: 8, w: 62, h: 46, kind: 'plain', price: 35 },
+    { id: 'ne', x: 232, y: 24, w: 62, h: 46, kind: 'road', price: 60 },
+    { id: 'w', x: 16, y: 86, w: 62, h: 46, kind: 'river', price: 50 },
+    { id: 'e', x: 232, y: 148, w: 62, h: 46, kind: 'road', price: 60 },
+    { id: 'sw', x: 16, y: 156, w: 62, h: 46, kind: 'river', price: 50 },
+    { id: 's', x: 146, y: 164, w: 62, h: 46, kind: 'plain', price: 35 },
   ] as PlotDef[],
 };
+
+/** The river's middle at height y (it winds down the west of the house). */
+export function riverX(y: number): number {
+  return 104 + 9 * Math.sin(y * 0.028) + 3 * Math.sin(y * 0.085);
+}
+export const RIVER_W = 22;
 
 /** Which trade a part belongs to. */
 export function kindOfPart(part: string): ShopKind | null {

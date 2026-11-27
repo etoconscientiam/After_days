@@ -1,5 +1,5 @@
 import { BALANCE } from '../data/balance';
-import { ESTATE, SHOP_KINDS, ShopKind, PlotDef } from '../data/estate';
+import { ESTATE, SHOP_KINDS, ShopKind, PlotDef, riverX } from '../data/estate';
 import { payFor } from './quality';
 
 /** A workshop on a plot: its trade, its level (1..5), how far the thing in hand is, what waits to be sold. */
@@ -24,13 +24,26 @@ export interface Courier {
   y: number;
   bag: number[];
   to: string;
+  /** The points still to walk to on the way there. */
+  path: { x: number; y: number }[];
+  /** Which way he faces, for the picture. */
+  left: boolean;
 }
 
-/** Where on the plan a place is ('home', 'market' or a plot id): its middle. */
+/** Where on the plan a place is ('home', 'market' or a plot id): its door, where the courier stops. */
 export function placeAt(id: string): { x: number; y: number } {
   if (id === 'market') return ESTATE.market;
   const r: { x: number; y: number; w: number; h: number } = id === 'home' ? ESTATE.home : ESTATE.plots.find((p) => p.id === id)!;
-  return { x: r.x + r.w / 2, y: r.y + r.h / 2 };
+  return { x: r.x + r.w / 2 + 6, y: r.y + r.h - 3 };
+}
+
+/** The way from one point to another: over the bridge if the river is between them. */
+export function route(a: { x: number; y: number }, b: { x: number; y: number }): { x: number; y: number }[] {
+  const west = (p: { x: number; y: number }) => p.x < riverX(p.y);
+  if (west(a) === west(b)) return [b];
+  const by = ESTATE.bridgeY, rx = riverX(by);
+  const e = { x: rx + 16, y: by }, w = { x: rx - 16, y: by };
+  return west(a) ? [w, e, b] : [e, w, b];
 }
 
 /**
@@ -167,18 +180,26 @@ export class Estate {
       if (next) c.to = next;
       else if (c.bag.length) c.to = 'market';
       else return;
+      c.path = route(c, placeAt(c.to));
     }
-    const tgt = placeAt(c.to);
-    const dx = tgt.x - c.x, dy = tgt.y - c.y;
-    const d = Math.hypot(dx, dy);
-    const step = this.courierSpeed() * dt;
-    if (d > step) {
-      c.x += (dx / d) * step;
-      c.y += (dy / d) * step;
-      return;
+    if (!c.path.length) c.path = route(c, placeAt(c.to));
+    let step = this.courierSpeed() * dt;
+    while (step > 0 && c.path.length) {
+      const tgt = c.path[0];
+      const dx = tgt.x - c.x, dy = tgt.y - c.y;
+      const d = Math.hypot(dx, dy);
+      if (Math.abs(dx) > 0.01) c.left = dx < 0;
+      if (d > step) {
+        c.x += (dx / d) * step;
+        c.y += (dy / d) * step;
+        return;
+      }
+      c.x = tgt.x;
+      c.y = tgt.y;
+      step -= d;
+      c.path.shift();
     }
-    c.x = tgt.x;
-    c.y = tgt.y;
+    if (c.path.length) return;
     if (c.to === 'market') {
       const sum = c.bag.reduce((a, v) => a + v, 0);
       c.bag = [];
@@ -192,6 +213,7 @@ export class Estate {
     if (take) changed();
     c.to = c.bag.length < bag ? (this.nextPickup(c) ?? 'market') : 'market';
     if (!c.bag.length) c.to = '';
+    c.path = c.to ? route(c, placeAt(c.to)) : [];
   }
 
   /** The place with the most waiting (nearest first among equals), if anything waits. */
@@ -241,7 +263,7 @@ export class Estate {
     this.taught = { ...this.taught, ...(d.taught ?? {}) };
     if (d.courier) {
       const h = placeAt('home');
-      this.courier = { lvl: d.courier, x: h.x, y: h.y, bag: [], to: '' };
+      this.courier = { lvl: d.courier, x: h.x, y: h.y, bag: [], to: '', path: [], left: false };
     }
   }
 }

@@ -846,35 +846,66 @@ body.ui-modal #game { cursor: var(--cur); }
 #craft .item .stars .off { color: rgba(90, 60, 30, 0.3); }
 #craft .item.owned .stars .on { color: #e8c060; }
 
-/* The estate map: the drawn plan and a panel beside it. */
+/* The estate map: a pixel diorama, a bar of figures over it, a page of the estate book beside it. */
 #estate {
   position: absolute;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: min(96%, 72em);
-  max-height: 94%;
-  padding: 0.6em 1em 0.8em;
+  width: min(97%, 78em);
+  max-height: 96%;
+  padding: 0.5em 0.8em 0.7em;
   display: none;
   flex-direction: column;
+  gap: 0.5em;
   z-index: 15;
 }
-#estate h3 { margin: 0 0 0.4em; font-size: var(--fh); line-height: calc(var(--fh) * 1.25); font-family: var(--fhf); font-weight: 400; color: #f0e0b8; letter-spacing: 0.2em; }
-#estate .body { display: flex; gap: 1em; align-items: flex-start; min-height: 0; }
-#estate .plan { flex: 1 1 auto; min-width: 0; line-height: 0; }
-#estate canvas { width: 100%; height: auto; image-rendering: pixelated; border: var(--px) solid #3a2a18; }
-#estate .side { flex: 0 0 17em; color: #d8c8a8; max-height: 70vh; overflow-y: auto; }
-#estate .side h4 { margin: 0.3em 0 0.3em; color: #f0d8a0; font-weight: 400; }
-#estate .side p { margin: 0 0 0.5em; color: #b8a888; }
-#estate .side .row { margin: 0.25em 0; }
-#estate .side .dim { color: #8a7a64; }
-#estate .side .ok { color: var(--good); }
-#estate .side .bad { color: var(--bad); }
-#estate .side .kind p { margin: 0.2em 0 0.6em; font-size: 1em; }
-#estate .btn { display: inline-block; margin: 0.3em 0; padding: 0 calc(var(--px) * 3); color: #f0e0b8; white-space: nowrap; cursor: var(--cur-hot) !important; border: calc(var(--fu, 3px) * 3) solid transparent !important; }
-#estate .btn.off { color: #7a6a54; cursor: var(--cur) !important; }
-#estate .foot { margin-top: 0.8em; padding-top: 0.4em; border-top: var(--px) dotted #5a4834; color: #e8c878; }
-#estate .stars .on { color: #e8b040; }
-#estate .stars .off { color: rgba(200, 160, 90, 0.25); }
-#estate .x { position: absolute; right: 0.6em; top: 0.5em; width: 2.25em; height: 2.25em; display: flex; align-items: center; justify-content: center; cursor: var(--cur-hot) !important; }
+#estate .top { display: flex; flex-wrap: wrap; gap: 0.4em 1.4em; align-items: baseline; padding-right: 2.6em; color: #d8c8a8; }
+#estate .top b { font-size: var(--fh); line-height: calc(var(--fh) * 1.25); font-family: var(--fhf); font-weight: 400; color: #f0e0b8; letter-spacing: 0.18em; margin-right: 0.4em; }
+#estate .top span:nth-of-type(1) { color: #f0d070; }
+#estate .top .bad { color: var(--bad); }
+#estate .body { display: flex; gap: 0.8em; align-items: stretch; min-height: 0; }
+#estate .plan { flex: 1 1 auto; min-width: 0; line-height: 0; position: relative; }
+#estate canvas { image-rendering: pixelated; }
+#estate .plan canvas { width: 100%; height: auto; border: var(--px) solid #120c08; box-shadow: 0 0 0 var(--px) #6a4a2a; cursor: var(--cur); }
+#estate .plan canvas.hot { cursor: var(--cur-hot); }
+/* The page of the estate book: aged paper, ink, a picture of the place at its head. */
+#estate .side {
+  flex: 0 0 18em;
+  display: flex;
+  flex-direction: column;
+  max-height: 72vh;
+  background: linear-gradient(180deg, #dccaa0 0%, #d2bd8e 60%, #c8b07e 100%);
+  color: #2e2014;
+  border: var(--px) solid #4a3018;
+  box-shadow: inset 0 0 0 var(--px) #e8dab8, inset 0 0 1.4em rgba(90, 60, 20, 0.35), var(--px) var(--px) 0 rgba(0, 0, 0, 0.5);
+}
+#estate .portrait { line-height: 0; padding: 0.5em 0.5em 0; }
+#estate .portrait canvas { width: 100%; height: auto; border: var(--px) solid #3a2410; box-shadow: 0 0 0 var(--px) #b89868; }
+#estate .page { padding: 0.3em 0.8em 0.7em; overflow-y: auto; }
+#estate .page h4 { margin: 0.35em 0 0.25em; font-weight: 400; color: #3a1e0a; border-bottom: var(--px) solid rgba(74, 48, 24, 0.4); padding-bottom: 0.15em; }
+#estate .page p { margin: 0.15em 0 0.45em; color: #4a3420; }
+#estate .page .dim { color: #7a6044; }
+#estate .page .ok { color: #3a6a24; }
+#estate .page .row { display: flex; justify-content: space-between; gap: 0.6em; margin: 0.2em 0; align-items: center; }
+#estate .page .row b { font-weight: 400; color: #2a1608; }
+#estate .page .kind p { margin: 0 0 0.45em; }
+#estate .lv { display: inline-flex; gap: calc(var(--px) * 1); }
+#estate .lv i { width: calc(var(--px) * 3); height: calc(var(--px) * 4); background: rgba(74, 48, 24, 0.25); clip-path: polygon(0 0, 100% 0, 100% 40%, 66% 40%, 66% 100%, 33% 100%, 33% 40%, 0 40%); }
+#estate .lv i.on { background: #a86a10; }
+/* Buttons on the page: a wooden plate burnt with the words; dull when out of reach. */
+#estate .btn {
+  display: inline-block;
+  margin: 0.25em 0 0.35em;
+  padding: 0.05em 0.7em 0.15em;
+  color: #f8e8c0;
+  background: linear-gradient(180deg, #8a5a30, #6a4020);
+  border: var(--px) solid #2a1608;
+  box-shadow: inset 0 var(--px) 0 #b07a48, var(--px) var(--px) 0 rgba(0, 0, 0, 0.4);
+  white-space: nowrap;
+  cursor: var(--cur-hot) !important;
+}
+#estate .btn:hover { background: linear-gradient(180deg, #a06a38, #7a4a26); color: #fff4d0; }
+#estate .btn.off { color: #b8a080; background: linear-gradient(180deg, #8a7a64, #6e6050); box-shadow: none; cursor: var(--cur) !important; }
+#estate .x { position: absolute; right: 0.5em; top: 0.4em; width: 2.25em; height: 2.25em; display: flex; align-items: center; justify-content: center; cursor: var(--cur-hot) !important; z-index: 2; }
 #estate .x svg { width: 0.75em; height: 0.75em; fill: #f0e0b8; shape-rendering: crispEdges; }

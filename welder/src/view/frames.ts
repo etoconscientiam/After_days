@@ -45,8 +45,6 @@ const RULES: Rule[] = [
   ['#ctrl .k', 'key', null, false],
   ['#settings .opt, #settings .close, #settings .x', 'dark', 'btn', false],
   ['#settings .opt.on', 'hot', null, false],
-  ['#estate .btn', 'btn', 'hot', false],
-  ['#estate .btn.off', 'dark', null, false],
   ['#estate .x', 'dark', 'btn', false],
 ];
 const ALL = RULES.map((r) => r[0]).join(', ');
