@@ -666,7 +666,7 @@ body.ui-modal #game { cursor: var(--cur); }
   color: #ece2cc;
   pointer-events: none;
 }
-#intro .intro-text { max-width: 100%; text-align: center; text-shadow: 0 2px 0 #000; }
+#intro .intro-text { max-width: 100%; text-align: center; line-height: 1.25; text-shadow: 0 2px 0 #000; }
 #intro .intro-text .rest { visibility: hidden; }
 #intro .intro-text .who { color: #9a8c74; }
 #intro .intro-text .inner { font-style: italic; color: #cbbfa8; }

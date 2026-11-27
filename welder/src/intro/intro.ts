@@ -29,7 +29,7 @@ const SEEN_KEY = 'welder.introSeen';
 
 const IMAGES = import.meta.glob('../../assets/intro/*.webp', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 
-type Style = 'voice' | 'dialog' | 'inner';
+type Style = 'narrator' | 'voice' | 'dialog' | 'inner';
 type FxType = 'embers' | 'sparks' | 'arcFlicker' | 'dust' | 'snow' | 'torchFlicker';
 interface Fx {
   type: FxType;
@@ -131,6 +131,7 @@ export class Intro {
   private doneAt = -1;
   private lineStarted = false;
   private waitFrom = -1;
+  private bandFs = 48;
   private ignited = false;
   private igniteAt = -1;
   private phase: 'play' | 'flash' | 'reveal' | 'gone' = 'play';
@@ -398,6 +399,7 @@ export class Intro {
     Object.assign(this.band.style, { left: x + 'px', top: y + h - bh + 'px', width: w + 'px', height: bh + 'px' });
     // The HUD's pixel font, on its own 16 px grid, never under 20 px.
     const fs = h >= 600 ? 48 : 32;
+    this.bandFs = fs;
     this.band.style.fontSize = fs + 'px';
     this.skipEl.style.fontSize = (fs >= 48 ? 32 : 16) + 'px';
     this.band.style.lineHeight = fs * 1.25 + 'px';
@@ -618,7 +620,16 @@ export class Intro {
     const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
     const who = s.style === 'dialog' && l.who ? `<span class="who">${esc(l.who)}:</span> ` : '';
     const html = `<span class="${s.style}">${who}${esc(text.slice(0, n))}<span class="rest">${esc(text.slice(n))}</span></span>`;
-    if (html !== this.textEl.innerHTML) this.textEl.innerHTML = html;
+    if (html !== this.textEl.innerHTML) {
+      const fresh = !this.textEl.innerHTML;
+      this.textEl.innerHTML = html;
+      // A long line that won't fit the band in the big size takes the smaller one (the whole line is laid out
+      // from its first letter, so this is decided once and never jumps while typing).
+      if (fresh) {
+        this.textEl.style.fontSize = '';
+        if (this.textEl.offsetHeight > this.band.clientHeight - 8) this.textEl.style.fontSize = this.bandFs > 32 ? '32px' : '16px';
+      }
+    }
   }
 
   // ------------------------------------------------------------------ sound (hooks; missing files are skipped)
