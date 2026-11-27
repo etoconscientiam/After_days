@@ -1941,9 +1941,9 @@ export class Renderer {
     const c = this.ctx;
     const sec = this.section;
     const top = this.lay.sectionTop;
-    // the section dims to 40%
+    // the section dims to 40% — down to the horizon, the rows beside the thing too (they stayed bright: a strip)
     c.fillStyle = 'rgba(10,8,12,0.6)';
-    for (let x = 0; x < sec.SW; x++) c.fillRect(x, top + sec.topD[x], 1, sec.horizonTop[x] - sec.topD[x]);
+    for (let x = 0; x < sec.SW; x++) c.fillRect(x, top + sec.topD[x], 1, sec.strataH - sec.topD[x]);
     // heat: a warm orange that grows with temperature
     for (const cell of this.geoCells) {
       if (cell.x >= sec.SW) continue;
