@@ -2520,8 +2520,13 @@ export class Renderer {
     }
     // the warmth along the surface near the thing: soft overlapping lights that follow the relief
     // (was 3×7 blocks in the pixel world, which read as a stepped strip over the horizon)
+    // only around the vessel: the glow profile has a floor across the whole width (the energy of the horizon), and
+    // its light along the horizon read as a bright strip to the edges of the cut
+    const wxs = g.mods.shards ? g.shardXs() : [WW / 2];
     for (let x = 2; x < WW; x += 6) {
-      const v = (g.glow[x] + g.glow[Math.min(WW - 1, x + 3)]) / 2;
+      let near = 0;
+      for (const cx of wxs) near = Math.max(near, Math.exp(-(((x + 1.5 - cx) / 26) ** 2)));
+      const v = near * (g.glow[x] + g.glow[Math.min(WW - 1, x + 3)]) / 2;
       if (v < 0.02) continue;
       this.light(x, this.ayAt(x) - 2, 10, 0.45, [242, 160, 70], v * (0.1 + 0.025 * Math.sin(this.t * 1.7 + x * 0.1)));
     }

@@ -354,8 +354,8 @@ export class SectionRenderer {
       for (const c of cxs) dx = Math.min(dx, Math.abs(xx + 0.5 - c));
       const k = Math.max(0, 1 - (dx / FUNNEL_R) ** 2);
       const sag = Math.round(FUNNEL_SAG * k * k);
-      const far = Math.min(1, Math.max(0, (dx - 18) / 70));
-      const dark = 1 - 0.6 * far * far * (3 - 2 * far);
+      const far = Math.min(1, Math.max(0, (dx - 12) / 50));
+      const dark = 1 - 0.7 * far * far * (3 - 2 * far);
       for (let p = 0; p < H; p++) {
         const sp = Math.max(0, p - sag);
         const q = (sp * WW + xx) * 4, w = acc[q + 3];
