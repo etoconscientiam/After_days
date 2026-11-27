@@ -13,7 +13,7 @@ import { t, fmt } from './i18n';
 import { rockIcon, energyIcon } from './icons';
 import { forecastParticle, conditionsAt } from '../core/forecast';
 import { VALUE, absorbUnit, specialsOf } from '../core/absorb';
-import { P_FOSSIL, P_FRAGMENT } from '../world/Grid';
+import { P_FOSSIL, P_FRAGMENT, GW } from '../world/Grid';
 import { fmtCountdown } from './hud';
 import { lensPixel, eraPixel, bedPixel, ROMAN } from './pixelIcons';
 import { WH, WW } from '../render/common';
@@ -149,7 +149,11 @@ export class Geologist {
   // ---------- lens ----------
   /** The lens looks at a whole particle: its middle (section-local), so the particle is right in the centre. */
   private snap(x: number, y: number): { x: number; y: number } {
-    const gx = Math.floor(x / 2), gr = Math.floor((y + BASE) / 2);
+    const gx = Math.max(0, Math.min(GW - 1, Math.floor(x / 2)));
+    let gr = Math.floor((y + BASE) / 2);
+    // on the surface the finger may be a row above the top grain: the lens takes the grain under it
+    const grid = this.g().grid;
+    for (let k = 0; k < 4 && gr < grid.floor - 1 && !grid.mat[gr * GW + gx]; k++) gr++;
     return { x: gx * 2 + 1, y: gr * 2 + 1 - BASE };
   }
 
@@ -186,7 +190,10 @@ export class Geologist {
     const at = this.lensAt!;
     const sec = this.ren.section;
     const out = new Uint32Array(this.lensImg.data.buffer);
-    const L = sec.paintLens(out, LENS_N, at.x, at.y, LENS_Z);
+    // what is not the strata (the sky, the water above the surface) the glass shows as the world is drawn
+    const wcv = document.getElementById('world') as HTMLCanvasElement | null;
+    const world = wcv ? new Uint32Array(wcv.getContext('2d')!.getImageData(0, 0, WW, WH).data.buffer) : undefined;
+    const L = sec.paintLens(out, LENS_N, at.x, at.y, LENS_Z, world, this.ren.lay.sectionTop - BASE);
     // fossils in the glass: their own big silhouettes (the strata show them as a few pixels)
     this.paintFossils(out, at);
     // the particle under study: a frame right around it in the middle of the glass (amber over a dark line), blinking

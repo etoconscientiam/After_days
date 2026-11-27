@@ -150,6 +150,8 @@ export class Renderer {
   lensCell: { x: number; r: number } | null = null;
   private layerCv: HTMLCanvasElement | null = null;
   private layerImg: ImageData | null = null;
+  private edgeCv: HTMLCanvasElement | null = null;
+  private edgeImg: ImageData | null = null;
   private layerKey = '';
   private layerAt = -9;
   /** transformation glow per column (eases toward the game's hotNow, fades when the transformation ends) */
@@ -1970,18 +1972,24 @@ export class Renderer {
         const now = this.t;
         if (key !== this.layerKey && (now - this.layerAt > 0.3 || !this.layerKey.startsWith(m + '|' + era + '|'))) {
           this.layerKey = key; this.layerAt = now;
-          if (!this.layerCv) { this.layerCv = document.createElement('canvas'); this.layerCv.width = WW; this.layerCv.height = WH; this.layerImg = this.layerCv.getContext('2d')!.createImageData(WW, WH); }
-          sec.paintLayer(m, era, new Uint32Array(this.layerImg!.data.buffer));
+          if (!this.layerCv) {
+            this.layerCv = document.createElement('canvas'); this.layerCv.width = WW; this.layerCv.height = WH; this.layerImg = this.layerCv.getContext('2d')!.createImageData(WW, WH);
+            this.edgeCv = document.createElement('canvas'); this.edgeCv.width = WW; this.edgeCv.height = WH; this.edgeImg = this.edgeCv.getContext('2d')!.createImageData(WW, WH);
+          }
+          sec.paintLayer(m, era, new Uint32Array(this.layerImg!.data.buffer), new Uint32Array(this.edgeImg!.data.buffer));
           this.layerCv.getContext('2d')!.putImageData(this.layerImg!, 0, 0);
+          // the outline in amber: tint the white mask
+          const ec = this.edgeCv!.getContext('2d')!;
+          ec.putImageData(this.edgeImg!, 0, 0);
+          ec.globalCompositeOperation = 'source-in'; ec.fillStyle = '#f2b54a'; ec.fillRect(0, 0, WW, WH); ec.globalCompositeOperation = 'source-over';
         }
         if (this.layerCv) {
+          // half out of the dimming (the bed reads, the rest stays quiet) and a pulsing amber outline around it
           const gdy = top - CFG.B.layout.sectionTop;
-          c.globalAlpha = 0.92;
+          c.globalAlpha = 0.6;
           c.drawImage(this.layerCv, 0, gdy);
-          c.globalCompositeOperation = 'lighter';
-          c.globalAlpha = 0.1 + 0.08 * Math.sin(this.t * 3);
-          c.drawImage(this.layerCv, 0, gdy);
-          c.globalCompositeOperation = 'source-over';
+          c.globalAlpha = 0.45 + 0.35 * Math.sin(this.t * 3);
+          c.drawImage(this.edgeCv!, 0, gdy);
           c.globalAlpha = 1;
         }
       }

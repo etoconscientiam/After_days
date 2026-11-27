@@ -15,7 +15,9 @@ import { hash2 } from '../core/rng';
 
 const BASE = CFG.B.layout.sectionTop;
 const HR = 6; // rows of the technogenic horizon (the thing lies in it)
-const pack32 = (r: number, g: number, b: number) => (255 << 24) | (Math.round(b) << 16) | (Math.round(g) << 8) | Math.round(r);
+const pack32 = (r: number, g: number, b: number): number => (255 << 24) | (Math.round(b) << 16) | (Math.round(g) << 8) | Math.round(r);
+/** what the lens shows where there is nothing of the strata (replaced by the world picture when it has one) */
+const EMPTY_LENS = pack32(20, 16, 22);
 
 /** Epoch colours: the era ruler, the history ribbon, the belts. */
 export const ERA_COLORS = ['#8a7f9a', '#5aa58a', '#4d8fc4', '#78b454', '#c99a4a', '#c4703c', '#e0a43a', '#f2d58a'];
@@ -430,25 +432,34 @@ export class SectionRenderer {
 
   /** One layer as it is drawn: the particles of material m laid in epoch era (the visible strata above the squeeze),
    *  copied from the picture into out (WW×WH, transparent elsewhere). Returns how many particles. */
-  paintLayer(m: number, era: number, out: Uint32Array): number {
+  paintLayer(m: number, era: number, out: Uint32Array, edge?: Uint32Array): number {
     const g = this.g;
     out.fill(0);
+    edge?.fill(0);
     if (!g) return 0;
     const grid = g.grid, buf = this.buf;
     const sq0 = grid.sinkRow - CFG.B.sand.absorb.squeezeRows + 1;
+    const inL = (x: number, r: number) => x >= 0 && x < GW && r >= 0 && r < sq0 && grid.mat[r * GW + x] === m && eraOfYear(grid.birth[r * GW + x]) === era;
     let n = 0;
     for (let r = 0; r < sq0; r++) for (let x = 0; x < GW; x++) {
-      const i = r * GW + x;
-      if (grid.mat[i] !== m || eraOfYear(grid.birth[i]) !== era) continue;
+      if (!inL(x, r)) continue;
       const o = r * 2 * WW + x * 2;
       out[o] = buf[o]; out[o + 1] = buf[o + 1]; out[o + WW] = buf[o + WW]; out[o + WW + 1] = buf[o + WW + 1];
       n++;
+      // its outline: the pixels of the layer's particles that border anything else
+      if (edge) {
+        const W1 = 0xffffffff;
+        if (!inL(x, r - 1)) { edge[o] = W1; edge[o + 1] = W1; }
+        if (!inL(x, r + 1)) { edge[o + WW] = W1; edge[o + WW + 1] = W1; }
+        if (!inL(x - 1, r)) { edge[o] = W1; edge[o + WW] = W1; }
+        if (!inL(x + 1, r)) { edge[o + 1] = W1; edge[o + WW + 1] = W1; }
+      }
     }
     return n;
   }
 
   /** Paint the lens: N×N pixels around section-local (cx, cy), magnified Z times. Returns what is at its centre. */
-  paintLens(out: Uint32Array, N: number, cx: number, cy: number, Z: number): { mat: number; era: number; i: number; x: number; r: number } | null {
+  paintLens(out: Uint32Array, N: number, cx: number, cy: number, Z: number, world?: Uint32Array, worldDy = 0): { mat: number; era: number; i: number; x: number; r: number } | null {
     const g = this.g;
     if (!g) return null;
     const grid = g.grid, px = this.px;
@@ -458,7 +469,7 @@ export class SectionRenderer {
       for (let u = 0; u < N; u++) {
         const wx = cx + (u - N / 2) / Z, wy = cy + (v - N / 2) / Z + BASE;
         const x = Math.floor(wx / 2), r = Math.floor(wy / 2);
-        let c = pack32(20, 16, 22);
+        let c = EMPTY_LENS;
         if (x >= 0 && x < GW && r >= 0 && r < sq0) {
           const i = r * GW + x, m = grid.mat[i];
           if (m && KIND[m] !== K_SOLID) {
@@ -468,6 +479,11 @@ export class SectionRenderer {
             if (((u * 2) % (Z * 2) === 0 || (v * 2) % (Z * 2) === 0) && KIND[m] !== K_MARKER) c = shade(c, 0.9);
           } else if (m) c = this.buf[Math.max(0, Math.min(WH - 1, Math.floor(wy))) * WW + Math.max(0, Math.min(WW - 1, Math.floor(wx)))];
         } else if (r >= sq0 && r < GH) c = this.buf[Math.max(0, Math.min(WH - 1, Math.floor(wy))) * WW + Math.max(0, Math.min(WW - 1, Math.floor(wx)))];
+        // nothing of the strata here (above the surface, in the water): the world as it is on screen
+        if (world && (c === EMPTY_LENS || !(c >>> 24))) {
+          const wx2 = Math.max(0, Math.min(WW - 1, Math.floor(wx))), wy2 = Math.max(0, Math.min(WH - 1, Math.floor(wy + worldDy)));
+          c = world[wy2 * WW + wx2] | 0xff000000;
+        }
         out[v * N + u] = c;
       }
     }
