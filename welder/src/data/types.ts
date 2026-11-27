@@ -101,6 +101,12 @@ export type StatId =
   | 'knowHand'
   /** Knowledge: you can tell where the joint pulled out of line for want of tacks. */
   | 'knowFit'
+  /** Workers: how fast they set up and chip (1 = like the apprentice). */
+  | 'workerSpeed'
+  /** How often new orders are pinned on the board (1 = as at first). */
+  | 'orderRate'
+  /** How many more orders the workshop's name keeps growing for. */
+  | 'repCap'
   | 'maskWindow'
   | 'strikeMul'
   | 'spatterMul'
@@ -127,7 +133,7 @@ export interface Effects {
 export interface UpgradeDef {
   id: string;
   /** Section of the craft book: what you know, what you work with, the workshop itself. */
-  group: 'craft' | 'tools' | 'shop';
+  group: 'craft' | 'tools' | 'shop' | 'expand';
   cost: number;
   /** All must hold to buy; anything missing is shown as the reason. */
   requires?: Cond;

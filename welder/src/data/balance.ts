@@ -183,6 +183,26 @@ export const BALANCE = {
     minLitSeconds: 2,
   },
 
+  /**
+   * After the gate: hired workers at their own benches. Each welds simple jobs off the board with the hand
+   * last recorded (as the apprentice does) and is paid every `payEvery` seconds; with no money for wages
+   * they stop until there is.
+   */
+  workers: {
+    wage: [5, 7, 9] as number[],
+    payEvery: 60,
+    setup: 4,
+    swap: 1.6,
+    chip: 4,
+    handOver: 1.5,
+    /** The board: this many more places per worker, and orders come this much faster per worker. */
+    boardPer: 2,
+    ratePer: 0.35,
+  },
+
+  /** The day after the gate: morning again, then dusk and night in a cycle this long (s). */
+  day: 480,
+
   finale: {
     howlEvery: [4, 9] as [number, number],
     nightBlend: 12,

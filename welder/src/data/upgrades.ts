@@ -75,4 +75,13 @@ export const UPGRADES: UpgradeDef[] = [
     slot: 5,
     model: 'wheel',
   },
+  // After the gate: the workshop grows. Benches, and someone at each of them (paid every minute).
+  { id: 'bench2', group: 'expand', cost: 40, requires: { flag: 'season2' }, effects: {}, slot: -1, model: '' },
+  { id: 'hire2', group: 'expand', cost: 15, requires: { owns: ['bench2'] }, effects: {}, slot: -1, model: '' },
+  { id: 'bench3', group: 'expand', cost: 90, requires: { owns: ['hire2'] }, effects: {}, slot: -1, model: '' },
+  { id: 'hire3', group: 'expand', cost: 25, requires: { owns: ['bench3'] }, effects: {}, slot: -1, model: '' },
+  { id: 'bench4', group: 'expand', cost: 180, requires: { owns: ['hire3'] }, effects: {}, slot: -1, model: '' },
+  { id: 'hire4', group: 'expand', cost: 40, requires: { owns: ['bench4'] }, effects: {}, slot: -1, model: '' },
+  { id: 'sign2', group: 'expand', cost: 60, requires: { owns: ['hire2'] }, effects: { add: { orderRate: 0.6, repCap: 10 } }, slot: -1, model: '' },
+  { id: 'school', group: 'expand', cost: 120, requires: { owns: ['hire3'] }, effects: { add: { workerSpeed: 0.8 } }, slot: -1, model: '' },
 ];

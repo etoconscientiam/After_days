@@ -30,6 +30,8 @@ export interface SaveData {
   visits?: Record<string, number>;
   lastGrade?: Record<string, string>;
   returns?: [number, OrderRow][];
+  /** After the gate: seconds into the current day. */
+  day?: number;
 }
 
 function row(o: Order): OrderRow {
@@ -64,6 +66,7 @@ export function serialize(g: Game): SaveData {
   }
   const ao = g.app.order;
   if (ao) board.unshift(row(ao));
+  for (const w of g.workers) if (w.bench.order) board.unshift(row(w.bench.order));
   return {
     v: SAVE_VERSION,
     seed: g.seed,
@@ -84,6 +87,7 @@ export function serialize(g: Game): SaveData {
     power: [g.power.flow, g.power.wheel],
     visits: g.visits,
     lastGrade: g.lastGrade,
+    day: Math.round((g.t - g.dayStart) * 10) / 10,
     returns: g.returns.map((x) => [Math.round((x.at - g.t) * 10) / 10, row(x.o)]),
   };
 }
@@ -115,6 +119,9 @@ export function restore(g: Game, d: SaveData): boolean {
   g.lastGrade = { ...(d.lastGrade ?? {}) } as Game['lastGrade'];
   g.returns = (d.returns ?? []).map(([dt, r]) => ({ at: d.t + dt, o: unrow(r) })).filter((x) => known(x.o));
   g.stats = computeStats(g.data, g.owned);
-  if (g.flags.finale) g.nightBoost = 1;
+  g.dayStart = d.t - (d.day ?? d.t);
+  g.workers = [];
+  g.syncWorkers();
+  if (g.flags.finale && !g.flags.season2) g.nightBoost = 1;
   return true;
 }

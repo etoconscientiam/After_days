@@ -270,7 +270,8 @@ export class Sound {
       set(this.arc.buzz.gain, 0.14);
     } else set(this.arc.out.gain, 0, 0.02);
 
-    set(this.app.out.gain, g.app.arc.lit ? 0.12 : 0, 0.02);
+    const others = (g.app.arc.lit ? 1 : 0) + g.workers.filter((w) => w.bench.arc.lit).length;
+    set(this.app.out.gain, Math.min(0.24, others * 0.09), 0.02);
 
     const w = g.power.wheel;
     const I = g.power.I;

@@ -424,6 +424,7 @@ export class View {
     this.rig.station();
     this.ui.muteHint(false);
     this.ui.setApprentice('');
+    this.ui.setWorkers('');
     this.syncWorld();
     this.syncPile();
     this.moneyShown = 0;
@@ -819,7 +820,8 @@ export class View {
           this.clearPart();
           this.rig.station();
         }
-      } else this.ui.toast(`+${e.pay} ◆  ${t('app.done', { grade: t('grade.' + e.grade) })}`);
+      } else if (e.bench === 'worker') this.ui.toast(`+${e.pay} ◆  ${t('work.done', { part: t('part.' + e.part), grade: t('grade.' + e.grade) })}`);
+      else this.ui.toast(`+${e.pay} ◆  ${t('app.done', { grade: t('grade.' + e.grade) })}`);
       this.syncWorld();
     });
     b.on('revealed', (e) => {
@@ -886,6 +888,11 @@ export class View {
     b.on('apprentice', (e) => {
       this.syncWorld();
       this.ui.setApprentice(g.owned.apprentice && !this.showcase ? t('app.' + e.state) : '');
+    });
+    b.on('worker', () => this.showWorkers());
+    b.on('wages', (e) => {
+      this.ui.toast(e.paid ? t('work.paid', { n: e.amount }) : t('work.unpaid', { n: e.amount }));
+      this.showWorkers();
     });
     b.on('habitRecorded', () => {
       if (g.owned.apprentice) this.ui.toast(t('app.learned'));
@@ -1146,6 +1153,15 @@ export class View {
     }
   }
 
+  /** The line under the corner buttons: the hired hands, what they cost a minute, whether they are paid. */
+  private showWorkers(): void {
+    const g = this.game;
+    const n = g.workers.length;
+    if (!n || this.showcase) return this.ui.setWorkers('');
+    const busy = g.workers.filter((w) => w.state !== 'idle').length;
+    this.ui.setWorkers(g.unpaid ? t('work.stopped', { n: g.wages() }) : t('work.status', { n, busy, w: g.wages() }));
+  }
+
   /** A bow for good work, a slow shake of the head for bad; the slip with their words stays over their head. */
   private animateCustomer(dt: number): void {
     const c = this.ws.customer;
@@ -1195,7 +1211,8 @@ export class View {
   /** World objects that mirror sim state: shelf, owned things, tally, piles, apprentice, second wheel. */
   syncWorld(): void {
     const g = this.game;
-    this.ui.setCraftButton(!!g.flags.shelf, !!g.flags.shelf && !g.owned.guild);
+    // The craft button glows when there is something new to do in it: the guild at first, the first new bench after the gate.
+    this.ui.setCraftButton(!!g.flags.shelf, (!!g.flags.shelf && !g.owned.guild) || (!!g.flags.season2 && !g.owned.bench2 && g.money >= 40));
     for (const u of g.data.upgrades) {
       const owned = !!g.owned[u.id];
       const si = this.ws.shelfItems[u.id];
@@ -1205,6 +1222,10 @@ export class View {
     }
     this.ws.wheel2.visible = !!g.owned.wheel2;
     this.ws.apprentice.visible = !!g.owned.apprentice;
+    this.ws.extra.forEach((e, i) => {
+      e.bench.visible = !!g.owned['bench' + (i + 2)];
+      e.hand.visible = !!g.owned['hire' + (i + 2)];
+    });
     const board = this.ws.boardTags[0].parent!;
     board.visible = !!g.flags.board;
     this.ws.boardTags.forEach((tg, i) => (tg.visible = i < g.board.length));
@@ -1452,6 +1473,16 @@ export class View {
       if (n) this.fx.spatter(ap.position.x + r.signed() * 0.02, 0.83, ap.position.z, n, 0.2);
     } else ap.intensity = 0;
 
+    // The hired hands' benches.
+    for (const w of g.workers) {
+      const e = this.ws.extra[w.i];
+      if (!e) continue;
+      if (w.bench.arc.lit) {
+        e.light.intensity = L.appArc.intensity * (0.5 + r.next());
+        if (r.chance(dt * 16)) this.fx.spatter(e.spark.x, e.spark.y, e.spark.z + r.signed() * 0.03, 1 + r.int(0, 2), 0.2);
+      } else e.light.intensity = 0;
+    }
+
     this.fx.update(dt, this.floorAt, arcOn);
 
     // Post: mask, glare, afterimage, shake.
@@ -1671,5 +1702,6 @@ export class View {
     this.ui.showMoney(this.game.money);
     this.ws.setRods(12 - (this.game.log.electrodes % 12));
     if (this.game.owned.apprentice && !this.showcase) this.ui.setApprentice(t('app.' + this.game.appState));
+    this.showWorkers();
   }
 }

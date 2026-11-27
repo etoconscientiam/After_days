@@ -62,6 +62,8 @@ export interface Workshop {
   customer: THREE.Group;
   apprentice: THREE.Group;
   appBench: THREE.Group;
+  /** After the gate: up to three more benches in a row across the middle of the room, each with its hired hand and a light for the arc. */
+  extra: { bench: THREE.Group; hand: THREE.Group; light: THREE.PointLight; spark: THREE.Vector3 }[];
   pileSlot: THREE.Group;
   boardTags: THREE.Mesh[];
   shelfItems: Record<string, THREE.Object3D>;
@@ -869,6 +871,34 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
   apprentice.visible = false;
   scene.add(apprentice);
 
+  // After the gate: a row of new benches across the middle of the room, a hired hand at each (hidden until bought).
+  const extra: { bench: THREE.Group; hand: THREE.Group; light: THREE.PointLight; spark: THREE.Vector3 }[] = [];
+  const handLooks = [
+    { cloak: '#38342e', hood: '#56483a', hat: 'cap' as const, height: 1.66 },
+    { cloak: '#2e3430', hood: '#4a5246', hat: 'hood' as const, height: 1.58 },
+    { cloak: '#40342c', hood: '#5e4c3c', hat: 'cap' as const, height: 1.72 },
+  ];
+  [-0.75, 0, 0.75].forEach((x, i) => {
+    const z = 1.15;
+    const bg = new THREE.Group();
+    bg.add(texBox(0.6, 0.04, 0.5, wood, 0, 0.8, 0, 0.4));
+    for (const lx of [-0.26, 0.26]) bg.add(texBox(0.05, 0.78, 0.4, woodD, lx, 0.39, 0, 0.4));
+    bg.add(boxAt(0.18, 0.02, 0.12, iron, -0.04, 0.83, -0.05));
+    bg.position.set(x, 0, z);
+    bg.visible = false;
+    scene.add(bg);
+    // Each hand stands at his bench with his back to yours.
+    const hand = figure(handLooks[i], { skin: skinM });
+    hand.add(boxAt(0.2, 0.16, 0.06, glassM, 0, handLooks[i].height * 0.86, 0.1));
+    hand.position.set(x, 0, z - 0.45);
+    hand.visible = false;
+    scene.add(hand);
+    const light = new THREE.PointLight(SKIN.light.appArc.color, 0, 0, 2);
+    light.position.set(x, 0.92, z - 0.05);
+    scene.add(light);
+    extra.push({ bench: bg, hand, light, spark: new THREE.Vector3(x - 0.04, 0.84, z - 0.05) });
+  });
+
   // --- Behind you: stove, coal, a cot, the switchboard; jars and the river window to the west -----
   const coal = lambert({ color: '#141414' });
   // A pot-bellied cast-iron stove: legs, ribbed belly, a door whose grille glows, the pipe into the wall.
@@ -993,6 +1023,11 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
   const blocked = (x: number, z: number, r: number) => {
     if (x < -RX + r || x > RX - r || z < BACK_Z + r || z > FZ - r) return true;
     for (const [a, b, c, d] of solids) if (x > a - r && x < c + r && z > b - r && z < d + r) return true;
+    // The new benches, once they stand there (with their hand in front of each).
+    for (const e of extra) {
+      const p = e.bench.position;
+      if (e.bench.visible && x > p.x - 0.32 - r && x < p.x + 0.32 + r && z > p.z - 0.62 - r && z < p.z + 0.27 + r) return true;
+    }
     return false;
   };
 
@@ -1215,6 +1250,7 @@ export function buildWorkshop(tx: Textures, data: GameData, signText: string): W
     customer,
     apprentice,
     appBench,
+    extra,
     pileSlot,
     boardTags,
     shelfItems,

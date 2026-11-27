@@ -540,7 +540,7 @@ export class UI {
       });
       return `<h4>${t('craft.' + group)}</h4><div class="items">${cards.join('')}</div>`;
     };
-    this.craftEl.innerHTML = `${CLOSE_X}<h3>${t('craft.title')}</h3><div class="money-line">◆ ${g.money}</div>${sec('craft')}${sec('tools')}${sec('shop')}<div class="close">${t('board.close')}</div>`;
+    this.craftEl.innerHTML = `${CLOSE_X}<h3>${t('craft.title')}</h3><div class="money-line">◆ ${g.money}</div>${sec('craft')}${sec('tools')}${sec('shop')}${g.flags.season2 ? sec('expand') : ''}<div class="close">${t('board.close')}</div>`;
     this.craftEl.querySelectorAll<HTMLElement>('.buy').forEach((b) =>
       b.addEventListener('pointerdown', (e) => {
         e.stopPropagation();
@@ -762,9 +762,23 @@ export class UI {
     setTimeout(() => d.remove(), 6100);
   }
 
+  private appText = '';
+  private workText = '';
   setApprentice(text: string): void {
-    this.appStatus.style.display = text ? 'block' : 'none';
-    this.appStatus.textContent = text;
+    this.appText = text;
+    this.showStatus();
+  }
+
+  /** The hired hands' line, under the apprentice's. */
+  setWorkers(text: string): void {
+    this.workText = text;
+    this.showStatus();
+  }
+
+  private showStatus(): void {
+    const lines = [this.appText, this.workText].filter(Boolean);
+    this.appStatus.style.display = lines.length ? 'block' : 'none';
+    this.appStatus.innerHTML = lines.map((l) => `<div>${l}</div>`).join('');
   }
 
   openBoard(): void {

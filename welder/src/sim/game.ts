@@ -36,6 +36,17 @@ export interface FrameInput {
 
 export type ApprenticeState = 'away' | 'watching' | 'idle' | 'setup' | 'weld' | 'swap' | 'chip' | 'hand';
 
+/** A hired hand at one of the new benches: welds simple jobs with the recorded hand, paid every minute. */
+export interface Worker {
+  /** Which of the new benches (0, 1, 2). */
+  i: number;
+  bench: Bench;
+  state: ApprenticeState;
+  timer: number;
+  replayer: Replayer;
+  torch: TorchIn;
+}
+
 export interface ShiftLog {
   milestones: Record<string, number>;
   qualities: number[];
@@ -98,6 +109,11 @@ export class Game {
   /** How many jobs each customer has had from this workshop, and how the last of them came out. */
   visits: Record<string, number> = {};
   lastGrade: Record<string, GradeId> = {};
+  /** After the gate: the hired hands, wages owed, and when the day began. */
+  workers: Worker[] = [];
+  payT = 0;
+  unpaid = false;
+  dayStart = 0;
   /** Jobs that came apart and are on their way back (sim time they arrive). */
   returns: { at: number; o: Order }[] = [];
 
@@ -203,7 +219,7 @@ export class Game {
   /** What the workshop's name adds to new orders' pay: grows with every order handed over, up to a cap. */
   repMul(): number {
     const R = BALANCE.reputation;
-    return Math.max(0.6, 1 + R.perOrder * Math.min(this.ordersDone, R.maxOrders) - R.perReturn * this.openReturns());
+    return Math.max(0.6, 1 + R.perOrder * Math.min(this.ordersDone, R.maxOrders + this.stats.repCap) - R.perReturn * this.openReturns());
   }
 
   /** Jobs brought back and not yet put right: each one costs the workshop some of its name. */
@@ -275,7 +291,8 @@ export class Game {
     this.t += dt;
     this.updateClock(dt);
 
-    const load = (this.player.arc.lit ? 1 : 0) + (this.app.arc.lit ? 0.6 : 0);
+    let load = (this.player.arc.lit ? 1 : 0) + (this.app.arc.lit ? 0.6 : 0);
+    for (const w of this.workers) if (w.bench.arc.lit) load += 0.4;
     this.power.step(dt, this.clock.cold, this.stats, load, this.rng.get('power'), this.bus);
     this.ctx.I = this.power.I;
     this.ctx.stats = this.stats;
@@ -309,6 +326,7 @@ export class Game {
 
     this.stepAutoFace(dt);
     this.stepApprentice(dt);
+    this.stepWorkers(dt);
     this.stepOrders(dt);
     this.stepReturns();
     this.stepStory();
@@ -333,13 +351,16 @@ export class Game {
 
   private updateClock(dt: number): void {
     const C = BALANCE.clock;
-    const ph = Math.min(1, this.t / C.duskEnd);
-    if (this.flags.finale) this.nightBoost = Math.min(1, this.nightBoost + dt / BALANCE.finale.nightBlend);
+    // After the gate the days go round: morning, dusk, a short night, morning again.
+    const tt = this.flags.season2 ? (this.t - this.dayStart) % BALANCE.day : this.t;
+    const ph = Math.min(1, tt / C.duskEnd);
+    if (this.flags.finale && !this.flags.season2) this.nightBoost = Math.min(1, this.nightBoost + dt / BALANCE.finale.nightBlend);
+    else if (this.flags.season2) this.nightBoost = Math.max(0, this.nightBoost - dt / BALANCE.finale.nightBlend);
     const p = Math.max(ph, this.nightBoost);
     this.clock.dark = p * p * (3 - 2 * p);
     this.clock.snow = 0.15 + 0.85 * p;
     this.clock.cold = Math.pow(p, 1.3);
-    this.clock.night = this.t >= C.nightAt || this.nightBoost >= 1;
+    this.clock.night = tt >= C.nightAt || this.nightBoost >= 1;
   }
 
   private updateGuideTimers(dt: number): void {
@@ -410,6 +431,7 @@ export class Game {
         break;
       case 'dismissEnd':
         this.showEnd = false;
+        if (this.flags.finaleDone && !this.flags.season2) this.beginSeason2();
         break;
       case 'faceNext':
         this.faceNext();
@@ -509,7 +531,8 @@ export class Game {
    */
   devLevel(level: 1 | 2 | 3): void {
     const mid = ['guild', 'tempo', 'ear', 'coated', 'glass', 'jar'];
-    const ids = level === 3 ? this.data.upgrades.map((u) => u.id) : level === 2 ? mid : [];
+    // The workshop's growth after the gate is not part of these levels.
+    const ids = level === 3 ? this.data.upgrades.filter((u) => u.group !== 'expand').map((u) => u.id) : level === 2 ? mid : [];
     this.owned = {};
     for (const id of ids) this.owned[id] = true;
     this.stats = computeStats(this.data, this.owned);
@@ -546,6 +569,7 @@ export class Game {
     this.bus.emit('shopChanged', {});
     this.milestone('buy:' + id);
     if (id === 'guild') this.refillPile();
+    if (id.startsWith('hire')) this.syncWorkers();
     if (id === 'apprentice') {
       this.appState = this.habit ? 'idle' : 'watching';
       this.bus.emit('apprentice', { state: this.appState });
@@ -647,9 +671,20 @@ export class Game {
     if (!this.flags.board) return;
     this.nextArrival -= dt;
     if (this.nextArrival <= 0) {
-      this.nextArrival = BALANCE.board.arriveEvery;
-      if (this.board.length < BALANCE.board.size) {
-        this.board.push(rollBoardOrder(this.data, this.board, this.uid++, this.rng.get('orders'), this.repMul(), this.ordersDone));
+      const nw = this.workers.length;
+      this.nextArrival = BALANCE.board.arriveEvery / ((1 + BALANCE.workers.ratePer * nw) * this.stats.orderRate);
+      // Hands with nothing to do: the next one is a simple job, and on a full board it takes the place of
+      // the oldest pin (that customer went elsewhere).
+      const idle = this.workers.filter((w) => w.state === 'idle').length;
+      const simple = this.board.filter((o) => o.simple && !o.ret).length;
+      const wantSimple = !this.unpaid && !!this.habit && idle > simple;
+      const full = this.board.length >= BALANCE.board.size + BALANCE.workers.boardPer * nw;
+      if (full && wantSimple) {
+        const old = this.board.findIndex((o) => !o.ret && !o.simple);
+        if (old >= 0) this.board.splice(old, 1);
+      }
+      if (this.board.length < BALANCE.board.size + BALANCE.workers.boardPer * nw) {
+        this.board.push(rollBoardOrder(this.data, this.board, this.uid++, this.rng.get('orders'), this.repMul(), this.ordersDone, wantSimple));
         this.bus.emit('boardChanged', { count: this.board.length });
       }
     }
@@ -687,6 +722,127 @@ export class Game {
       const r = this.rng.get('world');
       this.howlT = r.range(BALANCE.finale.howlEvery[0], BALANCE.finale.howlEvery[1]);
       this.bus.emit('howl', { pan: r.signed(), pitch: r.range(0.8, 1.25) });
+    }
+  }
+
+  // ---------------------------------------------------------------- after the gate
+
+  /** Morning after the gate: the days go round again, and the workshop can grow (benches, hired hands). */
+  private beginSeason2(): void {
+    this.flags.season2 = true;
+    this.dayStart = this.t;
+    this.milestone('season2');
+    this.bus.emit('beat', { id: 'season2' });
+    this.bus.emit('shopChanged', {});
+    this.bus.emit('save', {});
+  }
+
+  /** One hired hand per bench bought and hand hired (after a load, after hiring). */
+  syncWorkers(): void {
+    for (let i = 0; i < 3; i++) {
+      if (!this.owned['hire' + (i + 2)] || this.workers.some((w) => w.i === i)) continue;
+      const bench = new Bench('worker');
+      this.workers.push({ i, bench, state: 'idle', timer: 0, replayer: new Replayer(), torch: emptyTorch() });
+      this.bus.emit('worker', { i, state: 'idle' });
+    }
+    this.workers.sort((a, b) => a.i - b.i);
+  }
+
+  /** What the hands cost a minute, all together. */
+  wages(): number {
+    let w = 0;
+    for (const x of this.workers) w += BALANCE.workers.wage[x.i] ?? 5;
+    return w;
+  }
+
+  private stepWorkers(dt: number): void {
+    if (!this.workers.length) return;
+    const WK = BALANCE.workers;
+    // Pay day. Short of money, the hands stop until it is there (checked again every few seconds).
+    this.payT += dt;
+    if (this.payT >= (this.unpaid ? 5 : WK.payEvery)) {
+      this.payT = 0;
+      const due = this.wages();
+      if (this.money >= due) {
+        this.money -= due;
+        this.unpaid = false;
+        this.bus.emit('wages', { amount: due, paid: true });
+        this.bus.emit('money', { money: this.money, delta: -due });
+        this.bus.emit('shopChanged', {});
+      } else if (!this.unpaid) {
+        this.unpaid = true;
+        this.bus.emit('wages', { amount: due, paid: false });
+      }
+    }
+    const k = this.stats.workerSpeed;
+    for (const w of this.workers) this.stepWorker(w, dt, k);
+  }
+
+  /** The apprentice's round, for a hired hand: take a simple job, set it up, weld it with the hand, chip, hand over. */
+  private stepWorker(w: Worker, dt: number, speed: number): void {
+    const WK = BALANCE.workers;
+    const b = w.bench;
+    const set = (st: ApprenticeState) => {
+      w.state = st;
+      this.bus.emit('worker', { i: w.i, state: st });
+    };
+    const t = w.torch;
+    t.press = false;
+    switch (w.state) {
+      case 'idle': {
+        if (this.unpaid || !this.habit) return;
+        const o = this.board.find((x) => x.simple && !x.ret && (!x.req.needs || this.owned[x.req.needs]));
+        if (!o) return;
+        this.board.splice(this.board.indexOf(o), 1);
+        this.bus.emit('boardChanged', { count: this.board.length });
+        b.load(o, this.data.parts[o.part]);
+        b.electrode = Math.max(b.electrode, 0.0001);
+        w.replayer.reset();
+        w.timer = WK.setup / speed;
+        this.bus.emit('orderTaken', { bench: 'worker', uid: o.uid, part: o.part });
+        return set('setup');
+      }
+      case 'setup':
+        w.timer -= dt;
+        if (w.timer <= 0) set('weld');
+        break;
+      case 'weld':
+        if (b.electrode <= 0 && b.swap <= 0) {
+          newElectrode(b, this.ctx, WK.swap);
+          break;
+        }
+        if (b.swap <= 0 && this.habit) w.replayer.drive(b, this.habit, dt, t);
+        break;
+      case 'chip':
+        w.timer -= dt;
+        if (w.timer <= 0) {
+          reveal(b, this.ctx);
+          w.timer = WK.handOver;
+          set('hand');
+        }
+        break;
+      case 'hand':
+        w.timer -= dt;
+        if (w.timer <= 0 && b.order) {
+          const o = b.order;
+          const { pay, met } = this.settle(o, b);
+          this.money += pay;
+          this.log.earned += pay;
+          this.remember(o, b);
+          // Every job out of the door adds to the workshop's name, whoever made it.
+          this.ordersDone++;
+          this.bus.emit('handedOver', { bench: 'worker', uid: o.uid, pay, grade: b.grade, reqMet: met, part: o.part });
+          this.bus.emit('money', { money: this.money, delta: pay });
+          this.bus.emit('shopChanged', {});
+          b.clear();
+          set('idle');
+        }
+        break;
+    }
+    if (b.stage !== 'empty') stepBench(b, t, this.ctx);
+    if (w.state === 'weld' && b.stage === 'chip') {
+      w.timer = WK.chip / speed;
+      set('chip');
     }
   }
 
