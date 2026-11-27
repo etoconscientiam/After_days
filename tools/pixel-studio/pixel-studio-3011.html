@@ -212,6 +212,7 @@ details.sub>div{padding:0 10px 10px;display:flex;flex-direction:column;gap:8px}
 .modal{position:fixed;inset:0;background:rgba(6,8,8,.86);z-index:20;display:grid;place-items:center;
   padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
 .modal .card{background:var(--surface);border:1px solid var(--line-2);border-radius:10px;padding:14px;max-width:min(560px,100%);max-height:100%;display:flex;flex-direction:column;gap:10px;overflow:auto}
+.modal .card:focus{outline:none}
 .busy .card{width:min(360px,100%)}
 .modal .vcard{max-width:min(1000px,100%);width:100%}
 .vhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -315,7 +316,7 @@ input[type=color]::-moz-color-swatch{border:0;border-radius:4px}
           <div class="lamp" id="lamp" hidden tabindex="0" role="button" aria-label="Лампа: перетащите или двигайте стрелками"></div>
           <div class="lamp emitter" id="emitter" hidden tabindex="0" role="button" aria-label="Источник частиц: перетащите или двигайте стрелками"></div>
         </div>
-        <div class="drop" id="dropHint" hidden>Отпустите картинку</div>
+        <div class="drop" id="dropHint" hidden>Отпустите картинку или файл палитры</div>
         <div class="toast" id="toast" role="status" aria-live="polite"></div>
       </div>
       <div class="tl" id="tl" aria-label="Таймлайн">
@@ -837,6 +838,7 @@ input[type=color]::-moz-color-swatch{border:0;border-radius:4px}
       <dt>тянуть кадр</dt><dd>двигать увеличенную картинку (или средней кнопкой)</dd>
       <dt>щелчок по числу</dt><dd>ввести значение с клавиатуры</dd>
       <dt>двойной щелчок по названию</dt><dd>сбросить ползунок</dd>
+      <dt>файл палитры в окно</dt><dd>импорт .gpl .pal .hex .txt .json (PNG-образец — на раздел «Палитра»)</dd>
     </dl>
     <p class="hint">Клавиши работают и в русской раскладке.</p>
     <button class="btn" id="helpClose">Закрыть</button>
@@ -1431,7 +1433,7 @@ function loadFile(file) {
   if (!file || !/^image\//.test(file.type)) { toast('Нужен файл изображения: PNG, JPG, WebP или GIF.', true); return; }
   const url = URL.createObjectURL(file);
   const img = new Image();
-  img.onload = () => { setSource(img, file.name); URL.revokeObjectURL(url); toast('Картинка загружена.'); };
+  img.onload = () => whenIdle(() => { setSource(img, file.name); URL.revokeObjectURL(url); toast('Картинка загружена.'); }, 'Картинка получена');
   img.onerror = () => { URL.revokeObjectURL(url); toast('Не удалось открыть этот файл как картинку.', true); };
   img.src = url;
 }
@@ -2646,6 +2648,7 @@ function onBind(ev) {
   else v = el.value;
   if (path === 'grid.width' && S.grid.snap) { v = snapW(v); el.value = v; }
   if (path === 'palette.custom') S.palette.customName = '';
+  if (path === 'palette.method' && PALETTES[v]) setPalColors(PALETTES[v].length);
   if (path === 'anim.frames') v = clamp(Math.round(v), 2, 96);
   if (path === 'anim.fps') v = clamp(Math.round(v), 2, 30);
   setPath(S, path, v);
@@ -2747,13 +2750,16 @@ $('#tabText').onclick = () => setMode('text');
 /* ---------- загрузка файла / перетаскивание ---------- */
 $('#fileIn').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (f) loadFile(f); e.target.value = ''; });
 let dragDepth = 0;
+const PAL_EXT = /\.(gpl|pal|hex|json|txt)$/i;
 const hasFiles = e => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
 window.addEventListener('dragenter', e => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth++; $('#dropHint').hidden = false; });
 window.addEventListener('dragover', e => { if (!hasFiles(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
 window.addEventListener('dragleave', e => { if (!hasFiles(e)) return; dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) $('#dropHint').hidden = true; });
 window.addEventListener('drop', e => {
   if (!hasFiles(e)) return; e.preventDefault(); dragDepth = 0; $('#dropHint').hidden = true;
-  const f = Array.from(e.dataTransfer.files).find(x => /^image\//.test(x.type)); loadFile(f);
+  const fs = Array.from(e.dataTransfer.files), pal = fs.find(x => PAL_EXT.test(x.name));
+  if (pal && !fs.some(x => /^image\//.test(x.type))) { importPaletteFile(pal); return; }
+  loadFile(fs.find(x => /^image\//.test(x.type)));
 });
 
 /* ---------- шторка до/после ---------- */
@@ -2880,6 +2886,17 @@ const samplePromise = hasRuntime ? window.claude.use('sample').catch(() => null)
 const downloadsPromise = hasRuntime ? window.claude.use('downloads').catch(() => null) : Promise.resolve(null);
 
 async function ask(input, signal, onText) {
+  const cancelled = () => ({ code: 'cancelled' });
+  if (signal && signal.aborted) throw cancelled();
+  const run = askRaw(input, signal, onText);
+  if (!signal) return run;
+  const stop = new Promise((_, rej) => signal.addEventListener('abort', () => rej(cancelled()), { once: true }));
+  run.catch(() => {}); stop.catch(() => {});
+  const text = await Promise.race([run, stop]);
+  if (signal.aborted) throw cancelled();
+  return text;
+}
+async function askRaw(input, signal, onText) {
   const s = await samplePromise;
   if (s) { const r = await s(input, { signal, onText, cache: false }); return r.text; }
   if (window.claude && typeof window.claude.complete === 'function') {
@@ -2991,7 +3008,7 @@ async function runAI(kind) {
       $('#planJson').value = String(text || ''); $('#jsonBox').open = true;
       return;
     }
-    applyPlan(res.plan, true);
+    whenIdle(() => applyPlan(res.plan, true), 'План от Claude получен');
     if (kind === 'refine') $('#refineText').value = '';
     setAi(kind === 'draw' ? `Готово за ${Math.round((Date.now() - t0) / 1000)} с. План можно поправить в JSON или доработать словами.` : 'Правка применена.', 'ok');
   } catch (e) {
@@ -3564,6 +3581,15 @@ $('#animSeg').addEventListener('click', e => { const b = e.target.closest('butto
 
 /* ---------- GIF ---------- */
 let gifJob = null;
+/* Всё асинхронное, что меняет кадр (ответ Claude, картинка, файл палитры), ждёт конца сборки GIF/видео —
+   иначе в файл попадут кадры с разными настройками */
+const IDLE_Q = [];
+function whenIdle(fn, what) {
+  if (!gifJob && !vidJob) { fn(); return; }
+  IDLE_Q.push(fn);
+  if (what) toast(what + ' — применю, когда файл соберётся.');
+}
+function flushIdle() { while (IDLE_Q.length && !gifJob && !vidJob) IDLE_Q.shift()(); }
 function showBusy(title, i, n) {
   const el = $('#busy');
   if (title == null) { el.hidden = true; return; }
@@ -3614,7 +3640,7 @@ async function exportGif() {
     if (e && e.cancel) toast('Сборка GIF отменена.');
     else { console.error(e); toast('Не удалось собрать GIF: ' + (e && e.message || e), true); }
   } finally {
-    worker.terminate(); URL.revokeObjectURL(url); gifJob = null; setGifBusy(); restoreAfterFrames();
+    worker.terminate(); URL.revokeObjectURL(url); gifJob = null; setGifBusy(); restoreAfterFrames(); setTimeout(flushIdle, 0);
   }
 }
 $('#tbGif').onclick = exportGif; $('#gifBtn').onclick = exportGif; $('#expGif').onclick = exportGif;
@@ -3707,7 +3733,7 @@ async function exportVideo() {
     else { console.warn(e); toast('Не удалось собрать видео: ' + (e && e.message || e), true); $('#vidHint').textContent = 'Не получилось: ' + (e && e.message || e) + '.'; }
   } finally {
     try { if (enc && enc.state !== 'closed') enc.close(); } catch (e) { /* уже закрыт */ }
-    vidJob = null; setVidBusy(); restoreAfterFrames();
+    vidJob = null; setVidBusy(); restoreAfterFrames(); setTimeout(flushIdle, 0);
   }
 }
 $('#tbMp4').onclick = exportVideo; $('#vidBtn').onclick = exportVideo; $('#expVid').onclick = exportVideo;
@@ -3861,13 +3887,13 @@ function renderGmap() {
       `<i class="gbar" style="background:${gmapGrad(st)}"></i>`;
     box.dataset.k = gmapKey();
   }
-  $('#r-gmap-amount').disabled = !on || $('#r-gmap-amount').hasAttribute('data-randlock');
+  $('#r-gmap-amount').disabled = !on;
   const fixed = gmapActive() && !['median', 'kmeans', 'original'].includes(S.palette.method);
   $('#gmapPalNote').hidden = !fixed;
   if (fixed) $('#gmapPalText').textContent = `Палитра ${palTitle(S.palette.method) || '«ручная»'} перекрашивает карту в свои ближайшие цвета. Чтобы остались цвета карты:`;
 }
 $('#gmapOwnPal').onclick = () => {
-  S.palette.method = 'median'; S.palette.colors = clamp(Math.max(S.palette.colors, 12), 8, 64); S.style = '';
+  S.palette.method = 'median'; setPalColors(Math.max(S.palette.colors, 12)); S.style = '';
   syncUI(); invalidate('C'); toast('Палитра «Своя из картинки» — теперь она собирается из цветов карты.');
 };
 function gmapEdited() { S.gmap.preset = ''; S.style = ''; syncUI(); invalidate('C'); }
@@ -3902,18 +3928,25 @@ $('#gmapStops').addEventListener('click', e => {
 });
 
 /* ---------- библиотека и импорт палитр ---------- */
-function setCustomPalette(name, cols) {
+// число цветов по палитре; если «Цветов» анимирован ключами — пишем в ключ, иначе таймлайн вернёт старое
+function setPalColors(n) {
+  const v = clamp(Math.round(n), 8, 64);
+  S.palette.colors = v;
+  if (KEYS_READY && S.keys['palette.colors']) autoKey('palette.colors', v);
+}
+function setCustomPalette(name, cols) { whenIdle(() => setCustomPaletteNow(name, cols), 'Палитра получена'); }
+function setCustomPaletteNow(name, cols) {
   S.palette.method = 'custom';
   S.palette.custom = cols.map(c => hexOf(c)).join(' ');
   S.palette.customName = String(name || '').trim().slice(0, 40);
-  S.palette.colors = clamp(cols.length, 8, 64);
+  setPalColors(cols.length);
   S.style = '';
   syncUI(); invalidate('C');
 }
 $('#palLib').addEventListener('click', e => {
   const b = e.target.closest('button[data-pal]'); if (!b) return;
   const id = b.dataset.pal;
-  S.palette.method = id; S.palette.colors = clamp(PALETTES[id].length, 8, 64); S.style = '';
+  S.palette.method = id; setPalColors(PALETTES[id].length); S.style = '';
   syncUI(); invalidate('C');
 });
 function uniqCols(list, max) {
@@ -3931,7 +3964,11 @@ function parsePaletteText(text, fname) {
     const arr = Array.isArray(o) ? o : o && (o.colors || o.colours || o.palette);
     if (o && !Array.isArray(o) && typeof o.name === 'string' && o.name.trim()) name = o.name.trim();
     if (!Array.isArray(arr)) throw new Error('в JSON нет массива colors');
-    cols = arr.map(c => typeof c === 'string' ? hex(c) : c && (c.hex || c.color) ? hex(c.hex || c.color) : null);
+    const rgb = (r, g, b) => [r, g, b].every(v => isFinite(+v)) ? [+r, +g, +b].map(v => clamp(Math.round(v <= 1 && [r, g, b].every(x => +x <= 1) ? v * 255 : v), 0, 255)) : null;
+    cols = arr.map(c => typeof c === 'string' ? hex(c)
+      : Array.isArray(c) && c.length >= 3 ? rgb(c[0], c[1], c[2])
+      : c && (c.hex || c.color) ? hex(c.hex || c.color)
+      : c && 'r' in c && 'g' in c && 'b' in c ? rgb(c.r, c.g, c.b) : null);
   } else if (/^GIMP Palette/i.test(t)) {
     for (const ln of t.split(/\r?\n/)) {
       const nm = ln.match(/^\s*Name:\s*(.+)$/i); if (nm) { name = nm[1].trim(); continue; }
@@ -3940,10 +3977,13 @@ function parsePaletteText(text, fname) {
   } else if (/^JASC-PAL/i.test(t)) {
     t.split(/\r?\n/).slice(3).forEach(ln => { const m = ln.match(/^\s*(\d{1,3})\s+(\d{1,3})\s+(\d{1,3})/); if (m) cols.push([+m[1], +m[2], +m[3]].map(v => clamp(v, 0, 255))); });
   } else {
+    // Paint.NET (.txt с комментариями «;») хранит AARRGGBB, остальные 8-значные HEX — RRGGBBAA
+    const pdn = /\.txt$/i.test(fname || '') || /^\s*;/m.test(t);
     for (let ln of t.split(/\r?\n/)) {
-      ln = ln.replace(/;.*$/, '').trim(); if (!ln) continue;
-      if (/^[0-9a-f]{8}$/i.test(ln)) { cols.push(hex(ln.slice(2))); continue; }   // Paint.NET: AARRGGBB
-      cols.push(...parseHexList(ln));
+      ln = ln.trim(); if (!ln || ln[0] === ';') continue;
+      const h8 = ln.match(/^#?([0-9a-f]{8})$/i);
+      if (h8) { cols.push(hex(pdn ? h8[1].slice(2) : h8[1].slice(0, 6))); continue; }
+      cols.push(...parseHexList(ln.replace(/;/g, ' ')));
     }
   }
   return { name, cols: uniqCols(cols, 256) };
@@ -3977,15 +4017,17 @@ async function importPaletteFile(f) {
       const r = parsePaletteText(await f.text(), f.name); name = r.name || name; cols = r.cols;
     }
     if (cols.length < 2) throw new Error('в файле нашлось меньше двух цветов');
-    setCustomPalette(name || 'импорт', cols);
-    toast(`Палитра «${S.palette.customName}»: ${cols.length} цв.` + (cols.length > 64 ? ' В кадр идут 64 самых нужных.' : ''));
+    name = String(name || 'импорт').trim().slice(0, 40);
+    const busy = gifJob || vidJob;
+    setCustomPalette(name, cols);
+    if (!busy) toast(`Палитра «${name}»: ${cols.length} цв.` + (cols.length > 64 ? ' В кадр идут 64 самых нужных.' : ''));
   } catch (e) { toast('Палитра не загружена: ' + (e && e.message || e), true); }
 }
 $('#palImportBtn').onclick = () => $('#palFile').click();
 $('#palFile').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; importPaletteFile(f); });
 {
   const sec = $('#secPal');
-  sec.addEventListener('dragover', e => { if (!hasFiles(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; sec.classList.add('dropping'); });
+  sec.addEventListener('dragover', e => { if (!hasFiles(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; sec.classList.add('dropping'); $('#dropHint').hidden = true; });
   sec.addEventListener('dragleave', e => { if (!sec.contains(e.relatedTarget)) sec.classList.remove('dropping'); });
   sec.addEventListener('drop', e => {
     if (!hasFiles(e)) return; e.preventDefault(); e.stopPropagation();
@@ -4043,9 +4085,9 @@ async function runPalAI() {
       res = parseAiPalette(text, n);
     }
     if (!res.ok) { setPalAi(`Claude дважды вернул палитру с ошибкой: ${res.error}. Попробуйте описать иначе.`, 'err'); return; }
-    const name = res.name || desc.slice(0, 32);
+    const name = String(res.name || desc.slice(0, 32)).trim().slice(0, 40), busy = gifJob || vidJob;
     setCustomPalette(name, res.cols);
-    setPalAi(`Палитра «${S.palette.customName}»: ${res.cols.length} цв. за ${sec()} с. Цвета можно поправить в списке HEX выше.`, 'ok');
+    setPalAi(`Палитра «${name}»: ${res.cols.length} цв. за ${sec()} с.` + (busy ? ' Применится, когда соберётся файл.' : ' Цвета можно поправить в списке HEX выше.'), 'ok');
   } catch (e) {
     const c = e && e.code;
     setPalAi(c === 'unavailable' ? 'В этом просмотре нет вызова Claude. Палитру можно вписать списком HEX или загрузить файлом.'
@@ -4144,6 +4186,23 @@ function applyVariant(k) {
 const openVariants = () => showVariants(styleSnapshot(), 'Варианты');
 $('#varBtn').onclick = openVariants;
 $('#varMore').onclick = () => showVariants(VAR.list[0] || styleSnapshot(), $('#varTitle').textContent);
+/* Окна поверх студии: пока открыто любое, студия за ним недоступна ни мыши, ни Tab; после закрытия фокус возвращается */
+{
+  const app = $('.app'); let back = null;
+  const sync = () => {
+    const open = [...document.querySelectorAll('.modal')].find(m => !m.hidden);
+    if (open && !app.inert) {
+      back = document.activeElement; app.inert = true;
+      if (!open.contains(document.activeElement)) { const c = open.querySelector('.card') || open; if (!c.hasAttribute('tabindex')) c.setAttribute('tabindex', '-1'); c.focus({ preventScroll: true }); }
+    } else if (!open && app.inert) {
+      app.inert = false;
+      if (back && back.isConnected && back !== document.body) back.focus({ preventScroll: true });
+      back = null;
+    }
+  };
+  const mo = new MutationObserver(sync);
+  document.querySelectorAll('.modal').forEach(m => mo.observe(m, { attributes: true, attributeFilter: ['hidden'] }));
+}
 $('#varClose').onclick = () => { $('#varModal').hidden = true; };
 $('#varModal').addEventListener('click', e => {
   if (e.target.id === 'varModal') { $('#varModal').hidden = true; return; }

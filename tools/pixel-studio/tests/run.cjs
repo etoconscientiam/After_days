@@ -64,7 +64,7 @@ async function open(browser, opt = {}) {
       if (!it) return rej({ code: 'upstream_error' });
       if (it.wait) { opts.signal.addEventListener('abort', () => rej({ code: 'cancelled' })); return; }
       if (it.error) return rej({ code: it.error });
-      setTimeout(() => { if (opts.onText) opts.onText({ text: it.text, delta: it.text }); res({ text: it.text }); }, 20);
+      setTimeout(() => { if (opts.onText) opts.onText({ text: it.text, delta: it.text }); res({ text: it.text }); }, it.delay || 20);
     });
     const downloads = { save: async r => {
       if (window.__dl === 'declined') throw { code: 'declined' };
@@ -148,6 +148,9 @@ async function makeFixtures(browser) {
   fs.writeFileSync(path.join(FIX, 'lines.hex'), '0d2b45\n203c56\n544e68\n8d697a\nd08159\nffaa5e\n');
   fs.writeFileSync(path.join(FIX, 'lospec.json'), JSON.stringify({ name: 'Болотный свет', author: 'тест', colors: ['0b1a12', '1f3b2a', '4f7a3c', 'a3b85c', 'e9e4b0'] }));
   fs.writeFileSync(path.join(FIX, 'broken.json'), '{"colors": [');
+  fs.writeFileSync(path.join(FIX, 'rgb.json'), JSON.stringify([[0, 0, 0], [255, 0, 0], { r: 0, g: 0, b: 255 }]));
+  fs.writeFileSync(path.join(FIX, 'rgba.hex'), 'ff004480\n00ff00ff\n#0000ffff\n');
+  fs.writeFileSync(path.join(FIX, 'semi.hex'), '#112233;#445566\n');
   fs.writeFileSync(path.join(FIX, 'many.hex'), Array.from({ length: 100 }, (_, i) => ((i * 2654435761) >>> 8 & 0xffffff).toString(16).padStart(6, '0')).join('\n'));
   await p.close();
 }
@@ -525,6 +528,50 @@ async function makeFixtures(browser) {
       eq(await p.textContent('#aiPalBtn'), 'Стоп'); await p.click('#aiPalBtn');
       await p.waitForFunction(() => /Остановлено/.test($('#aiPalStatus').textContent)); eq(await p.textContent('#aiPalBtn'), 'Создать');
     });
+
+    // --- найдено при отладке ---
+    for (const [f, cols] of [['rgb.json', ['#000000', '#ff0000', '#0000ff']], ['rgba.hex', ['#ff0044', '#00ff00', '#0000ff']], ['semi.hex', ['#112233', '#445566']]]) {
+      await check(`импорт ${f}: ${cols.join(' ')}`, async () => { await imp(f, /Палитра «/); eq(await p.evaluate(() => S.palette.custom.split(' ')), cols); });
+    }
+    await check('файл палитры, брошенный не на раздел палитры, тоже импортируется', async () => {
+      const txt = fs.readFileSync(FIXP('lines.hex'), 'utf8');
+      const r = await p.evaluate(async t => { const dt = new DataTransfer(); dt.items.add(new File([t], 'окно.hex', { type: '' })); window.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true })); await new Promise(r => setTimeout(r, 300)); return [S.palette.customName, $('#toast').textContent]; }, txt);
+      eq(r[0], 'окно'); await settle(p);
+    });
+    await check('палитра из меню берёт все свои цвета (Endesga 32 → 32, потом PICO-8 → 16)', async () => {
+      await setP(p, { palette: { method: 'gnet', colors: 22 } }, 'C');
+      await p.selectOption('#palSel', 'endesga32'); await settle(p); eq(await p.evaluate(() => [S.palette.colors, G.pal.length]), [32, 32]);
+      await p.selectOption('#palSel', 'pico8'); await settle(p); eq(await p.evaluate(() => S.palette.colors), 16);
+    });
+    await check('«Цветов» с ключами: щелчок по палитре библиотеки пишет число в ключ, таймлайн его не откатывает', async () => {
+      await p.evaluate(() => { S.palette.colors = 12; addTrack('palette.colors'); });
+      await p.click('#palLib button[data-pal="endesga32"]'); await settle(p);
+      await p.evaluate(() => { applyTimeline(TL.frame); syncUI(); invalidate('C'); }); await settle(p);
+      eq(await p.evaluate(() => S.palette.colors), 32);
+      await p.evaluate(() => { removeTrack('palette.colors'); }); await setP(p, clean, 'C');
+    });
+    await check('ответ Claude с палитрой во время сборки GIF применяется после сборки, GIF в одной палитре', async () => {
+      await p.evaluate(t => window.__q.push({ text: t, delay: 300 }), palJson('Поздняя', 8));
+      await p.fill('#aiPalText', 'поздний ответ'); await p.selectOption('#aiPalN', '8'); await p.click('#aiPalBtn');
+      const r = await p.evaluate(async () => {
+        S.anim.frames = 24; syncUI(); const seen = new Set();
+        $('#gifBtn').click(); const iv = setInterval(() => { if (gifJob) seen.add(S.palette.method + ':' + G.pal.length); }, 10);
+        await new Promise(res => { const w = () => gifJob ? setTimeout(w, 50) : res(); setTimeout(w, 50); });
+        clearInterval(iv); await new Promise(r => setTimeout(r, 200));
+        return [[...seen], S.palette.method, S.palette.customName];
+      });
+      eq(r[0].length, 1, 'палитра менялась во время сборки: ' + r[0].join(' ')); eq(r.slice(1), ['custom', 'Поздняя']);
+      await p.evaluate(() => { S.anim.frames = 16; syncUI(); }); await saved(p); await settle(p);
+    });
+    await check('во время сборки GIF Tab не уводит фокус за окно сборки, после — фокус возвращается', async () => {
+      await p.focus('#cmpBtn');
+      const r = await p.evaluate(async () => { S.anim.frames = 24; syncUI(); $('#gifBtn').click(); await new Promise(r => setTimeout(r, 50)); return [$('.app').inert, $('#busy').contains(document.activeElement)]; });
+      for (let i = 0; i < 5; i++) await p.keyboard.press('Tab');
+      const inside = await p.evaluate(() => !$('.app').contains(document.activeElement));
+      await p.waitForFunction(() => !gifJob, null, { timeout: 60000 }); await p.waitForTimeout(150);
+      eq([...r, inside, await p.evaluate(() => [$('.app').inert, document.activeElement.id, cmp.on])], [true, true, true, [false, 'cmpBtn', false]]);
+      await p.evaluate(() => { S.anim.frames = 16; syncUI(); }); await saved(p);
+    });
     await check('«Варианты» иногда берут палитры библиотеки и градиентную карту', async () => {
       const r = await p.evaluate(() => { const base = styleSnapshot(), rr = rng(42); let lib = 0, gm = 0, cap = 0; for (let i = 0; i < 300; i++) { const v = makeVariant(base, rr, true); if (PAL_LIB.some(x => x.id === v.palette.method)) lib++; if (v.gmap.on) gm++; if (/карта «/.test(variantCaption(v))) cap++; } return [lib, gm, cap]; });
       ok(r[0] > 20 && r[1] > 20 && r[2] === r[1], JSON.stringify(r)); return `из 300: библиотека ${r[0]}, карта ${r[1]}`;
@@ -533,6 +580,33 @@ async function makeFixtures(browser) {
       const q = await open(browser, { noRuntime: true });
       await tab(q, 'pix'); await q.fill('#aiPalText', 'зима'); await q.click('#aiPalBtn');
       await q.waitForFunction(() => /нет вызова Claude.*HEX/.test($('#aiPalStatus').textContent)); await noErrors(q); await q.context().close();
+    });
+    await check('«Стоп» срабатывает сразу и с запасным window.claude.complete, поздний ответ не применяется', async () => {
+      const q = await open(browser, { noRuntime: true });
+      await q.evaluate(() => { window.claude = { complete: () => new Promise(r => setTimeout(() => r('{"name":"Поздно","colors":["#000000","#444444","#888888","#cccccc","#ffffff","#ff0000","#00ff00","#0000ff"]}'), 700)) }; });
+      await tab(q, 'pix'); await q.fill('#aiPalText', 'зима'); await q.selectOption('#aiPalN', '8'); await q.click('#aiPalBtn'); await q.waitForTimeout(100);
+      await q.click('#aiPalBtn'); await q.waitForTimeout(50);
+      eq(await q.evaluate(() => [$('#aiPalStatus').textContent, $('#aiPalBtn').textContent]), ['Остановлено.', 'Создать']);
+      await q.waitForTimeout(900); eq(await q.evaluate(() => S.palette.method), 'gnet'); await noErrors(q); await q.context().close();
+    });
+    await check('«Стоп» у плана сцены тоже срабатывает сразу с window.claude.complete', async () => {
+      const q = await open(browser, { noRuntime: true });
+      await q.evaluate(() => { window.claude = { complete: () => new Promise(r => setTimeout(() => r('{}'), 700)) }; });
+      await q.click('#tabText'); await q.click('#drawBtn'); await q.waitForTimeout(100); await q.click('#stopBtn'); await q.waitForTimeout(50);
+      ok(/Остановлено/.test(await q.textContent('#aiStatus'))); ok(!await q.$eval('#drawBtn', e => e.disabled)); await q.waitForTimeout(800); await noErrors(q); await q.context().close();
+    });
+    await check('картинка, вставленная во время сборки GIF, загружается после сборки', async () => {
+      const b64 = fs.readFileSync(FIXP('tiny.png')).toString('base64');
+      const r = await p.evaluate(async b64 => {
+        S.anim.frames = 24; syncUI(); const was = $('#srcName').textContent; $('#gifBtn').click(); await new Promise(r => setTimeout(r, 30));
+        const bin = atob(b64), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+        const dt = new DataTransfer(); dt.items.add(new File([u], 'mid.png', { type: 'image/png' })); window.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }));
+        await new Promise(r => setTimeout(r, 300)); const during = $('#srcName').textContent === was && !!gifJob;
+        await new Promise(res => { const w = () => gifJob ? setTimeout(w, 50) : res(); w(); }); await new Promise(r => setTimeout(r, 400));
+        return [during, $('#srcName').textContent.startsWith('mid')];
+      }, b64);
+      eq(r, [true, true]); await p.evaluate(() => { S.anim.frames = 16; syncUI(); }); await saved(p);
+      await p.setInputFiles('#fileIn', FIXP('scene.jpg')); await p.waitForFunction(() => $('#srcName').textContent.startsWith('scene')); await settle(p, 200);
     });
     await setS(p, s => { s.gmap.on = false; s.palette.method = 'gnet'; s.palette.colors = 22; s.dither.type = 'bayer4'; s.dither.strength = 0.3; s.tint = 0.25; s.vignette = 0.4; }, 'B');
     await check('без ошибок в консоли', () => noErrors(p));
