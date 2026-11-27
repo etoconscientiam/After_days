@@ -763,6 +763,10 @@ export class View {
       this.syncWorld();
     });
     this.ui.onSkip = (seam) => this.game.queue({ type: 'skip', seam });
+    this.ui.onDebugMoney = (n) => {
+      g.devMoney(n);
+      this.ui.renderCraft();
+    };
     this.ui.onDebugLevel = (lv) => {
       g.devLevel(lv);
       this.ui.showMoney(g.money);

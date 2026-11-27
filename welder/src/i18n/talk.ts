@@ -94,6 +94,7 @@ export const talkRu: Record<string, string> = {
   'set.off': 'нет',
   'set.lang': 'язык',
   'set.open': 'настройки',
+  'dbg.money': 'деньги',
 };
 
 export const talkEn: Record<string, string> = {
@@ -183,4 +184,5 @@ export const talkEn: Record<string, string> = {
   'set.off': 'no',
   'set.lang': 'language',
   'set.open': 'settings',
+  'dbg.money': 'money',
 };

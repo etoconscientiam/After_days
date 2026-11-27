@@ -71,6 +71,7 @@ export class UI {
   /** Debug panel (the ` key): jump the progression to one of three levels. */
   private dbgEl = el('div', 'dbg', 'pe');
   onDebugLevel: (level: 1 | 2 | 3) => void = () => {};
+  onDebugMoney: (n: number) => void = () => {};
   /** The «next» button on the job card: leave the rest of this seam (or of the chipping). */
   onSkip: (seam: number) => void = () => {};
   /** Seams seen closed on this job, and the one closed last (its losses are shown on a long job's card). */
@@ -427,12 +428,19 @@ export class UI {
       [2, t('dbg.l2')],
       [3, t('dbg.l3')],
     ];
-    this.dbgEl.innerHTML = `${CLOSE_X}<h3>${t('dbg.title')}</h3><div class="lvls">${lv.map(([n, s]) => `<span class="lvl" data-l="${n}"><b>${n}</b> ${s}</span>`).join('')}</div>`;
-    this.dbgEl.querySelectorAll<HTMLElement>('.lvl').forEach((b) =>
+    this.dbgEl.innerHTML = `${CLOSE_X}<h3>${t('dbg.title')}</h3><div class="lvls">${lv.map(([n, s]) => `<span class="lvl" data-l="${n}"><b>${n}</b> ${s}</span>`).join('')}</div>
+      <h3>${t('dbg.money')}</h3><div class="lvls">${[10, 50, 200, 1000].map((n) => `<span class="lvl" data-m="${n}"><b>+${n}</b> ◆</span>`).join('')}</div>`;
+    this.dbgEl.querySelectorAll<HTMLElement>('.lvl[data-m]').forEach((b) =>
+      b.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+        this.onDebugMoney(+b.dataset.m!);
+      }),
+    );
+    this.dbgEl.querySelectorAll<HTMLElement>('.lvl[data-l]').forEach((b) =>
       b.addEventListener('pointerdown', (e) => {
         e.stopPropagation();
         this.onDebugLevel(+b.dataset.l! as 1 | 2 | 3);
-        this.dbgEl.querySelectorAll('.lvl').forEach((x) => x.classList.toggle('on', x === b));
+        this.dbgEl.querySelectorAll('.lvl[data-l]').forEach((x) => x.classList.toggle('on', x === b));
       }),
     );
     this.dbgEl.querySelector('.x')!.addEventListener('pointerdown', (e) => {

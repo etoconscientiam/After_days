@@ -527,6 +527,14 @@ export class Game {
     this.bus.emit('save', {});
   }
 
+  /** Debug: coins out of nowhere. */
+  devMoney(n: number): void {
+    this.money += n;
+    this.bus.emit('money', { money: this.money, delta: n });
+    this.bus.emit('shopChanged', {});
+    this.bus.emit('save', {});
+  }
+
   private buy(id: string): void {
     const u = this.data.upgrades.find((x) => x.id === id);
     if (!u || this.whyNot(id).length) return;

@@ -632,7 +632,7 @@ body.ui-modal #game { cursor: var(--cur); }
   z-index: 30;
 }
 #dbg h3 { margin: 0 0 0.4em; font-size: 1em; font-weight: 400; color: #c8a878; letter-spacing: 0.1em; text-transform: uppercase; }
-#dbg .lvls { display: flex; gap: calc(var(--px) * 3); }
+#dbg .lvls { display: flex; gap: calc(var(--px) * 3); margin-bottom: 0.4em; }
 #dbg .lvl { display: inline-block; padding: 0 calc(var(--px) * 3); cursor: pointer; }
 #dbg .lvl b { font-weight: 400; color: #ffd070; }
 #dbg .lvl.on { color: #b8e090; }
