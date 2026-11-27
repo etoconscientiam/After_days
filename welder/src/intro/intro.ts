@@ -131,7 +131,6 @@ export class Intro {
   private doneAt = -1;
   private lineStarted = false;
   private waitFrom = -1;
-  private bandFs = 48;
   private ignited = false;
   private igniteAt = -1;
   private phase: 'play' | 'flash' | 'reveal' | 'gone' = 'play';
@@ -397,13 +396,38 @@ export class Intro {
     // The band for the words: the bottom fifth of the picture at most.
     const bh = Math.floor(h * 0.2);
     Object.assign(this.band.style, { left: x + 'px', top: y + h - bh + 'px', width: w + 'px', height: bh + 'px' });
-    // The HUD's pixel font, on its own 16 px grid, never under 20 px.
-    const fs = h >= 600 ? 48 : 32;
-    this.bandFs = fs;
+    // The HUD's pixel font, on its own 16 px grid, never under 20 px; one size for the whole intro: the
+    // biggest at which every line of it fits the band.
+    const fs = this.fitSize(w, bh, h >= 600 ? [48, 32] : [32]);
     this.band.style.fontSize = fs + 'px';
     this.skipEl.style.fontSize = (fs >= 48 ? 32 : 16) + 'px';
     this.band.style.lineHeight = fs * 1.25 + 'px';
   };
+
+  /** The largest of `sizes` at which every line of the script fits a band `bw`×`bh` (else the smallest). */
+  private fitSize(bw: number, bh: number, sizes: number[]): number {
+    const m = document.createElement('div');
+    m.className = 'intro-text';
+    Object.assign(m.style, { position: 'absolute', visibility: 'hidden', left: '0', top: '0', width: bw * 0.92 + 'px', fontFamily: "'Strata Pixel', monospace", lineHeight: '1.25' });
+    this.root.append(m);
+    let pick = sizes[sizes.length - 1];
+    for (const fs of sizes) {
+      m.style.fontSize = fs + 'px';
+      let ok = true;
+      for (const sh of this.shots)
+        for (const l of sh.def.lines) {
+          const who = sh.style === 'dialog' && l.who ? l.who + ': ' : '';
+          m.innerHTML = `<span class="${sh.style}">${who}${shown(sh.style, l)}</span>`;
+          if (m.offsetHeight > bh - 8) ok = false;
+        }
+      if (ok) {
+        pick = fs;
+        break;
+      }
+    }
+    m.remove();
+    return pick;
+  }
 
   private frame = (now: number): void => {
     const dt = Math.min(0.1, (now - this.last) / 1000);
@@ -545,7 +569,7 @@ export class Intro {
         while (s.spawn[k] >= 1 && s.parts.length < 600) {
           s.spawn[k] -= 1;
           let px: number, py: number;
-          if (f.type === 'sparks') [px, py] = this.toBuf(s, r, f.x ?? 50, f.y ?? 50);
+          if (f.type === 'sparks' && !f.area) [px, py] = this.toBuf(s, r, f.x ?? 50, f.y ?? 50);
           else {
             const ax = area[0] + Math.random() * area[2], ay = f.type === 'snow' ? area[1] : area[1] + Math.random() * area[3];
             [px, py] = this.toBuf(s, r, ax, ay);
@@ -620,16 +644,7 @@ export class Intro {
     const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
     const who = s.style === 'dialog' && l.who ? `<span class="who">${esc(l.who)}:</span> ` : '';
     const html = `<span class="${s.style}">${who}${esc(text.slice(0, n))}<span class="rest">${esc(text.slice(n))}</span></span>`;
-    if (html !== this.textEl.innerHTML) {
-      const fresh = !this.textEl.innerHTML;
-      this.textEl.innerHTML = html;
-      // A long line that won't fit the band in the big size takes the smaller one (the whole line is laid out
-      // from its first letter, so this is decided once and never jumps while typing).
-      if (fresh) {
-        this.textEl.style.fontSize = '';
-        if (this.textEl.offsetHeight > this.band.clientHeight - 8) this.textEl.style.fontSize = this.bandFs > 32 ? '32px' : '16px';
-      }
-    }
+    if (html !== this.textEl.innerHTML) this.textEl.innerHTML = html;
   }
 
   // ------------------------------------------------------------------ sound (hooks; missing files are skipped)
