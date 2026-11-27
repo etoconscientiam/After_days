@@ -1,6 +1,6 @@
 import type { GradeId } from '../data/types';
 
-export type BenchId = 'player' | 'apprentice' | 'worker';
+export type BenchId = 'player' | 'apprentice';
 export type ArcOutReason = 'release' | 'long' | 'power' | 'electrode' | 'off' | 'reach';
 
 /** Every event the sim emits. View, audio and UI subscribe; the sim never looks back at them. */
@@ -10,10 +10,12 @@ export interface SimEvents {
   orderTaken: { bench: BenchId; uid: number; part: string };
   pileChanged: { has: boolean };
   boardChanged: { count: number };
-  /** Wages paid (or not: `paid` false, the workers stop). */
-  wages: { amount: number; paid: boolean };
-  /** A worker's state changed (the view shows them at their bench). */
-  worker: { i: number; state: string };
+  /** Something on the estate changed (the map and the wall map redraw). */
+  estate: Record<string, never>;
+  /** Sold at a place on the estate: by hand from the map, or by the courier at market. */
+  sold: { amount: number; at: string; by: 'hand' | 'courier' };
+  /** The estate's pay day went out. */
+  wagesPaid: { amount: number };
   /** A job that came apart is back. */
   returned: { uid: number; customer: string; part: string };
   arcStrike: { bench: BenchId; x: number; y: number; z: number };

@@ -184,26 +184,39 @@ export const BALANCE = {
   },
 
   /**
-   * After the gate: hired workers at their own benches. Each welds simple jobs off the board with the hand
-   * last recorded (as the apprentice does) and is paid every `payEvery` seconds; with no money for wages
-   * they stop until there is.
+   * The estate (data/estate.ts): the apprentice's finished jobs wait in the house until sold from the map;
+   * after the gate plots are bought and workshops built on them; a courier can carry and sell for you.
    */
-  workers: {
-    /** Wages of each hand, per pay day (every `payEvery` seconds). */
-    wage: [2, 3, 4, 5] as number[],
+  estate: {
+    /** How many of the apprentice's jobs the house holds before he has to wait. */
+    homeCap: 3,
+    /** A workshop's store, at the first level, and how much more each level holds. */
+    shopCap: 3,
+    capPer: 2,
+    /** Per level above the first: faster, better made, dearer. */
+    levelSpeed: 0.35,
+    levelQuality: 0.04,
+    levelValue: 0.15,
+    /** What raising a workshop a level costs, as a share of building it (levels 2..5). */
+    levelCost: [0.8, 1.6, 3.2, 6.4] as number[],
+    /** A plot by the river turns its wheel faster. */
+    riverSpeed: 1.25,
+    /** How well a workshop works before you have shown its trade at your bench. */
+    untaught: 0.3,
+    /** Pay day for the workshops and the courier, seconds; with no money they stop (looked at again soon). */
     payEvery: 20,
-    setup: 2.5,
-    swap: 1.2,
-    chip: 2.5,
-    handOver: 1,
-    /** The board: this many more places per hand, and orders come this much faster per hand. */
-    boardPer: 2,
-    ratePer: 0.4,
-    /** A bench's own five levels: what each next one costs, and what each level adds. */
-    levelCost: [30, 70, 150, 320] as number[],
-    /** Per level above the first: faster about the bench, and a steadier hand (less wander off the joint). */
-    levelSpeed: 0.3,
-    levelSteady: 0.15,
+    retry: 5,
+    courier: {
+      cost: 35,
+      /** Levels 2..5. */
+      upCost: [40, 90, 180, 360] as number[],
+      wage: 1,
+      /** Plan pixels per second, and what one trip carries; more per level. */
+      speed: 40,
+      speedPer: 0.3,
+      bag: 3,
+      bagPer: 2,
+    },
   },
 
   /** The day after the gate: morning again, then dusk and night in a cycle this long (s). */

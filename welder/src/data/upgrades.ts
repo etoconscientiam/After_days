@@ -75,16 +75,4 @@ export const UPGRADES: UpgradeDef[] = [
     slot: 5,
     model: 'wheel',
   },
-  // After the gate: the workshop grows. Each hand hired adds a room to the annex behind the south wall with
-  // a bench for him (paid every pay day); deals bring new, better-paid kinds of orders.
-  { id: 'hire1', group: 'expand', cost: 25, requires: { flag: 'season2' }, effects: {}, slot: -1, model: '' },
-  { id: 'hire2', group: 'expand', cost: 70, requires: { owns: ['hire1'] }, effects: {}, slot: -1, model: '' },
-  { id: 'hire3', group: 'expand', cost: 160, requires: { owns: ['hire2'] }, effects: {}, slot: -1, model: '' },
-  { id: 'hire4', group: 'expand', cost: 340, requires: { owns: ['hire3'] }, effects: {}, slot: -1, model: '' },
-  { id: 'deal_carts', group: 'expand', cost: 45, requires: { owns: ['hire1'] }, effects: {}, slot: -1, model: '' },
-  { id: 'deal_north', group: 'expand', cost: 90, requires: { owns: ['hire2'] }, effects: {}, slot: -1, model: '' },
-  { id: 'deal_watch', group: 'expand', cost: 150, requires: { owns: ['hire2'] }, effects: {}, slot: -1, model: '' },
-  { id: 'deal_keeper', group: 'expand', cost: 260, requires: { owns: ['hire3'] }, effects: {}, slot: -1, model: '' },
-  { id: 'sign2', group: 'expand', cost: 60, requires: { owns: ['hire1'] }, effects: { add: { orderRate: 0.6, repCap: 10 } }, slot: -1, model: '' },
-  { id: 'school', group: 'expand', cost: 200, requires: { owns: ['hire3'] }, effects: { add: { workerSpeed: 0.5 } }, slot: -1, model: '' },
 ];

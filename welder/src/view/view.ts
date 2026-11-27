@@ -25,7 +25,7 @@ import { settings } from '../settings';
 /** Part-local units are millimetres; inside partRoot one unit of geometry is a metre. */
 const MM = 0.001;
 /** Things you click instead of welding on them. */
-const TOOLS_OF_THE_ROOM = new Set(['pile', 'board', 'electrodes', 'door', 'done', 'craft']);
+const TOOLS_OF_THE_ROOM = new Set(['pile', 'board', 'electrodes', 'door', 'done', 'craft', 'map']);
 const Y_UP = new THREE.Vector3(0, 1, 0);
 /** The guild master's walk round the workshop, right after joining: what each thing is, briefly. */
 const TOUR: { key: string; at: [number, number, number]; glow: string }[] = [
@@ -319,12 +319,14 @@ export class View {
       else if (e.code === 'KeyU' && !e.repeat) this.toggleCraft();
       else if (e.code === 'Backquote' && !e.repeat) this.ui.toggleDebug();
       else if (e.code === 'KeyE' && !e.repeat) {
-        if (this.ui.craftOpen) this.ui.closeCraft();
+        if (this.ui.map.isOpen) this.ui.map.close();
+        else if (this.ui.craftOpen) this.ui.closeCraft();
         else if (this.ui.jobOpen) this.ui.closeJob();
         else if (this.ui.boardOpen) this.ui.closeBoard();
         else if (this.rig.mode === 'station' || this.rig.mode === 'inspect') this.leaveBench();
         else if (this.rig.mode === 'walk') this.interact();
-      } else if (e.code === 'Escape' && this.ui.settingsOpen) this.ui.closeSettings();
+      } else if (e.code === 'Escape' && this.ui.map.isOpen) this.ui.map.close();
+      else if (e.code === 'Escape' && this.ui.settingsOpen) this.ui.closeSettings();
       else if (e.code === 'Escape' && this.tour >= 0) this.endTour();
       else if (e.code === 'Escape' && this.ui.craftOpen) this.ui.closeCraft();
       else if (e.code === 'Escape' && this.ui.jobOpen) this.ui.closeJob();
@@ -387,6 +389,7 @@ export class View {
       this.unlockPointer();
       this.ui.openBoard();
     } else if (id.startsWith('shelf:') || id === 'craft') this.openCraft();
+    else if (id === 'map') this.openMap();
     else if (id === 'door') g.queue({ type: 'handOver' });
     else if (id === 'bench' || id === 'part' || id === 'done' || id === 'electrodes') this.toBench();
   }
@@ -425,7 +428,6 @@ export class View {
     this.rig.station();
     this.ui.muteHint(false);
     this.ui.setApprentice('');
-    this.ui.setWorkers('');
     this.syncWorld();
     this.syncPile();
     this.moneyShown = 0;
@@ -522,6 +524,15 @@ export class View {
     this.ui.openCraft();
   }
 
+  private openMap(): void {
+    this.unlockPointer();
+    this.ui.closeBoard();
+    this.ui.closeJob();
+    this.ui.closeCraft();
+    this.ui.hideTip();
+    this.ui.map.open();
+  }
+
   private toggleCraft(): void {
     if (this.ui.craftOpen) this.ui.closeCraft();
     else if (this.tour < 0) this.openCraft();
@@ -596,6 +607,7 @@ export class View {
         this.ui.openBoard();
         this.ui.hideTip();
       } else if (id.startsWith('shelf:') || id === 'craft') this.openCraft();
+      else if (id === 'map') this.openMap();
       else if (id === 'electrodes') g.queue({ type: 'newElectrode' });
       else if (id === 'door' || id === 'done') g.queue({ type: 'handOver' });
       return;
@@ -766,7 +778,6 @@ export class View {
       this.syncWorld();
     });
     this.ui.onSkip = (seam) => this.game.queue({ type: 'skip', seam });
-    this.ui.onUpWorker = (i) => this.game.queue({ type: 'upWorker', i });
     this.ui.onDebugMoney = (n) => {
       g.devMoney(n);
       this.ui.renderCraft();
@@ -822,8 +833,7 @@ export class View {
           this.clearPart();
           this.rig.station();
         }
-      } else if (e.bench === 'worker') this.ui.toast(`+${e.pay} ◆  ${t('work.done', { part: t('part.' + e.part), grade: t('grade.' + e.grade) })}`);
-      else this.ui.toast(`+${e.pay} ◆  ${t('app.done', { grade: t('grade.' + e.grade) })}`);
+      } else this.ui.toast(t('app.stored', { n: g.estate.home.length, cap: BALANCE.estate.homeCap }) + ` · ${t('grade.' + e.grade)}`);
       this.syncWorld();
     });
     b.on('revealed', (e) => {
@@ -891,10 +901,9 @@ export class View {
       this.syncWorld();
       this.ui.setApprentice(g.owned.apprentice && !this.showcase ? t('app.' + e.state) : '');
     });
-    b.on('worker', () => this.showWorkers());
-    b.on('wages', (e) => {
-      this.ui.toast(e.paid ? t('work.paid', { n: e.amount }) : t('work.unpaid', { n: e.amount }));
-      this.showWorkers();
+    b.on('sold', (e) => {
+      this.onSfx('coin');
+      if (!this.ui.map.isOpen) this.ui.toast(`+${e.amount} ◆  ${t(e.by === 'courier' ? 'map.courier' : 'map.market')}`);
     });
     b.on('habitRecorded', () => {
       if (g.owned.apprentice) this.ui.toast(t('app.learned'));
@@ -1155,15 +1164,6 @@ export class View {
     }
   }
 
-  /** The line under the corner buttons: the hired hands, what they cost a minute, whether they are paid. */
-  private showWorkers(): void {
-    const g = this.game;
-    const n = g.workers.length;
-    if (!n || this.showcase) return this.ui.setWorkers('');
-    const busy = g.workers.filter((w) => w.state !== 'idle').length;
-    this.ui.setWorkers(g.unpaid ? t('work.stopped', { n: g.wages() }) : t('work.status', { n, busy, w: g.wages() }));
-  }
-
   /** A bow for good work, a slow shake of the head for bad; the slip with their words stays over their head. */
   private animateCustomer(dt: number): void {
     const c = this.ws.customer;
@@ -1214,7 +1214,7 @@ export class View {
   syncWorld(): void {
     const g = this.game;
     // The craft button glows when there is something new to do in it: the guild at first, the first new bench after the gate.
-    this.ui.setCraftButton(!!g.flags.shelf, (!!g.flags.shelf && !g.owned.guild) || (!!g.flags.season2 && !g.owned.hire1 && g.money >= 25));
+    this.ui.setCraftButton(!!g.flags.shelf, (!!g.flags.shelf && !g.owned.guild));
     for (const u of g.data.upgrades) {
       const owned = !!g.owned[u.id];
       const si = this.ws.shelfItems[u.id];
@@ -1224,13 +1224,6 @@ export class View {
     }
     this.ws.wheel2.visible = !!g.owned.wheel2;
     this.ws.apprentice.visible = !!g.owned.apprentice;
-    // The annex grows a room with every hand hired; each bench shows what its level has put on it.
-    this.ws.setAnnex(g.workers.length);
-    this.ws.extra.forEach((e, i) => {
-      const w = g.workers.find((x) => x.i === i);
-      e.hand.visible = !!w;
-      e.levels.forEach((o, k) => (o.visible = !!w && k < w.lvl));
-    });
     const board = this.ws.boardTags[0].parent!;
     board.visible = !!g.flags.board;
     this.ws.boardTags.forEach((tg, i) => (tg.visible = i < g.board.length));
@@ -1358,12 +1351,12 @@ export class View {
     const relic = partMaterials(this.tx).relic as THREE.MeshLambertMaterial;
     relic.emissiveIntensity = 0.55 + 0.3 * Math.sin(performance.now() / 1000 * 1.7) * Math.sin(performance.now() / 1000 * 0.53 + 1);
     this.updateSweeps(dt);
-    // People: the apprentice and the hands lean in to the work while there is work.
+    this.ui.map.frame(dt);
+    // The pin in the wall map stands while something waits to be sold anywhere on the estate.
+    const E = g.estate;
+    this.ws.mapPin.visible = E.home.length > 0 || Object.values(E.plots).some((p) => (p.shop?.stock.length ?? 0) > 0);
+    // People: the apprentice leans in to the work while there is work.
     setPose(this.ws.apprentice, ['setup', 'weld', 'swap', 'chip'].includes(g.appState) ? 'work' : 'stand');
-    for (const w of g.workers) {
-      const e = this.ws.extra[w.i];
-      if (e) setPose(e.hand, w.state === 'idle' || w.state === 'hand' ? 'stand' : 'work');
-    }
     animatePeople(dt, performance.now() / 1000);
     this.custLinger = Math.max(0, this.custLinger - dt);
     this.ws.customer.visible = b.stage !== 'empty' || this.custLinger > 0;
@@ -1487,35 +1480,6 @@ export class View {
       this.appSparkAcc -= n;
       if (n) this.fx.spatter(ap.position.x + r.signed() * 0.02, 0.83, ap.position.z, n, 0.2);
     } else ap.intensity = 0;
-
-    // The hired hands' benches: the arc, the job on the bench, the bar of how far it is.
-    for (const w of g.workers) {
-      const e = this.ws.extra[w.i];
-      if (!e) continue;
-      const part = w.bench.order?.part ?? '';
-      if (e.slot.userData.part !== part) {
-        e.slot.userData.part = part;
-        e.slot.clear();
-        if (part) {
-          const def = g.data.parts[part];
-          const pm = buildPart(def, this.tx);
-          const k = 0.0009;
-          pm.group.scale.setScalar(k);
-          const rr = def.rest ?? [0, 0, 0];
-          pm.group.rotation.set((rr[0] * Math.PI) / 180, (rr[1] * Math.PI) / 180, (rr[2] * Math.PI) / 180);
-          e.slot.add(pm.group);
-        }
-      }
-      const pg = g.workProgress(w);
-      e.fill.scale.x = Math.max(0.001, pg);
-      e.fill.visible = w.state !== 'idle';
-      // The bar always turns its face to you.
-      e.fill.parent!.lookAt(this.rig.cam.position);
-      if (w.bench.arc.lit) {
-        e.light.intensity = L.appArc.intensity * (0.5 + r.next());
-        if (r.chance(dt * 16)) this.fx.spatter(e.spark.x, e.spark.y, e.spark.z + r.signed() * 0.03, 1 + r.int(0, 2), 0.2);
-      } else e.light.intensity = 0;
-    }
 
     this.fx.update(dt, this.floorAt, arcOn);
 
@@ -1709,6 +1673,7 @@ export class View {
     if (id === 'pile') return g.pile && g.player.stage === 'empty' ? t('act.take') : g.flags.board ? t('act.board') : t('act.bench');
     if (id === 'board') return g.flags.board ? t('act.board') : '';
     if (id.startsWith('shelf:') || id === 'craft') return t('act.craft');
+    if (id === 'map') return t('act.map');
     if (id === 'door') return g.player.stage === 'ready' ? t('act.door') : '';
     if (id === 'bench' || id === 'part' || id === 'done' || id === 'electrodes') return t('act.bench');
     return '';
@@ -1736,6 +1701,5 @@ export class View {
     this.ui.showMoney(this.game.money);
     this.ws.setRods(12 - (this.game.log.electrodes % 12));
     if (this.game.owned.apprentice && !this.showcase) this.ui.setApprentice(t('app.' + this.game.appState));
-    this.showWorkers();
   }
 }

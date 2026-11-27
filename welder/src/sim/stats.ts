@@ -15,7 +15,6 @@ export function baseStats(): Stats {
     knowFusion: 0,
     knowHand: 0,
     knowFit: 0,
-    workerSpeed: 1,
     orderRate: 1,
     repCap: 0,
     maskWindow: 0.7,

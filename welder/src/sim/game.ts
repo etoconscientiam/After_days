@@ -11,6 +11,8 @@ import { Recorder, Replayer, Habit } from './apprentice';
 import { payForSeams, gradeRank, idealSpeed } from './quality';
 import type { SeamRun } from './seam';
 import { computeGuide, Guide } from './guide';
+import { Estate } from './estate';
+import { kindOfPart, SHOP_KINDS, ShopKind } from '../data/estate';
 
 export type Command =
   | { type: 'start' }
@@ -27,8 +29,13 @@ export type Command =
   | { type: 'face'; seam: number; s: number }
   /** Leave the rest of the current stage (a seam, or the chipping) and move on, once SKIP_AT of it is done. */
   | { type: 'skip'; seam: number }
-  /** Raise a hand's bench one level (after the gate). */
-  | { type: 'upWorker'; i: number }
+  /** The estate map: sell what waits at a place; buy a plot; build a workshop on it; raise it; the courier. */
+  | { type: 'sell'; at: string }
+  | { type: 'plotBuy'; id: string }
+  | { type: 'shopBuild'; id: string; kind: ShopKind }
+  | { type: 'shopUp'; id: string }
+  | { type: 'courierBuy' }
+  | { type: 'courierUp' }
   /** Remember something outside the sim that belongs to this shift (a chapter of the story seen). */
   | { type: 'mark'; flag: string };
 
@@ -37,18 +44,6 @@ export interface FrameInput {
 }
 
 export type ApprenticeState = 'away' | 'watching' | 'idle' | 'setup' | 'weld' | 'swap' | 'chip' | 'hand';
-
-/** A hired hand at one of the new benches: welds simple jobs with the recorded hand, paid every minute. */
-export interface Worker {
-  /** Which of the hands (0..3), and his bench's level (1..5). */
-  i: number;
-  lvl: number;
-  bench: Bench;
-  state: ApprenticeState;
-  timer: number;
-  replayer: Replayer;
-  torch: TorchIn;
-}
 
 export interface ShiftLog {
   milestones: Record<string, number>;
@@ -112,11 +107,10 @@ export class Game {
   /** How many jobs each customer has had from this workshop, and how the last of them came out. */
   visits: Record<string, number> = {};
   lastGrade: Record<string, GradeId> = {};
-  /** After the gate: the hired hands, wages owed, and when the day began. */
-  workers: Worker[] = [];
-  payT = 0;
-  unpaid = false;
+  /** After the gate: when the day began. */
   dayStart = 0;
+  /** The land round the workshop: the house's store, plots, workshops, the courier. */
+  estate = new Estate();
   /** Jobs that came apart and are on their way back (sim time they arrive). */
   returns: { at: number; o: Order }[] = [];
 
@@ -225,6 +219,28 @@ export class Game {
     return Math.max(0.6, 1 + R.perOrder * Math.min(this.ordersDone, R.maxOrders + this.stats.repCap) - R.perReturn * this.openReturns());
   }
 
+  /** Pay for something on the estate, if there is the money. */
+  private spend(n: number): boolean {
+    if (this.money < n) return false;
+    this.money -= n;
+    this.bus.emit('money', { money: this.money, delta: -n });
+    return true;
+  }
+
+  /** Coins from a sale on the estate (by hand from the map, or the courier at market). */
+  private earn(n: number, at: string, by: 'hand' | 'courier'): void {
+    this.money += n;
+    this.log.earned += n;
+    this.bus.emit('sold', { amount: n, at, by });
+    this.bus.emit('money', { money: this.money, delta: n });
+    this.estateChanged();
+  }
+
+  private estateChanged(): void {
+    this.bus.emit('estate', {});
+    this.bus.emit('shopChanged', {});
+  }
+
   /** Jobs brought back and not yet put right: each one costs the workshop some of its name. */
   openReturns(): number {
     let n = this.returns.length + this.board.filter((o) => o.ret).length;
@@ -295,7 +311,6 @@ export class Game {
     this.updateClock(dt);
 
     let load = (this.player.arc.lit ? 1 : 0) + (this.app.arc.lit ? 0.6 : 0);
-    for (const w of this.workers) if (w.bench.arc.lit) load += 0.4;
     this.power.step(dt, this.clock.cold, this.stats, load, this.rng.get('power'), this.bus);
     this.ctx.I = this.power.I;
     this.ctx.stats = this.stats;
@@ -329,7 +344,18 @@ export class Game {
 
     this.stepAutoFace(dt);
     this.stepApprentice(dt);
-    this.stepWorkers(dt);
+    this.estate.step(
+      dt,
+      this.repMul(),
+      () => this.money,
+      (d) => {
+        this.money += d;
+        this.bus.emit('money', { money: this.money, delta: d });
+        this.bus.emit('wagesPaid', { amount: -d });
+      },
+      (n, at) => this.earn(n, at, 'courier'),
+      () => this.bus.emit('estate', {}),
+    );
     this.stepOrders(dt);
     this.stepReturns();
     this.stepStory();
@@ -439,9 +465,49 @@ export class Game {
       case 'faceNext':
         this.faceNext();
         break;
-      case 'upWorker':
-        this.upWorker(c.i);
+      case 'sell': {
+        const sum = this.estate.sellAt(c.at);
+        if (sum) this.earn(sum, c.at, 'hand');
         break;
+      }
+      case 'plotBuy': {
+        const p = this.estate.plots[c.id], d = this.estate.def(c.id);
+        if (!p || !d || p.owned || !this.flags.season2 || !this.spend(d.price)) break;
+        p.owned = true;
+        this.estateChanged();
+        break;
+      }
+      case 'shopBuild': {
+        const p = this.estate.plots[c.id];
+        if (!p || !p.owned || p.shop || !SHOP_KINDS[c.kind] || !this.spend(SHOP_KINDS[c.kind].cost)) break;
+        p.shop = { kind: c.kind, lvl: 1, t: 0, stock: [] };
+        this.milestone('shop:' + c.kind);
+        this.estateChanged();
+        break;
+      }
+      case 'shopUp': {
+        const s = this.estate.plots[c.id]?.shop;
+        const cost = s ? this.estate.shopUpCost(s) : 0;
+        if (!s || !cost || !this.spend(cost)) break;
+        s.lvl++;
+        this.estateChanged();
+        break;
+      }
+      case 'courierBuy': {
+        if (this.estate.courier || !this.owned.apprentice || !this.spend(BALANCE.estate.courier.cost)) break;
+        const h = { x: 160, y: 100 };
+        this.estate.courier = { lvl: 1, x: h.x, y: h.y, bag: [], to: '' };
+        this.milestone('courier');
+        this.estateChanged();
+        break;
+      }
+      case 'courierUp': {
+        const cost = this.estate.courierUpCost();
+        if (!cost || !this.spend(cost)) break;
+        this.estate.courier!.lvl++;
+        this.estateChanged();
+        break;
+      }
       case 'mark':
         this.flags[c.flag] = true;
         break;
@@ -537,8 +603,7 @@ export class Game {
    */
   devLevel(level: 1 | 2 | 3): void {
     const mid = ['guild', 'tempo', 'ear', 'coated', 'glass', 'jar'];
-    // The workshop's growth after the gate is not part of these levels.
-    const ids = level === 3 ? this.data.upgrades.filter((u) => u.group !== 'expand').map((u) => u.id) : level === 2 ? mid : [];
+    const ids = level === 3 ? this.data.upgrades.map((u) => u.id) : level === 2 ? mid : [];
     this.owned = {};
     for (const id of ids) this.owned[id] = true;
     this.stats = computeStats(this.data, this.owned);
@@ -575,7 +640,6 @@ export class Game {
     this.bus.emit('shopChanged', {});
     this.milestone('buy:' + id);
     if (id === 'guild') this.refillPile();
-    if (id.startsWith('hire')) this.syncWorkers();
     if (id === 'apprentice') {
       this.appState = this.habit ? 'idle' : 'watching';
       this.bus.emit('apprentice', { state: this.appState });
@@ -607,6 +671,9 @@ export class Game {
     this.log.best = Math.max(this.log.best, b.quality);
     this.log.holes += b.holes;
     this.remember(o, b);
+    // Your work shows the estate's workshops of its trade how it is done.
+    const kind = kindOfPart(o.part);
+    if (kind && !o.urgent) this.estate.teach(kind, b.quality);
     if (o.urgent) {
       // The gate: keep its seams for the end card, then let the night calm down.
       this.finaleSeams = b.seams;
@@ -677,20 +744,9 @@ export class Game {
     if (!this.flags.board) return;
     this.nextArrival -= dt;
     if (this.nextArrival <= 0) {
-      const nw = this.workers.length;
-      this.nextArrival = BALANCE.board.arriveEvery / ((1 + BALANCE.workers.ratePer * nw) * this.stats.orderRate);
-      // Hands with nothing to do: the next one is a simple job, and on a full board it takes the place of
-      // the oldest pin (that customer went elsewhere).
-      const idle = this.workers.filter((w) => w.state === 'idle').length;
-      const simple = this.board.filter((o) => o.simple && !o.ret).length;
-      const wantSimple = !this.unpaid && !!this.habit && idle > simple;
-      const full = this.board.length >= BALANCE.board.size + BALANCE.workers.boardPer * nw;
-      if (full && wantSimple) {
-        const old = this.board.findIndex((o) => !o.ret && !o.simple);
-        if (old >= 0) this.board.splice(old, 1);
-      }
-      if (this.board.length < BALANCE.board.size + BALANCE.workers.boardPer * nw) {
-        this.board.push(rollBoardOrder(this.data, this.board, this.uid++, this.rng.get('orders'), this.repMul(), this.ordersDone, wantSimple, this.owned));
+      this.nextArrival = BALANCE.board.arriveEvery / this.stats.orderRate;
+      if (this.board.length < BALANCE.board.size) {
+        this.board.push(rollBoardOrder(this.data, this.board, this.uid++, this.rng.get('orders'), this.repMul(), this.ordersDone));
         this.bus.emit('boardChanged', { count: this.board.length });
       }
     }
@@ -708,7 +764,7 @@ export class Game {
         this.pile = null;
         this.bus.emit('pileChanged', { has: false });
         for (let i = 0; i < BALANCE.board.startOrders; i++)
-          this.board.push(rollBoardOrder(this.data, this.board, this.uid++, this.rng.get('orders'), this.repMul(), this.ordersDone, false, this.owned));
+          this.board.push(rollBoardOrder(this.data, this.board, this.uid++, this.rng.get('orders'), this.repMul(), this.ordersDone));
         this.nextArrival = BALANCE.board.arriveEvery;
         this.bus.emit('boardChanged', { count: this.board.length });
       }
@@ -743,145 +799,10 @@ export class Game {
     this.bus.emit('save', {});
   }
 
-  /** One hand for each one hired (after a load, after hiring). */
-  syncWorkers(levels: number[] = []): void {
-    for (let i = 0; i < 4; i++) {
-      if (!this.owned['hire' + (i + 1)] || this.workers.some((w) => w.i === i)) continue;
-      const bench = new Bench('worker');
-      this.workers.push({ i, lvl: Math.max(1, Math.min(5, levels[i] ?? 1)), bench, state: 'idle', timer: 0, replayer: new Replayer(), torch: emptyTorch() });
-      this.bus.emit('worker', { i, state: 'idle' });
-    }
-    this.workers.sort((a, b) => a.i - b.i);
-  }
-
-  /** What raising hand i's bench one level costs (0 if it is at the top). */
-  workerUpCost(i: number): number {
-    const w = this.workers.find((x) => x.i === i);
-    if (!w || w.lvl >= 5) return 0;
-    return BALANCE.workers.levelCost[w.lvl - 1];
-  }
-
-  private upWorker(i: number): void {
-    const w = this.workers.find((x) => x.i === i);
-    const cost = this.workerUpCost(i);
-    if (!w || !cost || this.money < cost) return;
-    this.money -= cost;
-    w.lvl++;
-    this.bus.emit('money', { money: this.money, delta: -cost });
-    this.bus.emit('worker', { i, state: w.state });
-    this.bus.emit('shopChanged', {});
-    this.bus.emit('save', {});
-  }
-
-  /** How far along a hand's job is, 0..1 (setting up, welding, chipping, handing over). */
-  workProgress(w: Worker): number {
-    const WK = BALANCE.workers;
-    const b = w.bench;
-    const k = this.stats.workerSpeed * (1 + WK.levelSpeed * (w.lvl - 1));
-    return jobProgress(w.state, b, w.timer, WK.setup / k, WK.chip / k, WK.handOver / k);
-  }
-
-  /** The apprentice's, the same way. */
+  /** How far along the apprentice's job is, 0..1 (for the bar over his bench). */
   appProgress(): number {
     const AP = BALANCE.apprentice;
     return jobProgress(this.appState, this.app, this.appTimer, AP.setup, AP.chip, AP.handOver);
-  }
-
-  /** What the hands cost a pay day, all together. */
-  wages(): number {
-    let w = 0;
-    for (const x of this.workers) w += BALANCE.workers.wage[x.i] ?? 5;
-    return w;
-  }
-
-  private stepWorkers(dt: number): void {
-    if (!this.workers.length) return;
-    const WK = BALANCE.workers;
-    // Pay day. Short of money, the hands stop until it is there (checked again every few seconds).
-    this.payT += dt;
-    if (this.payT >= (this.unpaid ? 5 : WK.payEvery)) {
-      this.payT = 0;
-      const due = this.wages();
-      if (this.money >= due) {
-        this.money -= due;
-        this.unpaid = false;
-        this.bus.emit('wages', { amount: due, paid: true });
-        this.bus.emit('money', { money: this.money, delta: -due });
-        this.bus.emit('shopChanged', {});
-      } else if (!this.unpaid) {
-        this.unpaid = true;
-        this.bus.emit('wages', { amount: due, paid: false });
-      }
-    }
-    for (const w of this.workers) this.stepWorker(w, dt, this.stats.workerSpeed * (1 + WK.levelSpeed * (w.lvl - 1)));
-  }
-
-  /** The apprentice's round, for a hired hand: take a simple job, set it up, weld it with the hand, chip, hand over. */
-  private stepWorker(w: Worker, dt: number, speed: number): void {
-    const WK = BALANCE.workers;
-    const b = w.bench;
-    const set = (st: ApprenticeState) => {
-      w.state = st;
-      this.bus.emit('worker', { i: w.i, state: st });
-    };
-    const t = w.torch;
-    t.press = false;
-    switch (w.state) {
-      case 'idle': {
-        if (this.unpaid || !this.habit) return;
-        const o = this.board.find((x) => x.simple && !x.ret && (!x.req.needs || this.owned[x.req.needs]));
-        if (!o) return;
-        this.board.splice(this.board.indexOf(o), 1);
-        this.bus.emit('boardChanged', { count: this.board.length });
-        b.load(o, this.data.parts[o.part]);
-        b.electrode = Math.max(b.electrode, 0.0001);
-        w.replayer.reset();
-        w.timer = WK.setup / speed;
-        this.bus.emit('orderTaken', { bench: 'worker', uid: o.uid, part: o.part });
-        return set('setup');
-      }
-      case 'setup':
-        w.timer -= dt;
-        if (w.timer <= 0) set('weld');
-        break;
-      case 'weld':
-        if (b.electrode <= 0 && b.swap <= 0) {
-          newElectrode(b, this.ctx, WK.swap);
-          break;
-        }
-        if (b.swap <= 0 && this.habit) w.replayer.drive(b, this.habit, dt, t, 1 - BALANCE.workers.levelSteady * (w.lvl - 1));
-        break;
-      case 'chip':
-        w.timer -= dt;
-        if (w.timer <= 0) {
-          reveal(b, this.ctx);
-          w.timer = WK.handOver / speed;
-          set('hand');
-        }
-        break;
-      case 'hand':
-        w.timer -= dt;
-        if (w.timer <= 0 && b.order) {
-          const o = b.order;
-          const { pay, met } = this.settle(o, b);
-          this.money += pay;
-          this.log.earned += pay;
-          this.remember(o, b);
-          // Every job out of the door adds to the workshop's name, whoever made it.
-          this.ordersDone++;
-          this.bus.emit('handedOver', { bench: 'worker', uid: o.uid, pay, grade: b.grade, reqMet: met, part: o.part });
-          this.bus.emit('money', { money: this.money, delta: pay });
-          this.bus.emit('shopChanged', {});
-          b.clear();
-          set('idle');
-        }
-        break;
-    }
-    if (b.stage !== 'empty') stepBench(b, t, this.ctx);
-    if (w.state === 'weld' && b.stage === 'chip') {
-      w.timer = WK.chip / speed;
-      set('chip');
-    }
   }
 
   // ---------------------------------------------------------------- apprentice
@@ -935,17 +856,25 @@ export class Game {
       case 'hand':
         this.appTimer -= dt;
         if (this.appTimer <= 0 && b.order) {
+          // His job goes to the house's store, to be sold from the map; with the store full he waits.
+          if (this.estate.home.length >= BALANCE.estate.homeCap) {
+            this.appTimer = 0.5;
+            if (!this.flags.storeFull) {
+              this.flags.storeFull = true;
+              this.bus.emit('estate', {});
+            }
+            break;
+          }
+          this.flags.storeFull = false;
           const o = b.order;
           const { pay, met } = this.settle(o, b);
-          this.money += pay;
-          this.log.earned += pay;
+          this.estate.home.push(pay);
           this.log.apprenticeJobs++;
           this.log.apprenticeEarned += pay;
           this.remember(o, b);
           this.milestone('apprenticeFirst');
           this.bus.emit('handedOver', { bench: 'apprentice', uid: o.uid, pay, grade: b.grade, reqMet: met, part: o.part });
-          this.bus.emit('money', { money: this.money, delta: pay });
-          this.bus.emit('shopChanged', {});
+          this.estateChanged();
           b.clear();
           set('idle');
         }

@@ -28,16 +28,6 @@ export const BOARD: OrderTemplate[] = [
   { part: 'pan', customer: 'neighbour', reward: [5, 7], weight: 1 },
   // A made thing from before, brought up by the river: an iron cradle round it, and not a hole burnt.
   { part: 'relic', customer: 'keeper', reward: [17, 21], req: { noHoles: true, minGrade: 'fair' }, weight: 2, after: 6 },
-  // Deals struck after the gate: whole trades send their work here, more of it and better paid.
-  { part: 'wheel', customer: 'carter', reward: [16, 20], weight: 4, deal: 'deal_carts' },
-  { part: 'spade', customer: 'carter', reward: [11, 13], weight: 2, deal: 'deal_carts' },
-  { part: 'kettle', customer: 'northwoman', reward: [16, 19], weight: 3, deal: 'deal_north' },
-  { part: 'pan', customer: 'northwoman', reward: [13, 15], weight: 3, deal: 'deal_north' },
-  { part: 'bucket', customer: 'northwoman', reward: [22, 26], weight: 2, deal: 'deal_north' },
-  { part: 'spear', customer: 'guard', reward: [22, 26], req: { noHoles: true }, weight: 4, deal: 'deal_watch' },
-  { part: 'helmet', customer: 'guard', reward: [30, 36], req: { noHoles: true }, weight: 2, deal: 'deal_watch' },
-  { part: 'grate', customer: 'guard', reward: [55, 65], req: { noHoles: true }, weight: 1, deal: 'deal_watch' },
-  { part: 'relic', customer: 'keeper', reward: [45, 55], req: { noHoles: true, minGrade: 'fair' }, weight: 3, deal: 'deal_keeper' },
 ];
 
 /** Night order: the guard brings a broken section of the city gate's portcullis. */

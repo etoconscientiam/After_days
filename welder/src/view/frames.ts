@@ -32,7 +32,7 @@ const RULES: Rule[] = [
   ['#tip, .toast, #app-status, #rod', 'panel', null, false],
   ['#rod.low', 'bad', null, false],
   ['#tour', 'gold', null, false],
-  ['#stages, #craft, #board, #end .panel, #dbg, #settings', 'panel', null, true],
+  ['#stages, #craft, #board, #end .panel, #dbg, #settings, #estate', 'panel', null, true],
   ['#money, #job, #craft .item, #board .card', 'paper', null, true],
   ['#craft .item.owned', 'good', null, true],
   ['#stamp', 'gold', null, true],
@@ -45,6 +45,9 @@ const RULES: Rule[] = [
   ['#ctrl .k', 'key', null, false],
   ['#settings .opt, #settings .close, #settings .x', 'dark', 'btn', false],
   ['#settings .opt.on', 'hot', null, false],
+  ['#estate .btn', 'btn', 'hot', false],
+  ['#estate .btn.off', 'dark', null, false],
+  ['#estate .x', 'dark', 'btn', false],
 ];
 const ALL = RULES.map((r) => r[0]).join(', ');
 

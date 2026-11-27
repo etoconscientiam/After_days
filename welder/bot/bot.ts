@@ -80,6 +80,8 @@ export function run(skill: Skill, seed: number, verbose: boolean, setup?: (g: Ga
     if (wait > 0) wait -= dt;
     else if (b.stage === 'empty') {
       for (const id of skill.buys) if (!g.whyNot(id).length) { g.queue({ type: 'buy', id }); wait = skill.think; break; }
+      // The apprentice's jobs wait in the house: walk to the map on the wall and sell them.
+      if (wait <= 0 && g.estate.home.length) { g.queue({ type: 'sell', at: 'home' }); wait = skill.think * 2; }
       if (wait <= 0) {
         if (g.pile) { g.queue({ type: 'takePile' }); wait = skill.think; }
         else if (g.board.length) {

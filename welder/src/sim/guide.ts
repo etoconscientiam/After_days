@@ -38,6 +38,12 @@ export function computeGuide(g: Game, out: Guide): Guide {
 
   switch (b.stage) {
     case 'empty':
+      // The house's store is full: the apprentice waits until it is sold from the map.
+      if (g.estate.home.length >= BALANCE.estate.homeCap) {
+        out.target = 'map';
+        out.hint = g.log.milestones.courier === undefined ? 'sell' : '';
+        return out;
+      }
       // After the first job: the craft book, where the guild is the one thing on offer.
       if (g.flags.shelf && !g.owned.guild) {
         out.target = 'shelf';

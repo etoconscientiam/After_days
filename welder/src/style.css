@@ -845,3 +845,36 @@ body.ui-modal #game { cursor: var(--cur); }
 #craft .item .stars .on { color: #a86a10; }
 #craft .item .stars .off { color: rgba(90, 60, 30, 0.3); }
 #craft .item.owned .stars .on { color: #e8c060; }
+
+/* The estate map: the drawn plan and a panel beside it. */
+#estate {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(96%, 72em);
+  max-height: 94%;
+  padding: 0.6em 1em 0.8em;
+  display: none;
+  flex-direction: column;
+  z-index: 15;
+}
+#estate h3 { margin: 0 0 0.4em; font-size: var(--fh); line-height: calc(var(--fh) * 1.25); font-family: var(--fhf); font-weight: 400; color: #f0e0b8; letter-spacing: 0.2em; }
+#estate .body { display: flex; gap: 1em; align-items: flex-start; min-height: 0; }
+#estate .plan { flex: 1 1 auto; min-width: 0; line-height: 0; }
+#estate canvas { width: 100%; height: auto; image-rendering: pixelated; border: var(--px) solid #3a2a18; }
+#estate .side { flex: 0 0 17em; color: #d8c8a8; max-height: 70vh; overflow-y: auto; }
+#estate .side h4 { margin: 0.3em 0 0.3em; color: #f0d8a0; font-weight: 400; }
+#estate .side p { margin: 0 0 0.5em; color: #b8a888; }
+#estate .side .row { margin: 0.25em 0; }
+#estate .side .dim { color: #8a7a64; }
+#estate .side .ok { color: var(--good); }
+#estate .side .bad { color: var(--bad); }
+#estate .side .kind p { margin: 0.2em 0 0.6em; font-size: 1em; }
+#estate .btn { display: inline-block; margin: 0.3em 0; padding: 0 calc(var(--px) * 3); color: #f0e0b8; white-space: nowrap; cursor: var(--cur-hot) !important; border: calc(var(--fu, 3px) * 3) solid transparent !important; }
+#estate .btn.off { color: #7a6a54; cursor: var(--cur) !important; }
+#estate .foot { margin-top: 0.8em; padding-top: 0.4em; border-top: var(--px) dotted #5a4834; color: #e8c878; }
+#estate .stars .on { color: #e8b040; }
+#estate .stars .off { color: rgba(200, 160, 90, 0.25); }
+#estate .x { position: absolute; right: 0.6em; top: 0.5em; width: 2.25em; height: 2.25em; display: flex; align-items: center; justify-content: center; cursor: var(--cur-hot) !important; }
+#estate .x svg { width: 0.75em; height: 0.75em; fill: #f0e0b8; shape-rendering: crispEdges; }

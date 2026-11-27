@@ -2,6 +2,7 @@ import type { Game } from './game';
 import type { Order } from './orders';
 import { computeStats } from './stats';
 import type { Habit } from './apprentice';
+import type { EstateSave } from './estate';
 
 /** Save format: a version, ids and numbers only. The bead in progress is not saved; its order goes back. */
 export const SAVE_VERSION = 2;
@@ -30,9 +31,10 @@ export interface SaveData {
   visits?: Record<string, number>;
   lastGrade?: Record<string, string>;
   returns?: [number, OrderRow][];
-  /** After the gate: seconds into the current day; each hand's bench level. */
+  /** After the gate: seconds into the current day. */
   day?: number;
-  wl?: number[];
+  /** The estate (older saves have none). */
+  estate?: EstateSave;
 }
 
 function row(o: Order): OrderRow {
@@ -67,7 +69,6 @@ export function serialize(g: Game): SaveData {
   }
   const ao = g.app.order;
   if (ao) board.unshift(row(ao));
-  for (const w of g.workers) if (w.bench.order) board.unshift(row(w.bench.order));
   return {
     v: SAVE_VERSION,
     seed: g.seed,
@@ -89,7 +90,7 @@ export function serialize(g: Game): SaveData {
     visits: g.visits,
     lastGrade: g.lastGrade,
     day: Math.round((g.t - g.dayStart) * 10) / 10,
-    wl: [0, 1, 2, 3].map((i) => g.workers.find((w) => w.i === i)?.lvl ?? 1),
+    estate: g.estate.save(),
     returns: g.returns.map((x) => [Math.round((x.at - g.t) * 10) / 10, row(x.o)]),
   };
 }
@@ -122,8 +123,7 @@ export function restore(g: Game, d: SaveData): boolean {
   g.returns = (d.returns ?? []).map(([dt, r]) => ({ at: d.t + dt, o: unrow(r) })).filter((x) => known(x.o));
   g.stats = computeStats(g.data, g.owned);
   g.dayStart = d.t - (d.day ?? d.t);
-  g.workers = [];
-  g.syncWorkers(d.wl ?? []);
+  g.estate.load(d.estate);
   if (g.flags.finale && !g.flags.season2) g.nightBoost = 1;
   return true;
 }

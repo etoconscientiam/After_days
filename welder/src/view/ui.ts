@@ -6,6 +6,7 @@ import { t } from '../i18n';
 import type { Order } from '../sim/orders';
 import { jobSheet, payAtGrade, seamProgress, JobSheet } from '../sim/jobs';
 import { bringLine } from './talk';
+import { EstateMap } from './estateMap';
 import { settings, setSettings } from '../settings';
 import { getLang } from '../i18n';
 
@@ -81,8 +82,6 @@ export class UI {
   private tourEl = el('div', 'tour', 'label pe');
   craftOpen = false;
   onBuy: (id: string) => void = () => {};
-  /** Raise hand i's bench a level. */
-  onUpWorker: (i: number) => void = () => {};
   onCraftBtn: () => void = () => {};
   onLang: () => void = () => {};
   private langBtn = el('div', 'lang-btn', 'pe');
@@ -100,9 +99,12 @@ export class UI {
   private sayT = 0;
   onTourNext: () => void = () => {};
 
+  /** The estate map, opened from the wall. */
+  readonly map: EstateMap;
+
   /** Any panel over the game that takes the mouse. */
   get modal(): boolean {
-    return this.boardOpen || this.jobOpen || this.craftOpen || this.settingsOpen;
+    return this.boardOpen || this.jobOpen || this.craftOpen || this.settingsOpen || this.map.isOpen;
   }
   private start = el('div', 'start', 'pe');
   private endEl = el('div', 'end');
@@ -115,13 +117,15 @@ export class UI {
 
   constructor(root: HTMLElement, private game: Game) {
     this.root = root;
+    this.map = new EstateMap(game);
+    this.map.onClose = () => this.onBoardClose();
     this.money.append(el('i'), this.moneyVal);
     this.endEl.style.display = 'none';
     // The start screen shows only when asked for (a shift begun from the intro never opens it).
     this.start.style.display = 'none';
     // Left column, one flow top to bottom: money, the craft book, the rod, the job's stages.
     this.hudL.append(this.money, this.craftBtn, this.rodEl, this.stagesEl);
-    root.append(this.hudL, this.langBtn, this.setBtn, this.jobEl, this.craftEl, this.tourEl, this.ctrl, this.promptEl, this.whyEl, this.appStatus, this.sayEl, this.hint, this.tip, this.stampEl, this.toasts, this.board, this.endEl, this.start, this.setEl, this.dbgEl, this.cursor);
+    root.append(this.hudL, this.langBtn, this.setBtn, this.jobEl, this.craftEl, this.tourEl, this.ctrl, this.promptEl, this.whyEl, this.appStatus, this.sayEl, this.hint, this.tip, this.stampEl, this.toasts, this.board, this.map.el, this.endEl, this.start, this.setEl, this.dbgEl, this.cursor);
     this.dbgEl.style.display = 'none';
     this.setEl.style.display = 'none';
     // A pixel gear: eight teeth round a ring.
@@ -542,7 +546,7 @@ export class UI {
       });
       return `<h4>${t('craft.' + group)}</h4><div class="items">${cards.join('')}</div>`;
     };
-    this.craftEl.innerHTML = `${CLOSE_X}<h3>${t('craft.title')}</h3><div class="money-line">◆ ${g.money}</div>${sec('craft')}${sec('tools')}${sec('shop')}${g.flags.season2 ? sec('expand') + this.benchSec() : ''}<div class="close">${t('board.close')}</div>`;
+    this.craftEl.innerHTML = `${CLOSE_X}<h3>${t('craft.title')}</h3><div class="money-line">◆ ${g.money}</div>${sec('craft')}${sec('tools')}${sec('shop')}<div class="close">${t('board.close')}</div>`;
     this.craftEl.querySelectorAll<HTMLElement>('.buy').forEach((b) =>
       b.addEventListener('pointerdown', (e) => {
         e.stopPropagation();
@@ -555,25 +559,7 @@ export class UI {
         this.closeCraft();
       }),
     );
-    this.craftEl.querySelectorAll<HTMLElement>('.buy[data-up]').forEach((b) =>
-      b.addEventListener('pointerdown', (e) => {
-        e.stopPropagation();
-        this.onUpWorker(+b.dataset.up!);
-      }),
-    );
-  }
 
-  /** The hands' benches, each with its level (five) and what the next one brings. */
-  private benchSec(): string {
-    const g = this.game;
-    if (!g.workers.length) return '';
-    const cards = g.workers.map((w) => {
-      const cost = g.workerUpCost(w.i);
-      const top = !cost;
-      const state = top ? `<div class="own">✓ ${t('bench.top')}</div>` : g.money >= cost ? `<div class="buy" data-up="${w.i}">${t('bench.up')} · ◆ ${cost}</div>` : `<div class="no">${t('why.coins', { n: cost - g.money })}</div>`;
-      return `<div class="item ${top ? 'owned' : g.money >= cost ? 'can' : 'off'}"><b>${t('bench.name', { n: w.i + 1 })}</b><span class="cost stars">${this.stars(w.lvl)}</span><p>${top ? t('bench.lvl5') : t('bench.lvl' + (w.lvl + 1))}</p>${state}</div>`;
-    });
-    return `<h4>${t('craft.benches')}</h4><div class="items">${cards.join('')}</div>`;
   }
 
   /** One step of the workshop tour: a label at (x, y) with what this is and a "next" mark. */
