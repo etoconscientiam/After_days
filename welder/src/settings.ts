@@ -8,15 +8,22 @@ export interface Settings {
   fastText: boolean;
   /** The work turns to its next joint by itself. */
   autoTurn: boolean;
+  /** Version of the defaults the stored settings were made with. */
+  v?: number;
 }
 
 const KEY = 'welder.settings';
-const DEFAULTS: Settings = { volume: 0.8, soft: false, fastText: false, autoTurn: true };
+const DEFAULTS: Settings = { volume: 0.8, soft: false, fastText: false, autoTurn: false, v: 2 };
 
 function load(): Settings {
   try {
     const s = localStorage.getItem(KEY);
-    if (s) return { ...DEFAULTS, ...(JSON.parse(s) as Partial<Settings>) };
+    if (s) {
+      const got = JSON.parse(s) as Partial<Settings>;
+      // Before v2 the work turned by itself unless told otherwise; now it doesn't unless asked.
+      if ((got.v ?? 1) < 2) delete got.autoTurn;
+      return { ...DEFAULTS, ...got, v: 2 };
+    }
   } catch {
     /* storage may be blocked */
   }

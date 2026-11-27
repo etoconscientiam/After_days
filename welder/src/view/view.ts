@@ -140,6 +140,7 @@ export class View {
   private q3 = new THREE.Quaternion();
   private endSrc: BeadSource | null = null;
   private lastMask = false;
+  private lastTurn = false;
   private lastCam = '';
   private spotI = 0;
   private spotT = 0;
@@ -1265,7 +1266,8 @@ export class View {
       } else this.stepT = 0.1;
     }
     this.rig.update(dt);
-    if (this.lastMask !== g.mask.down || this.lastStage !== b.stage || this.lastCam !== this.rig.mode) {
+    if (this.lastMask !== g.mask.down || this.lastStage !== b.stage || this.lastCam !== this.rig.mode || this.lastTurn !== g.autoTurn) {
+      this.lastTurn = g.autoTurn;
       this.lastMask = g.mask.down;
       this.lastStage = b.stage;
       this.lastCam = this.rig.mode;

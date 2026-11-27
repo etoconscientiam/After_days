@@ -166,8 +166,10 @@ export class UI {
       return;
     }
     const mask = `<svg viewBox="0 0 12 12" shape-rendering="crispEdges"><rect x="2" y="1" width="8" height="10" fill="#4a4640"/><rect x="3" y="2" width="6" height="8" fill="#6a665e"/><rect x="3" y="4" width="6" height="3" fill="${maskDown ? '#1e3a24' : '#2a2620'}"/><rect x="4" y="5" width="4" height="1" fill="${maskDown ? '#5a9a5a' : '#3a3630'}"/></svg>`;
-    // The rest (turning by hand, a new rod) is shown where it is needed, when it is needed.
-    this.ctrl.innerHTML = `<span class="k">◉</span>${mask}<span>${maskDown ? '▲' : '▼'}</span><span class="k">SPACE</span><span class="k">E</span><span>${t('ctrl.leave')}</span>`;
+    // A new rod is shown where it is needed, when it is needed.
+    // Turning by hand is shown while the work doesn't turn by itself.
+    const turn = this.game.autoTurn ? '' : `<span class="k">A/D</span><span class="k">W/S</span><span class="k">TAB</span><span>${t('ctrl.turn')}</span>`;
+    this.ctrl.innerHTML = `<span class="k">◉</span>${mask}<span>${maskDown ? '▲' : '▼'}</span><span class="k">SPACE</span>${turn}<span class="k">E</span><span>${t('ctrl.leave')}</span>`;
   }
 
   get promptShown(): boolean {

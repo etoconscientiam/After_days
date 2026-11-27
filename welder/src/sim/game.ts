@@ -89,7 +89,7 @@ export class Game {
   guide: Guide = { target: '', hint: '', x: 0, y: 0, z: 0, seam: -1, reach: true };
   private guideTmp: Guide = { target: '', hint: '', x: 0, y: 0, z: 0, seam: -1, reach: true };
   /** The hands bring the next joint round by themselves: after a seam closes, when nothing in view is left, and so on. */
-  autoTurn = true;
+  autoTurn = false;
   private autoFaceT = -1;
   private noReachT = 0;
   /** Timers used by the guide (how long a condition has held). */
