@@ -80,6 +80,14 @@ export function partMaterials(tx: Textures): Mats {
     wood: mk(tx.wood, '#e0d4c4'),
     copper: heatTint(mk(tx.steel, '#e09868')),
     leather: mk(tx.leather, '#ffffff'),
+    // A made thing from before: smooth, dark as river stone, with a cold light of its own under the skin.
+    relic: (() => {
+      const m = lambert({ map: tx.steel, color: '#56646c' }) as THREE.MeshLambertMaterial;
+      m.emissive = new THREE.Color('#1c4c58');
+      m.emissiveIntensity = 0.7;
+      m.side = THREE.DoubleSide;
+      return m;
+    })(),
   };
   return shared;
 }

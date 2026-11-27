@@ -32,17 +32,19 @@ const RULES: Rule[] = [
   ['#tip, .toast, #app-status, #rod', 'panel', null, false],
   ['#rod.low', 'bad', null, false],
   ['#tour', 'gold', null, false],
-  ['#stages, #craft, #board, #end .panel, #dbg', 'panel', null, true],
+  ['#stages, #craft, #board, #end .panel, #dbg, #settings', 'panel', null, true],
   ['#money, #job, #craft .item, #board .card', 'paper', null, true],
   ['#craft .item.owned', 'good', null, true],
   ['#stamp', 'gold', null, true],
   ['#stamp.bad', 'bad', null, true],
-  ['#craft-btn, #lang-btn, #craft .buy, #job .take, #start .go, #end .go', 'btn', 'hot', false],
+  ['#craft-btn, #lang-btn, #set-btn, #craft .buy, #job .take, #start .go, #end .go', 'btn', 'hot', false],
   ['#craft-btn.glow', 'hot', null, false],
   ['#stages .next', 'btn', 'hot', false],
   ['#stages .next.off', 'dark', null, false],
   ['#job .later, #board .close, #craft .close, #start .links span, #craft .x, #board .x, #dbg .lvl', 'dark', 'btn', false],
   ['#ctrl .k', 'key', null, false],
+  ['#settings .opt, #settings .close, #settings .x', 'dark', 'btn', false],
+  ['#settings .opt.on', 'hot', null, false],
 ];
 const ALL = RULES.map((r) => r[0]).join(', ');
 

@@ -26,7 +26,9 @@ export type Command =
   /** Turn a given joint to face you (scripts; the apprentice turns his own work). */
   | { type: 'face'; seam: number; s: number }
   /** Leave the rest of the current stage (a seam, or the chipping) and move on, once SKIP_AT of it is done. */
-  | { type: 'skip'; seam: number };
+  | { type: 'skip'; seam: number }
+  /** Remember something outside the sim that belongs to this shift (a chapter of the story seen). */
+  | { type: 'mark'; flag: string };
 
 export interface FrameInput {
   torch: TorchIn;
@@ -84,10 +86,20 @@ export class Game {
   replayer = new Replayer();
   private appTorch: TorchIn = emptyTorch();
 
-  guide: Guide = { target: '', hint: '', x: 0, y: 0, z: 0, seam: -1 };
-  private guideTmp: Guide = { target: '', hint: '', x: 0, y: 0, z: 0, seam: -1 };
+  guide: Guide = { target: '', hint: '', x: 0, y: 0, z: 0, seam: -1, reach: true };
+  private guideTmp: Guide = { target: '', hint: '', x: 0, y: 0, z: 0, seam: -1, reach: true };
+  /** The hands bring the next joint round by themselves: after a seam closes, when nothing in view is left, and so on. */
+  autoTurn = true;
+  private autoFaceT = -1;
+  private noReachT = 0;
   /** Timers used by the guide (how long a condition has held). */
   cond = { maskUpLit: 0, long: 0, short: 0, fast: 0, slow: 0, maskDownDark: 0, idle: 0, reachMiss: 0 };
+
+  /** How many jobs each customer has had from this workshop, and how the last of them came out. */
+  visits: Record<string, number> = {};
+  lastGrade: Record<string, GradeId> = {};
+  /** Jobs that came apart and are on their way back (sim time they arrive). */
+  returns: { at: number; o: Order }[] = [];
 
   finaleSeams: SeamRun[] | null = null;
   finalePart = '';
@@ -132,6 +144,13 @@ export class Game {
       bus: this.bus,
     };
     this.bus.on('weldDone', (e) => this.onWeldDone(e.bench));
+    // A seam closed, the welding done: the next thing to work on comes round of itself in a moment.
+    this.bus.on('seamFilled', (e) => {
+      if (e.bench === 'player') this.autoFace(0.55);
+    });
+    this.bus.on('weldDone', (e) => {
+      if (e.bench === 'player') this.autoFace(0.7);
+    });
   }
 
   /** Re-create RNG-backed context after loading a save. */
@@ -158,7 +177,46 @@ export class Game {
   /** What the workshop's name adds to new orders' pay: grows with every order handed over, up to a cap. */
   repMul(): number {
     const R = BALANCE.reputation;
-    return 1 + R.perOrder * Math.min(this.ordersDone, R.maxOrders);
+    return Math.max(0.6, 1 + R.perOrder * Math.min(this.ordersDone, R.maxOrders) - R.perReturn * this.openReturns());
+  }
+
+  /** Jobs brought back and not yet put right: each one costs the workshop some of its name. */
+  openReturns(): number {
+    let n = this.returns.length + this.board.filter((o) => o.ret).length;
+    if (this.pile?.ret) n++;
+    if (this.player.order?.ret) n++;
+    return n;
+  }
+
+  /** A job handed over: the customer remembers it, and a bad one may come back to be done again. */
+  private remember(o: Order, b: Bench): void {
+    this.visits[o.customer] = (this.visits[o.customer] ?? 0) + 1;
+    this.lastGrade[o.customer] = b.grade;
+    if (o.urgent || !this.owned.guild || b.id !== 'player') return;
+    const R = BALANCE.returns;
+    const r = this.rng.get('returns');
+    const back = b.grade === 'bad' || (b.grade === 'rough' && r.chance(R.roughChance));
+    if (!back) return;
+    const ret: Order = { ...o, uid: this.uid++, ret: true, reward: Math.max(R.minPay, Math.round(o.reward * R.payMul)), req: { ...o.req } };
+    delete ret.minPay;
+    this.returns.push({ at: this.t + r.range(R.after[0], R.after[1]), o: ret });
+  }
+
+  /** A job that came back: on the board if there is one, else on the heap once it is free. Not during the night order. */
+  private stepReturns(): void {
+    if (!this.returns.length || (this.flags.finale && !this.flags.finaleDone)) return;
+    const due = this.returns.findIndex((x) => x.at <= this.t);
+    if (due < 0) return;
+    const o = this.returns[due].o;
+    if (this.flags.board) {
+      this.board.unshift(o);
+      this.bus.emit('boardChanged', { count: this.board.length });
+    } else if (!this.pile) {
+      this.pile = o;
+      this.bus.emit('pileChanged', { has: true });
+    } else return;
+    this.returns.splice(due, 1);
+    this.bus.emit('returned', { uid: o.uid, customer: o.customer, part: o.part });
   }
 
   // ---------------------------------------------------------------- shop
@@ -223,8 +281,10 @@ export class Game {
     if (!wasLit && this.player.arc.lit) this.milestone('firstStrike');
     if (this.player.stage === 'ready' && this.player.order?.urgent) this.handOver();
 
+    this.stepAutoFace(dt);
     this.stepApprentice(dt);
     this.stepOrders(dt);
+    this.stepReturns();
     this.stepStory();
     this.stepFinale(dt);
     this.updateGuideTimers(dt);
@@ -328,6 +388,9 @@ export class Game {
       case 'faceNext':
         this.faceNext();
         break;
+      case 'mark':
+        this.flags[c.flag] = true;
+        break;
       case 'face':
         if (this.player.stage !== 'empty' && !this.player.arc.lit) faceSeam(this.player, c.seam, c.s);
         break;
@@ -369,10 +432,47 @@ export class Game {
 
   private faceIdx = -1;
 
+  private autoFace(delay: number): void {
+    if (this.autoTurn) this.autoFaceT = this.autoFaceT >= 0 ? Math.min(this.autoFaceT, delay) : delay;
+  }
+
+  /**
+   * Turning by hand is there, but rarely needed: the job is turned to its next joint after a seam closes,
+   * when welding gives way to chipping, when a seam's slag is all off, and when nothing left to weld can be
+   * reached as the work lies (once the rod has been off the work for a moment).
+   */
+  private stepAutoFace(dt: number): void {
+    const b = this.player;
+    if (!this.autoTurn || b.stage === 'empty') {
+      this.autoFaceT = -1;
+      this.noReachT = 0;
+      return;
+    }
+    const idle = !b.arc.lit && !b.arc.stuck;
+    if (b.stage === 'weld' && idle && !this.guide.reach && this.guide.seam >= 0) {
+      this.noReachT += dt;
+      if (this.noReachT > 0.6) {
+        this.noReachT = -2;
+        this.autoFace(0);
+      }
+    } else if (this.noReachT > 0) this.noReachT = 0;
+    else if (this.noReachT < 0) this.noReachT = Math.min(0, this.noReachT + dt);
+    if (b.stage === 'chip') {
+      const sr = b.seams[this.faceIdx];
+      if (sr && this.faceIdx >= 0 && !sr.slag.some((v) => v > 0) && b.seams.some((x) => x.slag.some((v) => v > 0))) this.autoFace(0.35);
+    }
+    if (this.autoFaceT < 0) return;
+    this.autoFaceT -= dt;
+    if (this.autoFaceT > 0 || !idle) return;
+    this.autoFaceT = -1;
+    if (b.stage === 'weld' || b.stage === 'chip') this.faceNext();
+  }
+
   private load(o: Order): void {
     this.faceIdx = -1;
     const part = this.data.parts[o.part];
     this.player.load(o, part);
+    this.autoFace(0.5);
     if (o.simple) this.recorder.begin();
     this.bus.emit('orderTaken', { bench: 'player', uid: o.uid, part: o.part });
   }
@@ -442,6 +542,7 @@ export class Game {
     this.log.qualities.push(b.quality);
     this.log.best = Math.max(this.log.best, b.quality);
     this.log.holes += b.holes;
+    this.remember(o, b);
     if (o.urgent) {
       // The gate: keep its seams for the end card, then let the night calm down.
       this.finaleSeams = b.seams;
@@ -514,7 +615,7 @@ export class Game {
     if (this.nextArrival <= 0) {
       this.nextArrival = BALANCE.board.arriveEvery;
       if (this.board.length < BALANCE.board.size) {
-        this.board.push(rollBoardOrder(this.data, this.board, this.uid++, this.rng.get('orders'), this.repMul()));
+        this.board.push(rollBoardOrder(this.data, this.board, this.uid++, this.rng.get('orders'), this.repMul(), this.ordersDone));
         this.bus.emit('boardChanged', { count: this.board.length });
       }
     }
@@ -532,7 +633,7 @@ export class Game {
         this.pile = null;
         this.bus.emit('pileChanged', { has: false });
         for (let i = 0; i < BALANCE.board.startOrders; i++)
-          this.board.push(rollBoardOrder(this.data, this.board, this.uid++, this.rng.get('orders'), this.repMul()));
+          this.board.push(rollBoardOrder(this.data, this.board, this.uid++, this.rng.get('orders'), this.repMul(), this.ordersDone));
         this.nextArrival = BALANCE.board.arriveEvery;
         this.bus.emit('boardChanged', { count: this.board.length });
       }
@@ -573,7 +674,7 @@ export class Game {
       case 'idle': {
         if (!this.habit) return set('watching');
         if (this.flags.finale && !this.flags.finaleDone) return;
-        const o = this.board.find((x) => x.simple && (!x.req.needs || this.owned[x.req.needs]));
+        const o = this.board.find((x) => x.simple && !x.ret && (!x.req.needs || this.owned[x.req.needs]));
         if (!o) return;
         this.board.splice(this.board.indexOf(o), 1);
         this.bus.emit('boardChanged', { count: this.board.length });
@@ -612,6 +713,7 @@ export class Game {
           this.log.earned += pay;
           this.log.apprenticeJobs++;
           this.log.apprenticeEarned += pay;
+          this.remember(o, b);
           this.milestone('apprenticeFirst');
           this.bus.emit('handedOver', { bench: 'apprentice', uid: o.uid, pay, grade: b.grade, reqMet: met, part: o.part });
           this.bus.emit('money', { money: this.money, delta: pay });

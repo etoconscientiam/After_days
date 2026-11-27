@@ -7,6 +7,8 @@ const list: CustomerDef[] = [
   { id: 'guard', look: { cloak: '#3c3a38', hood: '#6a6c70', hat: 'helmet', height: 1.75 } },
   { id: 'carter', look: { cloak: '#4c3c2c', hood: '#5c4a36', hat: 'cap', height: 1.68 } },
   { id: 'neighbour', look: { cloak: '#463e36', hood: '#6c5c4c', hat: 'cap', height: 1.6 } },
+  /** He gathers the made things the river gives up, and brings them to be mounted. */
+  { id: 'keeper', look: { cloak: '#2c3236', hood: '#4c565c', hat: 'hood', height: 1.72 } },
 ];
 
 export const CUSTOMERS: Record<string, CustomerDef> = Object.fromEntries(list.map((c) => [c.id, c]));

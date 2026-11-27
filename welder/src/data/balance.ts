@@ -132,6 +132,16 @@ export const BALANCE = {
   reputation: {
     perOrder: 0.07,
     maxOrders: 12,
+    /** What each job brought back and not yet put right takes off it. */
+    perReturn: 0.1,
+  },
+
+  /** A job that comes out bad comes back: always if bad, sometimes if rough; it pays part of the first fee. */
+  returns: {
+    roughChance: 0.35,
+    after: [30, 55] as [number, number],
+    payMul: 0.5,
+    minPay: 2,
   },
 
   board: {

@@ -93,6 +93,16 @@ function patchLoop(): ReturnType<typeof path> {
 const GATE_X = [-150, -50, 50, 150];
 const GB = 20;
 
+/** Relic mount: a made thing from before stands on an iron foot, held by four bars under a band. */
+const RELIC_A = [45, 135, 225, 315];
+const relicJoint = (id: string, a: number, r: number, y: number, up: number) => {
+  const k = (a * Math.PI) / 180;
+  const d: [number, number, number] = [Math.sin(k), 0, Math.cos(k)];
+  const t: [number, number, number] = [Math.cos(k), 0, -Math.sin(k)];
+  const P: [number, number, number] = [d[0] * r, y, d[2] * r];
+  return line(id, [P[0] - t[0] * 6, y, P[2] - t[2] * 6], [P[0] + t[0] * 6, y, P[2] + t[2] * 6], [d[0], up, d[2]]);
+};
+
 const list: PartDef[] = [
   {
     // A spade for the diggers: the blade broke off its neck.
@@ -271,6 +281,29 @@ const list: PartDef[] = [
     burn: 2.6,
     simple: false,
     frame: 430,
+  },
+  {
+    // A made thing from before that the river gave up, to be mounted: four bars welded to the foot below and
+    // to the band above. It is thin work round something that must not be burnt.
+    id: 'relic',
+    pieces: [
+      { kind: 'cyl', p: { r: 74, h: 10, seg: 20 }, pos: [0, 5, 0], mat: 'dark' },
+      { kind: 'lathe', pts: [[0, 14], [26, 18], [40, 38], [45, 62], [40, 86], [24, 104], [0, 110]], p: { seg: 20 }, mat: 'relic' },
+      { kind: 'torus', p: { R: 45.5, r: 2 }, pos: [0, 62, 0], mat: 'relic' },
+      ...RELIC_A.map((a) => ({
+        kind: 'box' as const,
+        p: { w: 14, h: 108, d: 14 },
+        pos: [Math.sin((a * Math.PI) / 180) * 60, 64, Math.cos((a * Math.PI) / 180) * 60] as [number, number, number],
+        rot: [0, a, 0] as [number, number, number],
+        mat: 'iron' as const,
+      })),
+      { kind: 'torus', p: { R: 60, r: 6 }, pos: [0, 124, 0], mat: 'rust' },
+    ],
+    seams: [...RELIC_A.map((a, i) => relicJoint('foot' + i, a, 67.8, 10.8, 1)), ...RELIC_A.map((a, i) => relicJoint('band' + i, a, 67.6, 118.6, 0.25))],
+    thick: 0.9,
+    burn: 2.4,
+    simple: false,
+    frame: 300,
   },
 ];
 

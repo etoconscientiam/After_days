@@ -9,6 +9,7 @@ import { setLang, getLang, Lang } from './i18n';
 import { demoWeld } from './dev';
 import { installFrames, installCursors } from './view/frames';
 import { Intro } from './intro/intro';
+import { settings, onSettings } from './settings';
 
 const SAVE_KEY = 'welder.save';
 const LANG_KEY = 'welder.lang';
@@ -44,6 +45,13 @@ function boot(): void {
   const stage = document.getElementById('stage')!;
   const view = new View(game, canvas, uiRoot, stage);
   const sound = new Sound();
+  // Settings take effect at once: the volume, the hands that turn the work.
+  const applySettings = () => {
+    sound.setVolume(settings.volume);
+    game.autoTurn = settings.autoTurn;
+  };
+  applySettings();
+  onSettings(applySettings);
   view.onStep = () => sound.step();
   view.onSfx = (k, v) => sound.sfx(k, v ?? 0);
   // RU / EN switch in the corner, at any time.
@@ -51,6 +59,7 @@ function boot(): void {
     const next: Lang = getLang() === 'en' ? 'ru' : 'en';
     setLang(next);
     view.relabel();
+    if (!begun) showStart();
     try {
       localStorage.setItem(LANG_KEY, next);
     } catch {
@@ -108,13 +117,55 @@ function boot(): void {
       },
       playIntro,
     );
-  // The intro, then the shift (from a new one, or from the start screen's link to see it again).
+  // The intro, then the shift (from a new one, or from the start screen's link to see what has been told so far).
   function playIntro() {
     paused = true;
-    const intro = new Intro({ onDone: (fromWhite) => begin(fromWhite) });
+    const told = ['prologue', ...['years', 'winter', 'name'].filter((c) => game.flags['ch:' + c])];
+    game.queue({ type: 'mark', flag: 'ch:prologue' });
+    const intro = new Intro({ chapters: told, onDone: (fromWhite) => begin(fromWhite) });
     (window as unknown as { welderIntro: Intro }).welderIntro = intro;
     intro.start();
   }
+  // The rest of the story comes in chapters as the shift goes: the years when the town starts coming (the
+  // board opens), the winter when the gate is brought at night, the name when the gate goes on the bench.
+  // Each waits for a calm moment (nothing burning, nothing open) and is told once.
+  const pending: { id: string; at: number }[] = [];
+  const want = (id: string, delay: number) => {
+    if (game.flags['ch:' + id] || pending.some((p) => p.id === id)) return;
+    pending.push({ id, at: performance.now() + delay * 1000 });
+  };
+  game.bus.on('beat', (e) => {
+    if (e.id === 'board') want('years', 2.5);
+  });
+  game.bus.on('pileChanged', () => {
+    if (game.pile?.urgent) want('winter', 1.5);
+  });
+  game.bus.on('orderTaken', (e) => {
+    if (e.bench === 'player' && game.player.order?.urgent) want('name', 0.3);
+  });
+  const playChapter = (id: string) => {
+    paused = true;
+    view.releaseInput();
+    sound.suspend();
+    game.queue({ type: 'mark', flag: 'ch:' + id });
+    const intro = new Intro({
+      chapters: [id],
+      onDone: () => {
+        view.releaseInput();
+        paused = false;
+        sound.resume();
+      },
+    });
+    (window as unknown as { welderIntro: Intro }).welderIntro = intro;
+    intro.start();
+  };
+  const tellPending = (now: number) => {
+    if (!pending.length || paused || !view.calm()) return;
+    const p = pending[0];
+    if (now < p.at) return;
+    pending.shift();
+    if (!game.flags['ch:' + p.id]) playChapter(p.id);
+  };
   // A new shift opens with the intro (?nointro skips it, ?intro forces it); a saved one with the start screen.
   if ((!resume && !params.has('nointro')) || params.has('intro')) playIntro();
   else showStart();
@@ -170,6 +221,11 @@ function boot(): void {
       return;
     }
     // Hit-stop: hold the frame on a strong moment (the picture stays, the sim waits).
+    tellPending(now);
+    if (paused) {
+      requestAnimationFrame(frame);
+      return;
+    }
     if (view.consumeFreeze(dt)) {
       requestAnimationFrame(frame);
       return;

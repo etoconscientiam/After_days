@@ -17,7 +17,7 @@ export interface SeamDef {
   turn?: 'spin' | 'roll';
 }
 
-export type PieceMat = 'iron' | 'dark' | 'steel' | 'rust' | 'wood' | 'copper' | 'leather';
+export type PieceMat = 'iron' | 'dark' | 'steel' | 'rust' | 'wood' | 'copper' | 'leather' | 'relic';
 
 /**
  * One piece of the job, for the view only. Kinds (all sizes in mm, centred on `pos`):
@@ -78,6 +78,8 @@ export interface OrderTemplate {
   weight?: number;
   /** Pays at least this whatever the quality (the first job of the shift). */
   minPay?: number;
+  /** Only pinned on the board once this many orders have been handed over. */
+  after?: number;
 }
 
 /** Condition language shared by story beats and upgrade requirements. */

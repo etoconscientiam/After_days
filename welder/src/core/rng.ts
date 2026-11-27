@@ -52,7 +52,7 @@ export class Rng {
   }
 }
 
-export const STREAMS = ['orders', 'power', 'spatter', 'weld', 'world', 'apprentice'] as const;
+export const STREAMS = ['orders', 'power', 'spatter', 'weld', 'world', 'apprentice', 'returns'] as const;
 export type StreamName = (typeof STREAMS)[number];
 
 export class RngStreams {

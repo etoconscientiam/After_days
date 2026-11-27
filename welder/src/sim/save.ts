@@ -6,7 +6,7 @@ import type { Habit } from './apprentice';
 /** Save format: a version, ids and numbers only. The bead in progress is not saved; its order goes back. */
 export const SAVE_VERSION = 2;
 
-type OrderRow = [number, string, string, number, string, number, string, number, number];
+type OrderRow = [number, string, string, number, string, number, string, number, number, number?];
 
 export interface SaveData {
   v: number;
@@ -26,10 +26,14 @@ export interface SaveData {
   rng: number[];
   log: Game['log'];
   power: [number, number];
+  /** Customers: visits and the last grade; jobs on their way back. (Older saves have none.) */
+  visits?: Record<string, number>;
+  lastGrade?: Record<string, string>;
+  returns?: [number, OrderRow][];
 }
 
 function row(o: Order): OrderRow {
-  return [o.uid, o.part, o.customer, o.reward, o.req.minGrade ?? '', o.req.noHoles ? 1 : 0, o.req.needs ?? '', o.simple ? 1 : 0, o.urgent ? 1 : 0];
+  return [o.uid, o.part, o.customer, o.reward, o.req.minGrade ?? '', o.req.noHoles ? 1 : 0, o.req.needs ?? '', o.simple ? 1 : 0, o.urgent ? 1 : 0, o.ret ? 1 : 0];
 }
 
 function unrow(r: OrderRow): Order {
@@ -45,6 +49,7 @@ function unrow(r: OrderRow): Order {
     },
     simple: !!r[7],
     urgent: !!r[8],
+    ...(r[9] ? { ret: true } : {}),
   };
 }
 
@@ -77,6 +82,9 @@ export function serialize(g: Game): SaveData {
     rng: g.rng.snapshot(),
     log: g.log,
     power: [g.power.flow, g.power.wheel],
+    visits: g.visits,
+    lastGrade: g.lastGrade,
+    returns: g.returns.map((x) => [Math.round((x.at - g.t) * 10) / 10, row(x.o)]),
   };
 }
 
@@ -103,6 +111,9 @@ export function restore(g: Game, d: SaveData): boolean {
   g.log = d.log;
   g.power.flow = d.power[0];
   g.power.wheel = d.power[1];
+  g.visits = { ...(d.visits ?? {}) };
+  g.lastGrade = { ...(d.lastGrade ?? {}) } as Game['lastGrade'];
+  g.returns = (d.returns ?? []).map(([dt, r]) => ({ at: d.t + dt, o: unrow(r) })).filter((x) => known(x.o));
   g.stats = computeStats(g.data, g.owned);
   if (g.flags.finale) g.nightBoost = 1;
   return true;

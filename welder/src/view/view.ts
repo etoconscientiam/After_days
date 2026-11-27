@@ -9,7 +9,7 @@ import { SKIN } from '../skin/default';
 import { LowRes } from './renderer';
 import { makeTextures, Textures } from './textures';
 import { buildWorkshop, Workshop, BENCH, TABLE, PART_ROT, PART_SPAN, figure, KEY_K, LAMP_K } from './workshop';
-import { buildPart, PartMesh, HEAT_TINT } from './partMesh';
+import { buildPart, PartMesh, HEAT_TINT, partMaterials } from './partMesh';
 import { BeadView, BeadSource } from './bead';
 import { Effects } from './particles';
 import { Tools } from './tools';
@@ -18,6 +18,8 @@ import { UI } from './ui';
 import { Rng } from '../core/rng';
 import { t, getLang } from '../i18n';
 import { seamPoint } from '../sim/seam';
+import { bringLine, replyLine } from './talk';
+import { settings } from '../settings';
 
 /** Part-local units are millimetres; inside partRoot one unit of geometry is a metre. */
 const MM = 0.001;
@@ -76,6 +78,9 @@ export class View {
   onSfx: (kind: 'coin' | 'ding' | 'seam', v?: number) => void = () => {};
   /** Hit-stop: the whole game holds for a few frames on a strong moment. */
   private freezeT = 0;
+  /** The customer stays at the door a moment after taking the job (to say their word), and nods or shakes their head. */
+  private custLinger = 0;
+  private custAnim = { t: -1, good: true };
   /** Coins flying from the bench into the pot after a hand-over; the counter rises as they land. */
   private coins: { m: THREE.Mesh; t: number; d: number; a: THREE.Vector3; b: THREE.Vector3; v: number }[] = [];
   private coinPool: THREE.Mesh[] = [];
@@ -313,7 +318,8 @@ export class View {
         else if (this.ui.boardOpen) this.ui.closeBoard();
         else if (this.rig.mode === 'station' || this.rig.mode === 'inspect') this.leaveBench();
         else if (this.rig.mode === 'walk') this.interact();
-      } else if (e.code === 'Escape' && this.tour >= 0) this.endTour();
+      } else if (e.code === 'Escape' && this.ui.settingsOpen) this.ui.closeSettings();
+      else if (e.code === 'Escape' && this.tour >= 0) this.endTour();
       else if (e.code === 'Escape' && this.ui.craftOpen) this.ui.closeCraft();
       else if (e.code === 'Escape' && this.ui.jobOpen) this.ui.closeJob();
       else if (e.code === 'Escape' && this.ui.boardOpen) this.ui.closeBoard();
@@ -380,6 +386,19 @@ export class View {
   }
 
   // ------------------------------------------------------------------ juice
+
+  /** Nothing in hand and nothing open: a moment the story can take the screen without cutting anything off. */
+  calm(): boolean {
+    const g = this.game;
+    return this.started && !g.player.arc.lit && !this.lmb && !this.ui.modal && !this.ui.endOpen && !this.coins.length && this.tour < 0 && this.freezeT <= 0;
+  }
+
+  /** Forget held keys and buttons (something else took the input for a while). */
+  releaseInput(): void {
+    this.held.clear();
+    this.lmb = false;
+    this.latch = false;
+  }
 
   freeze(s: number): void {
     this.freezeT = Math.max(this.freezeT, s);
@@ -724,6 +743,8 @@ export class View {
       this.setPart(e.part);
       this.bead.attach(g.player, this.snapToPart);
       this.setCustomer(g.player.order?.customer ?? 'neighbour');
+      if (g.player.order) this.ui.say(bringLine(g, g.player.order), 5, t('cust.' + g.player.order.customer));
+      this.custLinger = 0;
       this.ui.closeBoard();
       this.syncWorld();
     });
@@ -731,7 +752,12 @@ export class View {
       if (e.bench === 'player') {
         this.flyCoins(e.pay);
         this.ui.toast(`+${e.pay} ◆  ${t('part.' + e.part)}` + (e.reqMet ? '' : ' · ' + t('pay.reqFail')));
-        this.ws.customer.visible = false;
+        const o = g.player.order;
+        if (o && !o.urgent) {
+          this.ui.say(replyLine(o.customer, e.grade), 3.6, t('cust.' + o.customer));
+          this.custLinger = 3.6;
+          this.custAnim = { t: 0, good: e.grade === 'clean' || e.grade === 'fair' };
+        } else this.ws.customer.visible = false;
         if (!g.showEnd) {
           this.clearPart();
           this.rig.station();
@@ -1032,6 +1058,30 @@ export class View {
     this.ws.customer = f;
   }
 
+  /** A bow for good work, a slow shake of the head for bad; the slip with their words stays over their head. */
+  private animateCustomer(dt: number): void {
+    const c = this.ws.customer;
+    const a = this.custAnim;
+    c.rotation.x = 0;
+    if (a.t >= 0) {
+      a.t += dt;
+      const k = a.t;
+      if (a.good) c.rotation.x = k < 1.1 ? 0.16 * Math.max(0, Math.sin((k / 0.55) * Math.PI)) : 0;
+      else c.rotation.y = (c.userData.ry ?? c.rotation.y) + (k < 1.4 ? 0.22 * Math.sin(k * 11) * (1 - k / 1.4) : 0);
+      if (k > 1.6) a.t = -1;
+    }
+    c.userData.ry ??= c.rotation.y;
+    if (!this.ui.saying) return;
+    const head = this.v3d.copy(c.position);
+    head.y += 1.95;
+    const sp = c.visible ? this.toScreen(head) : null;
+    // Over their head when they are in sight; otherwise from the door, at the top of the picture.
+    const seen = !!sp && sp[0] > this.cssW * 0.25 && sp[0] < this.cssW * 0.75 && sp[1] > this.cssH * 0.12 && sp[1] < this.cssH * 0.7;
+    const x = seen ? sp![0] : this.cssW / 2;
+    const y = seen ? sp![1] : this.cssH * 0.2;
+    this.ui.placeSay(x, y);
+  }
+
   /** The next job lies on top of the heap. */
   private syncPile(): void {
     if (this.pileMesh) this.ws.pileSlot.remove(this.pileMesh);
@@ -1189,7 +1239,12 @@ export class View {
     if (SKIN.snow) this.updateSnow(dt, g.clock.snow);
     const qn = Math.min(7, Math.round(1 + g.t / 55 + g.board.length * 0.5 + (g.flags.finale ? 2 : 0)));
     for (let i = 0; i < this.ws.queue.length; i++) this.ws.queue[i].visible = g.started && i < qn;
-    this.ws.customer.visible = b.stage !== 'empty';
+    // A made thing from before breathes a cold light of its own.
+    const relic = partMaterials(this.tx).relic as THREE.MeshLambertMaterial;
+    relic.emissiveIntensity = 0.55 + 0.3 * Math.sin(performance.now() / 1000 * 1.7) * Math.sin(performance.now() / 1000 * 0.53 + 1);
+    this.custLinger = Math.max(0, this.custLinger - dt);
+    this.ws.customer.visible = b.stage !== 'empty' || this.custLinger > 0;
+    this.animateCustomer(dt);
 
     // The job, the hands and the arc.
     this.placePart(dt);
@@ -1316,7 +1371,8 @@ export class View {
     u.uMaskSee.value = g.stats.maskSee;
     u.uMaskWindow.value = g.stats.maskWindow;
     u.uMaskWear.value = g.stats.maskWear;
-    u.uGlare.value = g.glare;
+    // Softer flashes: the glare and the shake kept low (the settings).
+    u.uGlare.value = g.glare * (settings.soft ? 0.4 : 1);
     u.uArcOn.value = arcOn;
     if (lit) {
       this.v3.copy(this.tools.arcGlow.position).project(this.rig.cam);
@@ -1326,7 +1382,8 @@ export class View {
     this.updateSpots(dt, lit && g.mask.pos < 0.5);
     if (this.shakeT > 0) {
       this.shakeT -= dt;
-      u.uShake.value.set(r.int(-1, 1), r.int(-1, 1));
+      if (settings.soft) u.uShake.value.set(0, 0);
+      else u.uShake.value.set(r.int(-1, 1), r.int(-1, 1));
     } else u.uShake.value.set(0, 0);
     u.uFade.value = this.started ? Math.max(0, u.uFade.value - dt * 1.5) : 0.35;
 

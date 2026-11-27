@@ -10,6 +10,8 @@ export interface Order {
   simple: boolean;
   urgent: boolean;
   minPay?: number;
+  /** Brought back: the last time it came apart. */
+  ret?: boolean;
 }
 
 export function makeOrder(data: GameData, t: OrderTemplate, uid: number, rng: Rng, urgent = false, mul = 1): Order {
@@ -26,8 +28,8 @@ export function makeOrder(data: GameData, t: OrderTemplate, uid: number, rng: Rn
 }
 
 /** Pick a board order from the pool, avoiding too many repeats of what is already pinned. */
-export function rollBoardOrder(data: GameData, board: Order[], uid: number, rng: Rng, mul = 1): Order {
-  const pool = data.pools.board;
+export function rollBoardOrder(data: GameData, board: Order[], uid: number, rng: Rng, mul = 1, done = 0): Order {
+  const pool = data.pools.board.filter((o) => (o.after ?? 0) <= done);
   const t = rng.weighted(pool, (o) => {
     const same = board.filter((b) => b.part === o.part).length;
     return (o.weight ?? 1) / (1 + same * 2);

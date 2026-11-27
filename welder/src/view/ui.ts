@@ -5,6 +5,9 @@ import type { GradeId } from '../data/types';
 import { t } from '../i18n';
 import type { Order } from '../sim/orders';
 import { jobSheet, payAtGrade, seamProgress, JobSheet } from '../sim/jobs';
+import { bringLine } from './talk';
+import { settings, setSettings } from '../settings';
+import { getLang } from '../i18n';
 
 /**
  * The dust that hides a word you can't read yet (like a spoiler in a chat): sparse pixel specks of varied
@@ -80,15 +83,23 @@ export class UI {
   onCraftBtn: () => void = () => {};
   onLang: () => void = () => {};
   private langBtn = el('div', 'lang-btn', 'pe');
+  /** The settings: a small gear in the corner (and a link on the start screen), never a key. */
+  private setBtn = el('div', 'set-btn', 'pe');
+  private setEl = el('div', 'settings', 'pe');
+  settingsOpen = false;
+  onSettingsClose: () => void = () => {};
   private hudL = el('div', 'hudl');
   /** How much of the rod is left. */
   private rodEl = el('div', 'rod');
   private rodKey = '';
+  /** What the customer at the door says, over their head. */
+  private sayEl = el('div', 'say');
+  private sayT = 0;
   onTourNext: () => void = () => {};
 
   /** Any panel over the game that takes the mouse. */
   get modal(): boolean {
-    return this.boardOpen || this.jobOpen || this.craftOpen;
+    return this.boardOpen || this.jobOpen || this.craftOpen || this.settingsOpen;
   }
   private start = el('div', 'start', 'pe');
   private endEl = el('div', 'end');
@@ -105,8 +116,35 @@ export class UI {
     this.endEl.style.display = 'none';
     // Left column, one flow top to bottom: money, the craft book, the rod, the job's stages.
     this.hudL.append(this.money, this.craftBtn, this.rodEl, this.stagesEl);
-    root.append(this.hudL, this.langBtn, this.jobEl, this.craftEl, this.tourEl, this.ctrl, this.promptEl, this.whyEl, this.appStatus, this.hint, this.tip, this.stampEl, this.toasts, this.board, this.endEl, this.start, this.dbgEl, this.cursor);
+    root.append(this.hudL, this.langBtn, this.setBtn, this.jobEl, this.craftEl, this.tourEl, this.ctrl, this.promptEl, this.whyEl, this.appStatus, this.sayEl, this.hint, this.tip, this.stampEl, this.toasts, this.board, this.endEl, this.start, this.setEl, this.dbgEl, this.cursor);
     this.dbgEl.style.display = 'none';
+    this.setEl.style.display = 'none';
+    // A pixel gear: eight teeth round a ring.
+    const gear = [
+      '..##..##..', '..######..', '.########.', '####..####', '.##....##.', '.##....##.', '####..####', '.########.', '..######..', '..##..##..',
+    ];
+    this.setBtn.innerHTML = `<svg viewBox="0 0 10 10" shape-rendering="crispEdges" aria-hidden="true">${gear
+      .flatMap((row, y) => [...row].map((c, x) => (c === '#' ? `<rect x="${x}" y="${y}" width="1" height="1"/>` : '')))
+      .join('')}</svg>`;
+    this.setBtn.onpointerdown = (e) => {
+      e.stopPropagation();
+      if (this.settingsOpen) this.closeSettings();
+      else this.openSettings();
+    };
+    this.setEl.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      const tEl = e.target as HTMLElement;
+      if (tEl.closest('.x, .close')) return this.closeSettings();
+      const opt = tEl.closest<HTMLElement>('[data-k]');
+      if (!opt) return;
+      const k = opt.dataset.k!, v = opt.dataset.v!;
+      if (k === 'vol') setSettings({ volume: Math.max(0, Math.min(1, v === '-' ? settings.volume - 0.1 : v === '+' ? settings.volume + 0.1 : +v / 10)) });
+      else if (k === 'soft') setSettings({ soft: v === '1' });
+      else if (k === 'fast') setSettings({ fastText: v === '1' });
+      else if (k === 'turn') setSettings({ autoTurn: v === '1' });
+      else if (k === 'lang' && v !== getLang()) this.onLang();
+      this.renderSettings();
+    });
     makeSpoilerDust();
     this.stagesEl.addEventListener('pointerdown', (e) => {
       const n = (e.target as HTMLElement).closest<HTMLElement>('.next');
@@ -125,7 +163,8 @@ export class UI {
       return;
     }
     const mask = `<svg viewBox="0 0 12 12" shape-rendering="crispEdges"><rect x="2" y="1" width="8" height="10" fill="#4a4640"/><rect x="3" y="2" width="6" height="8" fill="#6a665e"/><rect x="3" y="4" width="6" height="3" fill="${maskDown ? '#1e3a24' : '#2a2620'}"/><rect x="4" y="5" width="4" height="1" fill="${maskDown ? '#5a9a5a' : '#3a3630'}"/></svg>`;
-    this.ctrl.innerHTML = `<span class="k">◉</span>${mask}<span>${maskDown ? '▲' : '▼'}</span><span class="k">SPACE</span><span class="k">A/D</span><span class="k">W/S</span><span class="k">TAB</span><span>${t('ctrl.turn')}</span><span class="k">E</span><span>${t('ctrl.leave')}</span>`;
+    // The rest (turning by hand, a new rod) is shown where it is needed, when it is needed.
+    this.ctrl.innerHTML = `<span class="k">◉</span>${mask}<span>${maskDown ? '▲' : '▼'}</span><span class="k">SPACE</span><span class="k">E</span><span>${t('ctrl.leave')}</span>`;
   }
 
   get promptShown(): boolean {
@@ -240,7 +279,8 @@ export class UI {
       .join('');
     const req = this.reqText(o);
     this.jobEl.innerHTML = `<div class="head"><b>${t('part.' + o.part)}</b><span class="pay">${t('job.upTo')} ${o.reward} ◆</span></div>
-      <div class="who">${t('cust.' + o.customer)}</div>
+      <div class="who">${t('cust.' + o.customer)}${o.ret ? ` · <span class="ret">${t('req.back')}</span>` : ''}</div>
+      <div class="said">«${bringLine(this.game, o)}»</div>
       <div class="row">${t('job.diff')} <span class="stars">${this.stars(s.stars)}</span></div>
       <div class="row">${t('job.stages', { n: s.stages.length })}</div>
       <ol>${rows}</ol>
@@ -408,8 +448,39 @@ export class UI {
     };
   }
 
+  openSettings(): void {
+    this.settingsOpen = true;
+    this.hideTip();
+    this.renderSettings();
+    this.setEl.style.display = 'block';
+  }
+
+  closeSettings(): void {
+    if (!this.settingsOpen) return;
+    this.settingsOpen = false;
+    this.setEl.style.display = 'none';
+    this.onSettingsClose();
+  }
+
+  /** Volume as a row of pixel cells, the rest as pairs of choices; what is chosen is lit. */
+  renderSettings(): void {
+    if (!this.settingsOpen) return;
+    const vol = Math.round(settings.volume * 10);
+    const cells = Array.from({ length: 10 }, (_, i) => `<i data-k="vol" data-v="${i + 1}" class="${i < vol ? 'on' : ''}"></i>`).join('');
+    const pair = (k: string, label: string, a: [string, string], b: [string, string], cur: string) =>
+      `<div class="row"><span>${label}</span><span class="opts">${[a, b].map(([v, txt]) => `<span data-k="${k}" data-v="${v}" class="opt${v === cur ? ' on' : ''}">${txt}</span>`).join('')}</span></div>`;
+    this.setEl.innerHTML = `${CLOSE_X}<h3>${t('set.title')}</h3>
+      <div class="row"><span>${t('set.volume')}</span><span class="vol"><span data-k="vol" data-v="-" class="opt">−</span><span class="cells">${cells}</span><span data-k="vol" data-v="+" class="opt">+</span></span></div>
+      ${pair('soft', t('set.flash'), ['0', t('set.flash.full')], ['1', t('set.flash.soft')], settings.soft ? '1' : '0')}
+      ${pair('fast', t('set.text'), ['0', t('set.text.normal')], ['1', t('set.text.fast')], settings.fastText ? '1' : '0')}
+      ${pair('turn', t('set.turn'), ['1', t('set.on')], ['0', t('set.off')], settings.autoTurn ? '1' : '0')}
+      ${pair('lang', t('set.lang'), ['ru', 'Русский'], ['en', 'English'], getLang())}
+      <div class="close">${t('board.close')}</div>`;
+  }
+
   /** Everything drawn from text: repaint after a language change. */
   relabelAll(): void {
+    this.renderSettings();
     this.stagesHtml = '';
     this.renderCraft();
     this.renderBoard();
@@ -704,9 +775,10 @@ export class UI {
       const req = this.reqText(o);
       const sh = jobSheet(g.data, o);
       req.unshift(`<span class="stars">${this.stars(sh.stars)}</span> · ${t('job.stages', { n: sh.stages.length })}`);
-      if (o.simple && g.owned.apprentice) req.push(t('req.simple'));
+      if (o.simple && g.owned.apprentice && !o.ret) req.push(t('req.simple'));
+      if (o.ret) req.unshift(`<span class="ret">${t('req.back')}</span>`);
       const why = ok.ok ? '' : ok.why === 'needs' ? t('board.needs', { name: t('up.' + o.req.needs + '.name') }) : t('board.' + ok.why);
-      return `<div class="card ${ok.ok ? '' : 'off'}" data-uid="${o.uid}">
+      return `<div class="card ${ok.ok ? '' : 'off'}${o.ret ? ' ret' : ''}" data-uid="${o.uid}">
         <span class="pay">${t('job.upTo')} ${o.reward} ◆</span>
         <b>${t('part.' + o.part)}</b><span class="who">${t('cust.' + o.customer)}</span>
         <ul>${req.map((r) => `<li>${r}</li>`).join('')}</ul>
@@ -739,11 +811,12 @@ export class UI {
     this.start.innerHTML = `<h1>${t('title')}</h1><div class="sub">${t('subtitle')}</div>
       <div class="go">${resume ? t('resume') : t('start')}</div>
       <div class="small">${t('controls')}</div>
-      <div class="links">${resume ? `<span data-a="new">${t('newShift')}</span>` : ''}${onIntro ? `<span data-a="intro">${t('intro')}</span>` : ''}<span data-a="lang">${t('lang')}</span></div>`;
+      <div class="links">${resume ? `<span data-a="new">${t('newShift')}</span>` : ''}${onIntro ? `<span data-a="intro">${t('intro')}</span>` : ''}<span data-a="set">${t('set.open')}</span><span data-a="lang">${t('lang')}</span></div>`;
     this.start.onpointerdown = (e) => {
       const a = (e.target as HTMLElement).dataset.a;
       e.stopPropagation();
       if (a === 'lang') return onLang();
+      if (a === 'set') return this.openSettings();
       this.start.style.display = 'none';
       if (a === 'intro' && onIntro) return onIntro();
       onGo(a === 'new');
@@ -766,7 +839,31 @@ export class UI {
     return this.endEl.style.display !== 'none';
   }
 
+  /** A line over the customer's head for a few seconds. */
+  say(text: string, sec: number, who = ''): void {
+    this.sayEl.innerHTML = (who ? `<b>${who}</b>` : '') + text.replace(/</g, '&lt;');
+    this.sayEl.style.display = text ? 'block' : 'none';
+    this.sayEl.classList.remove('in');
+    void this.sayEl.offsetWidth;
+    this.sayEl.classList.add('in');
+    this.sayT = text ? sec : 0;
+  }
+
+  get saying(): boolean {
+    return this.sayT > 0;
+  }
+
+  placeSay(x: number, y: number): void {
+    if (this.sayT <= 0) return;
+    this.sayEl.style.left = x + 'px';
+    this.sayEl.style.top = y + 'px';
+  }
+
   update(dt: number): void {
+    if (this.sayT > 0) {
+      this.sayT -= dt;
+      if (this.sayT <= 0) this.sayEl.style.display = 'none';
+    }
     if (this.stampT > 0) {
       this.stampT -= dt;
       if (this.stampT <= 0) this.stampEl.style.display = 'none';

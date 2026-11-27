@@ -26,7 +26,11 @@ const SKIP_AFTER = 2; // the skip button shows after this (at once if seen befor
 const FLASH = 0.4; // the final white flash of the arc
 const REVEAL = 1.2; // the game showing through the white
 const SEEN_KEY = 'welder.introSeen';
+/** Input the intro keeps from the game underneath while it plays. */
+const TRAPPED = ['keydown', 'keyup', 'pointerdown', 'pointerup', 'pointermove', 'mousemove', 'mousedown', 'mouseup', 'wheel', 'contextmenu'] as const;
 import { FX_MARKS, WordFx, type WordRun } from './wordfx';
+import { IntroSound } from './introSound';
+import { settings } from '../settings';
 
 const IMAGES = import.meta.glob('../../assets/intro/*.webp', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 
@@ -64,7 +68,15 @@ interface ActDef {
   ambient?: string;
   frames: FrameDef[];
 }
+interface ChapterDef {
+  id: string;
+  /** Images of the frames it plays. */
+  frames: string[];
+  /** How it gives way to the game: the arc's white, or plain black. */
+  end: 'white' | 'black';
+}
 interface ScriptDef {
+  chapters: ChapterDef[];
   sounds?: { type?: string; arc?: string; ignite?: string };
   acts: ActDef[];
 }
@@ -174,6 +186,13 @@ function lineTime(p: Parsed): number {
 export interface IntroOptions {
   /** Called once, when the game should start (the picture then turns to white or black over it). */
   onDone: (fromWhite: boolean) => void;
+  /** Play only these chapters of the script, in order (all of it if not given). */
+  chapters?: string[];
+}
+
+/** The chapters of the script: the prologue opens the game, the rest come as the shift goes. */
+export function introChapters(): string[] {
+  return (SCRIPT as unknown as ScriptDef).chapters.map((c) => c.id);
 }
 
 export function introSeen(): boolean {
@@ -195,6 +214,9 @@ export class Intro {
   private skipEl = document.createElement('div');
   private white = document.createElement('div');
   private shots: Shot[] = [];
+  /** Every frame of the script (the text size is the one at which all of them fit, whatever is played). */
+  private allShots: Shot[] = [];
+  private endWhite = true;
   /** When each picture began to show (intro clock). */
   private starts: number[] = [];
   private vign = new Float32Array(INTRO_W * INTRO_H);
@@ -233,6 +255,10 @@ export class Intro {
   private ambientAct = -1;
   private arcLoop: HTMLAudioElement | null = null;
   private script = SCRIPT as unknown as ScriptDef;
+  /** Typing speed (the settings can make it faster). */
+  private speed = settings.fastText ? 1.7 : 1;
+  private snd: IntroSound | null = null;
+  private sceneShot: Shot | null = null;
 
   constructor(private opts: IntroOptions) {
     this.buf.width = INTRO_W;
@@ -249,10 +275,18 @@ export class Intro {
         const url = IMAGES[`../../assets/intro/${f.image}.webp`];
         if (url) img.src = url;
         let d = 0;
-        for (const l of f.lines) d += lineTime(parse(a.style, l)) + LINE_PAUSE + (l.wait ?? 0);
-        this.shots.push({ act: ai, style: a.style, def: f, img, dur: Math.max(FRAME_MIN, d + FRAME_EXTRA), parts: [], spawn: (f.fx ?? []).map(() => 0) });
+        for (const l of f.lines) d += lineTime(parse(a.style, l)) / this.speed + LINE_PAUSE + (l.wait ?? 0);
+        this.allShots.push({ act: ai, style: a.style, def: f, img, dur: Math.max(FRAME_MIN, d + FRAME_EXTRA), parts: [], spawn: (f.fx ?? []).map(() => 0) });
       }),
     );
+    const want = opts.chapters ?? this.script.chapters.map((c) => c.id);
+    const chs = this.script.chapters.filter((c) => want.includes(c.id));
+    for (const c of chs) for (const im of c.frames) {
+      const sh = this.allShots.find((x) => x.def.image === im);
+      if (sh) this.shots.push(sh);
+    }
+    if (!this.shots.length) this.shots.push(this.allShots[0]);
+    this.endWhite = (chs[chs.length - 1]?.end ?? 'white') === 'white';
 
     this.root.id = 'intro';
     this.screen.className = 'intro-pic';
@@ -269,9 +303,11 @@ export class Intro {
   start(): void {
     document.body.append(this.root);
     if (introSeen()) this.skipEl.classList.add('on');
-    for (const ev of ['keydown', 'keyup', 'pointerdown', 'pointerup', 'wheel', 'contextmenu'] as const) addEventListener(ev, this.trap, true);
+    for (const ev of TRAPPED) addEventListener(ev, this.trap, true);
+    if (document.pointerLockElement) document.exitPointerLock();
     addEventListener('resize', this.layout);
     this.layout();
+    this.wakeAudio();
     this.starts[0] = 0;
     this.last = performance.now();
     this.raf = requestAnimationFrame(this.frame);
@@ -345,6 +381,7 @@ export class Intro {
 
   private nextShot(): void {
     if (this.cur >= this.shots.length - 1) {
+      if (!this.endWhite) return this.finish(false);
       this.phase = 'flash';
       this.phaseAt = this.clock;
       this.textEl.innerHTML = '';
@@ -374,6 +411,7 @@ export class Intro {
       this.ignited = true;
       this.igniteAt = this.clock;
       this.blip(1400, 0.06, 0.25, 'square');
+      this.snd?.ignite();
       if (this.script.sounds?.ignite) this.playFile(this.script.sounds.ignite);
     }
   }
@@ -395,6 +433,7 @@ export class Intro {
       this.arcLoop = null;
     }
 
+    this.stepSound(dt, s);
     if (this.phase === 'flash') {
       if (this.clock - this.phaseAt >= FLASH) this.finish(true);
       return;
@@ -420,7 +459,7 @@ export class Intro {
       // Letter by letter at the pace of speech: breaths after punctuation, slower marked words.
       const before = this.typed;
       if (this.typeAcc === 0 && before === 0) this.cueAhead(p, 0);
-      this.typeAcc += dt;
+      this.typeAcc += dt * this.speed;
       while (this.typed < text.length && this.typeAcc >= letterDelay(p, this.typed)) {
         this.typeAcc -= letterDelay(p, this.typed);
         this.letterAt[this.typed] = this.clock;
@@ -436,14 +475,31 @@ export class Intro {
     if (this.clock > SKIP_AFTER) this.skipEl.classList.add('on');
   }
 
+  /** The picture's sound: set when it changes, then the layers follow the arc and the fades. */
+  private stepSound(dt: number, s: Shot): void {
+    const snd = this.snd;
+    if (!snd || this.finished) return;
+    if (this.sceneShot !== s) {
+      this.sceneShot = s;
+      snd.setScene(s.def.image, s.act);
+      snd.setArc(!(s.def.fx ?? []).some((f) => f.type === 'arcFlicker' && f.after === 'ignite') || this.ignited);
+    }
+    const tr = this.clock - this.curStart;
+    const fade = this.transKind === 'black' && tr < ACT_FADE ? Math.max(0, (tr - ACT_FADE * 0.5) / (ACT_FADE * 0.5)) : 1;
+    snd.update(dt, this.arcNow, fade);
+  }
+
   /** Before letter i is waited for: a cough shakes the band while the typing stalls. */
   private cueAhead(p: Parsed, i: number): void {
     if (i >= p.text.length || p.marks[i] !== 'cough' || !p.starts[i]) return;
     this.textEl.classList.remove('cough');
     void this.textEl.offsetWidth;
     this.textEl.classList.add('cough');
-    this.blip(95, 0.09, 0.05, 'triangle');
-    setTimeout(() => this.blip(80, 0.08, 0.04, 'triangle'), 230);
+    if (this.snd) this.snd.cough();
+    else {
+      this.blip(95, 0.09, 0.05, 'triangle');
+      setTimeout(() => this.blip(80, 0.08, 0.04, 'triangle'), 230);
+    }
   }
 
   /** Hand over to the game: once. From the final flash the picture turns white and the bench shows through it. */
@@ -457,6 +513,7 @@ export class Intro {
     }
     this.ambient?.pause();
     this.arcLoop?.pause();
+    this.snd?.stop(fromWhite ? 1.2 : 0.4);
     this.textEl.innerHTML = '';
     this.skipEl.classList.remove('on');
     this.white.style.background = fromWhite ? '#fff' : '#000';
@@ -482,7 +539,7 @@ export class Intro {
   private remove(): void {
     this.phase = 'gone';
     cancelAnimationFrame(this.raf);
-    for (const ev of ['keydown', 'keyup', 'pointerdown', 'pointerup', 'wheel', 'contextmenu'] as const) removeEventListener(ev, this.trap, true);
+    for (const ev of TRAPPED) removeEventListener(ev, this.trap, true);
     removeEventListener('resize', this.layout);
     this.root.remove();
     this.audio?.close().catch(() => undefined);
@@ -527,7 +584,7 @@ export class Intro {
     for (const fs of sizes) {
       m.style.fontSize = fs + 'px';
       let ok = true;
-      for (const sh of this.shots)
+      for (const sh of this.allShots)
         for (const l of sh.def.lines) {
           const who = sh.style === 'dialog' && l.who ? l.who + ': ' : '';
           const t = (who + shown(sh.style, l)).replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -617,7 +674,7 @@ export class Intro {
           const k = f.strength ?? 1;
           if (f.type === 'arcFlicker') {
             if (this.clock >= this.flick.arcNext) {
-              this.flick.arc = 1 + (Math.random() * 2 - 1) * 0.15 * k;
+              this.flick.arc = 1 + (Math.random() * 2 - 1) * (settings.soft ? 0.05 : 0.15) * k;
               this.flick.arcNext = this.clock + 0.04 + Math.random() * 0.1;
             }
             bright *= this.flick.arc;
@@ -762,7 +819,7 @@ export class Intro {
     const env = {
       arc: this.arcNow,
       warm: this.warmNow,
-      zap: () => (this.zap = 1),
+      zap: () => (this.zap = settings.soft ? 0.35 : 1),
       sfx: (k: 'zap' | 'hiss') => (k === 'zap' ? this.blip(rnd(2600, 4800), 0.018, 0.018, 'sawtooth') : this.blip(rnd(5000, 8000), 0.01, 0.006, 'square')),
     };
     this.zap = Math.max(0, this.zap - this.dtNow * 9);
@@ -843,6 +900,7 @@ export class Intro {
     try {
       this.audio ??= new AudioContext();
       if (this.audio.state === 'suspended') this.audio.resume().catch(() => undefined);
+      this.snd ??= new IntroSound(this.audio, settings.volume);
     } catch {
       this.audio = null;
     }
@@ -860,7 +918,7 @@ export class Intro {
     const o = a.createOscillator(), g = a.createGain();
     o.type = type;
     o.frequency.value = freq;
-    g.gain.setValueAtTime(vol, a.currentTime);
+    g.gain.setValueAtTime(Math.max(0.0002, vol * settings.volume), a.currentTime);
     g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + len);
     o.connect(g).connect(a.destination);
     o.start();

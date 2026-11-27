@@ -445,6 +445,40 @@ html, body {
   font-weight: 400;
 }
 #lang-btn:empty { display: none; }
+#set-btn {
+  position: absolute;
+  right: calc(var(--px) * 7 + 2.4em + var(--fu, 3px) * 6);
+  top: calc(var(--px) * 5);
+  height: calc(var(--fs) * 1.25 + var(--fu, 3px) * 6);
+  width: calc(var(--fs) * 1.25 + var(--fu, 3px) * 6);
+  padding: 0;
+  justify-content: center;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  z-index: 6;
+}
+#set-btn svg { width: calc(var(--px) * 5); height: calc(var(--px) * 5); fill: #f0e0b8; display: block; }
+#set-btn:hover svg { fill: #ffe6a8; }
+#settings {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(94%, max(calc(var(--px) * 200), 26em));
+  padding: 0.6em 1em 0.8em;
+  z-index: 20;
+}
+#settings h3 { margin: 0 0 0.5em; font-size: var(--fh); line-height: calc(var(--fh) * 1.25); font-family: var(--fhf); font-weight: 400; color: #f0e0b8; letter-spacing: 0.2em; }
+#settings .row { display: flex; justify-content: space-between; align-items: center; gap: 1em; margin: 0.35em 0; color: #d8c8a8; }
+#settings .opts, #settings .vol { display: flex; gap: calc(var(--px) * 2); align-items: center; }
+#settings .opt, #settings .close { display: inline-block; white-space: nowrap; padding: 0 calc(var(--px) * 3); cursor: pointer; color: #c8b898; border: calc(var(--fu, 3px) * 3) solid transparent !important; }
+#settings .opt.on { color: #ffe6a8; }
+#settings .cells { display: flex; gap: var(--px); }
+#settings .cells i { width: calc(var(--px) * 3); height: calc(var(--px) * 6); background: #3a2c1c; cursor: pointer; }
+#settings .cells i.on { background: #e8c878; }
+#settings .close { margin-top: 0.4em; }
+#settings .x, #settings .opt, #settings .close, #settings .cells i, #set-btn { cursor: var(--cur-hot) !important; }
 
 /* ------------------------------------------------------------------------------------------------
  * Pixel squircles: every plate and button gets its own picture drawn at its size (frames.ts), in whole
@@ -568,7 +602,7 @@ body.ui-modal #game { cursor: var(--cur); }
 @keyframes ar-in { from { opacity: 0; } to { opacity: 1; } }
 
 /* Close cross in a window's corner: sticks to the top while the window scrolls. */
-#craft .x, #board .x {
+#craft .x, #board .x, #settings .x {
   position: sticky;
   top: 0;
   float: right;
@@ -582,7 +616,7 @@ body.ui-modal #game { cursor: var(--cur); }
   box-sizing: border-box;
   cursor: pointer;
 }
-#craft .x svg, #board .x svg { width: 0.75em; height: 0.75em; flex: none; fill: #f0e0b8; shape-rendering: crispEdges; }
+#craft .x svg, #board .x svg, #settings .x svg { width: 0.75em; height: 0.75em; flex: none; fill: #f0e0b8; shape-rendering: crispEdges; }
 #craft .x:hover svg, #board .x:hover svg { fill: #ffd070; }
 
 /* Debug panel (the ` key): three progression levels. */
@@ -651,7 +685,8 @@ body.ui-modal #game { cursor: var(--cur); }
  * The intro (src/intro): a 4:3 pixel picture fitted to the screen with black bars, the words typed in the
  * HUD's font over a dark band at its foot, a skip link in the corner.
  * ---------------------------------------------------------------------------------------------- */
-#intro { position: fixed; inset: 0; z-index: 1000; background: #000; cursor: default; user-select: none; }
+#intro { position: fixed; inset: 0; z-index: 1000; background: #000; cursor: default; user-select: none; animation: intro-in 0.6s ease-out; }
+@keyframes intro-in { from { opacity: 0; } }
 #intro .intro-pic { position: absolute; image-rendering: pixelated; }
 #intro .intro-band {
   position: absolute;
@@ -742,3 +777,40 @@ body.ui-modal #game { cursor: var(--cur); }
 #intro .intro-text .m-fire .h { color: #fff6d8; text-shadow: 1px 0 0 #2a0c04, -1px 0 0 #2a0c04, 0 1px 0 #2a0c04, 0 -1px 0 #2a0c04, 0 2px 0 #000; }
 /* The live word: outlined so the current over it reads. */
 #intro .intro-text .m-arc { text-shadow: 0 0 calc(0.1em + var(--arc, 0) * 0.45em) rgba(140, 190, 255, calc(0.3 + var(--arc, 0) * 0.6)), 1px 0 0 #06122e, -1px 0 0 #06122e, 0 2px 0 #000; }
+
+/* What the customer says: a paper slip over their head, tail pointing down at them. */
+#say {
+  position: absolute;
+  display: none;
+  max-width: min(60%, 22em);
+  transform: translate(-50%, -100%);
+  padding: calc(var(--px) * 2) calc(var(--px) * 4);
+  background: #d8caa8;
+  color: #2a1e14;
+  border: var(--px) solid #4a3422;
+  box-shadow: var(--px) var(--px) 0 rgba(0, 0, 0, 0.55);
+  text-align: center;
+  white-space: normal;
+  pointer-events: none;
+  z-index: 3;
+}
+#say::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--px) * -3);
+  width: calc(var(--px) * 3);
+  height: calc(var(--px) * 3);
+  margin-left: calc(var(--px) * -1.5);
+  background: #d8caa8;
+  border-right: var(--px) solid #4a3422;
+  border-bottom: var(--px) solid #4a3422;
+  transform: rotate(45deg);
+}
+#say b { display: block; font-weight: 400; color: #6a4a24; }
+#say.in { animation: say-in 0.22s steps(4) both; }
+@keyframes say-in { from { opacity: 0; transform: translate(-50%, -80%); } }
+#job .said { color: #3a2c1c; font-style: italic; margin: 0 0 calc(var(--px) * 3); }
+.ret { color: var(--bad); }
+#job .ret, #board .ret { color: #8a2a18; }
+#board .card.ret { border-color: #8a2a18; }

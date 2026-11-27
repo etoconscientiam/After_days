@@ -15,6 +15,8 @@ export interface Guide {
   y: number;
   z: number;
   seam: number;
+  /** At the bench while welding: some unwelded stretch can be reached as the work lies. */
+  reach: boolean;
 }
 
 const pt = seamPoint();
@@ -26,6 +28,7 @@ export function computeGuide(g: Game, out: Guide): Guide {
   out.y = 0;
   out.z = 0;
   out.seam = -1;
+  out.reach = true;
   if (!g.started || g.showEnd) return out;
   const b = g.player;
   const a = b.arc;
@@ -94,6 +97,7 @@ export function computeGuide(g: Game, out: Guide): Guide {
           }
       }
       const reach = best >= 0;
+      out.reach = reach;
       if (!reach)
         for (let i = 0; i < b.seams.length; i++) {
           const g = b.seams[i].firstGap(fill);

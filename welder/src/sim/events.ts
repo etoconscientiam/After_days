@@ -10,6 +10,8 @@ export interface SimEvents {
   orderTaken: { bench: BenchId; uid: number; part: string };
   pileChanged: { has: boolean };
   boardChanged: { count: number };
+  /** A job that came apart is back. */
+  returned: { uid: number; customer: string; part: string };
   arcStrike: { bench: BenchId; x: number; y: number; z: number };
   /** Tried to strike on a joint that faces away: turn the part. */
   cantReach: { bench: BenchId; seam: number };

@@ -26,6 +26,8 @@ export const BOARD: OrderTemplate[] = [
   { part: 'wheel', customer: 'carter', reward: [9, 11], req: { needs: 'jar' }, weight: 2 },
   { part: 'spade', customer: 'northerner', reward: [5, 6], weight: 2 },
   { part: 'pan', customer: 'neighbour', reward: [5, 7], weight: 1 },
+  // A made thing from before, brought up by the river: an iron cradle round it, and not a hole burnt.
+  { part: 'relic', customer: 'keeper', reward: [17, 21], req: { noHoles: true, minGrade: 'fair' }, weight: 2, after: 6 },
 ];
 
 /** Night order: the guard brings a broken section of the city gate's portcullis. */

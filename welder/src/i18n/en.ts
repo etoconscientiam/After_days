@@ -6,7 +6,7 @@ export const en = {
   newShift: 'start a new shift',
   intro: 'intro',
   lang: 'Русский',
-  controls: 'At the bench: LMB strike & weld · wheel or ↑/↓ arc length · A/D, W/S or right-drag turn the work · TAB next seam · SPACE mask · R new rod · E step back. In the room: WASD walk · mouse look · E act',
+  controls: 'LMB — strike the arc and run the seam · wheel — arc length · SPACE — mask · E — step back from the bench. In the room: WASD and mouse, E — act',
 
   'sign.shelf': 'CRAFT',
   'hint.toBench': 'E · back to the bench',

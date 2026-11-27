@@ -36,7 +36,7 @@ export class Sound {
     comp.threshold.value = -14;
     comp.ratio.value = 4;
     this.master = c.createGain();
-    this.master.gain.value = 0.8;
+    this.master.gain.value = this.volume;
     this.master.connect(comp).connect(c.destination);
 
     this.noise = this.makeNoise(2, 'white');
@@ -143,6 +143,18 @@ export class Sound {
 
     this.ok = true;
     this.bind(game);
+  }
+
+  private volume = 0.8;
+  /** Master volume, 0..1 (the settings). */
+  setVolume(v: number): void {
+    this.volume = v;
+    if (this.ok) this.master.gain.setTargetAtTime(v, this.ctx.currentTime, 0.05);
+  }
+
+  /** Hush everything (the story takes the screen); resume() brings it back. */
+  suspend(): void {
+    if (this.ok && this.ctx.state === 'running') void this.ctx.suspend();
   }
 
   resume(): void {
@@ -462,6 +474,11 @@ export class Sound {
       if (g.player.arc.lit) this.burst(1600, 1, Math.min(0.2, e.depth * 0.6), 0.12);
     });
     b.on('howl', (e) => this.howl(e.pan, e.pitch));
+    // Someone at the door with a job that came apart: two knocks.
+    b.on('returned', () => {
+      this.thump(150, 0.32, 0.07);
+      setTimeout(() => this.ok && this.thump(140, 0.28, 0.07), 190);
+    });
     b.on('beat', () => this.tone(523, 0.03, 0.8, 'triangle'));
   }
 }
