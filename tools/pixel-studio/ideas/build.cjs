@@ -118,7 +118,7 @@ const EXCLUDED = [
   ['Нейросетевая карта глубины для фото', 'Модели вроде Depth Anything слишком тяжёлые для страницы. Для фото — глубина по яркости и ручной кисти.']
 ];
 const FIRST = ['shoreanim', 'cycle', 'particles', 'variants', 'gradmap', 'palettes', 'clpalette'];
-const DONE = new Set(['shoreanim', 'cycle', 'particles', 'variants']);
+const DONE = new Set(['shoreanim', 'cycle', 'particles', 'variants', 'gradmap', 'palettes', 'clpalette']);
 
 const value = i => +(i.impact / COST[i.cost].w).toFixed(2);
 const stars = n => '●'.repeat(n) + '○'.repeat(5 - n);

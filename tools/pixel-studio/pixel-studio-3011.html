@@ -179,6 +179,28 @@ input:disabled,select:disabled{opacity:.5;cursor:default}
 #cropCv{display:block;width:100%;border-radius:6px;cursor:grab;touch-action:none;background:var(--bg)}
 #cropCv:active{cursor:grabbing}
 .ai{font-size:12.5px;color:var(--muted);min-height:18px}
+.gmaps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.gmaps button{all:unset;box-sizing:border-box;cursor:pointer;border:1px solid var(--line-2);border-radius:6px;padding:5px 6px;font-size:11.5px;line-height:1.2;color:var(--muted);display:flex;flex-direction:column;gap:5px;min-width:0}
+.gmaps button i{display:block;height:9px;border-radius:3px}
+.gmaps button:hover{color:var(--fg);border-color:var(--muted)}
+.gmaps button[aria-pressed="true"]{border-color:var(--accent);color:var(--fg)}
+.gmaps button:disabled{opacity:.45;cursor:default}
+.gmaps button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.gstops{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.gstops .gbar{flex:1 1 100%;height:12px;border-radius:4px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+.pallib summary{cursor:pointer;font-size:12.5px;color:var(--muted)}
+.pallib[open] summary{margin-bottom:6px}
+.pallist{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;max-height:260px;overflow:auto;padding-right:2px}
+.pallist button{all:unset;box-sizing:border-box;cursor:pointer;border:1px solid var(--line-2);border-radius:6px;padding:4px 6px;display:grid;grid-template-columns:1fr auto;gap:3px 6px;font-size:11.5px;color:var(--muted);min-width:0}
+.pallist button b{font-weight:500;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pallist button span{font:11px var(--f-mono)}
+.pallist button i{grid-column:1/-1;display:block;height:9px;border-radius:3px}
+.pallist button:hover{border-color:var(--muted)}
+.pallist button[aria-pressed="true"]{border-color:var(--accent)}
+.pallist button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+#secPal.dropping{outline:2px dashed var(--accent);outline-offset:-2px;border-radius:10px}
+.aipal{display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line);padding-top:8px}
+.aipal>label{font-size:12.5px;color:var(--muted)}
 .ai.ok{color:var(--accent)}
 .ai.err{color:var(--err)}
 details.sub{border:1px solid var(--line);border-radius:8px}
@@ -431,7 +453,17 @@ input[type=color]::-moz-color-swatch{border:0;border-radius:4px}
             <div class="row" data-r="pix.sharpen,Резкость,0,2,0.05,x2,B"></div>
           </div>
         </section>
-        <section class="sec">
+        <section class="sec" id="secGmap">
+          <h2><span class="n o">◐</span>Градиентная карта</h2>
+          <div class="body">
+            <div class="line"><input type="checkbox" id="gmapCb" data-bind="gmap.on" data-stage="C"><label for="gmapCb">Перекрасить по яркости</label></div>
+            <div class="gmaps" id="gmapPresets" role="group" aria-label="Готовые карты"></div>
+            <div class="gstops" id="gmapStops" role="group" aria-label="Цвета карты, от тёмного к светлому"></div>
+            <div class="row" data-r="gmap.amount,Сила,0,1,0.01,pct100,C"></div>
+            <p class="hint">Тёмные места берут левый цвет, светлые — правый, между ними плавный переход. Карта работает до палитры: «Своя из картинки» соберёт палитру из цветов карты, готовая палитра подберёт к ним ближайшие.</p>
+          </div>
+        </section>
+        <section class="sec" id="secPal">
           <h2><span class="n">4</span>Палитра</h2>
           <div class="body">
             <select id="palSel" data-bind="palette.method" data-stage="C" aria-label="Палитра">
@@ -445,6 +477,13 @@ input[type=color]::-moz-color-swatch{border:0;border-radius:4px}
             </select>
             <div class="row" data-r="palette.colors,Цветов,8,64,1,int,C"></div>
             <textarea id="customHex" class="mono" rows="3" data-bind="palette.custom" data-stage="C" spellcheck="false" aria-label="Своя палитра HEX" hidden></textarea>
+            <details class="pallib" id="palLibBox"><summary>Библиотека палитр</summary><div class="pallist" id="palLib" role="group" aria-label="Библиотека палитр"></div></details>
+            <div class="line"><button class="btn small" id="palImportBtn">Импорт палитры…</button><input type="file" id="palFile" accept=".gpl,.pal,.hex,.txt,.json,.png,.gif,.bmp,image/png,image/gif" hidden><span class="info">.gpl .pal .hex .txt .json или PNG с Lospec — можно перетащить файл на этот раздел</span></div>
+            <div class="aipal">
+              <label for="aiPalText">Палитра словами</label>
+              <div class="line"><input type="text" id="aiPalText" placeholder="ржавый закат над болотом" style="flex:1" aria-label="Настроение палитры"><select id="aiPalN" aria-label="Сколько цветов"><option>8</option><option>12</option><option selected>16</option><option>24</option><option>32</option></select><button class="btn small" id="aiPalBtn">Создать</button></div>
+              <div class="ai" id="aiPalStatus" role="status">Опишите настроение — Claude подберёт палитру с названием.</div>
+            </div>
             <div class="line">
               <label for="spaceSel">Подбор цвета</label>
               <select id="spaceSel" data-bind="pix.space" data-stage="C">
@@ -834,7 +873,8 @@ const DEFAULTS = {
   fishMode: 'wide',
   grid: { width: 108, snap: true },
   pix: { method: 'avg', sharpen: 0.3, space: 'oklab', look: 'none', lookStrength: 0.5 },
-  palette: { method: 'gnet', colors: 22, custom: '#0f1416 #1b2428 #263238 #3b4a4f #4a5a55 #5d6b60 #75806f #8e967f #a7ab8e #c2c3a0 #b8bb6a #9ea54c #d4c06a #b39a3a #a07c45 #7a5a33 #4e3a26 #e2dcb0' },
+  palette: { method: 'gnet', colors: 22, custom: '#0f1416 #1b2428 #263238 #3b4a4f #4a5a55 #5d6b60 #75806f #8e967f #a7ab8e #c2c3a0 #b8bb6a #9ea54c #d4c06a #b39a3a #a07c45 #7a5a33 #4e3a26 #e2dcb0', customName: '' },
+  gmap: { on: false, preset: 'nv', stops: ['#020604', '#0b2a14', '#2f7a3a', '#8fdc7a', '#e4ffd0'], amount: 1 },
   dither: { type: 'bayer4', strength: 0.3 },
   clean: 'soft',
   outline: { on: false, threshold: 56 },
@@ -891,13 +931,57 @@ const STYLES = [
     palette: { method: 'kmeans', colors: 16 }, dither: { type: 'none', strength: 0 }, clean: 'strong', outline: { on: true, threshold: 48 },
     pix: { method: 'dominant', sharpen: 0.5, look: 'grid', lookStrength: 0.35 }, tint: 0, vignette: 0.15 } }
 ];
-const STYLE_KEYS = ['pre', 'fisheye', 'fishMode', 'pix', 'palette', 'dither', 'clean', 'outline', 'light', 'glow', 'fog', 'tone', 'tint', 'vignette', 'fx'];
+const STYLE_KEYS = ['pre', 'fisheye', 'fishMode', 'pix', 'palette', 'gmap', 'dither', 'clean', 'outline', 'light', 'glow', 'fog', 'tone', 'tint', 'vignette', 'fx'];
 
 const PALETTES = {
   gnet: ['#0f1416','#1b2428','#263238','#2f3d45','#3b4a4f','#4a5a55','#5d6b60','#75806f','#8e967f','#a7ab8e','#c2c3a0','#b8bb6a','#9ea54c','#7d8a3c','#5c6a34','#d4c06a','#b39a3a','#a07c45','#7a5a33','#4e3a26','#c98f4a','#e2dcb0'],
   fog: ['#1c201f','#2a302d','#383f3b','#48504b','#59625c','#6b746d','#7e877f','#929a91','#a6ada3','#bac0b6','#ced3c9','#e1e4db'],
   night: ['#07090f','#0d1220','#141b2e','#1c2540','#263252','#33405f','#45506a','#5a6378','#737a8a','#8f95a0','#aeb2ba','#ffb25a','#c9773a']
 };
+/* Библиотека: известные палитры пиксель-арта (в основном с Lospec) */
+const PAL_LIB = [
+  { id: 'pico8', name: 'PICO-8', c: '#000000 #1d2b53 #7e2553 #008751 #ab5236 #5f574f #c2c3c7 #fff1e8 #ff004d #ffa300 #ffec27 #00e436 #29adff #83769c #ff77a8 #ffccaa' },
+  { id: 'sweetie16', name: 'Sweetie 16', c: '#1a1c2c #5d275d #b13e53 #ef7d57 #ffcd75 #a7f070 #38b764 #257179 #29366f #3b5dc9 #41a6f6 #73eff7 #f4f4f4 #94b0c2 #566c86 #333c57' },
+  { id: 'endesga32', name: 'Endesga 32', c: '#be4a2f #d77643 #ead4aa #e4a672 #b86f50 #733e39 #3e2731 #a22633 #e43b44 #f77622 #feae34 #fee761 #63c74d #3e8948 #265c42 #193c3e #124e89 #0099db #2ce8f5 #ffffff #c0cbdc #8b9bb4 #5a6988 #3a4466 #262b44 #181425 #ff0044 #68386c #b55088 #f6757a #e8b796 #c28569' },
+  { id: 'db16', name: 'DawnBringer 16', c: '#140c1c #442434 #30346d #4e4a4e #854c30 #346524 #d04648 #757161 #597dce #d27d2c #8595a1 #6daa2c #d2aa99 #6dc2ca #dad45e #deeed6' },
+  { id: 'c64', name: 'Commodore 64', c: '#000000 #626262 #898989 #adadad #ffffff #9f4e44 #cb7e75 #6d5412 #a1683c #c9d487 #9ae29b #5cab5e #6abfc6 #887ecb #50459b #a057a3' },
+  { id: 'cga', name: 'CGA', c: '#000000 #0000aa #00aa00 #00aaaa #aa0000 #aa00aa #aa5500 #aaaaaa #555555 #5555ff #55ff55 #55ffff #ff5555 #ff55ff #ffff55 #ffffff' },
+  { id: 'gameboy', name: 'Game Boy', c: '#0f380f #306230 #8bac0f #9bbc0f' },
+  { id: 'kirokaze', name: 'Kirokaze GB', c: '#332c50 #46878f #94e344 #e2f3e4' },
+  { id: 'icecream', name: 'Ice Cream GB', c: '#7c3f58 #eb6b6f #f9a875 #fff6d3' },
+  { id: 'hollow', name: 'Hollow', c: '#0f0f1b #565a75 #c6b7be #fafbf6' },
+  { id: 'twilight5', name: 'Twilight 5', c: '#292831 #333f58 #4a7a96 #ee8695 #fbbbad' },
+  { id: 'oil6', name: 'Oil 6', c: '#272744 #494d7e #8b6d9c #c69fa5 #f2d3ab #fbf5ef' },
+  { id: 'slso8', name: 'SLSO8', c: '#0d2b45 #203c56 #544e68 #8d697a #d08159 #ffaa5e #ffd4a3 #ffecd6' },
+  { id: 'nyx8', name: 'Nyx8', c: '#08141e #0f2a3f #20394f #4e495f #816271 #997577 #c3a38a #f6d6bd' },
+  { id: 'ammo8', name: 'Ammo-8', c: '#040c06 #112318 #1e3a29 #305d42 #4d8061 #89a257 #bedc7f #eeffcc' },
+  { id: 'rustgold8', name: 'Rust Gold 8', c: '#202020 #393939 #331c17 #563226 #725956 #ac6b26 #bb7f57 #f6cd26' }
+];
+for (const p of PAL_LIB) PALETTES[p.id] = p.c.split(' ');
+const PAL_TITLE = Object.assign({ gnet: '«3011 — гнёт»', fog: '«Туман»', night: '«Ночь»' }, Object.fromEntries(PAL_LIB.map(p => [p.id, '«' + p.name + '»'])));
+const palTitle = m => m === 'custom' ? (S.palette.customName ? '«' + S.palette.customName + '»' : '') : (PAL_TITLE[m] || '');
+{
+  const o = (v, t) => `<option value="${v}">${t}</option>`;
+  $('#palSel').innerHTML =
+    `<optgroup label="Из картинки">${o('median', 'Своя из картинки: медианное сечение')}${o('kmeans', 'Своя из картинки: k-means')}${o('original', 'Цвета оригинала (без палитры)')}</optgroup>` +
+    `<optgroup label="3011">${o('gnet', '«3011 — гнёт»')}${o('fog', '«Туман»')}${o('night', '«Ночь»')}</optgroup>` +
+    `<optgroup label="Библиотека">${PAL_LIB.map(p => o(p.id, `${p.name} · ${PALETTES[p.id].length}`)).join('')}</optgroup>` +
+    `<optgroup label="Своя">${o('custom', 'Ручная (список HEX)')}</optgroup>`;
+  const strip = list => `linear-gradient(90deg,${list.map((h, i) => `${h} ${(i / list.length * 100).toFixed(2)}% ${((i + 1) / list.length * 100).toFixed(2)}%`).join(',')})`;
+  $('#palLib').innerHTML = ['gnet', 'fog', 'night'].concat(PAL_LIB.map(p => p.id)).map(id =>
+    `<button data-pal="${id}" aria-pressed="false" title="${PAL_TITLE[id]}: ${PALETTES[id].length} цветов"><b>${PAL_TITLE[id].slice(1, -1)}</b><span>${PALETTES[id].length}</span><i style="background:${strip(PALETTES[id])}"></i></button>`).join('');
+}
+/* Градиентная карта: готовые наборы, от тёмного к светлому */
+const GMAP_PRESETS = [
+  { id: 'nv', name: 'Ночное видение', stops: ['#020604', '#0b2a14', '#2f7a3a', '#8fdc7a', '#e4ffd0'] },
+  { id: 'thermal', name: 'Тепловизор', stops: ['#05030f', '#3a0f6e', '#b8246a', '#f2752a', '#ffe36b', '#ffffff'] },
+  { id: 'sepia', name: 'Сепия', stops: ['#1a120b', '#5a3e26', '#a8814f', '#efdcb4'] },
+  { id: 'duo3011', name: 'Двухтон 3011', stops: ['#141c22', '#4c5a46', '#b8b55e', '#efe5b2'] },
+  { id: 'neon', name: 'Неон', stops: ['#12002b', '#6a0f8e', '#ff3ea5', '#4dfff3'] },
+  { id: 'bw', name: 'Ч/Б плёнка', stops: ['#0c0c0c', '#5a5a58', '#bdbcb6', '#f4f2ea'] }
+];
+const gmapGrad = stops => `linear-gradient(90deg,${stops.join(',')})`;
+$('#gmapPresets').innerHTML = GMAP_PRESETS.map(g => `<button data-gm="${g.id}" aria-pressed="false"><i style="background:${gmapGrad(g.stops)}"></i>${g.name}</button>`).join('');
 const SNAP = { '1:1': [72, 90, 108, 120, 135, 180, 216, 270, 360], '9:16': [72, 90, 108, 135, 180, 216, 270, 360] };
 
 const gridW = () => S.grid.width;
@@ -1698,12 +1782,13 @@ function buildPalette(buf, W, H) {
     return p.length >= 2 ? p : [[0, 0, 0], [255, 255, 255]];
   }
   let full = m === 'custom' ? parseHexList(S.palette.custom) : PALETTES[m].map(h => parseColor(h).slice(0, 3));
+  const nm = palTitle(m);
   if (full.length < 2) { palNote = 'В ручной палитре меньше двух HEX-цветов — временно взята «3011 — гнёт».'; full = PALETTES.gnet.map(h => parseColor(h).slice(0, 3)); }
-  if (full.length <= n) { palNote = palNote || `В палитре ${full.length} цв., используются все.`; return full; }
+  if (full.length <= n) { palNote = palNote || `${nm ? nm + ': в' : 'В'} палитре ${full.length} цв., используются все.`; return full; }
   const match = makeMatcher(full, S.pix.space), count = new Array(full.length).fill(0);
   for (let k = 0; k < cnt; k++) count[match(sm[k * 3], sm[k * 3 + 1], sm[k * 3 + 2])]++;
   const order = full.map((c, i) => i).sort((a, b) => count[b] - count[a]).slice(0, n);
-  palNote = `Из ${full.length} цветов палитры взяты ${n} самых нужных этой картинке.`;
+  palNote = `${nm ? nm + ': и' : 'И'}з ${full.length} цветов палитры взяты ${n} самых нужных этой картинке.`;
   return order.sort((a, b) => a - b).map(i => full[i]);
 }
 const BAYER = {};
@@ -1828,6 +1913,28 @@ function applyLight(buf, W, H) {
   if (L.on || B.bloom > 0.001) for (let i = 0; i < N * 3; i++) { const v = buf[i]; if (v > 190) buf[i] = 190 + 65 * (1 - Math.exp(-(v - 190) / 65)); }
 }
 
+/* Градиентная карта: яркость → цвет из набора, до тона и палитры */
+function gmapLUT(stops) {
+  const cs = (stops || []).map(parseColor).filter(Boolean);
+  if (cs.length < 2) return null;
+  const lut = new Float32Array(256 * 3), n = cs.length - 1;
+  for (let i = 0; i < 256; i++) {
+    const t = i / 255 * n, k = Math.min(n - 1, Math.floor(t)), f = t - k, a = cs[k], b = cs[k + 1];
+    lut[i * 3] = a[0] + (b[0] - a[0]) * f; lut[i * 3 + 1] = a[1] + (b[1] - a[1]) * f; lut[i * 3 + 2] = a[2] + (b[2] - a[2]) * f;
+  }
+  return lut;
+}
+const gmapActive = () => S.gmap.on && S.gmap.amount > 0;
+function applyGmap(buf, W, H) {
+  if (!gmapActive()) return;
+  const lut = gmapLUT(S.gmap.stops); if (!lut) return;
+  const a = clamp01(S.gmap.amount), N = W * H * 3;
+  for (let q = 0; q < N; q += 3) {
+    const r = clamp(buf[q], 0, 255), g = clamp(buf[q + 1], 0, 255), b = clamp(buf[q + 2], 0, 255);
+    const l = Math.round(0.299 * r + 0.587 * g + 0.114 * b) * 3;
+    buf[q] = r + (lut[l] - r) * a; buf[q + 1] = g + (lut[l + 1] - g) * a; buf[q + 2] = b + (lut[l + 2] - b) * a;
+  }
+}
 function applyTone(buf, W, H) {
   const T = S.tone, t = S.tint, v = S.vignette, gr = S.fx.grain;
   const ts = lumNorm(T.shadows, '#24345a'), th = lumNorm(T.highlights, '#ecd9a0');
@@ -1883,10 +1990,10 @@ function trueColor(buf, W, H) {
   let darkest = 0; lum.forEach((l, i) => { if (l < lum[darkest]) darkest = i; });
   G.pal = rep; G.idx = new Uint8Array(N); G.darkest = darkest; G.rgb = rgb; G.trueColor = true;
   $('#swatches').innerHTML = rep.slice().sort((a, b) => (0.299 * a[0] + 0.587 * a[1] + 0.114 * a[2]) - (0.299 * b[0] + 0.587 * b[1] + 0.114 * b[2])).map(c => `<i style="background:${hexOf(c)}" title="${hexOf(c)}"></i>`).join('');
-  const colored = S.tint > 0 || S.tone.shadowsAmt > 0 || S.tone.highlightsAmt > 0 || S.fog.amount > 0 || S.light.on || S.glow.bloom > 0 ||
+  const colored = gmapActive() || S.tint > 0 || S.tone.shadowsAmt > 0 || S.tone.highlightsAmt > 0 || S.fog.amount > 0 || S.light.on || S.glow.bloom > 0 ||
     S.pre.brightness !== 0 || S.pre.contrast !== 0 || S.pre.saturation !== 100 || S.pre.gamma !== 1 || S.vignette > 0;
   $('#palHint').textContent = 'Палитры нет: каждый пиксель берёт свой цвет из картинки. Дизеринг и чистка в этом режиме не нужны.' +
-    (colored ? ' Сейчас цвета ещё меняют тонировка, предобработка, свет или виньетка — кнопка ниже выключит их разом.' : ' Тонировка и цветокоррекция выключены — цвета как в оригинале.');
+    (colored ? ' Сейчас цвета ещё меняют тонировка, градиентная карта, предобработка, свет или виньетка — кнопка ниже выключит их разом.' : ' Тонировка и цветокоррекция выключены — цвета как в оригинале.');
   $('#origFix').hidden = !colored;
 }
 function quantize(fixedPal) {
@@ -1894,6 +2001,7 @@ function quantize(fixedPal) {
   const { W, H } = G, N = W * H;
   const buf = new Float32Array(G.base);
   applyLight(buf, W, H);
+  applyGmap(buf, W, H);
   applyTone(buf, W, H);
   if (S.palette.method === 'original') { trueColor(buf, W, H); return; }
   const pal = fixedPal || buildPalette(buf, W, H);
@@ -2448,6 +2556,9 @@ function syncUI() {
   document.querySelectorAll('#caSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.ca === S.fx.caMode)));
   document.querySelectorAll('#styles button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.style === S.style)));
   $('#customHex').hidden = S.palette.method !== 'custom';
+  $('#palSel option[value="custom"]').textContent = S.palette.customName ? `Ручная: «${S.palette.customName}»` : 'Ручная (список HEX)';
+  document.querySelectorAll('#palLib button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.pal === S.palette.method)));
+  renderGmap();
   $('#r-outline-threshold').disabled = !S.outline.on;
   const orig = S.palette.method === 'original';
   $('#r-dither-strength').disabled = S.dither.type === 'none' || orig;
@@ -2533,6 +2644,7 @@ function onBind(ev) {
   }
   else v = el.value;
   if (path === 'grid.width' && S.grid.snap) { v = snapW(v); el.value = v; }
+  if (path === 'palette.custom') S.palette.customName = '';
   if (path === 'anim.frames') v = clamp(Math.round(v), 2, 96);
   if (path === 'anim.fps') v = clamp(Math.round(v), 2, 30);
   setPath(S, path, v);
@@ -2562,9 +2674,9 @@ $('#aspectSeg').addEventListener('click', e => {
 $('#lookSeg').addEventListener('click', e => { const b = e.target.closest('button[data-look]'); if (!b) return; S.pix.look = b.dataset.look; S.style = ''; syncUI(); invalidate('D'); });
 $('#caSeg').addEventListener('click', e => { const b = e.target.closest('button[data-ca]'); if (!b) return; S.fx.caMode = b.dataset.ca; S.style = ''; syncUI(); invalidate('E'); });
 $('#origFixBtn').onclick = () => {
-  S.tint = 0; S.vignette = 0; S.tone.shadowsAmt = 0; S.tone.highlightsAmt = 0; S.fog.amount = 0; S.light.on = false; S.glow.bloom = 0;
+  S.tint = 0; S.vignette = 0; S.tone.shadowsAmt = 0; S.tone.highlightsAmt = 0; S.fog.amount = 0; S.light.on = false; S.glow.bloom = 0; S.gmap.on = false;
   S.pre = { brightness: 0, contrast: 0, saturation: 100, gamma: 1 }; S.style = '';
-  syncUI(); invalidate('B'); toast('Тонировка, предобработка, свет и виньетка выключены — цвета как в оригинале.');
+  syncUI(); invalidate('B'); toast('Тонировка, градиентная карта, предобработка, свет и виньетка выключены — цвета как в оригинале.');
 };
 $('#reseedBtn').onclick = () => { S.fx.seed = 1 + Math.floor(Math.random() * 9998); syncUI(); invalidate('C'); };
 
@@ -2586,9 +2698,9 @@ $('#styles').addEventListener('click', e => {
   const st = STYLES.find(s => s.id === b.dataset.style);
   const base = JSON.parse(JSON.stringify(DEFAULTS));
   mergeInto(base, st.s);
-  const custom = S.palette.custom;
+  const custom = S.palette.custom, customName = S.palette.customName;
   for (const k of STYLE_KEYS) S[k] = base[k];
-  S.palette.custom = custom;
+  S.palette.custom = custom; S.palette.customName = customName;
   S.style = st.id;
   applyTimeline(TL.frame);
   syncUI(); invalidate('B');
@@ -2949,7 +3061,7 @@ $('#tbPng').onclick = exportPng;
 $('#expGrid').onclick = () => { if (G.idx) gridCv.toBlob(b => saveBlob(b, `pixel3011_${G.W}x${G.H}.png`), 'image/png'); };
 
 /* ---------- пресеты (текст JSON, без localStorage) ---------- */
-const SAVE_KEYS = ['aspect', 'crop', 'pre', 'fisheye', 'fishMode', 'grid', 'pix', 'palette', 'dither', 'clean', 'outline', 'light', 'glow', 'fog', 'tone', 'tint', 'vignette', 'fx', 'anim', 'keys', 'cycle', 'parts', 'shore'];
+const SAVE_KEYS = ['aspect', 'crop', 'pre', 'fisheye', 'fishMode', 'grid', 'pix', 'palette', 'gmap', 'dither', 'clean', 'outline', 'light', 'glow', 'fog', 'tone', 'tint', 'vignette', 'fx', 'anim', 'keys', 'cycle', 'parts', 'shore'];
 function presetText() {
   const settings = {}; for (const k of SAVE_KEYS) settings[k] = JSON.parse(JSON.stringify(S[k]));
   const o = { app: 'pixel-studio-3011', version: 2, settings, scene: $('#sceneText').value };
@@ -2983,6 +3095,7 @@ $('#presetLoad').onclick = () => {
   if (snap.grid.snap) { S.aspect = snap.aspect; snap.grid.width = snapW(snap.grid.width); }
   for (const k of SAVE_KEYS) S[k] = snap[k];
   S.keys = sanitizeKeys(o.settings.keys);
+  { const st = sanitizeStops(o.settings.gmap && o.settings.gmap.stops); if (st) S.gmap.stops = st; }
   { const nn = notesFromPreset(o.settings.shore); if (nn) S.shore.notes = nn; renderNotes(); }
   TL.frame = Math.min(TL.frame, nFrames() - 1); applyTimeline(TL.frame); renderKeyUI(); renderTimeline();
   S.style = '';
@@ -3728,9 +3841,218 @@ function liveType(k, live) {
   return clamp((live.t - delay) / dur, 0, 1);
 }
 
+/* ---------- градиентная карта: интерфейс ---------- */
+function sanitizeStops(a) {
+  if (!Array.isArray(a)) return null;
+  const out = a.map(h => parseColor(String(h))).filter(Boolean).slice(0, 6).map(c => hexOf(c.slice(0, 3)));
+  return out.length >= 2 ? out : null;
+}
+const gmapKey = () => (S.gmap.on ? '1' : '0') + S.gmap.stops.join('');
+function renderGmap() {
+  const on = S.gmap.on, box = $('#gmapStops');
+  document.querySelectorAll('#gmapPresets button').forEach(b => { b.setAttribute('aria-pressed', String(on && b.dataset.gm === S.gmap.preset)); });
+  if (box.dataset.k !== gmapKey()) {
+    const st = S.gmap.stops, dis = on ? '' : ' disabled';
+    box.innerHTML = st.map((h, i) => `<input type="color" value="${h}" data-gi="${i}" aria-label="Цвет ${i + 1} из ${st.length}${i === 0 ? ', самый тёмный' : i === st.length - 1 ? ', самый светлый' : ''}"${dis}>`).join('') +
+      `<button class="btn small" data-ga="add" title="Добавить цвет"${st.length >= 6 || !on ? ' disabled' : ''}>+</button>` +
+      `<button class="btn small" data-ga="del" title="Убрать цвет"${st.length <= 2 || !on ? ' disabled' : ''}>−</button>` +
+      `<button class="btn small" data-ga="rev" title="Перевернуть: светлое станет тёмным"${dis}>⇄</button>` +
+      `<i class="gbar" style="background:${gmapGrad(st)}"></i>`;
+    box.dataset.k = gmapKey();
+  }
+  $('#r-gmap-amount').disabled = !on || $('#r-gmap-amount').hasAttribute('data-randlock');
+}
+function gmapEdited() { S.gmap.preset = ''; S.style = ''; syncUI(); invalidate('C'); }
+$('#gmapPresets').addEventListener('click', e => {
+  const b = e.target.closest('button[data-gm]'); if (!b) return;
+  const g = GMAP_PRESETS.find(x => x.id === b.dataset.gm);
+  S.gmap.on = true; S.gmap.preset = g.id; S.gmap.stops = g.stops.slice(); S.style = '';
+  syncUI(); invalidate('C');
+  toast(`Карта «${g.name}»: тёмное — ${g.stops[0]}, светлое — ${g.stops[g.stops.length - 1]}.`);
+});
+$('#gmapStops').addEventListener('input', e => {
+  const el = e.target.closest('input[data-gi]'); if (!el) return;
+  const c = parseColor(el.value); if (!c) return;
+  S.gmap.stops[+el.dataset.gi] = hexOf(c.slice(0, 3));
+  $('#gmapStops').dataset.k = gmapKey();
+  $('#gmapStops .gbar').style.background = gmapGrad(S.gmap.stops);
+  gmapEdited();
+});
+$('#gmapStops').addEventListener('click', e => {
+  const b = e.target.closest('button[data-ga]'); if (!b) return;
+  const st = S.gmap.stops, a = b.dataset.ga;
+  if (a === 'add' && st.length < 6) {
+    // новый цвет — середина самого длинного перехода
+    let k = 0, best = -1;
+    for (let i = 0; i < st.length - 1; i++) { const p = parseColor(st[i]), q = parseColor(st[i + 1]); const d = Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1]) + Math.abs(p[2] - q[2]); if (d > best) { best = d; k = i; } }
+    const p = parseColor(st[k]), q = parseColor(st[k + 1]);
+    st.splice(k + 1, 0, hexOf([(p[0] + q[0]) / 2, (p[1] + q[1]) / 2, (p[2] + q[2]) / 2]));
+  } else if (a === 'del' && st.length > 2) st.splice(st.length - 2, 1);
+  else if (a === 'rev') st.reverse();
+  else return;
+  gmapEdited();
+});
+
+/* ---------- библиотека и импорт палитр ---------- */
+function setCustomPalette(name, cols) {
+  S.palette.method = 'custom';
+  S.palette.custom = cols.map(c => hexOf(c)).join(' ');
+  S.palette.customName = String(name || '').trim().slice(0, 40);
+  S.palette.colors = clamp(cols.length, 8, 64);
+  S.style = '';
+  syncUI(); invalidate('C');
+}
+$('#palLib').addEventListener('click', e => {
+  const b = e.target.closest('button[data-pal]'); if (!b) return;
+  const id = b.dataset.pal;
+  S.palette.method = id; S.palette.colors = clamp(PALETTES[id].length, 8, 64); S.style = '';
+  syncUI(); invalidate('C');
+});
+function uniqCols(list, max) {
+  const seen = new Set(), out = [];
+  for (const c of list) { if (!c) continue; const k = hexOf(c.slice(0, 3)); if (seen.has(k)) continue; seen.add(k); out.push(c.slice(0, 3)); if (out.length >= max) break; }
+  return out;
+}
+// .gpl (GIMP), .pal (JASC), .hex, .txt (Paint.NET), .json (Lospec)
+function parsePaletteText(text, fname) {
+  const t = String(text || '').replace(/^﻿/, '').trim();
+  let name = String(fname || '').replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim(), cols = [];
+  const hex = h => { h = String(h || '').trim(); return parseColor(h[0] === '#' ? h : '#' + h); };
+  if (/^[\[{]/.test(t)) {
+    let o; try { o = JSON.parse(t); } catch (e) { throw new Error('JSON не читается: ' + e.message); }
+    const arr = Array.isArray(o) ? o : o && (o.colors || o.colours || o.palette);
+    if (o && !Array.isArray(o) && typeof o.name === 'string' && o.name.trim()) name = o.name.trim();
+    if (!Array.isArray(arr)) throw new Error('в JSON нет массива colors');
+    cols = arr.map(c => typeof c === 'string' ? hex(c) : c && (c.hex || c.color) ? hex(c.hex || c.color) : null);
+  } else if (/^GIMP Palette/i.test(t)) {
+    for (const ln of t.split(/\r?\n/)) {
+      const nm = ln.match(/^\s*Name:\s*(.+)$/i); if (nm) { name = nm[1].trim(); continue; }
+      const m = ln.match(/^\s*(\d{1,3})\s+(\d{1,3})\s+(\d{1,3})/); if (m) cols.push([+m[1], +m[2], +m[3]].map(v => clamp(v, 0, 255)));
+    }
+  } else if (/^JASC-PAL/i.test(t)) {
+    t.split(/\r?\n/).slice(3).forEach(ln => { const m = ln.match(/^\s*(\d{1,3})\s+(\d{1,3})\s+(\d{1,3})/); if (m) cols.push([+m[1], +m[2], +m[3]].map(v => clamp(v, 0, 255))); });
+  } else {
+    for (let ln of t.split(/\r?\n/)) {
+      ln = ln.replace(/;.*$/, '').trim(); if (!ln) continue;
+      if (/^[0-9a-f]{8}$/i.test(ln)) { cols.push(hex(ln.slice(2))); continue; }   // Paint.NET: AARRGGBB
+      cols.push(...parseHexList(ln));
+    }
+  }
+  return { name, cols: uniqCols(cols, 256) };
+}
+// PNG-образец: каждый уникальный цвет — цвет палитры, в порядке появления
+function paletteFromImage(img) {
+  const w = img.width, h = img.height;
+  if (w * h > 4e6) throw new Error('картинка слишком большая для образца палитры');
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(img, 0, 0);
+  const d = x.getImageData(0, 0, w, h).data, cnt = new Map();
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] < 128) continue;
+    const k = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+    cnt.set(k, (cnt.get(k) || 0) + 1);
+    if (cnt.size > 1024) throw new Error('в картинке больше 1024 цветов — это фото, а не образец палитры. Фото бросайте на холст');
+  }
+  let keys = [...cnt.keys()];
+  if (keys.length > 256) { const top = new Set(keys.slice().sort((a, b) => cnt.get(b) - cnt.get(a)).slice(0, 256)); keys = keys.filter(k => top.has(k)); }
+  return keys.map(k => [k >> 16 & 255, k >> 8 & 255, k & 255]);
+}
+async function importPaletteFile(f) {
+  if (!f) return;
+  try {
+    let name = f.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim(), cols;
+    if (/^image\//.test(f.type) || /\.(png|gif|bmp|webp)$/i.test(f.name)) {
+      const bmp = await createImageBitmap(f).catch(() => { throw new Error('картинка не открывается'); });
+      cols = paletteFromImage(bmp); bmp.close && bmp.close();
+    } else {
+      if (f.size > 2e6) throw new Error('файл слишком большой для палитры');
+      const r = parsePaletteText(await f.text(), f.name); name = r.name || name; cols = r.cols;
+    }
+    if (cols.length < 2) throw new Error('в файле нашлось меньше двух цветов');
+    setCustomPalette(name || 'импорт', cols);
+    toast(`Палитра «${S.palette.customName}»: ${cols.length} цв.` + (cols.length > 64 ? ' В кадр идут 64 самых нужных.' : ''));
+  } catch (e) { toast('Палитра не загружена: ' + (e && e.message || e), true); }
+}
+$('#palImportBtn').onclick = () => $('#palFile').click();
+$('#palFile').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; importPaletteFile(f); });
+{
+  const sec = $('#secPal');
+  sec.addEventListener('dragover', e => { if (!hasFiles(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; sec.classList.add('dropping'); });
+  sec.addEventListener('dragleave', e => { if (!sec.contains(e.relatedTarget)) sec.classList.remove('dropping'); });
+  sec.addEventListener('drop', e => {
+    if (!hasFiles(e)) return; e.preventDefault(); e.stopPropagation();
+    sec.classList.remove('dropping'); dragDepth = 0; $('#dropHint').hidden = true;
+    importPaletteFile(e.dataTransfer.files[0]);
+  });
+}
+
+/* ---------- палитра словами (Claude) ---------- */
+let palCtl = null;
+function setPalAi(t, cls) { const el = $('#aiPalStatus'); el.textContent = t; el.className = 'ai' + (cls ? ' ' + cls : ''); }
+function palPrompt(desc, n) {
+  return `Ты — художник пиксель-арта и колорист. Составь палитру ровно из ${n} цветов по описанию настроения:
+«${desc}»
+
+Верни ТОЛЬКО JSON-объект, без markdown и пояснений:
+{"name": "короткое название палитры по-русски, 1–3 слова", "colors": ["#rrggbb", ...]}
+
+Правила:
+- ровно ${n} разных цветов в формате #rrggbb;
+- порядок от самого тёмного к самому светлому;
+- есть почти чёрный (или самый тёмный тон настроения) и почти белый (или самый светлый);
+- 2–4 цветовые рампы со сдвигом оттенка: тени холоднее и насыщеннее, света теплее — если настроение не просит иного;
+- соседние ступени заметно отличаются по яркости, чтобы пиксель-арт читался на маленькой сетке;
+- цвета подходят для сцены из реального мира в духе описания.`;
+}
+function parseAiPalette(text, n) {
+  let o; try { o = extractJSON(text); } catch (e) { return { ok: false, error: e.message }; }
+  if (!o || !Array.isArray(o.colors)) return { ok: false, error: 'нет массива colors' };
+  const cols = uniqCols(o.colors.map(h => typeof h === 'string' ? parseColor(h.trim()[0] === '#' ? h.trim() : '#' + h.trim()) : null), 64);
+  const need = Math.max(2, Math.ceil(n * 0.6));
+  if (cols.length < need) return { ok: false, error: `просил ${n} цветов, правильных #rrggbb пришло ${cols.length}` };
+  return { ok: true, name: typeof o.name === 'string' ? o.name.trim().replace(/^[«"']+|[»"']+$/g, '').slice(0, 40) : '', cols };
+}
+async function runPalAI() {
+  if (palCtl) { palCtl.abort(); return; }
+  const desc = $('#aiPalText').value.trim(), n = +$('#aiPalN').value || 16;
+  if (!desc) { setPalAi('Опишите настроение: «ржавый закат над болотом», «больничный коридор ночью».', 'err'); return; }
+  palCtl = new AbortController(); $('#aiPalBtn').textContent = 'Стоп';
+  const t0 = Date.now(), sec = () => Math.round((Date.now() - t0) / 1000);
+  let phase = 'Claude подбирает цвета';
+  const tick = () => setPalAi(`${phase}… ${sec()} с`); tick();
+  const tm = setInterval(tick, 1000);
+  try {
+    const prompt = palPrompt(desc, n);
+    let text = await ask(prompt, palCtl.signal);
+    let res = parseAiPalette(text, n);
+    if (!res.ok) {
+      phase = 'Палитра пришла с ошибкой, прошу исправить'; tick();
+      text = await ask([
+        { role: 'user', content: prompt },
+        { role: 'assistant', content: String(text || '').slice(0, 8000) || '(пустой ответ)' },
+        { role: 'user', content: `Ответ не прошёл проверку: ${res.error}. Верни только JSON {"name": "...", "colors": [${n} цветов "#rrggbb"]}, без пояснений.` }
+      ], palCtl.signal);
+      res = parseAiPalette(text, n);
+    }
+    if (!res.ok) { setPalAi(`Claude дважды вернул палитру с ошибкой: ${res.error}. Попробуйте описать иначе.`, 'err'); return; }
+    const name = res.name || desc.slice(0, 32);
+    setCustomPalette(name, res.cols);
+    setPalAi(`Палитра «${S.palette.customName}»: ${res.cols.length} цв. за ${sec()} с. Цвета можно поправить в списке HEX выше.`, 'ok');
+  } catch (e) {
+    const c = e && e.code;
+    setPalAi(c === 'unavailable' ? 'В этом просмотре нет вызова Claude. Палитру можно вписать списком HEX или загрузить файлом.'
+      : c === 'not_granted' ? 'Странице не разрешено обращаться к Claude. Палитру можно вписать списком HEX или загрузить файлом.'
+      : c === 'refused' ? 'Claude не стал составлять палитру по этому описанию. Переформулируйте.'
+      : aiError(e), c === 'cancelled' ? '' : 'err');
+  } finally { clearInterval(tm); palCtl = null; $('#aiPalBtn').textContent = 'Создать'; }
+}
+$('#aiPalBtn').onclick = runPalAI;
+$('#aiPalText').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); if (!palCtl) runPalAI(); } });
+
 /* ---------- «Варианты»: 9 мини-превью с разными луками ---------- */
 const VAR = { list: [], busy: false, bold: true, seed: 1 };
-const PAL_NAMES = { gnet: '«гнёт»', fog: '«туман»', night: '«ночь»', kmeans: 'k-means', median: 'медиана', custom: 'ручная', original: 'оригинал' };
+const PAL_NAMES = Object.assign({ gnet: '«гнёт»', fog: '«туман»', night: '«ночь»', kmeans: 'k-means', median: 'медиана', custom: 'ручная', original: 'оригинал' }, Object.fromEntries(PAL_LIB.map(p => [p.id, p.name])));
+const VAR_LIB = ['pico8', 'sweetie16', 'endesga32', 'db16', 'slso8', 'nyx8', 'oil6', 'ammo8', 'twilight5', 'rustgold8', 'kirokaze'];
 const DITHER_NAMES = { none: 'без дизеринга', bayer2: 'Байер 2', bayer4: 'Байер 4', bayer8: 'Байер 8', fs: 'Флойд–Стейнберг', atkinson: 'Аткинсон' };
 const styleSnapshot = () => JSON.parse(JSON.stringify(Object.fromEntries(STYLE_KEYS.map(k => [k, S[k]]))));
 function makeVariant(base, r, bold) {
@@ -3738,7 +4060,11 @@ function makeVariant(base, r, bold) {
   const ch = p => r() < (bold ? p : p * 0.35);
   const nudge = (x, a, lo, hi) => +clamp(x + (r() - 0.5) * a, lo, hi).toFixed(2);
   const hsl = (h, s, l) => { const c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = l - c / 2; const [a, b, d] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x]; return hexOf([(a + m) * 255, (b + m) * 255, (d + m) * 255]); };
-  if (v.palette.method !== 'original' && ch(0.8)) { v.palette.method = pick(['gnet', 'gnet', 'fog', 'night', 'kmeans', 'kmeans', 'median']); v.palette.colors = pick([8, 12, 16, 22, 32]); }
+  if (v.palette.method !== 'original' && ch(0.8)) { v.palette.method = pick(['gnet', 'gnet', 'fog', 'night', 'kmeans', 'kmeans', 'median', 'lib', 'lib']); if (v.palette.method === 'lib') v.palette.method = pick(VAR_LIB); v.palette.colors = pick([8, 12, 16, 22, 32]); }
+  if (ch(0.25)) {
+    if (v.gmap.on && r() < 0.5) v.gmap.on = false;
+    else { const g = pick(GMAP_PRESETS); v.gmap = { on: true, preset: g.id, stops: g.stops.slice(), amount: +(0.55 + r() * 0.45).toFixed(2) }; }
+  }
   if (v.palette.method !== 'original' && ch(0.7)) { v.dither.type = pick(['none', 'bayer2', 'bayer4', 'bayer4', 'bayer8', 'fs', 'atkinson']); v.dither.strength = +(0.15 + r() * 0.6).toFixed(2); }
   else v.dither.strength = nudge(v.dither.strength, 0.2, 0, 1);
   if (ch(0.35)) v.pix.method = pick(['avg', 'dominant', 'detail', 'center']);
@@ -3757,6 +4083,7 @@ function makeVariant(base, r, bold) {
 }
 function variantCaption(v) {
   const p = [PAL_NAMES[v.palette.method] || v.palette.method];
+  if (v.gmap && v.gmap.on && v.gmap.amount > 0) { const g = GMAP_PRESETS.find(x => x.id === v.gmap.preset); p.push(g ? 'карта «' + g.name.toLowerCase() + '»' : 'своя карта'); }
   if (v.palette.method !== 'original') p.push(DITHER_NAMES[v.dither.type] || v.dither.type);
   if (v.light.on) p.push('лампа');
   if (v.fog.amount > 0) p.push('дымка');

@@ -136,11 +136,19 @@ async function makeFixtures(browser) {
       'tall.png': await mk(300, 1400, scene, 'image/png'),
       'tiny.png': await mk(40, 30, (x, w, h) => { x.fillStyle = '#c33'; x.fillRect(0, 0, w, h); }, 'image/png'),
       'photo.webp': await mk(800, 800, scene, 'image/webp', 0.9),
-      'flat.png': await mk(600, 600, (x, w, h) => { x.fillStyle = '#4a6'; x.fillRect(0, 0, w, h); for (let i = 0; i < 400; i++) { x.fillStyle = i % 2 ? '#fff' : '#000'; x.fillRect((i * 37) % w, (i * 91) % h, 1, 1); } }, 'image/png')
+      'flat.png': await mk(600, 600, (x, w, h) => { x.fillStyle = '#4a6'; x.fillRect(0, 0, w, h); for (let i = 0; i < 400; i++) { x.fillStyle = i % 2 ? '#fff' : '#000'; x.fillRect((i * 37) % w, (i * 91) % h, 1, 1); } }, 'image/png'),
+      'swatch.png': await mk(40, 8, x => { ['#101820', '#3a5f4a', '#8fb35a', '#e8d27a', '#fff6e0'].forEach((c, i) => { x.fillStyle = c; x.fillRect(i * 8, 0, 8, 8); }); }, 'image/png')
     };
   });
   for (const [n, d] of Object.entries(files)) fs.writeFileSync(path.join(FIX, n), Buffer.from(d, 'base64'));
   fs.writeFileSync(path.join(FIX, 'note.txt'), 'не картинка');
+  fs.writeFileSync(path.join(FIX, 'test.gpl'), 'GIMP Palette\nName: Тест GPL\nColumns: 4\n#\n  0   0   0\tчёрный\n255 255 255\tбелый\n200  40  40 red\n 40 200  40 green\n 40  40 200 blue\n');
+  fs.writeFileSync(path.join(FIX, 'test.pal'), 'JASC-PAL\r\n0100\r\n4\r\n16 16 16\r\n80 90 100\r\n180 170 120\r\n250 240 220\r\n');
+  fs.writeFileSync(path.join(FIX, 'paintnet.txt'), '; paint.net Palette File\n; Colors: 3\nFF112233\nFF445566\nFFAABBCC\n');
+  fs.writeFileSync(path.join(FIX, 'lines.hex'), '0d2b45\n203c56\n544e68\n8d697a\nd08159\nffaa5e\n');
+  fs.writeFileSync(path.join(FIX, 'lospec.json'), JSON.stringify({ name: 'Болотный свет', author: 'тест', colors: ['0b1a12', '1f3b2a', '4f7a3c', 'a3b85c', 'e9e4b0'] }));
+  fs.writeFileSync(path.join(FIX, 'broken.json'), '{"colors": [');
+  fs.writeFileSync(path.join(FIX, 'many.hex'), Array.from({ length: 100 }, (_, i) => ((i * 2654435761) >>> 8 & 0xffffff).toString(16).padStart(6, '0')).join('\n'));
   await p.close();
 }
 
@@ -326,6 +334,202 @@ async function makeFixtures(browser) {
     await check('«Цвета оригинала»: дизеринг, чистка, число цветов и «вернуть в палитру» заблокированы', async () => { eq(await p.evaluate(() => ['#ditherSel', '#cleanSel', '#r-palette-colors', '#spaceSel', '#toPal'].map(s => $(s).disabled)), [true, true, true, true, true]); ok(/оригинала/.test(await p.textContent('#info'))); });
     await check('«Цвета оригинала»: обводка работает по яркости', async () => { await setS(p, s => { s.outline.on = false; }, 'C'); const a = await hash(p); await setS(p, s => { s.outline.on = true; s.outline.threshold = 30; }, 'C'); ok(a.g !== (await hash(p)).g); await setS(p, s => { s.outline.on = false; }, 'C'); });
     await setS(p, s => { s.palette.method = 'gnet'; s.palette.colors = 22; s.pre = { brightness: 0, contrast: 8, saturation: 92, gamma: 1 }; s.tint = 0.25; s.vignette = 0.4; s.pix.sharpen = 0.3; }, 'B');
+  }
+
+  if (want('палитр') || want('карт')) {
+    section('5а. Градиентная карта, библиотека и импорт палитр, палитра словами');
+    await tab(p, 'pix');
+    const clean = { palette: { method: 'kmeans', colors: 16 }, dither: { type: 'none', strength: 0 }, tint: 0, vignette: 0, tone: { shadowsAmt: 0, highlightsAmt: 0 }, light: { on: false }, fog: { amount: 0 }, glow: { bloom: 0 }, fx: { ca: 0, shift: 0, bands: 0, blocks: 0, sort: 0, vhs: 0, dead: 0, grain: 0 } };
+    await setP(p, clean, 'C');
+    // --- градиентная карта ---
+    await check('карта выключена: цвета, «−», «+», сила недоступны; шесть готовых наборов', async () => {
+      eq(await p.evaluate(() => [S.gmap.on, document.querySelectorAll('#gmapPresets button').length, [...document.querySelectorAll('#gmapStops input, #gmapStops button')].every(e => e.disabled), $('#r-gmap-amount').disabled]), [false, 6, true, true]);
+    });
+    await check('«Ночное видение» включает карту: картинка меняется, все цвета зелёные', async () => {
+      const ch = await changes(p, async () => { await p.click('#gmapPresets button[data-gm="nv"]'); });
+      ok(ch, 'картинка не изменилась');
+      eq(await p.evaluate(() => [S.gmap.on, S.gmap.preset, $('#gmapCb').checked]), [true, 'nv', true]);
+      const cols = await gridColors(p);
+      ok(cols.every(c => { const r = c >> 16, g = c >> 8 & 255, b = c & 255; return g >= r && g >= b; }), 'есть не-зелёный цвет');
+      return `${cols.length} цветов, все зелёные`;
+    });
+    await check('шесть наборов дают шесть разных картинок, нажатый набор отмечен', async () => {
+      const hs = new Set();
+      for (const id of ['nv', 'thermal', 'sepia', 'duo3011', 'neon', 'bw']) { await p.click(`#gmapPresets button[data-gm="${id}"]`); await settle(p); hs.add((await hash(p)).g); eq(await p.getAttribute(`#gmapPresets button[data-gm="${id}"]`, 'aria-pressed'), 'true'); }
+      eq(hs.size, 6);
+    });
+    await check('сила 0 — как без карты; сила ползунком меняет кадр', async () => {
+      await setP(p, { gmap: { on: false } }, 'C'); const off = (await hash(p)).g;
+      await setP(p, { gmap: { on: true, amount: 0 } }, 'C'); eq((await hash(p)).g, off, 'сила 0 не равна выключенной');
+      ok(await changes(p, () => slide(p, 'r-gmap-amount', 0.6)), 'ползунок ничего не меняет');
+      await setP(p, { gmap: { amount: 1 } }, 'C');
+    });
+    await check('чёрное → первый цвет, белое → последний (с палитрой «Цвета оригинала»)', async () => {
+      const r = await p.evaluate(() => { const lut = gmapLUT(['#102030', '#808080', '#f0e0d0']); return [0, 1, 2, 255 * 3, 255 * 3 + 1, 255 * 3 + 2, 128 * 3].map(i => Math.round(lut[i])); });
+      eq(r.slice(0, 6), [16, 32, 48, 240, 224, 208]); ok(Math.abs(r[6] - 128) < 3, 'середина не серая');
+    });
+    await check('«+» добавляет цвет до 6, «−» убирает до 2, кнопки блокируются на краях', async () => {
+      await p.click('#gmapPresets button[data-gm="sepia"]'); await settle(p);
+      for (let i = 0; i < 6; i++) { const b = await p.$('#gmapStops button[data-ga="add"]'); if (!await b.isDisabled()) await b.click(); }
+      eq(await p.evaluate(() => [S.gmap.stops.length, $('#gmapStops button[data-ga="add"]').disabled, S.gmap.preset]), [6, true, '']);
+      for (let i = 0; i < 5; i++) { const b = await p.$('#gmapStops button[data-ga="del"]'); if (!await b.isDisabled()) await b.click(); }
+      eq(await p.evaluate(() => [S.gmap.stops.length, $('#gmapStops button[data-ga="del"]').disabled, document.querySelectorAll('#gmapStops input').length]), [2, true, 2]);
+      await settle(p);
+    });
+    await check('⇄ переворачивает карту и меняет кадр', async () => {
+      const before = await p.evaluate(() => S.gmap.stops.slice());
+      ok(await changes(p, () => p.click('#gmapStops button[data-ga="rev"]')));
+      eq(await p.evaluate(() => S.gmap.stops), before.slice().reverse());
+    });
+    await check('правка цвета: кадр меняется, поле не пересоздаётся (окно выбора цвета не закрывается)', async () => {
+      const r = await p.evaluate(async () => {
+        const el = $('#gmapStops input[data-gi="0"]'); el.value = '#ff0000'; el.dispatchEvent(new Event('input', { bubbles: true }));
+        await new Promise(r => setTimeout(r, 50));
+        return [el.isConnected, S.gmap.stops[0], getComputedStyle($('#gmapStops .gbar')).backgroundImage.includes('255, 0, 0')];
+      });
+      eq(r, [true, '#ff0000', true]); await settle(p);
+    });
+    await check('карта с «Своей из картинки»: палитра собирается из цветов карты', async () => {
+      await p.click('#gmapPresets button[data-gm="neon"]'); await setP(p, { palette: { method: 'median', colors: 8 } }, 'C');
+      const pal = await p.evaluate(() => G.pal.map(c => c.map(Math.round)));
+      const lut = await p.evaluate(() => { const l = gmapLUT(S.gmap.stops); return Array.from({ length: 256 }, (_, i) => [l[i * 3], l[i * 3 + 1], l[i * 3 + 2]]); });
+      const near = c => Math.min(...lut.map(q => Math.abs(q[0] - c[0]) + Math.abs(q[1] - c[1]) + Math.abs(q[2] - c[2])));
+      ok(pal.every(c => near(c) < 30), 'цвет палитры далеко от карты');
+    });
+    await check('«Цвета оригинала» + карта: предупреждение и кнопка выключают и карту', async () => {
+      await setP(p, { palette: { method: 'original' } }, 'C');
+      ok(/градиентная карта/.test(await p.textContent('#palHint'))); await p.click('#origFixBtn'); await settle(p);
+      eq(await p.evaluate(() => S.gmap.on), false);
+      await setP(p, Object.assign({}, clean), 'B');
+    });
+    await check('отмена: включение карты — один шаг, Ctrl+Z выключает', async () => {
+      await p.click('#gmapPresets button[data-gm="thermal"]'); await settle(p, 450);
+      await p.click('#undoBtn'); await settle(p);
+      eq(await p.evaluate(() => S.gmap.on), false);
+      await p.click('#redoBtn'); await settle(p); eq(await p.evaluate(() => [S.gmap.on, S.gmap.preset]), [true, 'thermal']);
+    });
+    await check('пресет хранит свои цвета карты; стиль выключает карту', async () => {
+      await setP(p, { gmap: { on: true, preset: '', stops: ['#000011', '#334455', '#ffeedd'], amount: 0.7 } }, 'C');
+      const txt = await p.evaluate(() => presetText());
+      await setP(p, { gmap: { on: false, stops: ['#000000', '#ffffff'] } }, 'C');
+      await p.evaluate(t => { $('#presetText').value = t; $('#presetLoad').click(); }, txt); await settle(p);
+      eq(await p.evaluate(() => [S.gmap.on, S.gmap.stops, S.gmap.amount]), [true, ['#000011', '#334455', '#ffeedd'], 0.7]);
+      await p.click('#styles button[data-style="vhs"]'); await settle(p);
+      eq(await p.evaluate(() => S.gmap.on), false);
+      await setP(p, clean, 'C');
+    });
+    await check('силу карты можно анимировать ключами (◆ у ползунка)', async () => {
+      ok(await p.evaluate(() => !!RANGES['gmap.amount'] && !!document.querySelector('.kbtn[data-kpath="gmap.amount"]')));
+    });
+    // --- библиотека ---
+    await check('библиотека: 16 известных палитр, у всех правильные HEX, в списке и в меню', async () => {
+      const r = await p.evaluate(() => [PAL_LIB.length, PAL_LIB.every(x => PALETTES[x.id].length >= 4 && PALETTES[x.id].every(h => /^#[0-9a-f]{6}$/.test(h)) && new Set(PALETTES[x.id]).size === PALETTES[x.id].length), document.querySelectorAll('#palLib button').length, document.querySelectorAll('#palSel optgroup').length, PAL_LIB.every(x => !!$(`#palSel option[value="${x.id}"]`))]);
+      eq(r, [16, true, 19, 4, true]);
+    });
+    await check('щелчок по PICO-8: все цвета кадра из PICO-8, имя в подсказке, кнопка отмечена', async () => {
+      await p.click('#palLibBox summary'); await p.click('#palLib button[data-pal="pico8"]'); await settle(p);
+      const pre = await p.evaluate(() => PALETTES.pico8.map(h => parseInt(h.slice(1), 16)));
+      ok((await gridColors(p)).every(c => pre.includes(c)), 'цвет не из PICO-8');
+      ok(/PICO-8/.test(await p.textContent('#palHint')));
+      eq(await p.evaluate(() => [S.palette.method, S.palette.colors, $('#palSel').value, $('#palLib button[data-pal="pico8"]').getAttribute('aria-pressed')]), ['pico8', 16, 'pico8', 'true']);
+    });
+    await check('каждая палитра библиотеки: все цвета кадра из неё', async () => {
+      const ids = await p.evaluate(() => PAL_LIB.map(x => x.id)); const bad = [];
+      for (const id of ids) {
+        await setP(p, { palette: { method: id, colors: 64 } }, 'C');
+        const pre = await p.evaluate(id => PALETTES[id].map(h => parseInt(h.slice(1), 16)), id);
+        if (!(await gridColors(p)).every(c => pre.includes(c))) bad.push(id);
+      }
+      eq(bad, []);
+    });
+    await check('Game Boy: 4 цвета, «используются все»; Endesga 32 на 8 цветов — 8 самых нужных', async () => {
+      await setP(p, { palette: { method: 'gameboy', colors: 8 } }, 'C'); eq((await palKeys(p)).length, 4); ok(/Game Boy.*используются все/.test(await p.textContent('#palHint')));
+      await p.selectOption('#palSel', 'endesga32'); await setP(p, { palette: { colors: 8 } }, 'C'); eq((await palKeys(p)).length, 8); ok(/самых нужных/.test(await p.textContent('#palHint')));
+    });
+    // --- импорт ---
+    const imp = async (f, re) => { await p.setInputFiles('#palFile', FIXP(f)); await p.waitForFunction(r => new RegExp(r).test($('#toast').textContent), re.source, { timeout: 5000 }); await settle(p); };
+    const pk = hs => hs.map(h => parseInt(h.slice(1), 16)).sort((a, b) => a - b);
+    for (const [f, name, cols] of [
+      ['test.gpl', 'Тест GPL', ['#000000', '#ffffff', '#c82828', '#28c828', '#2828c8']],
+      ['test.pal', 'test', ['#101010', '#505a64', '#b4aa78', '#faf0dc']],
+      ['paintnet.txt', 'paintnet', ['#112233', '#445566', '#aabbcc']],
+      ['lines.hex', 'lines', ['#0d2b45', '#203c56', '#544e68', '#8d697a', '#d08159', '#ffaa5e']],
+      ['lospec.json', 'Болотный свет', ['#0b1a12', '#1f3b2a', '#4f7a3c', '#a3b85c', '#e9e4b0']],
+      ['swatch.png', 'swatch', ['#101820', '#3a5f4a', '#8fb35a', '#e8d27a', '#fff6e0']]]) {
+      await check(`импорт ${f}: имя «${name}», ${cols.length} цв., кадр в этих цветах`, async () => {
+        await imp(f, /Палитра «/);
+        eq(await p.evaluate(() => [S.palette.method, S.palette.customName]), ['custom', name]);
+        eq(await p.evaluate(() => S.palette.custom.split(' ')), cols);
+        const pal = pk(cols); ok((await gridColors(p)).every(c => pal.includes(c)), 'цвет не из палитры');
+        ok((await p.textContent('#palSel option[value="custom"]')).includes(name), 'имя не в меню');
+      });
+    }
+    await check('100 цветов в файле: в кадр идут 64 самых нужных, об этом сказано', async () => { await imp('many.hex', /64 самых нужных/); eq(await p.evaluate(() => [S.palette.custom.split(' ').length, S.palette.colors, G.pal.length]), [100, 64, 64]); });
+    await check('битый JSON, не-палитра и фото отклоняются, палитра не меняется', async () => {
+      const keep = await p.evaluate(() => S.palette.custom);
+      await imp('broken.json', /не загружена.*JSON/); await imp('note.txt', /не загружена.*меньше двух/); await imp('scene.jpg', /не загружена.*фото/);
+      eq(await p.evaluate(() => S.palette.custom), keep);
+    });
+    await check('перетаскивание файла на раздел палитры: импорт, а не новая картинка', async () => {
+      const src = await p.textContent('#srcName'), txt = fs.readFileSync(FIXP('test.gpl'), 'utf8');
+      const r = await p.evaluate(async t => { const dt = new DataTransfer(); dt.items.add(new File([t], 'drop.gpl', { type: '' })); const sec = $('#secPal'); window.dispatchEvent(new DragEvent('dragenter', { dataTransfer: dt, bubbles: true, cancelable: true })); sec.dispatchEvent(new DragEvent('dragover', { dataTransfer: dt, bubbles: true, cancelable: true })); const hl = sec.classList.contains('dropping'); sec.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true })); await new Promise(r => setTimeout(r, 300)); return [hl, sec.classList.contains('dropping'), $('#dropHint').hidden, S.palette.customName]; }, txt);
+      eq(r, [true, false, true, 'Тест GPL']); eq(await p.textContent('#srcName'), src, 'картинка сменилась'); await settle(p);
+    });
+    await check('ручная правка списка снимает имя; стиль сохраняет ручную палитру с именем', async () => {
+      await p.click('#styles button[data-style="lens"]'); await settle(p);
+      eq(await p.evaluate(() => [S.palette.customName, S.palette.custom.split(' ').length]), ['Тест GPL', 5]);
+      await setP(p, { palette: { method: 'custom' } }, 'C');
+      await p.fill('#customHex', '#000000 #ffffff #ff0000'); await settle(p);
+      eq(await p.evaluate(() => [S.palette.customName, $('#palSel option[value="custom"]').textContent]), ['', 'Ручная (список HEX)']);
+      await setP(p, clean, 'B');
+    });
+    // --- палитра словами ---
+    const palJson = (name, n) => JSON.stringify({ name, colors: Array.from({ length: n }, (_, i) => '#' + [i * 15, 40 + i * 12, 90 + i * 9].map(v => Math.min(255, v).toString(16).padStart(2, '0')).join('')) });
+    await check('пустое описание — подсказка, запроса нет', async () => { const n = await p.evaluate(() => window.__prompts.length); await p.fill('#aiPalText', ''); await p.click('#aiPalBtn'); ok(/Опишите настроение/.test(await p.textContent('#aiPalStatus'))); eq(await p.evaluate(() => window.__prompts.length), n); });
+    await check('ответ Claude → ручная палитра с именем и нужным числом цветов; промпт с описанием и правилами', async () => {
+      await p.evaluate(t => window.__q.push({ text: t }), palJson('Ржавый закат', 12));
+      await p.fill('#aiPalText', 'ржавый закат над болотом'); await p.selectOption('#aiPalN', '12'); await p.click('#aiPalBtn');
+      await p.waitForFunction(() => /Палитра «Ржавый закат»: 12/.test($('#aiPalStatus').textContent)); await settle(p);
+      eq(await p.evaluate(() => [S.palette.method, S.palette.customName, S.palette.custom.split(' ').length, S.palette.colors, $('#aiPalBtn').textContent]), ['custom', 'Ржавый закат', 12, 12, 'Создать']);
+      const pr = await p.evaluate(() => window.__prompts.at(-1));
+      ok(typeof pr === 'string' && pr.includes('ржавый закат над болотом') && pr.includes('ровно из 12') && pr.includes('#rrggbb') && pr.includes('от самого тёмного'), 'промпт неполный');
+    });
+    await check('ответ в ```json с пояснением и цветами без # тоже принимается (Enter в поле)', async () => {
+      await p.evaluate(() => window.__q.push({ text: 'Вот:\n```json\n{"name":"«Больница»","colors":["0a0f12","1c2a30","3c5660","6f8f8f","a7c4bc","e6f2ea","f0e0a0","c05050"]}\n```' }));
+      await p.fill('#aiPalText', 'больничный коридор ночью'); await p.selectOption('#aiPalN', '8'); await p.press('#aiPalText', 'Enter');
+      await p.waitForFunction(() => /Палитра «Больница»: 8/.test($('#aiPalStatus').textContent)); await settle(p);
+    });
+    await check('плохой ответ → автоповтор с текстом ошибки → успех', async () => {
+      await p.evaluate(t => window.__q.push({ text: '{"colors":["#12","red"]}' }, { text: t }), palJson('Туман', 16));
+      const n = await p.evaluate(() => window.__prompts.length); await p.selectOption('#aiPalN', '16'); await p.click('#aiPalBtn');
+      await p.waitForFunction(() => /Палитра «Туман»/.test($('#aiPalStatus').textContent));
+      eq(await p.evaluate(() => window.__prompts.length), n + 2); const pr = await p.evaluate(() => window.__prompts.at(-1));
+      ok(Array.isArray(pr) && /правильных #rrggbb пришло 0/.test(pr[2].content)); await settle(p);
+    });
+    await check('две ошибки подряд → понятное сообщение, палитра не меняется', async () => {
+      const keep = await p.evaluate(() => S.palette.custom);
+      await p.evaluate(() => window.__q.push({ text: 'не знаю' }, { text: '{"name":"x"}' })); await p.click('#aiPalBtn');
+      await p.waitForFunction(() => /дважды/.test($('#aiPalStatus').textContent)); eq(await p.evaluate(() => S.palette.custom), keep);
+    });
+    for (const [code, re] of [['rate_limited', /Слишком много/], ['not_granted', /не разрешено.*HEX/], ['refused', /не стал составлять палитру/]]) {
+      await check(`ошибка ${code} — понятное сообщение`, async () => { await p.evaluate(c => window.__q.push({ error: c }), code); await p.click('#aiPalBtn'); await p.waitForFunction(r => new RegExp(r).test($('#aiPalStatus').textContent), re.source); eq(await p.textContent('#aiPalBtn'), 'Создать'); });
+    }
+    await check('«Стоп» прерывает запрос', async () => {
+      await p.evaluate(() => window.__q.push({ wait: true })); await p.click('#aiPalBtn'); await p.waitForTimeout(80);
+      eq(await p.textContent('#aiPalBtn'), 'Стоп'); await p.click('#aiPalBtn');
+      await p.waitForFunction(() => /Остановлено/.test($('#aiPalStatus').textContent)); eq(await p.textContent('#aiPalBtn'), 'Создать');
+    });
+    await check('«Варианты» иногда берут палитры библиотеки и градиентную карту', async () => {
+      const r = await p.evaluate(() => { const base = styleSnapshot(), rr = rng(42); let lib = 0, gm = 0, cap = 0; for (let i = 0; i < 300; i++) { const v = makeVariant(base, rr, true); if (PAL_LIB.some(x => x.id === v.palette.method)) lib++; if (v.gmap.on) gm++; if (/карта «/.test(variantCaption(v))) cap++; } return [lib, gm, cap]; });
+      ok(r[0] > 20 && r[1] > 20 && r[2] === r[1], JSON.stringify(r)); return `из 300: библиотека ${r[0]}, карта ${r[1]}`;
+    });
+    await check('без вызова Claude — честное сообщение про палитру', async () => {
+      const q = await open(browser, { noRuntime: true });
+      await tab(q, 'pix'); await q.fill('#aiPalText', 'зима'); await q.click('#aiPalBtn');
+      await q.waitForFunction(() => /нет вызова Claude.*HEX/.test($('#aiPalStatus').textContent)); await noErrors(q); await q.context().close();
+    });
+    await setS(p, s => { s.gmap.on = false; s.palette.method = 'gnet'; s.palette.colors = 22; s.dither.type = 'bayer4'; s.dither.strength = 0.3; s.tint = 0.25; s.vignette = 0.4; }, 'B');
+    await check('без ошибок в консоли', () => noErrors(p));
   }
 
   if (want('дизеринг')) {
