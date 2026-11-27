@@ -396,6 +396,12 @@ async function makeFixtures(browser) {
       const near = c => Math.min(...lut.map(q => Math.abs(q[0] - c[0]) + Math.abs(q[1] - c[1]) + Math.abs(q[2] - c[2])));
       ok(pal.every(c => near(c) < 30), 'цвет палитры далеко от карты');
     });
+    await check('карта с готовой палитрой: пояснение и кнопка «Палитра из карты»', async () => {
+      await setP(p, { palette: { method: 'gnet', colors: 22 } }, 'C');
+      ok(await p.isVisible('#gmapOwnPal'), 'нет кнопки'); ok(/«3011 — гнёт»/.test(await p.textContent('#gmapPalText')));
+      await p.click('#gmapOwnPal'); await settle(p);
+      eq(await p.evaluate(() => [S.palette.method, S.palette.colors >= 12, $('#gmapPalNote').hidden]), ['median', true, true]);
+    });
     await check('«Цвета оригинала» + карта: предупреждение и кнопка выключают и карту', async () => {
       await setP(p, { palette: { method: 'original' } }, 'C');
       ok(/градиентная карта/.test(await p.textContent('#palHint'))); await p.click('#origFixBtn'); await settle(p);

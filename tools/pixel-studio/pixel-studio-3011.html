@@ -460,6 +460,7 @@ input[type=color]::-moz-color-swatch{border:0;border-radius:4px}
             <div class="gmaps" id="gmapPresets" role="group" aria-label="Готовые карты"></div>
             <div class="gstops" id="gmapStops" role="group" aria-label="Цвета карты, от тёмного к светлому"></div>
             <div class="row" data-r="gmap.amount,Сила,0,1,0.01,pct100,C"></div>
+            <div class="line" id="gmapPalNote" hidden><span class="info" id="gmapPalText"></span><button class="btn small" id="gmapOwnPal">Палитра из карты</button></div>
             <p class="hint">Тёмные места берут левый цвет, светлые — правый, между ними плавный переход. Карта работает до палитры: «Своя из картинки» соберёт палитру из цветов карты, готовая палитра подберёт к ним ближайшие.</p>
           </div>
         </section>
@@ -3861,7 +3862,14 @@ function renderGmap() {
     box.dataset.k = gmapKey();
   }
   $('#r-gmap-amount').disabled = !on || $('#r-gmap-amount').hasAttribute('data-randlock');
+  const fixed = gmapActive() && !['median', 'kmeans', 'original'].includes(S.palette.method);
+  $('#gmapPalNote').hidden = !fixed;
+  if (fixed) $('#gmapPalText').textContent = `Палитра ${palTitle(S.palette.method) || '«ручная»'} перекрашивает карту в свои ближайшие цвета. Чтобы остались цвета карты:`;
 }
+$('#gmapOwnPal').onclick = () => {
+  S.palette.method = 'median'; S.palette.colors = clamp(Math.max(S.palette.colors, 12), 8, 64); S.style = '';
+  syncUI(); invalidate('C'); toast('Палитра «Своя из картинки» — теперь она собирается из цветов карты.');
+};
 function gmapEdited() { S.gmap.preset = ''; S.style = ''; syncUI(); invalidate('C'); }
 $('#gmapPresets').addEventListener('click', e => {
   const b = e.target.closest('button[data-gm]'); if (!b) return;
