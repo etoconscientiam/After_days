@@ -992,6 +992,16 @@ async function makeFixtures(browser) {
     await check('во время сборки настройки заблокированы окном с прогрессом', async () => { await setS(p, s => { s.anim.frames = 30; s.anim.size = 'full'; }, 'N'); await p.click('#tbGif'); await p.waitForSelector('#busy:not([hidden])'); const t = await p.textContent('#busyTitle'); const blocked = await p.evaluate(() => { const r = $('#tabText').getBoundingClientRect(); return document.elementFromPoint(r.left + 5, r.top + 5).closest('#busy') !== null; }); await p.keyboard.press('3'); const tabNow = await p.evaluate(() => activeTab); await p.click('#busyCancel'); await p.waitForFunction(() => $('#busy').hidden, null, { timeout: 60000 }); ok(/кадр/.test(t) && blocked, t); ok(tabNow !== 'light', 'клавиша сработала под окном'); await saved(p); await setS(p, s => { s.anim.frames = 8; }, 'N'); });
     await check('отказ в окне скачивания — сообщение, без ошибок', async () => { await p.evaluate(() => { window.__dl = 'declined'; toast(''); }); await p.click('#tbPng'); await p.waitForFunction(() => /отменено/.test($('#toast').textContent), null, { timeout: 5000 }); await p.evaluate(() => { window.__dl = 'ok'; }); });
     await setS(p, s => { s.anim.frames = 16; s.anim.loops = 3; s.fx.shift = 0; }, 'E');
+    await check('открыто как обычный файл (без claude.ai): PNG, GIF и MP4 скачиваются обычным скачиванием', async () => {
+      const r = await open(browser, { noRuntime: true }); const names = [];
+      for (const [btn, re] of [['#tbPng', /\.png$/], ['#tbGif', /\.gif$/]].concat(HAVE_LIBS ? [['#tbMp4', /\.(mp4|webm)$/]] : [])) {
+        const [d] = await Promise.all([r.waitForEvent('download', { timeout: 60000 }), r.click(btn)]);
+        ok(re.test(d.suggestedFilename()), d.suggestedFilename()); names.push(d.suggestedFilename());
+        await r.waitForFunction(() => !gifJob && !vidJob, null, { timeout: 60000 });
+      }
+      ok(await r.evaluate(() => $('#saveModal').hidden), 'открылось окно ручного сохранения'); await noErrors(r); await r.context().close();
+      return names.join(', ');
+    });
     const q = await open(browser, { noDownloads: true, noSample: true });
     await check('без скачивания в просмотрщике: картинка открывается в окне для ручного сохранения', async () => { await q.click('#tbPng'); await q.waitForSelector('#saveModal:not([hidden])'); ok(/^blob:/.test(await q.getAttribute('#saveImg', 'src'))); await q.keyboard.press('Escape'); ok(await q.evaluate(() => $('#saveModal').hidden)); });
     await check('без вызова Claude: понятное сообщение при «Нарисовать»', async () => { await q.click('#tabText'); await q.click('#drawBtn'); await q.waitForFunction(() => /нет вызова Claude|не разрешено|недоступен/.test($('#aiStatus').textContent)); });

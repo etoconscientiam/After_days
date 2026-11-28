@@ -3056,6 +3056,13 @@ async function saveBlob(blob, name) {
       if (c === 'rate_limited') { toast('Окно сохранения уже открыто.'); return; }
     }
   }
+  if (!hasRuntime) {
+    // открыто как обычный файл в браузере — обычное скачивание в папку «Загрузки»
+    const u = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(u), 30000);
+    toast('Скачано: ' + name); return;
+  }
   if (modalUrl) URL.revokeObjectURL(modalUrl);
   modalUrl = URL.createObjectURL(blob);
   $('#saveImg').src = modalUrl; $('#saveTitle').textContent = name; $('#saveModal').hidden = false; $('#saveClose').focus();
